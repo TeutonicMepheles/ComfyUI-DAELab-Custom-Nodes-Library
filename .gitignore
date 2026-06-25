@@ -1,0 +1,26 @@
+# This outer Git repository protects local ComfyUI workflow edits.
+# It intentionally ignores almost everything in ComfyUI and only tracks the
+# small files that are useful to review, diff, and restore.
+
+*
+
+!.gitignore
+!.gitattributes
+!README-GIT-WORKFLOW.md
+
+!.githooks/
+!.githooks/**
+
+!tools/
+!tools/**
+
+!user/
+user/**
+!user/default/
+user/default/**
+!user/default/workflows/
+user/default/workflows/**
+!user/default/workflows/**/
+!user/default/workflows/**/*.json
+!user/default/comfy.settings.json
+

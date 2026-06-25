@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+blocked='^(models|output|input|temp|\.venv|custom_nodes|user/__manager|user/default/ComfyUI-Manager)(/|$)'
+
+blocked_paths=$(git diff --cached --name-only | grep -E "$blocked" || true)
+if [ -n "$blocked_paths" ]; then
+  echo "Refusing to commit generated, model, virtualenv, cache, or third-party node files:" >&2
+  echo "$blocked_paths" >&2
+  echo "" >&2
+  echo "This repository is configured for workflow/version safety only." >&2
+  exit 1
+fi
+
+large_paths=$(
+  git diff --cached --name-only | while IFS= read -r path; do
+    size=$(git cat-file -s ":$path" 2>/dev/null || echo 0)
+    if [ "$size" -gt 5242880 ]; then
+      echo "$path ($size bytes)"
+    fi
+  done
+)
+
+if [ -n "$large_paths" ]; then
+  echo "Refusing to commit files larger than 5 MiB:" >&2
+  echo "$large_paths" >&2
+  echo "" >&2
+  echo "Large assets should stay outside this workflow-safety repository." >&2
+  exit 1
+fi
+

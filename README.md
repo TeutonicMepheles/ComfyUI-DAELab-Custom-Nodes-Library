@@ -4,6 +4,7 @@ DAELab 维护的 ComfyUI 自定义节点库。
 
 ## 维护指南
 
+- 多人协作请先阅读 [Contributor Action List](./CONTRIBUTOR_ACTION_LIST.md)。
 - 后续新增节点请先阅读 [新增节点维护指南](./CONTRIBUTING.md)。
 - 可从 [新节点模板](./templates/new_node/) 复制基础结构。
 - README 和文档插图统一使用 UTF-8 编码；节点截图、流程图放在对应节点目录的 `assets/` 下。

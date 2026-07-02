@@ -9,10 +9,6 @@ from PIL import Image, ImageOps, ImageSequence
 import folder_paths
 
 
-def _empty_boxes_prompt():
-    return {"boxes": [], "labels": []}
-
-
 def _load_image_tensor(image_name):
     image_path = folder_paths.get_annotated_filepath(image_name)
 
@@ -251,46 +247,10 @@ class LoadImageBooleanBBox:
         return True
 
 
-class BBoxPromptReroute:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "optional": {
-                "bboxes": (
-                    "SAM3_BOXES_PROMPT",
-                    {
-                        "tooltip": "Positive bbox prompt to pass through.",
-                    },
-                ),
-                "neg_bboxes": (
-                    "SAM3_BOXES_PROMPT",
-                    {
-                        "tooltip": "Negative bbox prompt to pass through.",
-                    },
-                ),
-            },
-        }
-
-    DESCRIPTION = "Reroute paired positive and negative SAM3 bbox prompts."
-    RETURN_TYPES = ("SAM3_BOXES_PROMPT", "SAM3_BOXES_PROMPT")
-    RETURN_NAMES = ("bboxes", "neg_bboxes")
-    FUNCTION = "execute"
-    CATEGORY = "image/bbox"
-    SEARCH_ALIASES = ["bbox reroute", "bboxes reroute", "neg bboxes reroute", "sam3 bbox reroute"]
-
-    def execute(self, bboxes=None, neg_bboxes=None):
-        return (
-            bboxes if bboxes is not None else _empty_boxes_prompt(),
-            neg_bboxes if neg_bboxes is not None else _empty_boxes_prompt(),
-        )
-
-
 NODE_CLASS_MAPPINGS = {
     "LoadImageBooleanBBox": LoadImageBooleanBBox,
-    "BBoxPromptReroute": BBoxPromptReroute,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadImageBooleanBBox": "Load Image + BBox",
-    "BBoxPromptReroute": "BBox Prompt Reroute",
 }

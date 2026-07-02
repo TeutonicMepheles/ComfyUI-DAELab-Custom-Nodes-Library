@@ -15,8 +15,9 @@
 1. 安装 Git 或 GitHub Desktop。
 2. 克隆仓库到 ComfyUI 的 `custom_nodes` 目录：
 
-   操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
-   说明：下面的 `<ComfyUI>` 要替换成你自己的 ComfyUI 路径，例如 `C:\Users\你的用户名\Documents\ComfyUI`。
+   推荐操作：在文件管理器中打开你的 ComfyUI 文件夹，再打开 `custom_nodes` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行 `git clone`。
+
+   备用操作：也可以打开 **PowerShell**，用 `cd` 进入目录。下面的 `<ComfyUI>` 要替换成你自己的 ComfyUI 路径，例如 `C:\Users\你的用户名\Documents\ComfyUI`。
 
    ```powershell
    cd <ComfyUI>\custom_nodes
@@ -32,7 +33,9 @@
 
 ## 2. 开始开发前
 
-以下命令都在 **PowerShell** 中执行。先进入节点库仓库目录：
+推荐操作：在文件管理器中打开 `ComfyUI\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行下面的 Git 命令。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入节点库仓库目录：
 
 ```powershell
 cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
@@ -69,7 +72,7 @@ cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
 
 1. 从模板复制新节点目录：
 
-   操作位置：PowerShell，且当前目录必须是 `ComfyUI-DAELab-Custom-Nodes-Library`。
+   推荐操作：在文件管理器中打开 `ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行下面的复制命令。
 
    ```powershell
    Copy-Item -Recurse .\templates\new_node .\nodes\my_custom_node
@@ -109,8 +112,9 @@ cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
 
 在 ComfyUI 根目录运行编译检查：
 
-操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
-说明：`<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
+推荐操作：在文件管理器中打开你的 ComfyUI 根目录；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行编译检查命令。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入目录。下面的 `<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
 
 ```powershell
 cd <ComfyUI>
@@ -127,7 +131,9 @@ cd <ComfyUI>
 
 ## 5. 提交代码
 
-以下命令都在 **PowerShell** 中执行。先进入节点库仓库目录：
+推荐操作：在文件管理器中打开 `ComfyUI\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行下面的 Git 命令。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入节点库仓库目录：
 
 ```powershell
 cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
@@ -163,7 +169,7 @@ cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
 
 ## 6. 推送分支
 
-操作位置：PowerShell，且当前目录必须是 `ComfyUI-DAELab-Custom-Nodes-Library`。
+推荐操作：在文件管理器中打开 `ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行 `git push`。
 
 ```powershell
 git push -u origin feature/add-my-custom-node
@@ -205,7 +211,7 @@ PR 描述必须包含：
 
 ## 9. 合并后同步本地
 
-操作位置：PowerShell，且当前目录必须是 `ComfyUI-DAELab-Custom-Nodes-Library`。
+推荐操作：在文件管理器中打开 `ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行下面的同步命令。
 
 ```powershell
 git checkout main

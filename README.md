@@ -54,8 +54,9 @@ ComfyUI-DAELab-Custom-Nodes-Library/
 
 将仓库克隆到 ComfyUI 的 `custom_nodes` 目录：
 
-操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
-说明：`<ComfyUI>` 要替换成你自己的 ComfyUI 路径，例如 `C:\Users\你的用户名\Documents\ComfyUI`。
+推荐操作：在文件管理器中打开你的 ComfyUI 文件夹，再打开 `custom_nodes` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后再执行下面的 `git clone` 命令。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入目录。下面的 `<ComfyUI>` 要替换成你自己的 ComfyUI 路径，例如 `C:\Users\你的用户名\Documents\ComfyUI`。
 
 ```powershell
 cd <ComfyUI>\custom_nodes
@@ -66,8 +67,9 @@ git clone https://github.com/TeutonicMepheles/ComfyUI-DAELab-Custom-Nodes-Librar
 
 ## 更新
 
-操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
-说明：`<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
+推荐操作：在文件管理器中打开 `ComfyUI\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行 `git pull`。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入目录。下面的 `<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
 
 ```powershell
 cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library

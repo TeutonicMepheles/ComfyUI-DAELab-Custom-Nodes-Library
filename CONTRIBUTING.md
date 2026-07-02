@@ -117,8 +117,9 @@ README 中使用相对路径引用：
 
 在 ComfyUI 根目录运行：
 
-操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
-如果你的 ComfyUI 不在这个位置，请把下面的路径改成自己的 ComfyUI 根目录。
+推荐操作：在文件管理器中打开你的 ComfyUI 根目录；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行编译检查命令。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入目录。如果你的 ComfyUI 不在这个位置，请把下面的路径改成自己的 ComfyUI 根目录。
 
 ```powershell
 cd C:\Users\Golajah\Documents\ComfyUI
@@ -129,8 +130,9 @@ cd C:\Users\Golajah\Documents\ComfyUI
 
 ## 7. 提交与同步
 
-操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
-如果你的 ComfyUI 不在这个位置，请把下面的路径改成自己的节点库目录。
+推荐操作：在文件管理器中打开 `ComfyUI\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library` 文件夹；右键空白处，选择 **在终端中打开** 或 **Open in Terminal**。终端打开后执行 `git status` 等命令。
+
+备用操作：也可以打开 **PowerShell**，用 `cd` 进入目录。如果你的 ComfyUI 不在这个位置，请把下面的路径改成自己的节点库目录。
 
 ```powershell
 cd C:\Users\Golajah\Documents\ComfyUI\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library

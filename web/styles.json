@@ -1,0 +1,17 @@
+{
+  "aerospace": {
+    "label": "航天科技",
+    "thumbnail": "thumb_tech.webp",
+    "prompt": "航天科技视觉风格，未来感，深空元素，精密仪器线条，轨道线条，深蓝宇宙背景，高级科技海报质感"
+  },
+  "business": {
+    "label": "商务",
+    "thumbnail": "thumb_business.webp",
+    "prompt": "现代商务视觉风格，专业、简洁、可信赖，适合企业宣传和商业展示，版式清晰，留白克制"
+  },
+  "party_building": {
+    "label": "党建",
+    "thumbnail": "thumb_party.webp",
+    "prompt": "党建宣传视觉风格，庄重正式，红色主题，金色点缀，积极向上的宣传画面，适合组织宣传和主题海报"
+  }
+}

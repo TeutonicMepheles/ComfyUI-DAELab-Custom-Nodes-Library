@@ -2,6 +2,12 @@
 
 DAELab 维护的 ComfyUI 自定义节点库。仓库按“每个节点一个目录”的方式组织后端代码和节点说明文档，方便协作者阅读、同步和二次维护。
 
+## 维护指南
+
+- 后续新增节点请先阅读 [新增节点维护指南](./CONTRIBUTING.md)。
+- 可从 [新节点模板](./templates/new_node/) 复制基础结构。
+- README 和文档插图统一使用 UTF-8 编码；节点截图、流程图放在对应节点目录的 `assets/` 下。
+
 ## 节点列表
 
 | 节点 ID | 显示名称 | 说明 |
@@ -20,15 +26,21 @@ ComfyUI-DAELab-Custom-Nodes-Library/
     boolean_list/
       node.py
       README.md
+      assets/
     gpt_image_prompt_preset/
       node.py
       README.md
+      assets/
     load_image_boolean_bbox/
       node.py
       README.md
+      assets/
     bbox_prompt_reroute/
       node.py
       README.md
+      assets/
+  templates/
+    new_node/
   web/
     boolean_list.js
     prompt_preset.js
@@ -43,7 +55,7 @@ ComfyUI-DAELab-Custom-Nodes-Library/
 
 ```powershell
 cd <ComfyUI>\custom_nodes
-git clone https://github.com/<your-user>/ComfyUI-DAELab-Custom-Nodes-Library.git
+git clone https://github.com/TeutonicMepheles/ComfyUI-DAELab-Custom-Nodes-Library.git
 ```
 
 安装后重启 ComfyUI。

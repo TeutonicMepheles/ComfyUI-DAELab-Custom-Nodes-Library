@@ -15,6 +15,9 @@
 1. 安装 Git 或 GitHub Desktop。
 2. 克隆仓库到 ComfyUI 的 `custom_nodes` 目录：
 
+   操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
+   说明：下面的 `<ComfyUI>` 要替换成你自己的 ComfyUI 路径，例如 `C:\Users\你的用户名\Documents\ComfyUI`。
+
    ```powershell
    cd <ComfyUI>\custom_nodes
    git clone https://github.com/TeutonicMepheles/ComfyUI-DAELab-Custom-Nodes-Library.git
@@ -28,6 +31,14 @@
    - [templates/new_node/](./templates/new_node/)
 
 ## 2. 开始开发前
+
+以下命令都在 **PowerShell** 中执行。先进入节点库仓库目录：
+
+```powershell
+cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
+```
+
+说明：`<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
 
 1. 切回 `main`：
 
@@ -57,6 +68,8 @@
 ## 3. 新增节点时
 
 1. 从模板复制新节点目录：
+
+   操作位置：PowerShell，且当前目录必须是 `ComfyUI-DAELab-Custom-Nodes-Library`。
 
    ```powershell
    Copy-Item -Recurse .\templates\new_node .\nodes\my_custom_node
@@ -96,6 +109,9 @@
 
 在 ComfyUI 根目录运行编译检查：
 
+操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
+说明：`<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
+
 ```powershell
 cd <ComfyUI>
 .\.venv\Scripts\python.exe -m compileall .\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
@@ -110,6 +126,14 @@ cd <ComfyUI>
 - README 中图片路径可以在 GitHub 上正常显示。
 
 ## 5. 提交代码
+
+以下命令都在 **PowerShell** 中执行。先进入节点库仓库目录：
+
+```powershell
+cd <ComfyUI>\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
+```
+
+说明：`<ComfyUI>` 要替换成你自己的 ComfyUI 路径。
 
 1. 查看改动：
 
@@ -139,6 +163,8 @@ cd <ComfyUI>
 
 ## 6. 推送分支
 
+操作位置：PowerShell，且当前目录必须是 `ComfyUI-DAELab-Custom-Nodes-Library`。
+
 ```powershell
 git push -u origin feature/add-my-custom-node
 ```
@@ -150,6 +176,8 @@ git push -u origin feature/add-my-custom-node
 3. 填写 Summary。
 4. 点击 `Commit to <branch>`。
 5. 点击 `Publish branch` 或 `Push origin`。
+
+GitHub Desktop 中不需要输入上面的 `git push` 命令；点击按钮即可。
 
 ## 7. 创建 Pull Request
 
@@ -177,11 +205,19 @@ PR 描述必须包含：
 
 ## 9. 合并后同步本地
 
+操作位置：PowerShell，且当前目录必须是 `ComfyUI-DAELab-Custom-Nodes-Library`。
+
 ```powershell
 git checkout main
 git pull
 git branch -d feature/add-my-custom-node
 ```
+
+GitHub Desktop 替代操作：
+
+1. 切换到 `main` 分支。
+2. 点击 `Fetch origin`，如果出现 `Pull origin` 再点击一次。
+3. 在 `Branch` 菜单中删除已经合并的功能分支。
 
 如果本地还有未完成开发，先保存或提交当前改动，再切换分支。
 

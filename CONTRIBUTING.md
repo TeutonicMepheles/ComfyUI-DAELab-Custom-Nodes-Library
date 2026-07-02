@@ -117,6 +117,9 @@ README 中使用相对路径引用：
 
 在 ComfyUI 根目录运行：
 
+操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
+如果你的 ComfyUI 不在这个位置，请把下面的路径改成自己的 ComfyUI 根目录。
+
 ```powershell
 cd C:\Users\Golajah\Documents\ComfyUI
 .\.venv\Scripts\python.exe -m compileall .\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
@@ -125,6 +128,9 @@ cd C:\Users\Golajah\Documents\ComfyUI
 再进行导入验证，确认新节点 ID 出现在 `NODE_CLASS_MAPPINGS` 中。最后重启 ComfyUI Desktop，确认节点可搜索、可创建、可保存到工作流。
 
 ## 7. 提交与同步
+
+操作位置：Windows 开始菜单打开 **PowerShell**，不要使用 `cmd`。
+如果你的 ComfyUI 不在这个位置，请把下面的路径改成自己的节点库目录。
 
 ```powershell
 cd C:\Users\Golajah\Documents\ComfyUI\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library

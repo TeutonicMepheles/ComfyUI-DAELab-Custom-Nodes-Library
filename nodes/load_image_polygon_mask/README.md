@@ -8,16 +8,17 @@
 
 ## Function
 
-Loads an input image and displays an editable closed polygon in the node UI. The polygon defaults to a centered triangle. Vertices can be dragged, and double-clicking an edge inserts a new vertex up to the 12-point limit.
+Loads an input image and displays editable closed polygons in the node UI. The first polygon defaults to a centered triangle. Hold `Shift` and left-click the image to add another default triangle at the clicked position.
 
-The node outputs the original image with the polygon overlay composited at the original image size, plus a string note that can describe the polygon semantics.
+The node outputs the original image with all polygon overlays composited at the original image size, plus a string note that can describe the polygon semantics.
 
-The node UI keeps the editable polygon canvas and the default image preview. The polygon canvas is labeled `多边形编辑画布`, and the default preview area is labeled `原图预览`.
+The node UI keeps both the editable polygon canvas and the default image preview, each with a visible title.
+The canvas also shows a compact interaction note for `Shift + left-click` and `Shift + right-click`.
 
 ## Inputs
 
 - `image`: input image selector/upload.
-- `vertex_count`: polygon vertex count slider, 3 to 12.
+- `vertex_count`: selected polygon vertex count slider, 3 to 12.
 - `color`: polygon color. Uses the `COLOR` widget compatible with LayerUtility/LayerStyle ColorPicker.
 - `fill_opacity`: polygon fill opacity, 0 to 100.
 - `outline_width`: polygon outline width, 0 to 20.
@@ -25,17 +26,22 @@ The node UI keeps the editable polygon canvas and the default image preview. The
 
 ## Outputs
 
-- `image`: image with the polygon overlay.
+- `image`: image with all polygon overlays.
 - `string`: the `polygon_note` value.
 
 ## UI
 
-- Drag any vertex to reshape the polygon.
-- Double-click any edge, including the closing edge, to insert a vertex.
-- `Clear` removes the polygon and persists that cleared state.
-- `Reset` regenerates a centered regular polygon using the current vertex count.
+- Hold `Shift` and left-click the image to add a new triangle polygon.
+- Hold `Shift` and right-click a polygon to delete it.
+- Click a polygon fill area to select it.
+- Drag a selected polygon fill area to move the whole polygon without changing its shape.
+- Drag any selected polygon vertex to reshape that polygon.
+- Double-click any selected polygon edge, including the closing edge, to insert a vertex.
+- `Clear` removes the selected polygon.
+- `Reset` regenerates the selected polygon using the current vertex count while preserving its center.
 - `Refresh` redraws the preview image without changing saved vertices.
 - `Undo` and `Redo` step through polygon edits.
+- Saved workflows restore the last selected image and polygon data when reopened.
 
 ## Files
 

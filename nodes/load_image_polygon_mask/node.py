@@ -14,6 +14,7 @@ import folder_paths
 MIN_VERTEX_COUNT = 3
 MAX_VERTEX_COUNT = 12
 DEFAULT_COLOR = "#FF0000"
+DEFAULT_POLYGON_RADIUS_RATIO = 0.08
 
 
 def _load_image_tensor(image_name):
@@ -156,8 +157,7 @@ def _normalize_point(point, width, height):
     }
 
 
-def _parse_polygon_points(info, width, height):
-    points = info.get("points")
+def _parse_polygon_points_from_value(points, width, height):
     if not isinstance(points, list):
         return []
 
@@ -170,9 +170,28 @@ def _parse_polygon_points(info, width, height):
     return parsed if len(parsed) >= MIN_VERTEX_COUNT else []
 
 
+def _parse_polygons(info, width, height):
+    parsed_polygons = []
+
+    polygons = info.get("polygons")
+    if isinstance(polygons, list):
+        for polygon in polygons:
+            points = polygon.get("points") if isinstance(polygon, dict) else polygon
+            parsed_points = _parse_polygon_points_from_value(points, width, height)
+            if parsed_points:
+                parsed_polygons.append(parsed_points)
+        return parsed_polygons
+
+    parsed_points = _parse_polygon_points_from_value(info.get("points"), width, height)
+    if parsed_points:
+        parsed_polygons.append(parsed_points)
+
+    return parsed_polygons
+
+
 def _default_polygon_points(width, height, vertex_count):
     count = _clamp_int(vertex_count, MIN_VERTEX_COUNT, MAX_VERTEX_COUNT, MIN_VERTEX_COUNT)
-    radius = min(width, height) * 0.28
+    radius = min(width, height) * DEFAULT_POLYGON_RADIUS_RATIO
     center_x = width / 2.0
     center_y = height / 2.0
     points = []
@@ -199,23 +218,28 @@ def _pil_to_tensor(image):
     return torch.from_numpy(image_np)[None,]
 
 
-def _draw_polygon_on_image(image, points, color, fill_opacity, outline_width):
-    if len(points) < MIN_VERTEX_COUNT:
+def _draw_polygons_on_image(image, polygons, color, fill_opacity, outline_width):
+    if not polygons:
         return image
 
     rgb = _parse_color(color)
     opacity = _clamp_int(fill_opacity, 0, 100, 35)
     line_width = _clamp_int(outline_width, 0, 20, 3)
-    xy = [(point["x"], point["y"]) for point in points]
 
     base = image.convert("RGBA")
     overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
-    if opacity > 0:
-        draw.polygon(xy, fill=(*rgb, round(255 * opacity / 100)))
-    if line_width > 0:
-        draw.line(xy + [xy[0]], fill=(*rgb, 255), width=line_width, joint="curve")
+    for points in polygons:
+        if len(points) < MIN_VERTEX_COUNT:
+            continue
+
+        xy = [(point["x"], point["y"]) for point in points]
+
+        if opacity > 0:
+            draw.polygon(xy, fill=(*rgb, round(255 * opacity / 100)))
+        if line_width > 0:
+            draw.line(xy + [xy[0]], fill=(*rgb, 255), width=line_width, joint="curve")
 
     return Image.alpha_composite(base, overlay).convert("RGB")
 
@@ -257,6 +281,14 @@ class LoadImagePolygonMask:
                         "tooltip": "Semantic note to output with this polygon.",
                     },
                 ),
+                "polygon_data": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": False,
+                        "tooltip": "Internal cached polygon data. It is managed by the node UI.",
+                    },
+                ),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -279,11 +311,20 @@ class LoadImagePolygonMask:
         fill_opacity=35,
         outline_width=3,
         polygon_note="",
+        polygon_data="",
         unique_id=None,
         extra_pnginfo=None,
     ):
         image_tensor = _load_image_tensor(image)
-        info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        info = {}
+        if polygon_data:
+            try:
+                parsed_polygon_data = json.loads(str(polygon_data))
+                info = parsed_polygon_data if isinstance(parsed_polygon_data, dict) else {}
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid polygon_data JSON: {exc}") from exc
+        if not info:
+            info = _get_node_polygon_info(unique_id, extra_pnginfo)
         note = _resolve_polygon_note(unique_id, extra_pnginfo, polygon_note)
 
         if info.get("cleared") is True:
@@ -291,17 +332,17 @@ class LoadImagePolygonMask:
 
         width = int(image_tensor.shape[2])
         height = int(image_tensor.shape[1])
-        points = _parse_polygon_points(info, width, height)
+        polygons = _parse_polygons(info, width, height)
 
-        if not points:
-            if "points" in info:
+        if not polygons:
+            if "polygons" in info or "points" in info:
                 return (image_tensor, note)
-            points = _default_polygon_points(width, height, vertex_count)
+            polygons = [_default_polygon_points(width, height, vertex_count)]
 
         output_images = []
         for frame in image_tensor:
             pil_image = _tensor_to_pil(frame)
-            composited = _draw_polygon_on_image(pil_image, points, color, fill_opacity, outline_width)
+            composited = _draw_polygons_on_image(pil_image, polygons, color, fill_opacity, outline_width)
             output_images.append(_pil_to_tensor(composited))
 
         return (torch.cat(output_images, dim=0), note)
@@ -315,6 +356,7 @@ class LoadImagePolygonMask:
         fill_opacity=35,
         outline_width=3,
         polygon_note="",
+        polygon_data="",
         unique_id=None,
         extra_pnginfo=None,
     ):
@@ -328,6 +370,7 @@ class LoadImagePolygonMask:
         digest.update(str(_clamp_int(fill_opacity, 0, 100, 35)).encode("utf-8"))
         digest.update(str(_clamp_int(outline_width, 0, 20, 3)).encode("utf-8"))
         digest.update(_resolve_polygon_note(unique_id, extra_pnginfo, polygon_note).encode("utf-8"))
+        digest.update(str(polygon_data or "").encode("utf-8"))
         polygon_info = _get_node_polygon_info(unique_id, extra_pnginfo)
         digest.update(json.dumps(polygon_info, sort_keys=True).encode("utf-8"))
         return digest.hexdigest()

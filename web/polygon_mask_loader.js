@@ -58,6 +58,24 @@ function createSectionTitle(text) {
   return title;
 }
 
+function createHelpNote(text) {
+  const note = document.createElement("div");
+  note.textContent = text;
+  note.style.cssText = [
+    "min-height:28px",
+    "flex:0 0 28px",
+    "display:flex",
+    "align-items:center",
+    "padding:0 10px",
+    "box-sizing:border-box",
+    "background:#16181a",
+    "border-bottom:1px solid #2d2f33",
+    "color:#cfd3d8",
+    "font:12px sans-serif",
+  ].join(";");
+  return note;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -96,7 +114,11 @@ function getImageUrl(imageName) {
 }
 
 function clonePoints(points) {
-  return points.map((point) => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
+  return (points || []).map((point) => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
+}
+
+function clonePolygons(polygons) {
+  return (polygons || []).map((polygon) => ({ points: clonePoints(polygon.points || polygon) }));
 }
 
 function distanceSquared(left, right) {
@@ -125,6 +147,25 @@ function triangleArea(previous, point, next) {
   return Math.abs(
     (previous.x * (point.y - next.y) + point.x * (next.y - previous.y) + next.x * (previous.y - point.y)) / 2,
   );
+}
+
+function pointInPolygon(point, points) {
+  if (!Array.isArray(points) || points.length < MIN_VERTICES) {
+    return false;
+  }
+
+  let inside = false;
+  for (let index = 0, previousIndex = points.length - 1; index < points.length; previousIndex = index, index += 1) {
+    const current = points[index];
+    const previous = points[previousIndex];
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x < ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y || 1e-9) + current.x;
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 function parseColor(value) {
@@ -197,7 +238,7 @@ app.registerExtension({
         "box-sizing:border-box",
       ].join(";");
 
-      const canvasTitle = createSectionTitle("多边形编辑画布");
+      const canvasTitle = createSectionTitle("\u591a\u8fb9\u5f62\u7f16\u8f91\u753b\u5e03");
 
       const toolbar = document.createElement("div");
       toolbar.style.cssText = [
@@ -218,6 +259,8 @@ app.registerExtension({
 
       const rightGroup = document.createElement("div");
       rightGroup.style.cssText = "display:flex;align-items:center;gap:4px";
+
+      const helpNote = createHelpNote("Shift+\u5de6\u952e\uff1a\u65b0\u5efa Polygon    Shift+\u53f3\u952e\uff1a\u5220\u9664\u70b9\u51fb\u7684 Polygon");
 
       const canvasWrapper = document.createElement("div");
       canvasWrapper.style.cssText = [
@@ -244,6 +287,7 @@ app.registerExtension({
 
       container.appendChild(canvasTitle);
       container.appendChild(toolbar);
+      container.appendChild(helpNote);
       container.appendChild(canvasWrapper);
 
       const ctx = canvas.getContext("2d");
@@ -255,9 +299,15 @@ app.registerExtension({
         image: null,
         imageValue: null,
         loadToken: 0,
-        points: [],
+        polygons: [],
+        selectedIndex: -1,
         cleared: false,
-        draggingIndex: -1,
+        dragMode: "none",
+        draggingPolygonIndex: -1,
+        draggingVertexIndex: -1,
+        dragStart: null,
+        dragLast: null,
+        dragOriginalPoints: [],
         dragMoved: false,
         history: [],
         historyIndex: -1,
@@ -265,6 +315,7 @@ app.registerExtension({
         resizeReady: false,
         suppressVertexCallback: false,
         pendingDefaultOnLoad: false,
+        restoredFromProperties: false,
       };
 
       const undoButton = createButton("Undo", "Undo last polygon edit", () => this.undoPolygon());
@@ -273,8 +324,10 @@ app.registerExtension({
         this.loadPolygonImage(true);
         this.redrawPolygonCanvas();
       });
-      const clearButton = createButton("Clear", "Clear polygon overlay", () => this.clearPolygon());
-      const resetButton = createButton("Reset", "Reset polygon using current vertex count", () => this.resetPolygon());
+      const clearButton = createButton("Clear", "Delete selected polygon", () => this.clearPolygon());
+      const resetButton = createButton("Reset", "Reset selected polygon using current vertex count", () =>
+        this.resetPolygon(),
+      );
 
       leftGroup.appendChild(undoButton);
       leftGroup.appendChild(redoButton);
@@ -295,7 +348,7 @@ app.registerExtension({
       const domWidget = this.addDOMWidget("polygon_canvas", "polygon_canvas", container);
       domWidget.computeSize = (width) => [width, this.getPolygonPanelHeight()];
 
-      const previewTitle = createSectionTitle("原图预览");
+      const previewTitle = createSectionTitle("\u539f\u56fe\u9884\u89c8");
       previewTitle.style.marginTop = "4px";
       const previewTitleWidget = this.addDOMWidget("polygon_preview_title", "polygon_preview_title", previewTitle);
       previewTitleWidget.computeSize = (width) => [width, 34];
@@ -335,20 +388,41 @@ app.registerExtension({
       });
 
       canvas.addEventListener("mousedown", (event) => {
-        if (!this.polygonWidget.image || event.button !== 0 || this.polygonWidget.cleared) {
+        if (!this.polygonWidget.image || (event.button !== 0 && event.button !== 2)) {
           return;
         }
 
         const coords = this.getPolygonCanvasCoords(event);
-        const index = this.findPolygonVertexAt(coords);
-        if (index < 0) {
+
+        if (event.shiftKey && event.button === 0) {
+          event.preventDefault();
+          this.addPolygonAt(coords);
           return;
         }
 
-        event.preventDefault();
-        this.polygonWidget.draggingIndex = index;
-        this.polygonWidget.dragMoved = false;
-        canvas.style.cursor = "grabbing";
+        if (event.shiftKey && event.button === 2) {
+          event.preventDefault();
+          this.deletePolygonAt(coords);
+          return;
+        }
+
+        if (event.button !== 0) {
+          return;
+        }
+
+        const vertexHit = this.findPolygonVertexAt(coords, this.polygonWidget.selectedIndex);
+        if (vertexHit >= 0) {
+          event.preventDefault();
+          this.startVertexDrag(this.polygonWidget.selectedIndex, vertexHit, coords);
+          return;
+        }
+
+        const polygonHit = this.findPolygonAt(coords);
+        if (polygonHit >= 0) {
+          event.preventDefault();
+          this.selectPolygon(polygonHit);
+          this.startPolygonDrag(polygonHit, coords);
+        }
       });
 
       canvas.addEventListener("mousemove", (event) => {
@@ -357,53 +431,30 @@ app.registerExtension({
         }
 
         const coords = this.getPolygonCanvasCoords(event);
-        const draggingIndex = this.polygonWidget.draggingIndex;
 
-        if (draggingIndex >= 0) {
-          const point = this.polygonWidget.points[draggingIndex];
-          if (point) {
-            point.x = coords.x;
-            point.y = coords.y;
-            this.polygonWidget.dragMoved = true;
-            this.updatePolygonInfo();
-            this.redrawPolygonCanvas();
-          }
+        if (this.polygonWidget.dragMode === "vertex") {
+          this.moveDraggedVertex(coords);
           return;
         }
 
-        if (!this.polygonWidget.cleared && this.findPolygonVertexAt(coords) >= 0) {
+        if (this.polygonWidget.dragMode === "polygon") {
+          this.moveDraggedPolygon(coords);
+          return;
+        }
+
+        if (this.findPolygonVertexAt(coords, this.polygonWidget.selectedIndex) >= 0) {
           canvas.style.cursor = "grab";
-        } else if (!this.polygonWidget.cleared && this.findPolygonSegmentAt(coords) >= 0) {
+        } else if (this.findPolygonSegmentAt(coords) >= 0) {
           canvas.style.cursor = "copy";
+        } else if (this.findPolygonAt(coords) >= 0) {
+          canvas.style.cursor = "move";
         } else {
           canvas.style.cursor = "default";
         }
       });
 
-      canvas.addEventListener("mouseup", () => {
-        if (this.polygonWidget.draggingIndex < 0) {
-          return;
-        }
-
-        const moved = this.polygonWidget.dragMoved;
-        this.polygonWidget.draggingIndex = -1;
-        this.polygonWidget.dragMoved = false;
-        canvas.style.cursor = "default";
-
-        if (moved) {
-          this.pushPolygonHistory();
-          this.updatePolygonButtons();
-        }
-      });
-
-      canvas.addEventListener("mouseleave", () => {
-        if (this.polygonWidget.draggingIndex >= 0 && this.polygonWidget.dragMoved) {
-          this.pushPolygonHistory();
-        }
-        this.polygonWidget.draggingIndex = -1;
-        this.polygonWidget.dragMoved = false;
-        canvas.style.cursor = "default";
-      });
+      canvas.addEventListener("mouseup", () => this.finishPolygonDrag());
+      canvas.addEventListener("mouseleave", () => this.finishPolygonDrag());
 
       canvas.addEventListener("dblclick", (event) => {
         if (!this.polygonWidget.image || this.polygonWidget.cleared) {
@@ -411,7 +462,8 @@ app.registerExtension({
         }
         event.preventDefault();
 
-        if (this.polygonWidget.points.length >= MAX_VERTICES) {
+        const polygon = this.getSelectedPolygon();
+        if (!polygon || polygon.points.length >= MAX_VERTICES) {
           return;
         }
 
@@ -421,8 +473,8 @@ app.registerExtension({
           return;
         }
 
-        this.polygonWidget.points.splice(segmentIndex + 1, 0, coords);
-        this.setVertexCountWidgetValue(this.polygonWidget.points.length);
+        polygon.points.splice(segmentIndex + 1, 0, coords);
+        this.setVertexCountWidgetValue(polygon.points.length);
         this.updatePolygonInfo();
         this.pushPolygonHistory();
         this.redrawPolygonCanvas();
@@ -493,6 +545,12 @@ app.registerExtension({
         vertexWidget._polygonMaskStateBound = true;
       }
 
+      const polygonDataWidget = this.getPolygonWidget("polygon_data");
+      if (polygonDataWidget) {
+        polygonDataWidget.hidden = true;
+        polygonDataWidget.computeSize = () => [0, -4];
+      }
+
       for (const widgetName of ["color", "fill_opacity", "outline_width", "polygon_note"]) {
         const widget = this.getPolygonWidget(widgetName);
         if (!widget || widget._polygonMaskGenericStateBound) {
@@ -516,7 +574,7 @@ app.registerExtension({
     nodeType.prototype.savePolygonWidgetState = function (markDirty = true) {
       this.properties = this.properties || {};
 
-      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note"]) {
+      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note", "polygon_data"]) {
         const widget = this.getPolygonWidget(name);
         if (widget) {
           this.properties[`${name}_value`] = widget.value ?? "";
@@ -531,7 +589,7 @@ app.registerExtension({
     nodeType.prototype.restorePolygonWidgetState = function () {
       this.properties = this.properties || {};
 
-      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note"]) {
+      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note", "polygon_data"]) {
         const widget = this.getPolygonWidget(name);
         const propertyName = `${name}_value`;
         if (widget && Object.prototype.hasOwnProperty.call(this.properties, propertyName)) {
@@ -544,18 +602,51 @@ app.registerExtension({
       this.properties = this.properties || {};
 
       if (this.polygonWidget) {
-        this.properties.polygon_info = JSON.stringify({
-          points: clonePoints(this.polygonWidget.points),
+        const polygonInfo = JSON.stringify({
+          polygons: clonePolygons(this.polygonWidget.polygons),
+          selectedIndex: this.polygonWidget.selectedIndex,
           cleared: Boolean(this.polygonWidget.cleared),
         });
+        this.properties.polygon_info = polygonInfo;
+        this.properties.polygon_data_value = polygonInfo;
+        const polygonDataWidget = this.getPolygonWidget("polygon_data");
+        if (polygonDataWidget) {
+          polygonDataWidget.value = polygonInfo;
+        }
       }
 
       return this.properties.polygon_info || "";
     };
 
+    nodeType.prototype.resetPolygonHistory = function () {
+      if (!this.polygonWidget) {
+        return;
+      }
+      this.polygonWidget.history = [this.getPolygonState()];
+      this.polygonWidget.historyIndex = 0;
+    };
+
+    nodeType.prototype.restoreCachedPolygonState = function () {
+      if (!this.polygonWidget) {
+        return;
+      }
+      this.restorePolygonWidgetState?.();
+      this.restorePolygonInfo?.();
+      if (this.polygonWidget.polygons.length > 0 || this.polygonWidget.cleared) {
+        this.resetPolygonHistory?.();
+      } else {
+        this.polygonWidget.history = [];
+        this.polygonWidget.historyIndex = -1;
+      }
+      this.loadPolygonImage?.(true);
+      this.redrawPolygonCanvas?.();
+      this.updatePolygonButtons?.();
+      this.polygonWidget.restoredFromProperties = true;
+    };
+
     chainCallback(nodeType.prototype, "onConfigure", function () {
       setTimeout(() => {
-        this.restorePolygonWidgetState?.();
+        this.restoreCachedPolygonState?.();
       }, 0);
     });
 
@@ -565,14 +656,24 @@ app.registerExtension({
       if (serialized?.properties) {
         serialized.properties.polygon_info = this.properties?.polygon_info || "";
         serialized.properties.polygon_canvas_height = this.getPolygonPanelHeight();
-        for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note"]) {
+        serialized.properties.polygon_data_value = this.properties?.polygon_data_value || this.properties?.polygon_info || "";
+        for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note", "polygon_data"]) {
           serialized.properties[`${name}_value`] = this.properties?.[`${name}_value`] ?? "";
+        }
+      }
+      if (Array.isArray(serialized?.widgets_values)) {
+        const polygonDataIndex = this.widgets?.findIndex((widget) => widget.name === "polygon_data") ?? -1;
+        if (polygonDataIndex >= 0) {
+          serialized.widgets_values[polygonDataIndex] = this.properties?.polygon_info || "";
         }
       }
     });
 
     nodeType.prototype.restorePolygonInfo = function () {
-      const polygonInfo = this.properties?.polygon_info;
+      const polygonInfo =
+        this.getPolygonWidget("polygon_data")?.value ||
+        this.properties?.polygon_data_value ||
+        this.properties?.polygon_info;
       if (!polygonInfo) {
         return;
       }
@@ -580,16 +681,22 @@ app.registerExtension({
       try {
         const info = typeof polygonInfo === "string" ? JSON.parse(polygonInfo) : polygonInfo;
         this.polygonWidget.cleared = Boolean(info?.cleared);
-        if (Array.isArray(info?.points)) {
-          this.polygonWidget.points = info.points
-            .map((point) => ({
-              x: Number(point?.x ?? point?.[0] ?? 0),
-              y: Number(point?.y ?? point?.[1] ?? 0),
-            }))
-            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+
+        if (Array.isArray(info?.polygons)) {
+          this.polygonWidget.polygons = clonePolygons(info.polygons).filter(
+            (polygon) => polygon.points.length >= MIN_VERTICES,
+          );
+        } else if (Array.isArray(info?.points)) {
+          const points = clonePoints(info.points);
+          this.polygonWidget.polygons = points.length >= MIN_VERTICES ? [{ points }] : [];
         }
-        if (!this.polygonWidget.cleared && this.polygonWidget.points.length >= MIN_VERTICES) {
-          this.setVertexCountWidgetValue(this.polygonWidget.points.length);
+
+        if (this.polygonWidget.polygons.length > 0) {
+          this.polygonWidget.cleared = false;
+          this.selectPolygon(
+            clamp(Number(info?.selectedIndex ?? this.polygonWidget.polygons.length - 1), 0, this.polygonWidget.polygons.length - 1),
+            false,
+          );
         }
       } catch (error) {
         console.warn("Failed to restore polygon_info", error);
@@ -618,16 +725,38 @@ app.registerExtension({
       this.polygonWidget.suppressVertexCallback = false;
     };
 
-    nodeType.prototype.createDefaultPolygon = function (count = this.getCurrentVertexCount()) {
+    nodeType.prototype.getSelectedPolygon = function () {
+      const index = this.polygonWidget.selectedIndex;
+      return index >= 0 ? this.polygonWidget.polygons[index] : null;
+    };
+
+    nodeType.prototype.selectPolygon = function (index, updateInfo = true) {
+      if (!this.polygonWidget.polygons.length) {
+        this.polygonWidget.selectedIndex = -1;
+        this.polygonWidget.cleared = true;
+      } else {
+        this.polygonWidget.selectedIndex = clamp(Math.round(Number(index) || 0), 0, this.polygonWidget.polygons.length - 1);
+        this.polygonWidget.cleared = false;
+        this.setVertexCountWidgetValue(this.getSelectedPolygon().points.length);
+      }
+
+      if (updateInfo) {
+        this.updatePolygonInfo();
+        this.redrawPolygonCanvas();
+        this.updatePolygonButtons();
+      }
+    };
+
+    nodeType.prototype.createDefaultPolygon = function (count = this.getCurrentVertexCount(), center = null) {
       const image = this.polygonWidget.image;
       if (!image) {
         return [];
       }
 
       const vertexCount = clampVertexCount(count);
-      const radius = Math.min(image.width, image.height) * 0.28;
-      const centerX = image.width / 2;
-      const centerY = image.height / 2;
+      const radius = Math.min(image.width, image.height) * 0.08;
+      const centerX = clamp(Number(center?.x ?? image.width / 2), radius, image.width - radius);
+      const centerY = clamp(Number(center?.y ?? image.height / 2), radius, image.height - radius);
       const points = [];
 
       for (let index = 0; index < vertexCount; index += 1) {
@@ -641,11 +770,45 @@ app.registerExtension({
       return points;
     };
 
+    nodeType.prototype.getPolygonCenter = function (polygon) {
+      const points = polygon?.points || [];
+      if (!points.length) {
+        return null;
+      }
+      const bounds = points.reduce(
+        (acc, point) => ({
+          minX: Math.min(acc.minX, point.x),
+          maxX: Math.max(acc.maxX, point.x),
+          minY: Math.min(acc.minY, point.y),
+          maxY: Math.max(acc.maxY, point.y),
+        }),
+        { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+      );
+      return {
+        x: (bounds.minX + bounds.maxX) / 2,
+        y: (bounds.minY + bounds.maxY) / 2,
+      };
+    };
+
+    nodeType.prototype.addPolygonAt = function (coords) {
+      const polygon = { points: this.createDefaultPolygon(MIN_VERTICES, coords) };
+      this.polygonWidget.polygons.push(polygon);
+      this.polygonWidget.cleared = false;
+      this.selectPolygon(this.polygonWidget.polygons.length - 1, false);
+      this.setVertexCountWidgetValue(MIN_VERTICES);
+      this.updatePolygonInfo();
+      this.pushPolygonHistory();
+      this.redrawPolygonCanvas();
+      this.updatePolygonButtons();
+    };
+
     nodeType.prototype.restorePolygonState = function (state) {
-      this.polygonWidget.points = clonePoints(state.points || []);
-      this.polygonWidget.cleared = Boolean(state.cleared);
-      if (!this.polygonWidget.cleared && this.polygonWidget.points.length >= MIN_VERTICES) {
-        this.setVertexCountWidgetValue(this.polygonWidget.points.length);
+      this.polygonWidget.polygons = clonePolygons(state.polygons || []);
+      this.polygonWidget.cleared = Boolean(state.cleared) || this.polygonWidget.polygons.length === 0;
+      if (this.polygonWidget.cleared) {
+        this.polygonWidget.selectedIndex = -1;
+      } else {
+        this.selectPolygon(state.selectedIndex ?? this.polygonWidget.polygons.length - 1, false);
       }
       this.updatePolygonInfo();
       this.redrawPolygonCanvas();
@@ -654,7 +817,8 @@ app.registerExtension({
 
     nodeType.prototype.getPolygonState = function () {
       return {
-        points: clonePoints(this.polygonWidget.points),
+        polygons: clonePolygons(this.polygonWidget.polygons),
+        selectedIndex: this.polygonWidget.selectedIndex,
         cleared: Boolean(this.polygonWidget.cleared),
       };
     };
@@ -687,8 +851,39 @@ app.registerExtension({
     };
 
     nodeType.prototype.clearPolygon = function () {
-      this.polygonWidget.points = [];
-      this.polygonWidget.cleared = true;
+      const index = this.polygonWidget.selectedIndex;
+      if (index < 0) {
+        return;
+      }
+
+      this.polygonWidget.polygons.splice(index, 1);
+      if (!this.polygonWidget.polygons.length) {
+        this.polygonWidget.selectedIndex = -1;
+        this.polygonWidget.cleared = true;
+      } else {
+        this.selectPolygon(Math.min(index, this.polygonWidget.polygons.length - 1), false);
+      }
+      this.updatePolygonInfo();
+      this.pushPolygonHistory();
+      this.redrawPolygonCanvas();
+      this.updatePolygonButtons();
+    };
+
+    nodeType.prototype.deletePolygonAt = function (coords) {
+      const polygonIndex = this.findPolygonAt(coords);
+      if (polygonIndex < 0) {
+        return;
+      }
+
+      this.selectPolygon(polygonIndex, false);
+      this.polygonWidget.polygons.splice(polygonIndex, 1);
+      if (!this.polygonWidget.polygons.length) {
+        this.polygonWidget.selectedIndex = -1;
+        this.polygonWidget.cleared = true;
+      } else {
+        this.selectPolygon(Math.min(polygonIndex, this.polygonWidget.polygons.length - 1), false);
+      }
+
       this.updatePolygonInfo();
       this.pushPolygonHistory();
       this.redrawPolygonCanvas();
@@ -697,12 +892,17 @@ app.registerExtension({
 
     nodeType.prototype.resetPolygon = function () {
       if (!this.polygonWidget.image) {
-        this.polygonWidget.points = [];
-        this.polygonWidget.cleared = false;
-      } else {
-        this.polygonWidget.points = this.createDefaultPolygon(this.getCurrentVertexCount());
-        this.polygonWidget.cleared = false;
+        return;
       }
+
+      const selected = this.getSelectedPolygon();
+      if (!selected) {
+        this.addPolygonAt({ x: this.polygonWidget.image.width / 2, y: this.polygonWidget.image.height / 2 });
+        return;
+      }
+
+      selected.points = this.createDefaultPolygon(this.getCurrentVertexCount(), this.getPolygonCenter(selected));
+      this.polygonWidget.cleared = false;
       this.updatePolygonInfo();
       this.pushPolygonHistory();
       this.redrawPolygonCanvas();
@@ -718,21 +918,21 @@ app.registerExtension({
         return;
       }
 
-      if (this.polygonWidget.cleared || this.polygonWidget.points.length < MIN_VERTICES) {
-        this.polygonWidget.points = this.createDefaultPolygon(targetCount);
-        this.polygonWidget.cleared = false;
-      } else {
-        this.adjustPolygonVertexCount(targetCount);
+      let selected = this.getSelectedPolygon();
+      if (!selected) {
+        this.addPolygonAt({ x: this.polygonWidget.image.width / 2, y: this.polygonWidget.image.height / 2 });
+        selected = this.getSelectedPolygon();
       }
 
+      this.adjustPolygonVertexCount(selected, targetCount);
       this.updatePolygonInfo();
       this.pushPolygonHistory();
       this.redrawPolygonCanvas();
       this.updatePolygonButtons();
     };
 
-    nodeType.prototype.adjustPolygonVertexCount = function (targetCount) {
-      const points = this.polygonWidget.points;
+    nodeType.prototype.adjustPolygonVertexCount = function (polygon, targetCount) {
+      const points = polygon?.points || [];
 
       while (points.length < targetCount && points.length < MAX_VERTICES) {
         let longestIndex = 0;
@@ -779,7 +979,8 @@ app.registerExtension({
 
       const changedImage = imageValue !== this.polygonWidget.imageValue;
       if (changedImage) {
-        this.polygonWidget.points = [];
+        this.polygonWidget.polygons = [];
+        this.polygonWidget.selectedIndex = -1;
         this.polygonWidget.cleared = false;
         this.polygonWidget.pendingDefaultOnLoad = true;
         this.polygonWidget.history = [];
@@ -818,11 +1019,14 @@ app.registerExtension({
 
         if (
           this.polygonWidget.pendingDefaultOnLoad ||
-          (!this.polygonWidget.cleared && this.polygonWidget.points.length < MIN_VERTICES)
+          (!this.polygonWidget.cleared && this.polygonWidget.polygons.length === 0)
         ) {
-          this.polygonWidget.points = this.createDefaultPolygon(this.getCurrentVertexCount());
+          this.polygonWidget.polygons = [
+            { points: this.createDefaultPolygon(MIN_VERTICES, { x: image.width / 2, y: image.height / 2 }) },
+          ];
           this.polygonWidget.cleared = false;
           this.polygonWidget.pendingDefaultOnLoad = false;
+          this.selectPolygon(0, false);
           this.updatePolygonInfo();
         }
 
@@ -861,11 +1065,25 @@ app.registerExtension({
       return 10 * scale;
     };
 
-    nodeType.prototype.findPolygonVertexAt = function (coords) {
+    nodeType.prototype.findPolygonVertexAt = function (coords, polygonIndex) {
+      const polygon = this.polygonWidget.polygons[polygonIndex];
+      if (!polygon) {
+        return -1;
+      }
+
       const tolerance = this.getHitTolerance();
       const toleranceSquared = tolerance * tolerance;
-      for (let index = this.polygonWidget.points.length - 1; index >= 0; index -= 1) {
-        if (distanceSquared(coords, this.polygonWidget.points[index]) <= toleranceSquared) {
+      for (let index = polygon.points.length - 1; index >= 0; index -= 1) {
+        if (distanceSquared(coords, polygon.points[index]) <= toleranceSquared) {
+          return index;
+        }
+      }
+      return -1;
+    };
+
+    nodeType.prototype.findPolygonAt = function (coords) {
+      for (let index = this.polygonWidget.polygons.length - 1; index >= 0; index -= 1) {
+        if (pointInPolygon(coords, this.polygonWidget.polygons[index].points)) {
           return index;
         }
       }
@@ -873,7 +1091,8 @@ app.registerExtension({
     };
 
     nodeType.prototype.findPolygonSegmentAt = function (coords) {
-      const points = this.polygonWidget.points;
+      const polygon = this.getSelectedPolygon();
+      const points = polygon?.points || [];
       if (points.length < MIN_VERTICES) {
         return -1;
       }
@@ -893,6 +1112,99 @@ app.registerExtension({
       return bestIndex;
     };
 
+    nodeType.prototype.startVertexDrag = function (polygonIndex, vertexIndex, coords) {
+      this.polygonWidget.dragMode = "vertex";
+      this.polygonWidget.draggingPolygonIndex = polygonIndex;
+      this.polygonWidget.draggingVertexIndex = vertexIndex;
+      this.polygonWidget.dragStart = coords;
+      this.polygonWidget.dragLast = coords;
+      this.polygonWidget.dragMoved = false;
+      this.polygonWidget.canvas.style.cursor = "grabbing";
+    };
+
+    nodeType.prototype.startPolygonDrag = function (polygonIndex, coords) {
+      const polygon = this.polygonWidget.polygons[polygonIndex];
+      this.polygonWidget.dragMode = "polygon";
+      this.polygonWidget.draggingPolygonIndex = polygonIndex;
+      this.polygonWidget.draggingVertexIndex = -1;
+      this.polygonWidget.dragStart = coords;
+      this.polygonWidget.dragLast = coords;
+      this.polygonWidget.dragOriginalPoints = clonePoints(polygon.points);
+      this.polygonWidget.dragMoved = false;
+      this.polygonWidget.canvas.style.cursor = "grabbing";
+      this.updatePolygonInfo();
+      this.redrawPolygonCanvas();
+      this.updatePolygonButtons();
+    };
+
+    nodeType.prototype.moveDraggedVertex = function (coords) {
+      const polygon = this.polygonWidget.polygons[this.polygonWidget.draggingPolygonIndex];
+      const point = polygon?.points?.[this.polygonWidget.draggingVertexIndex];
+      if (!point) {
+        return;
+      }
+
+      point.x = coords.x;
+      point.y = coords.y;
+      this.polygonWidget.dragMoved = true;
+      this.updatePolygonInfo();
+      this.redrawPolygonCanvas();
+    };
+
+    nodeType.prototype.moveDraggedPolygon = function (coords) {
+      const polygon = this.polygonWidget.polygons[this.polygonWidget.draggingPolygonIndex];
+      const originalPoints = this.polygonWidget.dragOriginalPoints;
+      const image = this.polygonWidget.image;
+      if (!polygon || !originalPoints.length || !image) {
+        return;
+      }
+
+      const rawDx = coords.x - this.polygonWidget.dragStart.x;
+      const rawDy = coords.y - this.polygonWidget.dragStart.y;
+      const bounds = originalPoints.reduce(
+        (acc, point) => ({
+          minX: Math.min(acc.minX, point.x),
+          maxX: Math.max(acc.maxX, point.x),
+          minY: Math.min(acc.minY, point.y),
+          maxY: Math.max(acc.maxY, point.y),
+        }),
+        { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+      );
+      const dx = clamp(rawDx, -bounds.minX, image.width - bounds.maxX);
+      const dy = clamp(rawDy, -bounds.minY, image.height - bounds.maxY);
+
+      polygon.points = originalPoints.map((point) => ({
+        x: point.x + dx,
+        y: point.y + dy,
+      }));
+      this.polygonWidget.dragMoved = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
+      this.updatePolygonInfo();
+      this.redrawPolygonCanvas();
+    };
+
+    nodeType.prototype.finishPolygonDrag = function () {
+      if (this.polygonWidget.dragMode === "none") {
+        return;
+      }
+
+      const moved = this.polygonWidget.dragMoved;
+      this.polygonWidget.dragMode = "none";
+      this.polygonWidget.draggingPolygonIndex = -1;
+      this.polygonWidget.draggingVertexIndex = -1;
+      this.polygonWidget.dragStart = null;
+      this.polygonWidget.dragLast = null;
+      this.polygonWidget.dragOriginalPoints = [];
+      this.polygonWidget.dragMoved = false;
+      this.polygonWidget.canvas.style.cursor = "default";
+
+      if (moved) {
+        this.pushPolygonHistory();
+      }
+      this.updatePolygonInfo();
+      this.redrawPolygonCanvas();
+      this.updatePolygonButtons();
+    };
+
     nodeType.prototype.updatePolygonButtons = function () {
       const buttons = this.polygonWidget.buttons;
       if (!buttons) {
@@ -901,8 +1213,8 @@ app.registerExtension({
 
       buttons.undo.disabled = this.polygonWidget.historyIndex <= 0;
       buttons.redo.disabled = this.polygonWidget.historyIndex >= this.polygonWidget.history.length - 1;
-      buttons.clear.disabled = this.polygonWidget.cleared || this.polygonWidget.points.length === 0;
-      buttons.reset.disabled = !this.polygonWidget.image;
+      buttons.clear.disabled = this.polygonWidget.selectedIndex < 0;
+      buttons.reset.disabled = !this.polygonWidget.image || this.polygonWidget.selectedIndex < 0;
 
       for (const button of [buttons.undo, buttons.redo, buttons.clear, buttons.reset]) {
         button.style.opacity = button.disabled ? "0.45" : "1";
@@ -911,7 +1223,7 @@ app.registerExtension({
     };
 
     nodeType.prototype.redrawPolygonCanvas = function () {
-      const { canvas, ctx, image, points, cleared } = this.polygonWidget;
+      const { canvas, ctx, image, polygons, selectedIndex, cleared } = this.polygonWidget;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (image) {
@@ -924,44 +1236,56 @@ app.registerExtension({
         ctx.textAlign = "center";
         ctx.fillText("Select or upload an image", canvas.width / 2, canvas.height / 2 - 12);
         ctx.font = "14px sans-serif";
-        ctx.fillText("Drag vertices, double-click an edge to add a point", canvas.width / 2, canvas.height / 2 + 18);
+        ctx.fillText("Shift-left adds, Shift-right deletes, drag fill to move", canvas.width / 2, canvas.height / 2 + 18);
         return;
       }
 
-      if (cleared || points.length < MIN_VERTICES) {
+      if (cleared || polygons.length === 0) {
         return;
       }
 
       const color = this.getPolygonWidget("color")?.value || "#FF0000";
       const fillOpacity = clamp(Number(this.getPolygonWidget("fill_opacity")?.value ?? 35), 0, 100) / 100;
       const outlineWidth = clamp(Number(this.getPolygonWidget("outline_width")?.value ?? 3), 0, 20);
+      const handleRadius = Math.max(4, this.getHitTolerance() * 0.45);
 
       ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let index = 1; index < points.length; index += 1) {
-        ctx.lineTo(points[index].x, points[index].y);
-      }
-      ctx.closePath();
-      if (fillOpacity > 0) {
-        ctx.fillStyle = rgba(color, fillOpacity);
-        ctx.fill();
-      }
-      if (outlineWidth > 0) {
-        ctx.lineWidth = outlineWidth;
-        ctx.strokeStyle = rgba(color, 1);
-        ctx.stroke();
+      for (let polygonIndex = 0; polygonIndex < polygons.length; polygonIndex += 1) {
+        const polygon = polygons[polygonIndex];
+        const points = polygon.points;
+        if (points.length < MIN_VERTICES) {
+          continue;
+        }
+
+        const selected = polygonIndex === selectedIndex;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let index = 1; index < points.length; index += 1) {
+          ctx.lineTo(points[index].x, points[index].y);
+        }
+        ctx.closePath();
+        if (fillOpacity > 0) {
+          ctx.fillStyle = rgba(color, selected ? fillOpacity : fillOpacity * 0.55);
+          ctx.fill();
+        }
+        if (outlineWidth > 0) {
+          ctx.lineWidth = selected ? Math.max(1, outlineWidth + 1) : Math.max(1, outlineWidth);
+          ctx.strokeStyle = rgba(color, selected ? 1 : 0.7);
+          ctx.stroke();
+        }
       }
 
-      const handleRadius = Math.max(4, this.getHitTolerance() * 0.45);
-      for (const point of points) {
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, handleRadius, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.fill();
-        ctx.lineWidth = Math.max(1, outlineWidth);
-        ctx.strokeStyle = rgba(color, 1);
-        ctx.stroke();
+      const selectedPolygon = this.getSelectedPolygon();
+      if (selectedPolygon) {
+        for (const point of selectedPolygon.points) {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, handleRadius, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.lineWidth = Math.max(1, outlineWidth);
+          ctx.strokeStyle = rgba(color, 1);
+          ctx.stroke();
+        }
       }
       ctx.restore();
     };

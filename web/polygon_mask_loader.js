@@ -6,6 +6,7 @@ const MAX_VERTICES = 12;
 const PANEL_DEFAULT_HEIGHT = 430;
 const PANEL_MIN_HEIGHT = 280;
 const PANEL_MAX_HEIGHT = 1400;
+const POLYGON_CACHE_PREFIX = "DAELab.LoadImagePolygonMask";
 
 function chainCallback(object, property, callback) {
   const original = object[property];
@@ -119,6 +120,19 @@ function clonePoints(points) {
 
 function clonePolygons(polygons) {
   return (polygons || []).map((polygon) => ({ points: clonePoints(polygon.points || polygon) }));
+}
+
+function isValidPolygonInfo(info) {
+  if (!info || typeof info !== "object") {
+    return false;
+  }
+  if (info.cleared === true) {
+    return true;
+  }
+  if (Array.isArray(info.polygons)) {
+    return info.polygons.some((polygon) => clonePoints(polygon?.points || polygon).length >= MIN_VERTICES);
+  }
+  return clonePoints(info.points || []).length >= MIN_VERTICES;
 }
 
 function distanceSquared(left, right) {
@@ -260,7 +274,7 @@ app.registerExtension({
       const rightGroup = document.createElement("div");
       rightGroup.style.cssText = "display:flex;align-items:center;gap:4px";
 
-      const helpNote = createHelpNote("Shift+\u5de6\u952e\uff1a\u65b0\u5efa Polygon    Shift+\u53f3\u952e\uff1a\u5220\u9664\u70b9\u51fb\u7684 Polygon");
+      const helpNote = createHelpNote("Shift+\u5de6\u952e\uff1a\u65b0\u5efa Polygon | Shift+\u53f3\u952e\uff1a\u5220\u9664\u70b9\u51fb\u7684 Polygon");
 
       const canvasWrapper = document.createElement("div");
       canvasWrapper.style.cssText = [
@@ -598,6 +612,40 @@ app.registerExtension({
       }
     };
 
+    nodeType.prototype.getPolygonImageValue = function () {
+      return this.getPolygonWidget("image")?.value || this.polygonWidget?.imageValue || "";
+    };
+
+    nodeType.prototype.getPolygonCacheKey = function (imageValue = this.getPolygonImageValue()) {
+      const nodeId = this.id ?? this.properties?.id ?? "unknown";
+      return `${POLYGON_CACHE_PREFIX}.${nodeId}.${encodeURIComponent(String(imageValue || ""))}`;
+    };
+
+    nodeType.prototype.persistPolygonInfoCache = function (polygonInfo) {
+      const imageValue = this.getPolygonImageValue();
+      if (!imageValue || !polygonInfo) {
+        return;
+      }
+      try {
+        localStorage.setItem(this.getPolygonCacheKey(imageValue), polygonInfo);
+      } catch (error) {
+        console.warn("Failed to cache polygon_info", error);
+      }
+    };
+
+    nodeType.prototype.readPolygonInfoCache = function () {
+      const imageValue = this.getPolygonImageValue();
+      if (!imageValue) {
+        return "";
+      }
+      try {
+        return localStorage.getItem(this.getPolygonCacheKey(imageValue)) || "";
+      } catch (error) {
+        console.warn("Failed to read cached polygon_info", error);
+        return "";
+      }
+    };
+
     nodeType.prototype.serializePolygonInfo = function () {
       this.properties = this.properties || {};
 
@@ -606,6 +654,7 @@ app.registerExtension({
           polygons: clonePolygons(this.polygonWidget.polygons),
           selectedIndex: this.polygonWidget.selectedIndex,
           cleared: Boolean(this.polygonWidget.cleared),
+          image: this.getPolygonImageValue(),
         });
         this.properties.polygon_info = polygonInfo;
         this.properties.polygon_data_value = polygonInfo;
@@ -613,6 +662,7 @@ app.registerExtension({
         if (polygonDataWidget) {
           polygonDataWidget.value = polygonInfo;
         }
+        this.persistPolygonInfoCache(polygonInfo);
       }
 
       return this.properties.polygon_info || "";
@@ -644,7 +694,28 @@ app.registerExtension({
       this.polygonWidget.restoredFromProperties = true;
     };
 
-    chainCallback(nodeType.prototype, "onConfigure", function () {
+    nodeType.prototype.captureConfiguredPolygonInfo = function (serialized) {
+      this.properties = this.properties || {};
+      const sourceProperties = serialized?.properties || {};
+
+      for (const name of ["polygon_info", "polygon_data_value"]) {
+        if (sourceProperties[name]) {
+          this.properties[name] = sourceProperties[name];
+        }
+      }
+
+      if (!this.properties.polygon_data_value && Array.isArray(serialized?.widgets_values)) {
+        const polygonDataIndex = this.widgets?.findIndex((widget) => widget.name === "polygon_data") ?? -1;
+        const polygonDataValue = polygonDataIndex >= 0 ? serialized.widgets_values[polygonDataIndex] : "";
+        if (polygonDataValue) {
+          this.properties.polygon_data_value = polygonDataValue;
+        }
+      }
+    };
+
+    chainCallback(nodeType.prototype, "onConfigure", function (serialized) {
+      this.captureConfiguredPolygonInfo?.(serialized);
+      this.restoreCachedPolygonState?.();
       setTimeout(() => {
         this.restoreCachedPolygonState?.();
       }, 0);
@@ -670,10 +741,21 @@ app.registerExtension({
     });
 
     nodeType.prototype.restorePolygonInfo = function () {
-      const polygonInfo =
-        this.getPolygonWidget("polygon_data")?.value ||
-        this.properties?.polygon_data_value ||
-        this.properties?.polygon_info;
+      const candidates = [
+        this.getPolygonWidget("polygon_data")?.value,
+        this.properties?.polygon_data_value,
+        this.properties?.polygon_info,
+        this.readPolygonInfoCache?.(),
+      ].filter(Boolean);
+
+      const polygonInfo = candidates.find((value) => {
+        try {
+          return isValidPolygonInfo(typeof value === "string" ? JSON.parse(value) : value);
+        } catch {
+          return false;
+        }
+      });
+
       if (!polygonInfo) {
         return;
       }
@@ -698,6 +780,7 @@ app.registerExtension({
             false,
           );
         }
+        this.serializePolygonInfo();
       } catch (error) {
         console.warn("Failed to restore polygon_info", error);
       }
@@ -1017,10 +1100,7 @@ app.registerExtension({
         this.polygonWidget.canvas.width = image.width;
         this.polygonWidget.canvas.height = image.height;
 
-        if (
-          this.polygonWidget.pendingDefaultOnLoad ||
-          (!this.polygonWidget.cleared && this.polygonWidget.polygons.length === 0)
-        ) {
+        if (this.polygonWidget.pendingDefaultOnLoad) {
           this.polygonWidget.polygons = [
             { points: this.createDefaultPolygon(MIN_VERTICES, { x: image.width / 2, y: image.height / 2 }) },
           ];

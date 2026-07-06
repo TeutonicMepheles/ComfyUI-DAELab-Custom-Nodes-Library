@@ -286,6 +286,7 @@ class LoadImagePolygonMask:
                     {
                         "default": "",
                         "multiline": False,
+                        "advanced": True,
                         "tooltip": "Internal cached polygon data. It is managed by the node UI.",
                     },
                 ),

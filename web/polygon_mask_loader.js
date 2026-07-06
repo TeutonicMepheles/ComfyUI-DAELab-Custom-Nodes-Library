@@ -561,6 +561,8 @@ app.registerExtension({
 
       const polygonDataWidget = this.getPolygonWidget("polygon_data");
       if (polygonDataWidget) {
+        polygonDataWidget.options = polygonDataWidget.options || {};
+        polygonDataWidget.options.advanced = true;
         polygonDataWidget.hidden = true;
         polygonDataWidget.computeSize = () => [0, -4];
       }

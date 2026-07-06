@@ -1,0 +1,348 @@
+import hashlib
+import json
+import math
+import os
+import re
+
+import numpy as np
+import torch
+from PIL import Image, ImageDraw, ImageOps, ImageSequence
+
+import folder_paths
+
+
+MIN_VERTEX_COUNT = 3
+MAX_VERTEX_COUNT = 12
+DEFAULT_COLOR = "#FF0000"
+
+
+def _load_image_tensor(image_name):
+    image_path = folder_paths.get_annotated_filepath(image_name)
+
+    image = Image.open(image_path)
+    output_images = []
+
+    excluded_formats = ["MPO"]
+    for frame in ImageSequence.Iterator(image):
+        frame = ImageOps.exif_transpose(frame)
+
+        if frame.mode == "I":
+            frame = frame.point(lambda i: i * (1 / 255))
+
+        frame = frame.convert("RGB")
+        image_np = np.array(frame).astype(np.float32) / 255.0
+        image_tensor = torch.from_numpy(image_np)[None,]
+
+        if len(output_images) > 0 and output_images[0].shape[1:] != image_tensor.shape[1:]:
+            continue
+
+        output_images.append(image_tensor)
+
+        if image.format in excluded_formats:
+            break
+
+    if not output_images:
+        raise ValueError(f"No image frames could be loaded from '{image_name}'")
+
+    return torch.cat(output_images, dim=0)
+
+
+def _get_workflow_node(unique_id, extra_pnginfo):
+    if not extra_pnginfo:
+        return None
+
+    workflow = extra_pnginfo.get("workflow", {})
+    nodes = workflow.get("nodes", [])
+    node_id = str(unique_id)
+
+    for node in nodes:
+        if str(node.get("id")) == node_id:
+            return node
+
+    return None
+
+
+def _get_node_properties(unique_id, extra_pnginfo):
+    node = _get_workflow_node(unique_id, extra_pnginfo)
+    if node is None:
+        return {}
+
+    properties = node.get("properties", {})
+    return properties if isinstance(properties, dict) else {}
+
+
+def _get_node_polygon_info(unique_id, extra_pnginfo):
+    properties = _get_node_properties(unique_id, extra_pnginfo)
+    polygon_info = properties.get("polygon_info", "")
+
+    if isinstance(polygon_info, str) and polygon_info:
+        try:
+            parsed = json.loads(polygon_info)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid stored polygon_info JSON: {exc}") from exc
+        return parsed if isinstance(parsed, dict) else {}
+
+    if isinstance(polygon_info, dict):
+        return polygon_info
+
+    return {}
+
+
+def _resolve_polygon_note(unique_id, extra_pnginfo, polygon_note):
+    if polygon_note is not None:
+        return str(polygon_note)
+
+    properties = _get_node_properties(unique_id, extra_pnginfo)
+    return str(properties.get("polygon_note", ""))
+
+
+def _clamp_int(value, min_value, max_value, default):
+    try:
+        numeric = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, numeric))
+
+
+def _parse_color_component(value):
+    numeric = int(float(value))
+    return max(0, min(255, numeric))
+
+
+def _parse_color(color):
+    value = str(color or DEFAULT_COLOR).strip()
+    hex_match = re.fullmatch(r"#?([0-9a-fA-F]{6})", value)
+    if hex_match:
+        hex_value = hex_match.group(1)
+        return (
+            int(hex_value[0:2], 16),
+            int(hex_value[2:4], 16),
+            int(hex_value[4:6], 16),
+        )
+
+    short_hex_match = re.fullmatch(r"#?([0-9a-fA-F]{3})", value)
+    if short_hex_match:
+        hex_value = short_hex_match.group(1)
+        return tuple(int(channel * 2, 16) for channel in hex_value)
+
+    number_values = re.findall(r"-?\d+(?:\.\d+)?", value)
+    if len(number_values) >= 3:
+        return tuple(_parse_color_component(component) for component in number_values[:3])
+
+    return (255, 0, 0)
+
+
+def _normalize_point(point, width, height):
+    if isinstance(point, dict):
+        x = point.get("x", 0)
+        y = point.get("y", 0)
+    elif isinstance(point, (list, tuple)) and len(point) >= 2:
+        x, y = point[:2]
+    else:
+        return None
+
+    try:
+        x = float(x)
+        y = float(y)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(x) or not math.isfinite(y):
+        return None
+
+    return {
+        "x": max(0.0, min(float(width), x)),
+        "y": max(0.0, min(float(height), y)),
+    }
+
+
+def _parse_polygon_points(info, width, height):
+    points = info.get("points")
+    if not isinstance(points, list):
+        return []
+
+    parsed = []
+    for point in points:
+        normalized = _normalize_point(point, width, height)
+        if normalized is not None:
+            parsed.append(normalized)
+
+    return parsed if len(parsed) >= MIN_VERTEX_COUNT else []
+
+
+def _default_polygon_points(width, height, vertex_count):
+    count = _clamp_int(vertex_count, MIN_VERTEX_COUNT, MAX_VERTEX_COUNT, MIN_VERTEX_COUNT)
+    radius = min(width, height) * 0.28
+    center_x = width / 2.0
+    center_y = height / 2.0
+    points = []
+
+    for index in range(count):
+        angle = -math.pi / 2.0 + (math.pi * 2.0 * index / count)
+        points.append(
+            {
+                "x": center_x + math.cos(angle) * radius,
+                "y": center_y + math.sin(angle) * radius,
+            }
+        )
+
+    return points
+
+
+def _tensor_to_pil(image_tensor):
+    image_np = np.clip(255.0 * image_tensor.cpu().numpy(), 0, 255).astype(np.uint8)
+    return Image.fromarray(image_np).convert("RGB")
+
+
+def _pil_to_tensor(image):
+    image_np = np.array(image.convert("RGB")).astype(np.float32) / 255.0
+    return torch.from_numpy(image_np)[None,]
+
+
+def _draw_polygon_on_image(image, points, color, fill_opacity, outline_width):
+    if len(points) < MIN_VERTEX_COUNT:
+        return image
+
+    rgb = _parse_color(color)
+    opacity = _clamp_int(fill_opacity, 0, 100, 35)
+    line_width = _clamp_int(outline_width, 0, 20, 3)
+    xy = [(point["x"], point["y"]) for point in points]
+
+    base = image.convert("RGBA")
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    if opacity > 0:
+        draw.polygon(xy, fill=(*rgb, round(255 * opacity / 100)))
+    if line_width > 0:
+        draw.line(xy + [xy[0]], fill=(*rgb, 255), width=line_width, joint="curve")
+
+    return Image.alpha_composite(base, overlay).convert("RGB")
+
+
+class LoadImagePolygonMask:
+    @classmethod
+    def INPUT_TYPES(cls):
+        input_dir = folder_paths.get_input_directory()
+        files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
+        files = folder_paths.filter_files_content_types(files, ["image"])
+
+        return {
+            "required": {
+                "image": (sorted(files), {"image_upload": True}),
+                "vertex_count": (
+                    "INT",
+                    {
+                        "default": MIN_VERTEX_COUNT,
+                        "min": MIN_VERTEX_COUNT,
+                        "max": MAX_VERTEX_COUNT,
+                        "step": 1,
+                        "display": "slider",
+                    },
+                ),
+                "color": ("COLOR", {"default": DEFAULT_COLOR}),
+                "fill_opacity": (
+                    "INT",
+                    {"default": 35, "min": 0, "max": 100, "step": 1, "display": "slider"},
+                ),
+                "outline_width": (
+                    "INT",
+                    {"default": 3, "min": 0, "max": 20, "step": 1, "display": "slider"},
+                ),
+                "polygon_note": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": False,
+                        "tooltip": "Semantic note to output with this polygon.",
+                    },
+                ),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+            },
+        }
+
+    DESCRIPTION = "Load an image, edit a closed polygon overlay, and output the composited image."
+    RETURN_TYPES = ("IMAGE", "STRING")
+    RETURN_NAMES = ("image", "string")
+    FUNCTION = "execute"
+    CATEGORY = "image/polygon"
+    SEARCH_ALIASES = ["load image polygon", "polygon mask", "polygon overlay"]
+
+    def execute(
+        self,
+        image,
+        vertex_count=MIN_VERTEX_COUNT,
+        color=DEFAULT_COLOR,
+        fill_opacity=35,
+        outline_width=3,
+        polygon_note="",
+        unique_id=None,
+        extra_pnginfo=None,
+    ):
+        image_tensor = _load_image_tensor(image)
+        info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        note = _resolve_polygon_note(unique_id, extra_pnginfo, polygon_note)
+
+        if info.get("cleared") is True:
+            return (image_tensor, note)
+
+        width = int(image_tensor.shape[2])
+        height = int(image_tensor.shape[1])
+        points = _parse_polygon_points(info, width, height)
+
+        if not points:
+            if "points" in info:
+                return (image_tensor, note)
+            points = _default_polygon_points(width, height, vertex_count)
+
+        output_images = []
+        for frame in image_tensor:
+            pil_image = _tensor_to_pil(frame)
+            composited = _draw_polygon_on_image(pil_image, points, color, fill_opacity, outline_width)
+            output_images.append(_pil_to_tensor(composited))
+
+        return (torch.cat(output_images, dim=0), note)
+
+    @classmethod
+    def IS_CHANGED(
+        cls,
+        image,
+        vertex_count=MIN_VERTEX_COUNT,
+        color=DEFAULT_COLOR,
+        fill_opacity=35,
+        outline_width=3,
+        polygon_note="",
+        unique_id=None,
+        extra_pnginfo=None,
+    ):
+        image_path = folder_paths.get_annotated_filepath(image)
+        digest = hashlib.sha256()
+        with open(image_path, "rb") as file:
+            digest.update(file.read())
+
+        digest.update(str(_clamp_int(vertex_count, MIN_VERTEX_COUNT, MAX_VERTEX_COUNT, MIN_VERTEX_COUNT)).encode("utf-8"))
+        digest.update(str(color).encode("utf-8"))
+        digest.update(str(_clamp_int(fill_opacity, 0, 100, 35)).encode("utf-8"))
+        digest.update(str(_clamp_int(outline_width, 0, 20, 3)).encode("utf-8"))
+        digest.update(_resolve_polygon_note(unique_id, extra_pnginfo, polygon_note).encode("utf-8"))
+        polygon_info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        digest.update(json.dumps(polygon_info, sort_keys=True).encode("utf-8"))
+        return digest.hexdigest()
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, image):
+        if not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
+        return True
+
+
+NODE_CLASS_MAPPINGS = {
+    "LoadImagePolygonMask": LoadImagePolygonMask,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "LoadImagePolygonMask": "Load Image + Polygon Mask",
+}

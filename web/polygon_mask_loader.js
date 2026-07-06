@@ -229,6 +229,8 @@ app.registerExtension({
     }
 
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
+      this.cleanupLegacyPolygonInputs?.();
+
       const imageWidget = this.widgets?.find((widget) => widget.name === "image");
       if (!imageWidget) {
         return;
@@ -511,6 +513,24 @@ app.registerExtension({
       return this.widgets?.find((widget) => widget.name === name);
     };
 
+    nodeType.prototype.cleanupLegacyPolygonInputs = function () {
+      if (!Array.isArray(this.inputs)) {
+        return;
+      }
+
+      for (let index = this.inputs.length - 1; index >= 0; index -= 1) {
+        if (this.inputs[index]?.name !== "input_image") {
+          continue;
+        }
+
+        if (typeof this.removeInput === "function") {
+          this.removeInput(index);
+        } else {
+          this.inputs.splice(index, 1);
+        }
+      }
+    };
+
     nodeType.prototype.getPolygonPanelHeight = function () {
       this.properties = this.properties || {};
       this.properties.polygon_canvas_height = clampPanelHeight(this.properties.polygon_canvas_height);
@@ -534,7 +554,6 @@ app.registerExtension({
     nodeType.prototype.bindPolygonWidgetCallbacks = function () {
       const imageWidget = this.getPolygonWidget("image");
       const vertexWidget = this.getPolygonWidget("vertex_count");
-      const noteWidget = this.getPolygonWidget("polygon_note");
 
       if (imageWidget && !imageWidget._polygonMaskStateBound) {
         const originalImageCallback = imageWidget.callback;
@@ -567,7 +586,7 @@ app.registerExtension({
         polygonDataWidget.computeSize = () => [0, -4];
       }
 
-      for (const widgetName of ["color", "fill_opacity", "outline_width", "polygon_note"]) {
+      for (const widgetName of ["color", "fill_opacity", "outline_width"]) {
         const widget = this.getPolygonWidget(widgetName);
         if (!widget || widget._polygonMaskGenericStateBound) {
           continue;
@@ -581,16 +600,12 @@ app.registerExtension({
         };
         widget._polygonMaskGenericStateBound = true;
       }
-
-      if (noteWidget) {
-        noteWidget._polygonMaskStateBound = true;
-      }
     };
 
     nodeType.prototype.savePolygonWidgetState = function (markDirty = true) {
       this.properties = this.properties || {};
 
-      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note", "polygon_data"]) {
+      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data"]) {
         const widget = this.getPolygonWidget(name);
         if (widget) {
           this.properties[`${name}_value`] = widget.value ?? "";
@@ -605,7 +620,7 @@ app.registerExtension({
     nodeType.prototype.restorePolygonWidgetState = function () {
       this.properties = this.properties || {};
 
-      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note", "polygon_data"]) {
+      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data"]) {
         const widget = this.getPolygonWidget(name);
         const propertyName = `${name}_value`;
         if (widget && Object.prototype.hasOwnProperty.call(this.properties, propertyName)) {
@@ -716,6 +731,7 @@ app.registerExtension({
     };
 
     chainCallback(nodeType.prototype, "onConfigure", function (serialized) {
+      this.cleanupLegacyPolygonInputs?.();
       this.captureConfiguredPolygonInfo?.(serialized);
       this.restoreCachedPolygonState?.();
       setTimeout(() => {
@@ -730,7 +746,7 @@ app.registerExtension({
         serialized.properties.polygon_info = this.properties?.polygon_info || "";
         serialized.properties.polygon_canvas_height = this.getPolygonPanelHeight();
         serialized.properties.polygon_data_value = this.properties?.polygon_data_value || this.properties?.polygon_info || "";
-        for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_note", "polygon_data"]) {
+        for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data"]) {
           serialized.properties[`${name}_value`] = this.properties?.[`${name}_value`] ?? "";
         }
       }

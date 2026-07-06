@@ -10,7 +10,7 @@
 
 Loads an input image and displays editable closed polygons in the node UI. The first polygon defaults to a centered triangle. Hold `Shift` and left-click the image to add another default triangle at the clicked position.
 
-The node outputs the original image with all polygon overlays composited at the original image size, plus a string note that can describe the polygon semantics.
+The node outputs the original image with all polygon overlays composited at the original image size, plus the unchanged source image.
 
 The node UI keeps both the editable polygon canvas and the default image preview, each with a visible title.
 The canvas also shows a compact interaction note for `Shift + left-click` and `Shift + right-click`.
@@ -22,12 +22,11 @@ The canvas also shows a compact interaction note for `Shift + left-click` and `S
 - `color`: polygon color. Uses the `COLOR` widget compatible with LayerUtility/LayerStyle ColorPicker.
 - `fill_opacity`: polygon fill opacity, 0 to 100.
 - `outline_width`: polygon outline width, 0 to 20.
-- `polygon_note`: note string passed through to the `string` output.
 
 ## Outputs
 
-- `image`: image with all polygon overlays.
-- `string`: the `polygon_note` value.
+- `masked_image`: image with all polygon overlays.
+- `source_image`: unchanged source image loaded by the node.
 
 ## UI
 

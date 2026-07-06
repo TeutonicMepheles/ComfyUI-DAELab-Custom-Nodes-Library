@@ -89,14 +89,6 @@ def _get_node_polygon_info(unique_id, extra_pnginfo):
     return {}
 
 
-def _resolve_polygon_note(unique_id, extra_pnginfo, polygon_note):
-    if polygon_note is not None:
-        return str(polygon_note)
-
-    properties = _get_node_properties(unique_id, extra_pnginfo)
-    return str(properties.get("polygon_note", ""))
-
-
 def _clamp_int(value, min_value, max_value, default):
     try:
         numeric = int(value)
@@ -273,14 +265,6 @@ class LoadImagePolygonMask:
                     "INT",
                     {"default": 3, "min": 0, "max": 20, "step": 1, "display": "slider"},
                 ),
-                "polygon_note": (
-                    "STRING",
-                    {
-                        "default": "",
-                        "multiline": False,
-                        "tooltip": "Semantic note to output with this polygon.",
-                    },
-                ),
                 "polygon_data": (
                     "STRING",
                     {
@@ -297,9 +281,9 @@ class LoadImagePolygonMask:
             },
         }
 
-    DESCRIPTION = "Load an image, edit a closed polygon overlay, and output the composited image."
-    RETURN_TYPES = ("IMAGE", "STRING")
-    RETURN_NAMES = ("image", "string")
+    DESCRIPTION = "Load an image, edit closed polygon overlays, and output the masked image plus the source image."
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("masked_image", "source_image")
     FUNCTION = "execute"
     CATEGORY = "image/polygon"
     SEARCH_ALIASES = ["load image polygon", "polygon mask", "polygon overlay"]
@@ -311,7 +295,6 @@ class LoadImagePolygonMask:
         color=DEFAULT_COLOR,
         fill_opacity=35,
         outline_width=3,
-        polygon_note="",
         polygon_data="",
         unique_id=None,
         extra_pnginfo=None,
@@ -326,10 +309,9 @@ class LoadImagePolygonMask:
                 raise ValueError(f"Invalid polygon_data JSON: {exc}") from exc
         if not info:
             info = _get_node_polygon_info(unique_id, extra_pnginfo)
-        note = _resolve_polygon_note(unique_id, extra_pnginfo, polygon_note)
 
         if info.get("cleared") is True:
-            return (image_tensor, note)
+            return (image_tensor, image_tensor)
 
         width = int(image_tensor.shape[2])
         height = int(image_tensor.shape[1])
@@ -337,7 +319,7 @@ class LoadImagePolygonMask:
 
         if not polygons:
             if "polygons" in info or "points" in info:
-                return (image_tensor, note)
+                return (image_tensor, image_tensor)
             polygons = [_default_polygon_points(width, height, vertex_count)]
 
         output_images = []
@@ -346,7 +328,7 @@ class LoadImagePolygonMask:
             composited = _draw_polygons_on_image(pil_image, polygons, color, fill_opacity, outline_width)
             output_images.append(_pil_to_tensor(composited))
 
-        return (torch.cat(output_images, dim=0), note)
+        return (torch.cat(output_images, dim=0), image_tensor)
 
     @classmethod
     def IS_CHANGED(
@@ -356,7 +338,6 @@ class LoadImagePolygonMask:
         color=DEFAULT_COLOR,
         fill_opacity=35,
         outline_width=3,
-        polygon_note="",
         polygon_data="",
         unique_id=None,
         extra_pnginfo=None,
@@ -370,7 +351,6 @@ class LoadImagePolygonMask:
         digest.update(str(color).encode("utf-8"))
         digest.update(str(_clamp_int(fill_opacity, 0, 100, 35)).encode("utf-8"))
         digest.update(str(_clamp_int(outline_width, 0, 20, 3)).encode("utf-8"))
-        digest.update(_resolve_polygon_note(unique_id, extra_pnginfo, polygon_note).encode("utf-8"))
         digest.update(str(polygon_data or "").encode("utf-8"))
         polygon_info = _get_node_polygon_info(unique_id, extra_pnginfo)
         digest.update(json.dumps(polygon_info, sort_keys=True).encode("utf-8"))

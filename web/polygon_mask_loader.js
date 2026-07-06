@@ -7,6 +7,17 @@ const PANEL_DEFAULT_HEIGHT = 430;
 const PANEL_MIN_HEIGHT = 280;
 const PANEL_MAX_HEIGHT = 1400;
 const POLYGON_CACHE_PREFIX = "DAELab.LoadImagePolygonMask";
+const SAM3_PROMPT_COLORS = [
+  { primary: "#00FFFF", dim: "#006666" },
+  { primary: "#FFFF00", dim: "#666600" },
+  { primary: "#FF00FF", dim: "#660066" },
+  { primary: "#00FF00", dim: "#006600" },
+  { primary: "#FF8000", dim: "#663300" },
+  { primary: "#FF69B4", dim: "#662944" },
+  { primary: "#4169E1", dim: "#1a2a5c" },
+  { primary: "#20B2AA", dim: "#0d4744" },
+];
+const SAM3_MAX_PROMPTS = SAM3_PROMPT_COLORS.length;
 
 function chainCallback(object, property, callback) {
   const original = object[property];
@@ -39,6 +50,32 @@ function createButton(label, title, onClick) {
   ].join(";");
   button.addEventListener("click", onClick);
   return button;
+}
+
+function applyButtonTheme(button, theme) {
+  const themes = {
+    green: { bg: "#2a7a2a", hover: "#3a9a3a", border: "#3a9a3a", color: "#fff" },
+    blue: { bg: "#2563eb", hover: "#1d4ed8", border: "#3b82f6", color: "#fff" },
+    orange: { bg: "#a50", hover: "#c60", border: "#830", color: "#fff" },
+    red: { bg: "#d44", hover: "#e55", border: "#a22", color: "#fff" },
+  };
+  const colors = themes[theme];
+  if (!button || !colors) {
+    return;
+  }
+  button.style.background = colors.bg;
+  button.style.borderColor = colors.border;
+  button.style.color = colors.color;
+  button.onmouseover = () => {
+    if (!button.disabled) {
+      button.style.background = colors.hover;
+    }
+  };
+  button.onmouseout = () => {
+    if (!button.disabled) {
+      button.style.background = colors.bg;
+    }
+  };
 }
 
 function createSectionTitle(text) {
@@ -75,6 +112,28 @@ function createHelpNote(text) {
     "font:12px sans-serif",
   ].join(";");
   return note;
+}
+
+function hideWidget(widget) {
+  if (!widget) {
+    return;
+  }
+  widget.hidden = true;
+  widget.type = "converted-widget";
+  widget.computeSize = () => [0, -4];
+  if (widget.element) {
+    widget.element.style.display = "none";
+  }
+}
+
+function createSam3Prompt() {
+  return {
+    positive_points: [],
+    negative_points: [],
+    positive_boxes: [],
+    negative_boxes: [],
+    name: "Prompt 1",
+  };
 }
 
 function clamp(value, min, max) {
@@ -366,15 +425,136 @@ app.registerExtension({
 
       const previewTitle = createSectionTitle("\u539f\u56fe\u9884\u89c8");
       previewTitle.style.marginTop = "4px";
+      previewTitle.textContent = "SAM3 Prompt \u7ed8\u5236\u753b\u5e03";
       const previewTitleWidget = this.addDOMWidget("polygon_preview_title", "polygon_preview_title", previewTitle);
       previewTitleWidget.computeSize = (width) => [width, 34];
 
+      const sam3Container = document.createElement("div");
+      sam3Container.style.cssText = [
+        "position:relative",
+        "width:100%",
+        "height:100%",
+        "background:#111",
+        "overflow:hidden",
+        "display:flex",
+        "flex-direction:column",
+        "box-sizing:border-box",
+        "border-radius:4px",
+      ].join(";");
+
+      const sam3InfoBar = document.createElement("div");
+      sam3InfoBar.style.cssText = [
+        "height:34px",
+        "display:flex",
+        "align-items:center",
+        "justify-content:space-between",
+        "gap:8px",
+        "padding:5px",
+        "box-sizing:border-box",
+        "background:#202225",
+        "border-bottom:1px solid #333",
+      ].join(";");
+
+      const sam3Counter = document.createElement("div");
+      sam3Counter.style.cssText = "color:#fff;font:12px monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+      sam3Counter.textContent = "Prompt 1: 0 pts, 0 boxes";
+
+      const sam3Buttons = document.createElement("div");
+      sam3Buttons.style.cssText = "display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end";
+      const runSam3Button = createButton("Run", "Run SAM3 masks and visualization for the current prompts", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.runSam3Prompts();
+      });
+      runSam3Button.style.fontWeight = "700";
+      runSam3Button.style.minWidth = "46px";
+      applyButtonTheme(runSam3Button, "green");
+
+      const loadMaskedImageButton = createButton("Load Masked Image", "Load the latest masked_image into the SAM3 prompt canvas", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.loadMaskedImageIntoSam3Canvas();
+      });
+      loadMaskedImageButton.style.minWidth = "118px";
+      applyButtonTheme(loadMaskedImageButton, "blue");
+
+      const clearPromptButton = createButton("Clear Prompt", "Clear active SAM3 prompt", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.clearSam3ActivePrompt();
+      });
+      applyButtonTheme(clearPromptButton, "orange");
+      const clearAllPromptsButton = createButton("Clear All", "Clear all SAM3 prompts", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.clearAllSam3Prompts();
+      });
+      applyButtonTheme(clearAllPromptsButton, "red");
+      sam3Buttons.appendChild(runSam3Button);
+      sam3Buttons.appendChild(loadMaskedImageButton);
+      sam3Buttons.appendChild(clearPromptButton);
+      sam3Buttons.appendChild(clearAllPromptsButton);
+      sam3InfoBar.appendChild(sam3Counter);
+      sam3InfoBar.appendChild(sam3Buttons);
+
+      const sam3CanvasWrapper = document.createElement("div");
+      sam3CanvasWrapper.style.cssText = [
+        "flex:1",
+        "min-height:200px",
+        "display:flex",
+        "align-items:center",
+        "justify-content:center",
+        "overflow:hidden",
+        "background:#141414",
+      ].join(";");
+
+      const sam3Canvas = document.createElement("canvas");
+      sam3Canvas.width = 512;
+      sam3Canvas.height = 512;
+      sam3Canvas.style.cssText = "display:block;max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair";
+      sam3CanvasWrapper.appendChild(sam3Canvas);
+
+      const sam3TabBar = document.createElement("div");
+      sam3TabBar.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;padding:6px;background:#1a1a1a;border-top:1px solid #333";
+
+      sam3Container.appendChild(sam3InfoBar);
+      sam3Container.appendChild(sam3CanvasWrapper);
+      sam3Container.appendChild(sam3TabBar);
+
+      this.sam3Widget = {
+        container: sam3Container,
+        canvas: sam3Canvas,
+        ctx: sam3Canvas.getContext("2d"),
+        image: null,
+        imageValue: null,
+        maskedImage: null,
+        maskedImageValue: null,
+        prompts: [createSam3Prompt()],
+        activePromptIndex: 0,
+        currentBox: null,
+        isDrawingBox: false,
+        hoveredItem: null,
+        isRunning: false,
+        tabBar: sam3TabBar,
+        counter: sam3Counter,
+        runButton: runSam3Button,
+      };
+
+      const sam3Widget = this.addDOMWidget("sam3_prompt_canvas", "sam3_prompt_canvas", sam3Container);
+      sam3Widget.computeSize = (width) => [width, Math.max(300, this.getPolygonPanelHeight())];
+
       this.restorePolygonInfo();
+      this.restoreSam3Prompts();
+      this.rebuildSam3TabBar();
       this.loadPolygonImage(false);
       this.redrawPolygonCanvas();
+      this.redrawSam3Canvas();
+      this.updateSam3RunButton();
       this.updatePolygonButtons();
 
       this.bindPolygonWidgetCallbacks();
+      this.bindSam3CanvasEvents();
+      this.suppressDefaultPolygonPreview?.();
 
       chainCallback(this, "onResize", function (size) {
         const previousNodeHeight = this.polygonWidget.lastNodeHeight;
@@ -399,6 +579,7 @@ app.registerExtension({
       });
 
       chainCallback(this, "onDrawForeground", function () {
+        this.suppressDefaultPolygonPreview?.();
         this.handlePolygonImageSelectionChanged(false);
         this.setPolygonPanelHeight(this.getPolygonPanelHeight(), false);
       });
@@ -513,6 +694,12 @@ app.registerExtension({
       return this.widgets?.find((widget) => widget.name === name);
     };
 
+    nodeType.prototype.suppressDefaultPolygonPreview = function () {
+      this.imgs = [];
+      this.imageIndex = null;
+      this.overIndex = null;
+    };
+
     nodeType.prototype.cleanupLegacyPolygonInputs = function () {
       if (!Array.isArray(this.inputs)) {
         return;
@@ -582,8 +769,15 @@ app.registerExtension({
       if (polygonDataWidget) {
         polygonDataWidget.options = polygonDataWidget.options || {};
         polygonDataWidget.options.advanced = true;
-        polygonDataWidget.hidden = true;
-        polygonDataWidget.computeSize = () => [0, -4];
+        hideWidget(polygonDataWidget);
+      }
+
+      const sam3PromptsWidget = this.getPolygonWidget("sam3_prompts_data");
+      if (sam3PromptsWidget) {
+        sam3PromptsWidget.value = sam3PromptsWidget.value || "[]";
+        sam3PromptsWidget.options = sam3PromptsWidget.options || {};
+        sam3PromptsWidget.options.advanced = true;
+        hideWidget(sam3PromptsWidget);
       }
 
       for (const widgetName of ["color", "fill_opacity", "outline_width"]) {
@@ -605,7 +799,7 @@ app.registerExtension({
     nodeType.prototype.savePolygonWidgetState = function (markDirty = true) {
       this.properties = this.properties || {};
 
-      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data"]) {
+      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data", "sam3_prompts_data"]) {
         const widget = this.getPolygonWidget(name);
         if (widget) {
           this.properties[`${name}_value`] = widget.value ?? "";
@@ -620,7 +814,7 @@ app.registerExtension({
     nodeType.prototype.restorePolygonWidgetState = function () {
       this.properties = this.properties || {};
 
-      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data"]) {
+      for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data", "sam3_prompts_data"]) {
         const widget = this.getPolygonWidget(name);
         const propertyName = `${name}_value`;
         if (widget && Object.prototype.hasOwnProperty.call(this.properties, propertyName)) {
@@ -721,6 +915,10 @@ app.registerExtension({
         }
       }
 
+      if (sourceProperties.sam3_prompts_data_value) {
+        this.properties.sam3_prompts_data_value = sourceProperties.sam3_prompts_data_value;
+      }
+
       if (!this.properties.polygon_data_value && Array.isArray(serialized?.widgets_values)) {
         const polygonDataIndex = this.widgets?.findIndex((widget) => widget.name === "polygon_data") ?? -1;
         const polygonDataValue = polygonDataIndex >= 0 ? serialized.widgets_values[polygonDataIndex] : "";
@@ -728,15 +926,50 @@ app.registerExtension({
           this.properties.polygon_data_value = polygonDataValue;
         }
       }
+
+      if (!this.properties.sam3_prompts_data_value && Array.isArray(serialized?.widgets_values)) {
+        const sam3DataIndex = this.widgets?.findIndex((widget) => widget.name === "sam3_prompts_data") ?? -1;
+        const sam3DataValue = sam3DataIndex >= 0 ? serialized.widgets_values[sam3DataIndex] : "";
+        if (sam3DataValue) {
+          this.properties.sam3_prompts_data_value = sam3DataValue;
+        }
+      }
     };
 
     chainCallback(nodeType.prototype, "onConfigure", function (serialized) {
       this.cleanupLegacyPolygonInputs?.();
+      this.suppressDefaultPolygonPreview?.();
       this.captureConfiguredPolygonInfo?.(serialized);
       this.restoreCachedPolygonState?.();
+      this.restoreSam3Prompts?.();
       setTimeout(() => {
+        this.suppressDefaultPolygonPreview?.();
         this.restoreCachedPolygonState?.();
+        this.restoreSam3Prompts?.();
       }, 0);
+    });
+
+    chainCallback(nodeType.prototype, "onExecuted", function () {
+      if (this.sam3Widget?.isRunning) {
+        this.sam3Widget.isRunning = false;
+        this.updateSam3RunButton?.();
+      }
+      this.suppressDefaultPolygonPreview?.();
+      app.graph.setDirtyCanvas(true, true);
+    });
+
+    chainCallback(nodeType.prototype, "onExecuted", function (message) {
+      const encoded = message?.masked_image?.[0];
+      if (!encoded || !this.sam3Widget) {
+        return;
+      }
+      const image = new Image();
+      image.onload = () => {
+        this.sam3Widget.maskedImage = image;
+        this.sam3Widget.maskedImageValue = encoded;
+        this.redrawSam3Canvas();
+      };
+      image.src = `data:image/jpeg;base64,${encoded}`;
     });
 
     chainCallback(nodeType.prototype, "onSerialize", function (serialized) {
@@ -746,7 +979,9 @@ app.registerExtension({
         serialized.properties.polygon_info = this.properties?.polygon_info || "";
         serialized.properties.polygon_canvas_height = this.getPolygonPanelHeight();
         serialized.properties.polygon_data_value = this.properties?.polygon_data_value || this.properties?.polygon_info || "";
-        for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data"]) {
+        this.serializeSam3Prompts?.();
+        serialized.properties.sam3_prompts_data_value = this.properties?.sam3_prompts_data_value || "[]";
+        for (const name of ["image", "vertex_count", "color", "fill_opacity", "outline_width", "polygon_data", "sam3_prompts_data"]) {
           serialized.properties[`${name}_value`] = this.properties?.[`${name}_value`] ?? "";
         }
       }
@@ -754,6 +989,10 @@ app.registerExtension({
         const polygonDataIndex = this.widgets?.findIndex((widget) => widget.name === "polygon_data") ?? -1;
         if (polygonDataIndex >= 0) {
           serialized.widgets_values[polygonDataIndex] = this.properties?.polygon_info || "";
+        }
+        const sam3DataIndex = this.widgets?.findIndex((widget) => widget.name === "sam3_prompts_data") ?? -1;
+        if (sam3DataIndex >= 0) {
+          serialized.widgets_values[sam3DataIndex] = this.properties?.sam3_prompts_data_value || "[]";
         }
       }
     });
@@ -807,6 +1046,535 @@ app.registerExtension({
     nodeType.prototype.updatePolygonInfo = function () {
       this.serializePolygonInfo();
       app.graph.setDirtyCanvas(true, true);
+    };
+
+    nodeType.prototype.getSam3PromptsForStorage = function () {
+      return (this.sam3Widget?.prompts || []).map((prompt, index) => ({
+        positive_points: clonePoints(prompt.positive_points),
+        negative_points: clonePoints(prompt.negative_points),
+        positive_boxes: (prompt.positive_boxes || []).map((box) => ({ ...box })),
+        negative_boxes: (prompt.negative_boxes || []).map((box) => ({ ...box })),
+        name: prompt.name || `Prompt ${index + 1}`,
+      }));
+    };
+
+    nodeType.prototype.serializeSam3Prompts = function () {
+      this.properties = this.properties || {};
+      const value = JSON.stringify(this.getSam3PromptsForStorage());
+      this.properties.sam3_prompts_data_value = value;
+      const widget = this.getPolygonWidget("sam3_prompts_data");
+      if (widget) {
+        widget.value = value;
+      }
+      return value;
+    };
+
+    nodeType.prototype.restoreSam3Prompts = function () {
+      if (!this.sam3Widget) {
+        return;
+      }
+      const raw =
+        this.getPolygonWidget("sam3_prompts_data")?.value ||
+        this.properties?.sam3_prompts_data_value ||
+        this.properties?.sam3_prompts_data_value_value;
+      if (!raw) {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          return;
+        }
+        this.sam3Widget.prompts = parsed.slice(0, SAM3_MAX_PROMPTS).map((prompt, index) => ({
+          positive_points: clonePoints(prompt.positive_points),
+          negative_points: clonePoints(prompt.negative_points),
+          positive_boxes: (prompt.positive_boxes || []).map((box) => ({
+            x1: Number(box.x1) || 0,
+            y1: Number(box.y1) || 0,
+            x2: Number(box.x2) || 0,
+            y2: Number(box.y2) || 0,
+          })),
+          negative_boxes: (prompt.negative_boxes || []).map((box) => ({
+            x1: Number(box.x1) || 0,
+            y1: Number(box.y1) || 0,
+            x2: Number(box.x2) || 0,
+            y2: Number(box.y2) || 0,
+          })),
+          name: prompt.name || `Prompt ${index + 1}`,
+        }));
+        this.sam3Widget.activePromptIndex = clamp(this.sam3Widget.activePromptIndex, 0, this.sam3Widget.prompts.length - 1);
+        this.serializeSam3Prompts();
+        this.rebuildSam3TabBar();
+        this.redrawSam3Canvas();
+      } catch (error) {
+        console.warn("Failed to restore sam3_prompts_data", error);
+      }
+    };
+
+    nodeType.prototype.updateSam3Storage = function () {
+      this.serializeSam3Prompts();
+      this.updateSam3Counter();
+      this.updateSam3RunButton();
+      app.graph.setDirtyCanvas(true, true);
+    };
+
+    nodeType.prototype.hasSam3PromptContent = function (prompt) {
+      return !!(
+        prompt &&
+        ((prompt.positive_points || []).length > 0 ||
+          (prompt.negative_points || []).length > 0 ||
+          (prompt.positive_boxes || []).length > 0 ||
+          (prompt.negative_boxes || []).length > 0)
+      );
+    };
+
+    nodeType.prototype.getSam3ActivePrompt = function () {
+      return this.sam3Widget?.prompts?.[this.sam3Widget.activePromptIndex];
+    };
+
+    nodeType.prototype.updateSam3RunButton = function () {
+      const button = this.sam3Widget?.runButton;
+      if (!button) {
+        return;
+      }
+      const blocked = !!this.sam3Widget?.isRunning;
+      button.textContent = "Run";
+      button.disabled = blocked;
+      button.style.background = blocked ? "#333" : "#2a7a2a";
+      button.style.borderColor = blocked ? "#444" : "#3a9a3a";
+      button.style.color = blocked ? "#555" : "#fff";
+      button.style.cursor = blocked ? "default" : "pointer";
+    };
+
+    nodeType.prototype.setSam3PromptsWidgetValue = function (value) {
+      this.properties = this.properties || {};
+      this.properties.sam3_prompts_data_value = value;
+      const widget = this.getPolygonWidget("sam3_prompts_data");
+      if (widget) {
+        widget.value = value;
+      }
+    };
+
+    nodeType.prototype.runSam3Prompts = async function () {
+      if (!this.sam3Widget || this.sam3Widget.isRunning) {
+        return;
+      }
+
+      const activePrompt = this.getSam3ActivePrompt();
+      if (!this.hasSam3PromptContent(activePrompt)) {
+        return;
+      }
+
+      const fullPromptValue = JSON.stringify(this.getSam3PromptsForStorage());
+      const activePromptValue = JSON.stringify([
+        {
+          positive_points: clonePoints(activePrompt.positive_points),
+          negative_points: clonePoints(activePrompt.negative_points),
+          positive_boxes: (activePrompt.positive_boxes || []).map((box) => ({ ...box })),
+          negative_boxes: (activePrompt.negative_boxes || []).map((box) => ({ ...box })),
+          name: activePrompt.name || `Prompt ${this.sam3Widget.activePromptIndex + 1}`,
+        },
+      ]);
+
+      this.sam3Widget.isRunning = true;
+      this.updateSam3RunButton();
+      this.setSam3PromptsWidgetValue(activePromptValue);
+
+      try {
+        const result = app.queuePrompt(0, 1);
+        if (result && typeof result.then === "function") {
+          await result;
+        }
+      } catch (error) {
+        console.error("Failed to queue SAM3 polygon prompt run", error);
+        this.sam3Widget.isRunning = false;
+        this.updateSam3RunButton();
+      } finally {
+        this.setSam3PromptsWidgetValue(fullPromptValue);
+      }
+    };
+
+    nodeType.prototype.bindSam3CanvasEvents = function () {
+      const canvas = this.sam3Widget?.canvas;
+      if (!canvas || canvas._sam3PolygonBound) {
+        return;
+      }
+
+      canvas.addEventListener("mousedown", (event) => {
+        if (!this.sam3Widget.image || (event.button !== 0 && event.button !== 2)) {
+          return;
+        }
+        event.preventDefault();
+        const coords = this.getSam3CanvasCoords(event);
+        const prompt = this.getSam3ActivePrompt();
+        if (!prompt) {
+          return;
+        }
+
+        if (event.shiftKey) {
+          this.sam3Widget.currentBox = { x1: coords.x, y1: coords.y, x2: coords.x, y2: coords.y, isNegative: event.button === 2 };
+          this.sam3Widget.isDrawingBox = true;
+          this.redrawSam3Canvas();
+          return;
+        }
+
+        const points = event.button === 2 ? prompt.negative_points : prompt.positive_points;
+        points.push(coords);
+        this.updateSam3Storage();
+        this.redrawSam3Canvas();
+      });
+
+      canvas.addEventListener("mousemove", (event) => {
+        if (!this.sam3Widget.image) {
+          return;
+        }
+        const coords = this.getSam3CanvasCoords(event);
+        if (this.sam3Widget.isDrawingBox && this.sam3Widget.currentBox) {
+          this.sam3Widget.currentBox.x2 = coords.x;
+          this.sam3Widget.currentBox.y2 = coords.y;
+          this.redrawSam3Canvas();
+          return;
+        }
+        const hovered = this.findSam3ItemAt(coords.x, coords.y);
+        if (hovered !== this.sam3Widget.hoveredItem) {
+          this.sam3Widget.hoveredItem = hovered;
+          this.redrawSam3Canvas();
+        }
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        if (!this.sam3Widget.isDrawingBox || !this.sam3Widget.currentBox) {
+          return;
+        }
+        const box = this.sam3Widget.currentBox;
+        const width = Math.abs(box.x2 - box.x1);
+        const height = Math.abs(box.y2 - box.y1);
+        if (width > 5 && height > 5) {
+          const normalizedBox = {
+            x1: Math.min(box.x1, box.x2),
+            y1: Math.min(box.y1, box.y2),
+            x2: Math.max(box.x1, box.x2),
+            y2: Math.max(box.y1, box.y2),
+          };
+          const prompt = this.getSam3ActivePrompt();
+          const boxes = box.isNegative ? prompt.negative_boxes : prompt.positive_boxes;
+          boxes.push(normalizedBox);
+          this.updateSam3Storage();
+        }
+        this.sam3Widget.currentBox = null;
+        this.sam3Widget.isDrawingBox = false;
+        this.redrawSam3Canvas();
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        this.sam3Widget.currentBox = null;
+        this.sam3Widget.isDrawingBox = false;
+        this.redrawSam3Canvas();
+      });
+      canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+      canvas._sam3PolygonBound = true;
+    };
+
+    nodeType.prototype.getSam3CanvasCoords = function (event) {
+      const canvas = this.sam3Widget.canvas;
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: clamp(((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width, 0, canvas.width),
+        y: clamp(((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height, 0, canvas.height),
+      };
+    };
+
+    nodeType.prototype.rebuildSam3TabBar = function () {
+      const widget = this.sam3Widget;
+      if (!widget?.tabBar) {
+        return;
+      }
+      widget.tabBar.innerHTML = "";
+      widget.prompts.forEach((prompt, index) => {
+        const color = SAM3_PROMPT_COLORS[index % SAM3_PROMPT_COLORS.length];
+        const isActive = index === widget.activePromptIndex;
+        const tab = document.createElement("div");
+        tab.style.cssText = [
+          "display:flex",
+          "align-items:center",
+          "gap:6px",
+          "padding:4px 8px",
+          `background:${isActive ? "#333" : "#2a2a2a"}`,
+          `border:1px solid ${isActive ? color.primary : "#444"}`,
+          "border-radius:4px",
+          "cursor:pointer",
+          "font:11px sans-serif",
+          `color:${isActive ? "#fff" : "#aaa"}`,
+        ].join(";");
+        const dot = document.createElement("span");
+        dot.style.cssText = `width:10px;height:10px;border-radius:2px;background:${color.primary};flex-shrink:0`;
+        const label = document.createElement("span");
+        label.textContent = prompt.name || `Prompt ${index + 1}`;
+        label.title = "Right-click to rename";
+        label.oncontextmenu = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const nextName = window.prompt("Prompt name", label.textContent);
+          if (nextName !== null) {
+            prompt.name = nextName.trim() || `Prompt ${index + 1}`;
+            this.updateSam3Storage();
+            this.rebuildSam3TabBar();
+          }
+        };
+        tab.appendChild(dot);
+        tab.appendChild(label);
+        if (widget.prompts.length > 1) {
+          const deleteButton = document.createElement("span");
+          deleteButton.textContent = "x";
+          deleteButton.style.cssText = "color:#888;cursor:pointer;font-size:13px;padding:0 2px";
+          deleteButton.onclick = (event) => {
+            event.stopPropagation();
+            this.deleteSam3Prompt(index);
+          };
+          tab.appendChild(deleteButton);
+        }
+        tab.onclick = () => this.setSam3ActivePrompt(index);
+        widget.tabBar.appendChild(tab);
+      });
+
+      if (widget.prompts.length < SAM3_MAX_PROMPTS) {
+        const addButton = document.createElement("button");
+        addButton.textContent = "+";
+        addButton.style.cssText = "padding:4px 12px;background:#2a5a2a;border:1px solid #3a7a3a;border-radius:4px;color:#8f8;cursor:pointer;font:700 14px sans-serif";
+        addButton.onclick = () => this.addSam3Prompt();
+        widget.tabBar.appendChild(addButton);
+      }
+      this.updateSam3Counter();
+      this.updateSam3RunButton();
+    };
+
+    nodeType.prototype.setSam3ActivePrompt = function (index) {
+      this.sam3Widget.activePromptIndex = clamp(index, 0, this.sam3Widget.prompts.length - 1);
+      this.rebuildSam3TabBar();
+      this.updateSam3RunButton();
+      this.redrawSam3Canvas();
+    };
+
+    nodeType.prototype.addSam3Prompt = function () {
+      if (this.sam3Widget.prompts.length >= SAM3_MAX_PROMPTS) {
+        return;
+      }
+      const prompt = createSam3Prompt();
+      prompt.name = `Prompt ${this.sam3Widget.prompts.length + 1}`;
+      this.sam3Widget.prompts.push(prompt);
+      this.sam3Widget.activePromptIndex = this.sam3Widget.prompts.length - 1;
+      this.updateSam3Storage();
+      this.rebuildSam3TabBar();
+      this.updateSam3RunButton();
+      this.redrawSam3Canvas();
+    };
+
+    nodeType.prototype.deleteSam3Prompt = function (index) {
+      if (this.sam3Widget.prompts.length <= 1) {
+        this.clearSam3ActivePrompt();
+        return;
+      }
+      this.sam3Widget.prompts.splice(index, 1);
+      this.sam3Widget.activePromptIndex = clamp(this.sam3Widget.activePromptIndex, 0, this.sam3Widget.prompts.length - 1);
+      this.updateSam3Storage();
+      this.rebuildSam3TabBar();
+      this.updateSam3RunButton();
+      this.redrawSam3Canvas();
+    };
+
+    nodeType.prototype.clearSam3ActivePrompt = function () {
+      const prompt = this.getSam3ActivePrompt();
+      if (!prompt) {
+        return;
+      }
+      prompt.positive_points = [];
+      prompt.negative_points = [];
+      prompt.positive_boxes = [];
+      prompt.negative_boxes = [];
+      this.updateSam3Storage();
+      this.updateSam3RunButton();
+      this.redrawSam3Canvas();
+    };
+
+    nodeType.prototype.clearAllSam3Prompts = function () {
+      this.sam3Widget.prompts = [createSam3Prompt()];
+      this.sam3Widget.activePromptIndex = 0;
+      this.sam3Widget.currentBox = null;
+      this.sam3Widget.isDrawingBox = false;
+      this.updateSam3Storage();
+      this.rebuildSam3TabBar();
+      this.updateSam3RunButton();
+      this.redrawSam3Canvas();
+    };
+
+    nodeType.prototype.updateSam3Counter = function () {
+      const prompt = this.getSam3ActivePrompt();
+      if (!prompt || !this.sam3Widget?.counter) {
+        return;
+      }
+      const pts = prompt.positive_points.length + prompt.negative_points.length;
+      const boxes = prompt.positive_boxes.length + prompt.negative_boxes.length;
+      this.sam3Widget.counter.textContent = `${prompt.name || "Prompt"}: ${pts} pts, ${boxes} boxes`;
+    };
+
+    nodeType.prototype.loadMaskedImageIntoSam3Canvas = function () {
+      if (!this.sam3Widget) {
+        return;
+      }
+
+      if (this.sam3Widget.maskedImage) {
+        this.sam3Widget.image = this.sam3Widget.maskedImage;
+        this.sam3Widget.canvas.width = this.sam3Widget.maskedImage.width;
+        this.sam3Widget.canvas.height = this.sam3Widget.maskedImage.height;
+        this.redrawSam3Canvas();
+        return;
+      }
+
+      if (!this.polygonWidget?.image) {
+        return;
+      }
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = this.polygonWidget.canvas.width;
+      offscreen.height = this.polygonWidget.canvas.height;
+      const offscreenCtx = offscreen.getContext("2d");
+      offscreenCtx.drawImage(this.polygonWidget.image, 0, 0, offscreen.width, offscreen.height);
+
+      const color = this.getPolygonWidget("color")?.value || "#FF0000";
+      const fillOpacity = clamp(Number(this.getPolygonWidget("fill_opacity")?.value ?? 35), 0, 100) / 100;
+      const outlineWidth = clamp(Number(this.getPolygonWidget("outline_width")?.value ?? 3), 0, 20);
+      for (const polygon of this.polygonWidget.polygons || []) {
+        const points = polygon.points || [];
+        if (points.length < MIN_VERTICES) {
+          continue;
+        }
+        offscreenCtx.beginPath();
+        offscreenCtx.moveTo(points[0].x, points[0].y);
+        for (let index = 1; index < points.length; index += 1) {
+          offscreenCtx.lineTo(points[index].x, points[index].y);
+        }
+        offscreenCtx.closePath();
+        if (fillOpacity > 0) {
+          offscreenCtx.fillStyle = rgba(color, fillOpacity);
+          offscreenCtx.fill();
+        }
+        if (outlineWidth > 0) {
+          offscreenCtx.lineWidth = outlineWidth;
+          offscreenCtx.strokeStyle = rgba(color, 1);
+          offscreenCtx.stroke();
+        }
+      }
+
+      const image = new Image();
+      image.onload = () => {
+        this.sam3Widget.maskedImage = image;
+        this.sam3Widget.image = image;
+        this.sam3Widget.canvas.width = image.width;
+        this.sam3Widget.canvas.height = image.height;
+        this.redrawSam3Canvas();
+      };
+      image.src = offscreen.toDataURL("image/jpeg", 0.9);
+    };
+
+    nodeType.prototype.updateSam3CanvasFromMaskedImage = function () {
+      this.loadMaskedImageIntoSam3Canvas();
+    };
+
+    nodeType.prototype.findSam3ItemAt = function (x, y) {
+      const prompt = this.getSam3ActivePrompt();
+      const threshold = 10;
+      if (!prompt) {
+        return null;
+      }
+      for (let index = 0; index < prompt.positive_points.length; index += 1) {
+        if (Math.abs(prompt.positive_points[index].x - x) < threshold && Math.abs(prompt.positive_points[index].y - y) < threshold) {
+          return { type: "point", index, negative: false };
+        }
+      }
+      for (let index = 0; index < prompt.negative_points.length; index += 1) {
+        if (Math.abs(prompt.negative_points[index].x - x) < threshold && Math.abs(prompt.negative_points[index].y - y) < threshold) {
+          return { type: "point", index, negative: true };
+        }
+      }
+      return null;
+    };
+
+    nodeType.prototype.colorWithAlpha = function (hexColor, alpha) {
+      const parsed = parseColor(hexColor);
+      return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+    };
+
+    nodeType.prototype.drawSam3Points = function (ctx, points, color, isNegative) {
+      for (const point of points || []) {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = isNegative ? "rgba(255,0,0,0.8)" : this.colorWithAlpha(color, 0.8);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+        if (isNegative) {
+          ctx.beginPath();
+          ctx.moveTo(point.x - 4, point.y - 4);
+          ctx.lineTo(point.x + 4, point.y + 4);
+          ctx.moveTo(point.x + 4, point.y - 4);
+          ctx.lineTo(point.x - 4, point.y + 4);
+          ctx.stroke();
+        }
+      }
+    };
+
+    nodeType.prototype.drawSam3Boxes = function (ctx, boxes, color, isNegative) {
+      for (const box of boxes || []) {
+        const width = box.x2 - box.x1;
+        const height = box.y2 - box.y1;
+        ctx.fillStyle = isNegative ? "rgba(255,0,0,0.15)" : this.colorWithAlpha(color, 0.15);
+        ctx.fillRect(box.x1, box.y1, width, height);
+        ctx.strokeStyle = isNegative ? "rgba(255,0,0,1)" : color;
+        ctx.lineWidth = 2;
+        if (isNegative) {
+          ctx.setLineDash([4, 4]);
+        }
+        ctx.strokeRect(box.x1, box.y1, width, height);
+        ctx.setLineDash([]);
+      }
+    };
+
+    nodeType.prototype.redrawSam3Canvas = function () {
+      const widget = this.sam3Widget;
+      if (!widget) {
+        return;
+      }
+      const { canvas, ctx, image, currentBox } = widget;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (image) {
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = "#222";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#aaa";
+        ctx.font = "14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Select or upload an image", canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillText("Click: positive | Right-click: negative | Shift-drag: box", canvas.width / 2, canvas.height / 2 + 8);
+      }
+
+      const prompt = this.getSam3ActivePrompt();
+      const color = SAM3_PROMPT_COLORS[widget.activePromptIndex % SAM3_PROMPT_COLORS.length].primary;
+      if (prompt) {
+        this.drawSam3Boxes(ctx, prompt.positive_boxes, color, false);
+        this.drawSam3Boxes(ctx, prompt.negative_boxes, color, true);
+        this.drawSam3Points(ctx, prompt.positive_points, color, false);
+        this.drawSam3Points(ctx, prompt.negative_points, color, true);
+      }
+
+      if (currentBox) {
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = currentBox.isNegative ? "#f00" : color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(currentBox.x1, currentBox.y1, currentBox.x2 - currentBox.x1, currentBox.y2 - currentBox.y1);
+        ctx.setLineDash([]);
+      }
     };
 
     nodeType.prototype.getCurrentVertexCount = function () {
@@ -1117,6 +1885,15 @@ app.registerExtension({
         this.polygonWidget.image = image;
         this.polygonWidget.canvas.width = image.width;
         this.polygonWidget.canvas.height = image.height;
+        if (this.sam3Widget) {
+          this.sam3Widget.image = image;
+          this.sam3Widget.imageValue = imageValue;
+          this.sam3Widget.maskedImage = null;
+          this.sam3Widget.maskedImageValue = null;
+          this.sam3Widget.canvas.width = image.width;
+          this.sam3Widget.canvas.height = image.height;
+          this.redrawSam3Canvas();
+        }
 
         if (this.polygonWidget.pendingDefaultOnLoad) {
           this.polygonWidget.polygons = [
@@ -1140,6 +1917,12 @@ app.registerExtension({
           return;
         }
         this.polygonWidget.image = null;
+        if (this.sam3Widget) {
+          this.sam3Widget.image = null;
+          this.sam3Widget.maskedImage = null;
+          this.sam3Widget.maskedImageValue = null;
+          this.redrawSam3Canvas();
+        }
         this.redrawPolygonCanvas();
       };
       image.src = getImageUrl(imageValue);

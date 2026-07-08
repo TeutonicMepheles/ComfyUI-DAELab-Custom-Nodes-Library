@@ -57,6 +57,12 @@ def _get_node_polygon_info(unique_id, extra_pnginfo):
     return {}
 
 
+def _has_polygon_state(info):
+    return isinstance(info, dict) and (
+        info.get("cleared") is True or "polygons" in info or "points" in info
+    )
+
+
 def _clamp_int(value, min_value, max_value, default):
     try:
         numeric = int(value)
@@ -304,15 +310,15 @@ class PolygonMask:
             raise ValueError("Polygon Mask requires an IMAGE input tensor.")
 
         ui = _ui_source_image(image_tensor)
-        info = {}
+        property_info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        input_info = {}
         if polygon_data:
             try:
                 parsed_polygon_data = json.loads(str(polygon_data))
-                info = parsed_polygon_data if isinstance(parsed_polygon_data, dict) else {}
+                input_info = parsed_polygon_data if isinstance(parsed_polygon_data, dict) else {}
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Invalid polygon_data JSON: {exc}") from exc
-        if not info:
-            info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        info = property_info if _has_polygon_state(property_info) else input_info
 
         width = int(image_tensor.shape[2])
         height = int(image_tensor.shape[1])

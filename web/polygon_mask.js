@@ -736,7 +736,8 @@ app.registerExtension({
       const encoded = message?.source_image?.[0];
       const imageHash = message?.source_image_hash?.[0] || "";
       if (encoded) {
-        this.loadPolygonImageFromData?.(encoded, imageHash, true);
+        const imageValue = this.getPolygonImageValue?.() || imageHash;
+        this.loadPolygonImageFromData?.(encoded, imageValue, true, true);
       }
       if (this.polygonWidget?.isLoadingImage) {
         this.polygonWidget.isLoadingImage = false;
@@ -1161,19 +1162,26 @@ app.registerExtension({
       }
     };
 
-    nodeType.prototype.loadPolygonImageFromData = function (encodedImage, imageHash = "", force = false) {
+    nodeType.prototype.loadPolygonImageFromData = function (encodedImage, imageHash = "", force = false, preservePolygons = false) {
       if (!encodedImage || !this.polygonWidget) {
         return;
       }
-      const imageValue = imageHash || `socket-image-${imageSrc.length}`;
-      this.loadPolygonImageFromUrl(`data:image/jpeg;base64,${encodedImage}`, imageValue, force, encodedImage, null);
+      const imageValue = imageHash || `socket-image-${encodedImage.length}`;
+      this.loadPolygonImageFromUrl(`data:image/jpeg;base64,${encodedImage}`, imageValue, force, encodedImage, null, preservePolygons);
     };
 
-    nodeType.prototype.loadPolygonImageFromUrl = function (imageSrc, imageHash = "", force = false, sourceImageData = null, sourceImageUrl = imageSrc) {
+    nodeType.prototype.loadPolygonImageFromUrl = function (
+      imageSrc,
+      imageHash = "",
+      force = false,
+      sourceImageData = null,
+      sourceImageUrl = imageSrc,
+      preservePolygons = false,
+    ) {
       if (!imageSrc || !this.polygonWidget) {
         return;
       }
-      const imageValue = imageHash || `socket-image-${encodedImage.length}`;
+      const imageValue = imageHash || `socket-image-${imageSrc.length}`;
       const previousImageValue = this.polygonWidget.imageValue || "";
       const changedImage = imageValue !== previousImageValue;
       if (!force && this.polygonWidget.image && !changedImage) {
@@ -1181,13 +1189,15 @@ app.registerExtension({
       }
 
       const preserveRestoredPolygon = !previousImageValue && this.polygonWidget.polygons.length > 0;
-      if (changedImage && !preserveRestoredPolygon) {
+      if (changedImage && !preserveRestoredPolygon && !preservePolygons) {
         this.polygonWidget.polygons = [];
         this.polygonWidget.selectedIndex = -1;
         this.polygonWidget.cleared = false;
         this.polygonWidget.pendingDefaultOnLoad = true;
         this.polygonWidget.history = [];
         this.polygonWidget.historyIndex = -1;
+      } else if (preservePolygons) {
+        this.polygonWidget.pendingDefaultOnLoad = false;
       }
 
       this.polygonWidget.sourceImageData = sourceImageData;

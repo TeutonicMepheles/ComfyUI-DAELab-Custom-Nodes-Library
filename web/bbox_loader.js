@@ -237,7 +237,7 @@ app.registerExtension({
         if (!this.bboxWidget.bbox.length && !this.bboxWidget.neg_bbox.length) {
           return;
         }
-        this.clearBBoxAnnotations(false);
+        this.clearBBoxAnnotations(false, false);
         this.pushBBoxHistory();
         this.updateBBoxInfo();
         this.redrawBBoxCanvas();
@@ -269,6 +269,7 @@ app.registerExtension({
 
       this.setBBoxMode("bbox");
       this.restoreBBoxInfo();
+      this.resetBBoxHistory();
       this.loadBBoxImage(false);
       this.redrawBBoxCanvas();
       this.updateBBoxButtons();
@@ -613,12 +614,23 @@ app.registerExtension({
 
     nodeType.prototype.pushBBoxHistory = function () {
       const { bbox, neg_bbox, historyIndex } = this.bboxWidget;
-      this.bboxWidget.history = this.bboxWidget.history.slice(0, historyIndex + 1);
+      this.bboxWidget.history = this.bboxWidget.history.slice(0, Math.max(0, historyIndex + 1));
       this.bboxWidget.history.push({
         bbox: cloneBoxes(bbox),
         neg_bbox: cloneBoxes(neg_bbox),
       });
-      this.bboxWidget.historyIndex += 1;
+      this.bboxWidget.historyIndex = this.bboxWidget.history.length - 1;
+    };
+
+    nodeType.prototype.resetBBoxHistory = function () {
+      const { bbox, neg_bbox } = this.bboxWidget;
+      this.bboxWidget.history = [
+        {
+          bbox: cloneBoxes(bbox),
+          neg_bbox: cloneBoxes(neg_bbox),
+        },
+      ];
+      this.bboxWidget.historyIndex = 0;
     };
 
     nodeType.prototype.restoreBBoxState = function (state) {
@@ -629,13 +641,14 @@ app.registerExtension({
       this.updateBBoxButtons();
     };
 
-    nodeType.prototype.clearBBoxAnnotations = function (updateInfo = true) {
+    nodeType.prototype.clearBBoxAnnotations = function (updateInfo = true, resetHistory = true) {
       this.bboxWidget.bbox = [];
       this.bboxWidget.neg_bbox = [];
-      this.bboxWidget.history = [];
-      this.bboxWidget.historyIndex = -1;
       this.bboxWidget.currentBox = null;
       this.bboxWidget.isDrawingBox = false;
+      if (resetHistory) {
+        this.resetBBoxHistory();
+      }
       if (updateInfo) {
         this.updateBBoxInfo();
       }
@@ -661,11 +674,11 @@ app.registerExtension({
     };
 
     nodeType.prototype.undoBBox = function () {
-      if (this.bboxWidget.historyIndex < 0) {
+      if (this.bboxWidget.historyIndex <= 0) {
         return;
       }
-      const state = this.bboxWidget.history[this.bboxWidget.historyIndex];
       this.bboxWidget.historyIndex -= 1;
+      const state = this.bboxWidget.history[this.bboxWidget.historyIndex];
       this.restoreBBoxState(state);
     };
 
@@ -690,7 +703,7 @@ app.registerExtension({
         buttons[key].style.color = active ? "#fff" : "#ddd";
       }
 
-      buttons.undo.disabled = historyIndex < 0;
+      buttons.undo.disabled = historyIndex <= 0;
       buttons.redo.disabled = historyIndex >= history.length - 1;
       buttons.clear.disabled = !bbox.length && !neg_bbox.length;
 

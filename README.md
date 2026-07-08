@@ -15,6 +15,7 @@ DAELab 维护的 ComfyUI 自定义节点库。
 | --- | --- | --- |
 | `BooleanList` | `Boolean List` | 动态维护多组布尔输出。 |
 | `GPTImageStylePromptPreset` | `GPT Image Style Prompt Preset` | 基于风格预设、主/辅色彩和附加提示生成结构化提示词。 |
+| `SeedreamExhibitionPromptBuilder` | `Seedream Exhibition Prompt Builder` | 面向 Seedream 4.0/4.5 展厅写实渲染工作流，按主题、参考图用途、语义色彩和布尔条件生成自然语言结构化提示词。 |
 | `LoadImageBooleanBBox` | `Load Image + BBox` | 加载图片并绘制正向/负向边界框，输出可用于 SAM3 的 prompt。 |
 | `BBoxPromptReroute` | `BBox Prompt Reroute` | 转接正向/负向 SAM3 框 prompt，仅整理工作流连线。 |
 | `LoadImagePolygonMask` | `Load Image + Polygon Mask` | 加载图片，编辑多 polygon，并集成 SAM3 Prompt 画布，输出 polygon 叠加图、原图、SAM3 masks 和 visualization。 |
@@ -34,6 +35,9 @@ ComfyUI-DAELab-Custom-Nodes-Library/
       node.py
       README.md
       assets/
+    seedream_exhibition_prompt_builder/
+      node.py
+      README.md
     load_image_boolean_bbox/
       node.py
       README.md
@@ -59,6 +63,13 @@ ComfyUI-DAELab-Custom-Nodes-Library/
     styles.json
     thumbs/
 ```
+
+## 提示词节点
+
+- `GPTImageStylePromptPreset` 保持旧工作流兼容，适合继续使用原有 GPT Image 风格提示词链路。
+- `SeedreamExhibitionPromptBuilder` 是新的 Seedream 展厅提示词节点，用于替代工作流中由 `GPT Image Style Prompt Preset`、多个 `LazySwitchKJ` 和 `Text Concatenate` 组成的拼接段。
+- 新节点复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，`style_id` 在前端显示中文标签。
+- 新节点保留 Color Picker 输入，但默认把 Hex 转成自然语言色彩描述，不在最终提示词中输出 `#RRGGBB`。
 
 ## 安装
 

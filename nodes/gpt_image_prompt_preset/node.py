@@ -46,6 +46,28 @@ def load_styles():
     return FALLBACK_STYLES
 
 
+def style_labels(styles):
+    labels = []
+    used = set()
+    for style_id, style in styles.items():
+        label = str(style.get("label") or style_id).strip() or style_id
+        if label in used:
+            label = style_id
+        labels.append(label)
+        used.add(label)
+    return labels or list(FALLBACK_STYLES.keys())
+
+
+def resolve_style(styles, style_value):
+    if style_value in styles:
+        return style_value, styles[style_value]
+    for style_id, style in styles.items():
+        if str(style.get("label") or "").strip() == str(style_value).strip():
+            return style_id, style
+    fallback_id, fallback_style = next(iter(styles.items()), ("aerospace", FALLBACK_STYLES["aerospace"]))
+    return fallback_id, fallback_style
+
+
 def normalize_hex(value, default):
     if not isinstance(value, str):
         if isinstance(value, (tuple, list)) and len(value) >= 3:
@@ -81,15 +103,15 @@ class GPTImageStylePromptPreset:
     @classmethod
     def INPUT_TYPES(cls):
         styles = load_styles()
-        style_ids = list(styles.keys()) or list(FALLBACK_STYLES.keys())
+        labels = style_labels(styles)
         return {
             "required": {
                 "subject": ("STRING", {
                     "default": "未来城市宣传海报",
                     "multiline": True,
                 }),
-                "style_id": (style_ids, {
-                    "default": style_ids[0],
+                "style_id": (labels, {
+                    "default": labels[0],
                 }),
                 "tone": (list(TONE_PROMPTS.keys()), {
                     "default": "标准",
@@ -122,7 +144,7 @@ class GPTImageStylePromptPreset:
         custom_append,
     ):
         styles = load_styles()
-        style = styles.get(style_id) or next(iter(styles.values()), FALLBACK_STYLES["aerospace"])
+        _, style = resolve_style(styles, style_id)
         style_label = style.get("label", style_id)
         style_prompt = style.get("prompt", "")
         primary = normalize_hex(primary_color, "#1E5BFF")

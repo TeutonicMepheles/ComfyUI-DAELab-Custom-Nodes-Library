@@ -1,6 +1,10 @@
 import { app } from "/scripts/app.js";
 
-const UI_VERSION = "20260628-native-dom-widget-v22";
+const UI_VERSION = "20260707-style-labels-v1";
+const SUPPORTED_NODE_NAMES = new Set([
+    "GPTImageStylePromptPreset",
+    "SeedreamExhibitionPromptBuilder",
+]);
 const STYLE_URL = new URL("./styles.json", import.meta.url);
 STYLE_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./thumbs/", import.meta.url);
@@ -87,7 +91,9 @@ function setWidgetValue(node, widgetName, value) {
 function syncUiPropertiesFromNativeWidgets(node) {
     node.properties ||= {};
     const styleWidget = findWidget(node, "style_id");
-    node.properties.gpt_image_prompt_style_id = styleWidget?.value || node.properties.gpt_image_prompt_style_id || "aerospace";
+    node.properties.gpt_image_prompt_style_id = widgetValueToStyleId(
+        styleWidget?.value || node.properties.gpt_image_prompt_style_id || getDefaultStyleId()
+    );
 }
 
 function repairNativeWidgetValues(node) {
@@ -95,7 +101,9 @@ function repairNativeWidgetValues(node) {
     const toneWidget = findWidget(node, "tone");
 
     if (styleWidget && typeof styleWidget.value !== "string") {
-        styleWidget.value = "aerospace";
+        styleWidget.value = styleIdToWidgetValue(getDefaultStyleId());
+    } else if (styleWidget) {
+        styleWidget.value = styleIdToWidgetValue(widgetValueToStyleId(styleWidget.value));
     }
     if (toneWidget && !VALID_TONES.has(toneWidget.value)) {
         toneWidget.value = "标准";
@@ -108,8 +116,25 @@ function getStyleEntries() {
     return Object.entries(styleData).map(([id, data]) => ({ id, ...data }));
 }
 
+function getDefaultStyleId() {
+    return getStyleEntries()[0]?.id || "aerospace";
+}
+
+function styleIdToWidgetValue(styleId) {
+    const style = styleData?.[styleId];
+    return style?.label || styleId || getDefaultStyleId();
+}
+
+function widgetValueToStyleId(value) {
+    if (styleData?.[value]) return value;
+    const match = getStyleEntries().find((style) => (style.label || style.id) === value);
+    return match?.id || getDefaultStyleId();
+}
+
 function getSelectedStyleId(node) {
-    return findWidget(node, "style_id")?.value || node.properties?.gpt_image_prompt_style_id || "aerospace";
+    const widgetValue = findWidget(node, "style_id")?.value;
+    const propertyValue = node.properties?.gpt_image_prompt_style_id;
+    return widgetValueToStyleId(widgetValue || propertyValue || getDefaultStyleId());
 }
 
 function getThumbUrl(style) {
@@ -191,7 +216,7 @@ function selectStyle(node, widget, styleId) {
     node.properties ||= {};
     node.properties.gpt_image_prompt_style_id = styleId;
     widget.__gptImagePromptPresetValue = styleId;
-    setWidgetValue(node, "style_id", styleId);
+    setWidgetValue(node, "style_id", styleIdToWidgetValue(styleId));
     syncUiPropertiesFromNativeWidgets(node);
     renderStyleDomWidget(widget, node);
     updateSerializedWidgetValues(node);
@@ -324,13 +349,14 @@ function addStyleControl(node) {
 }
 
 function getPromptPresetWidgetRank(widget) {
-    if (widget.name === "subject") return 10;
     if (widget.__gptImagePromptPresetDomSelector) return 20;
     if (widget.name === "style_id") return 30;
     if (widget.name === "tone") return 40;
     if (widget.name === "primary_color") return 50;
     if (widget.name === "secondary_color") return 60;
-    if (widget.name === "custom_append") return 70;
+    if (widget.name === "base_prompt") return 70;
+    if (widget.name === "additional_details") return 80;
+    if (widget.name === "custom_append") return 100;
     return 100;
 }
 
@@ -381,7 +407,7 @@ if (globalThis.__GPT_IMAGE_PROMPT_PRESET_REGISTERED_VERSION !== UI_VERSION) {
     app.registerExtension({
         name: "Comfy.GPTImagePromptPreset.UI",
         beforeRegisterNodeDef(nodeType, nodeData) {
-            if (nodeData.name !== "GPTImageStylePromptPreset") return;
+            if (!SUPPORTED_NODE_NAMES.has(nodeData.name)) return;
 
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {

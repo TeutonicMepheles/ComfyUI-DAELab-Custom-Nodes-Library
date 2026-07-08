@@ -331,6 +331,31 @@ app.registerExtension({
         restoredFromProperties: false,
       };
 
+      // ResizeObserver: re-draw once the canvas reaches its final display size.
+      // Cached images can load synchronously during onConfigure, causing
+      // redrawPolygonCanvas() to fire before the DOM container is laid out.
+      // getBoundingClientRect() returns ~0×0 at that point, producing enormous
+      // vertex handles. The observer fires once layout settles and corrects them.
+      this.polygonWidget._resizeObserver = new ResizeObserver(() => {
+        if (this.polygonWidget && this.polygonWidget.image) {
+          this.redrawPolygonCanvas();
+        }
+      });
+      this.polygonWidget._resizeObserver.observe(canvas);
+
+      // Clean up the ResizeObserver when the node is removed so the canvas
+      // element can be garbage-collected.
+      const _polygonOnRemoved = this.onRemoved;
+      this.onRemoved = function () {
+        if (this.polygonWidget && this.polygonWidget._resizeObserver) {
+          this.polygonWidget._resizeObserver.disconnect();
+          this.polygonWidget._resizeObserver = null;
+        }
+        if (_polygonOnRemoved) {
+          return _polygonOnRemoved.apply(this, arguments);
+        }
+      };
+
       const loadImageButton = createButton("Load Image", "Load the connected IMAGE socket into the polygon canvas", () =>
         this.loadSocketImage(),
       );
@@ -1257,7 +1282,15 @@ app.registerExtension({
     nodeType.prototype.getHitTolerance = function () {
       const canvas = this.polygonWidget.canvas;
       const rect = canvas.getBoundingClientRect();
-      const scale = Math.max(canvas.width / Math.max(1, rect.width), canvas.height / Math.max(1, rect.height));
+      // Guard against getBoundingClientRect() returning 0 or near-zero during
+      // initial DOM layout (e.g. cached image loads synchronously during
+      // workflow deserialization before the node container is sized).
+      // The canvas wrapper has min-height:190px and the node is ≥200px wide,
+      // so any display dimension < 100px means layout hasn't settled yet.
+      const MIN_DISPLAY = 100;
+      const displayW = Math.max(rect.width, MIN_DISPLAY);
+      const displayH = Math.max(rect.height, MIN_DISPLAY);
+      const scale = Math.max(canvas.width / displayW, canvas.height / displayH);
       return 10 * scale;
     };
 

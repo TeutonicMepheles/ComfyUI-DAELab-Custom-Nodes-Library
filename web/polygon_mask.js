@@ -722,7 +722,6 @@ app.registerExtension({
         this.polygonWidget.historyIndex = -1;
       }
       this.loadPolygonImage?.(false);
-      this.redrawPolygonCanvas?.();
       this.updatePolygonButtons?.();
       this.polygonWidget.restoredFromProperties = true;
     };
@@ -1255,7 +1254,7 @@ app.registerExtension({
           this.pushPolygonHistory();
         }
 
-        this.redrawPolygonCanvas();
+        requestAnimationFrame(() => this.redrawPolygonCanvas());
         this.updatePolygonButtons();
       };
       image.onerror = () => {

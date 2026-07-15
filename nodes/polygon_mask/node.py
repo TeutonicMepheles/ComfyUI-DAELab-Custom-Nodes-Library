@@ -3,7 +3,7 @@ import json
 import math
 import re
 import base64
-import io
+from io import BytesIO
 
 import numpy as np
 import torch
@@ -187,7 +187,7 @@ def _pil_to_tensor(image):
 
 
 def _pil_to_base64(image):
-    buffer = io.BytesIO()
+    buffer = BytesIO()
     image.convert("RGB").save(buffer, format="JPEG", quality=85)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 

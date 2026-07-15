@@ -86,7 +86,7 @@ Nodes that interoperate with SAM3 use the custom type `SAM3_BOXES_PROMPT` for bb
 
 ## SAM3 integration
 
-Nodes that wrap SAM3 (`LoadImagePolygonMask`, `SAM3ComplexCollector`) dynamically import from the external `comfyui-sam3` custom node package. They create a `sys.modules` alias (`_daelab_external_comfyui_sam3_nodes`) pointing to `comfyui-sam3/nodes/`, then import `_model_cache` and `utils` from it. This is a **soft dependency** — the nodes work without SAM3 installed, but raise `RuntimeError` if SAM3 prompt data is provided without the model config.
+`SAM3ComplexCollector` dynamically imports from the external `comfyui-sam3` custom node package via shared utilities in `nodes/_shared_sam3.py`. The module creates a `sys.modules` alias (`_daelab_external_comfyui_sam3_nodes`) pointing to `comfyui-sam3/nodes/`, then imports `_model_cache` and `utils` from it. This is a **soft dependency** — the node works without SAM3 installed, but raises `RuntimeError` if SAM3 prompt data is provided without the model config.
 
 ## Frontend extension patterns
 
@@ -107,7 +107,7 @@ Polygon nodes persist edit state to `localStorage` keyed by `DAELab.PolygonMask.
 
 ### Shared prompt style infrastructure
 
-`web/styles.json` defines style presets (aerospace, business, party_building) with labels, colors, thumbnails, and prompt text. `web/prompt_preset.js` loads this at runtime and provides the style selector UI. Both `GPTImageStylePromptPreset` and `SeedreamExhibitionPromptBuilder` share this infrastructure. Thumbnails live in `web/thumbs/`. The JS uses a `UI_VERSION` string for cache-busting the styles fetch.
+`web/styles.json` defines style presets (aerospace, business, party_building) with labels, colors, thumbnails, and prompt text. `web/prompt_preset.js` loads this at runtime and provides the style selector UI for `SeedreamExhibitionPromptBuilder`. Thumbnails live in `web/thumbs/`. The JS uses a `UI_VERSION` string for cache-busting the styles fetch.
 
 ## V3→V1 concept mapping
 

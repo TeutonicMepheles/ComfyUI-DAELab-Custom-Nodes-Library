@@ -217,8 +217,8 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
             inputs=[
                 io.Combo.Input("style_id", options=labels, default=labels[0] if labels else "航天科技"),
                 io.Combo.Input("tone", options=list(TONE_PROMPTS.keys()), default="标准"),
-                io.String.Input("primary_color", default="#567DF0"),
-                io.String.Input("secondary_color", default="#C33C3C"),
+                io.Color.Input("primary_color", default="#567DF0", socketless=True),
+                io.Color.Input("secondary_color", default="#C33C3C", socketless=True),
                 io.String.Input("base_prompt", default=DEFAULT_BASE_PROMPT, multiline=True),
                 io.String.Input("additional_details", default=DEFAULT_ADDITIONAL_DETAILS, multiline=True),
                 io.Boolean.Input("use_theme_template", default=True, optional=True),

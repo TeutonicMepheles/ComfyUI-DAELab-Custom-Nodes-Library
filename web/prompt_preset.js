@@ -2,7 +2,6 @@ import { app } from "/scripts/app.js";
 
 const UI_VERSION = "20260707-style-labels-v1";
 const SUPPORTED_NODE_NAMES = new Set([
-    "GPTImageStylePromptPreset",
     "SeedreamExhibitionPromptBuilder",
 ]);
 const STYLE_URL = new URL("./styles.json", import.meta.url);
@@ -13,14 +12,20 @@ const DEFAULT_STYLE_DATA = {
     aerospace: {
         label: "航天科技",
         thumbnail: "thumb_tech.webp",
+        primary_color: "#567DF0",
+        secondary_color: "#D0D5DD",
     },
     business: {
         label: "商务",
         thumbnail: "thumb_business.webp",
+        primary_color: "#3A4A5C",
+        secondary_color: "#B8A99A",
     },
     party_building: {
         label: "党建",
         thumbnail: "thumb_party.webp",
+        primary_color: "#C33C3C",
+        secondary_color: "#D4A843",
     },
 };
 
@@ -107,6 +112,22 @@ function repairNativeWidgetValues(node) {
     }
     if (toneWidget && !VALID_TONES.has(toneWidget.value)) {
         toneWidget.value = "标准";
+    }
+    const basePromptWidget = findWidget(node, "base_prompt");
+    if (basePromptWidget) {
+        if (typeof basePromptWidget.value !== "string" || !basePromptWidget.value.trim()) {
+            basePromptWidget.value = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。";
+        } else {
+            basePromptWidget.value = basePromptWidget.value.trim();
+        }
+    }
+    const additionalDetailsWidget = findWidget(node, "additional_details");
+    if (additionalDetailsWidget) {
+        if (typeof additionalDetailsWidget.value !== "string" || !additionalDetailsWidget.value.trim()) {
+            additionalDetailsWidget.value = "地面材质采用高抛光水磨石，含PVC，墙面材质采用乳胶漆，包含不锈钢、铝材的装饰材质与灯带，顶面采用流线型连续灯带系统。";
+        } else {
+            additionalDetailsWidget.value = additionalDetailsWidget.value.trim();
+        }
     }
     syncUiPropertiesFromNativeWidgets(node);
     updateSerializedWidgetValues(node);
@@ -341,6 +362,14 @@ function installStyleWidgetCallback(node) {
     styleWidget.callback = function (value, canvas, node, pos, event) {
         originalCallback?.call(this, value, canvas, node, pos, event);
         syncUiPropertiesFromNativeWidgets(node);
+        const selectedStyleId = getSelectedStyleId(node);
+        const selectedStyle = styleData?.[selectedStyleId];
+        if (selectedStyle?.primary_color) {
+            setWidgetValue(node, "primary_color", selectedStyle.primary_color);
+        }
+        if (selectedStyle?.secondary_color) {
+            setWidgetValue(node, "secondary_color", selectedStyle.secondary_color);
+        }
         const domWidget = node.widgets?.find((widget) => widget.__gptImagePromptPresetDomSelector);
         if (domWidget) renderStyleDomWidget(domWidget, node);
         updateSerializedWidgetValues(node);
@@ -409,6 +438,16 @@ function installPromptPresetUi(node) {
 
     removeStyleControls(node);
     repairNativeWidgetValues(node);
+    {
+        const initialStyleId = getSelectedStyleId(node);
+        const initialStyle = styleData?.[initialStyleId];
+        if (initialStyle?.primary_color) {
+            setWidgetValue(node, "primary_color", initialStyle.primary_color);
+        }
+        if (initialStyle?.secondary_color) {
+            setWidgetValue(node, "secondary_color", initialStyle.secondary_color);
+        }
+    }
     installStyleWidgetCallback(node);
     addStyleControl(node);
     reorderPromptPresetWidgets(node);

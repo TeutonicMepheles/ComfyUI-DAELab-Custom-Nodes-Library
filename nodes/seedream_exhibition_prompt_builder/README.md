@@ -77,12 +77,7 @@
 
 ## 前端行为
 
-`web/prompt_preset.js` 同时支持：
-
-- `GPTImageStylePromptPreset`
-- `SeedreamExhibitionPromptBuilder`
-
-两个节点都会使用同一套缩略图风格选择器。`style_id` 在前端显示中文标签，同时后端仍兼容英文 style key。
+`web/prompt_preset.js` 为 `SeedreamExhibitionPromptBuilder` 提供缩略图风格选择器。`style_id` 在前端显示中文标签，同时后端仍兼容英文 style key。
 
 ## 示例输出
 

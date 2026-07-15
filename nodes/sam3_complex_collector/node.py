@@ -1,6 +1,6 @@
 import json
 
-from ..load_image_polygon_mask.node import (
+from .._shared_sam3 import (
     _empty_mask_for_image,
     _has_sam3_prompt_content,
     _pil_to_base64,

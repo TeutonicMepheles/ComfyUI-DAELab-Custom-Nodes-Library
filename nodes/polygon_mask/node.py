@@ -1,4 +1,4 @@
-﻿import hashlib
+import hashlib
 import json
 import math
 import re
@@ -8,6 +8,8 @@ import io
 import numpy as np
 import torch
 from PIL import Image, ImageDraw
+
+from comfy_api.latest import io
 
 
 MIN_VERTEX_COUNT = 3
@@ -246,71 +248,67 @@ def _draw_polygons_to_mask(width, height, polygons):
     return torch.from_numpy(mask_np)
 
 
-class PolygonMask:
+class PolygonMask(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "image": ("IMAGE",),
-                "vertex_count": (
-                    "INT",
-                    {
-                        "default": MIN_VERTEX_COUNT,
-                        "min": MIN_VERTEX_COUNT,
-                        "max": MAX_VERTEX_COUNT,
-                        "step": 1,
-                        "display": "slider",
-                    },
+    def define_schema(cls):
+        return io.Schema(
+            node_id="PolygonMask",
+            display_name="Polygon Mask",
+            description="Load an image, edit closed polygon overlays, and output the composited image plus a raw polygon mask.",
+            category="image/polygon",
+            search_aliases=["load image polygon", "polygon mask", "polygon overlay"],
+            inputs=[
+                io.Image.Input("image"),
+                io.Int.Input(
+                    "vertex_count",
+                    default=MIN_VERTEX_COUNT,
+                    min=MIN_VERTEX_COUNT,
+                    max=MAX_VERTEX_COUNT,
+                    step=1,
                 ),
-                "color": ("COLOR", {"default": DEFAULT_COLOR}),
-                "fill_opacity": (
-                    "INT",
-                    {"default": 35, "min": 0, "max": 100, "step": 1, "display": "slider"},
+                io.Color.Input("color", default=DEFAULT_COLOR),
+                io.Int.Input(
+                    "fill_opacity",
+                    default=35,
+                    min=0,
+                    max=100,
+                    step=1,
                 ),
-                "outline_width": (
-                    "INT",
-                    {"default": 3, "min": 0, "max": 20, "step": 1, "display": "slider"},
+                io.Int.Input(
+                    "outline_width",
+                    default=3,
+                    min=0,
+                    max=20,
+                    step=1,
                 ),
-                "polygon_data": (
-                    "STRING",
-                    {
-                        "default": "",
-                        "multiline": False,
-                        "advanced": True,
-                        "tooltip": "Internal cached polygon data. It is managed by the node UI.",
-                    },
+                io.String.Input(
+                    "polygon_data",
+                    default="",
                 ),
-            },
-            "hidden": {
-                "unique_id": "UNIQUE_ID",
-                "extra_pnginfo": "EXTRA_PNGINFO",
-            },
-        }
+            ],
+            outputs=[
+                io.Image.Output(display_name="masked_image"),
+                io.Mask.Output(display_name="raw_mask"),
+            ],
+            hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
+        )
 
-    DESCRIPTION = "Load an image, edit closed polygon overlays, and output the composited image plus a raw polygon mask."
-    RETURN_TYPES = ("IMAGE", "MASK")
-    RETURN_NAMES = ("masked_image", "raw_mask")
-    FUNCTION = "execute"
-    CATEGORY = "image/polygon"
-    SEARCH_ALIASES = ["load image polygon", "polygon mask", "polygon overlay"]
-
+    @classmethod
     def execute(
-        self,
+        cls,
         image,
         vertex_count=MIN_VERTEX_COUNT,
         color=DEFAULT_COLOR,
         fill_opacity=35,
         outline_width=3,
         polygon_data="",
-        unique_id=None,
-        extra_pnginfo=None,
     ):
         image_tensor = image
         if image_tensor is None or len(image_tensor.shape) != 4:
             raise ValueError("Polygon Mask requires an IMAGE input tensor.")
 
         ui = _ui_source_image(image_tensor)
-        property_info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        property_info = _get_node_polygon_info(cls.hidden.unique_id, cls.hidden.extra_pnginfo)
         input_info = {}
         if polygon_data:
             try:
@@ -325,14 +323,14 @@ class PolygonMask:
 
         if info.get("cleared") is True:
             raw_mask = torch.zeros((int(image_tensor.shape[0]), height, width), dtype=torch.float32)
-            return {"result": (image_tensor, raw_mask), "ui": ui}
+            return io.NodeOutput(image_tensor, raw_mask, ui=ui)
 
         polygons = _parse_polygons(info, width, height)
 
         if not polygons:
             if "polygons" in info or "points" in info:
                 raw_mask = torch.zeros((int(image_tensor.shape[0]), height, width), dtype=torch.float32)
-                return {"result": (image_tensor, raw_mask), "ui": ui}
+                return io.NodeOutput(image_tensor, raw_mask, ui=ui)
             polygons = [_default_polygon_points(width, height, vertex_count)]
 
         output_images = []
@@ -343,10 +341,10 @@ class PolygonMask:
             output_images.append(_pil_to_tensor(composited))
             output_masks.append(_draw_polygons_to_mask(width, height, polygons))
 
-        return {"result": (torch.cat(output_images, dim=0), torch.stack(output_masks, dim=0)), "ui": ui}
+        return io.NodeOutput(torch.cat(output_images, dim=0), torch.stack(output_masks, dim=0), ui=ui)
 
     @classmethod
-    def IS_CHANGED(
+    def fingerprint_inputs(
         cls,
         image,
         vertex_count=MIN_VERTEX_COUNT,
@@ -354,8 +352,6 @@ class PolygonMask:
         fill_opacity=35,
         outline_width=3,
         polygon_data="",
-        unique_id=None,
-        extra_pnginfo=None,
     ):
         digest = hashlib.sha256()
         if hasattr(image, "shape"):
@@ -368,7 +364,7 @@ class PolygonMask:
         digest.update(str(_clamp_int(fill_opacity, 0, 100, 35)).encode("utf-8"))
         digest.update(str(_clamp_int(outline_width, 0, 20, 3)).encode("utf-8"))
         digest.update(str(polygon_data or "").encode("utf-8"))
-        polygon_info = _get_node_polygon_info(unique_id, extra_pnginfo)
+        polygon_info = _get_node_polygon_info(cls.hidden.unique_id, cls.hidden.extra_pnginfo)
         digest.update(json.dumps(polygon_info, sort_keys=True).encode("utf-8"))
         return digest.hexdigest()
 
@@ -380,4 +376,3 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "PolygonMask": "Polygon Mask",
 }
-

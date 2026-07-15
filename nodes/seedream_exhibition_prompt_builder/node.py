@@ -2,6 +2,8 @@ import json
 import re
 from pathlib import Path
 
+from comfy_api.latest import io
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 STYLE_FILE = ROOT_DIR / "web" / "styles.json"
@@ -10,6 +12,8 @@ FALLBACK_STYLES = {
     "aerospace": {
         "label": "航天科技",
         "subject": "航天科技展厅",
+        "primary_color": "#567DF0",
+        "secondary_color": "#D0D5DD",
         "prompt": "以深蓝宇宙空间为背景，使用精密仪器线条、轨道线条和数据可视化图形构成画面，呈现未来科技感与高级海报质感",
     }
 }
@@ -199,49 +203,38 @@ def normalize_prompt(sentences):
     return prompt
 
 
-class SeedreamExhibitionPromptBuilder:
+class SeedreamExhibitionPromptBuilder(io.ComfyNode):
+    """Build a Seedream 4.0/4.5 compliant structured prompt for exhibition hall render workflows."""
+
     @classmethod
-    def INPUT_TYPES(cls):
+    def define_schema(cls):
         styles = load_styles()
         labels = style_labels(styles)
-        return {
-            "required": {
-                "style_id": (labels, {"default": labels[0]}),
-                "tone": (list(TONE_PROMPTS.keys()), {"default": "标准"}),
-                "primary_color": ("COLOR", {"default": "#567DF0"}),
-                "secondary_color": ("COLOR", {"default": "#C33C3C"}),
-                "base_prompt": (
-                    "STRING",
-                    {
-                        "default": DEFAULT_BASE_PROMPT,
-                        "multiline": True,
-                    },
-                ),
-                "additional_details": (
-                    "STRING",
-                    {
-                        "default": DEFAULT_ADDITIONAL_DETAILS,
-                        "multiline": True,
-                    },
-                ),
-            },
-            "optional": {
-                "use_theme_template": ("BOOLEAN", {"default": True, "forceInput": True}),
-                "use_space_reference": ("BOOLEAN", {"default": True, "forceInput": True}),
-                "include_people_placeholder": ("BOOLEAN", {"default": True, "forceInput": True}),
-                "use_element_reference": ("BOOLEAN", {"default": True, "forceInput": True}),
-                "lock_edit_region": ("BOOLEAN", {"default": True, "forceInput": True}),
-            },
-        }
+        return io.Schema(
+            node_id="SeedreamExhibitionPromptBuilder",
+            display_name="Seedream Exhibition Prompt Builder",
+            category="Seedream/Prompt",
+            inputs=[
+                io.Combo.Input("style_id", options=labels, default=labels[0] if labels else "航天科技"),
+                io.Combo.Input("tone", options=list(TONE_PROMPTS.keys()), default="标准"),
+                io.String.Input("primary_color", default="#567DF0"),
+                io.String.Input("secondary_color", default="#C33C3C"),
+                io.String.Input("base_prompt", default=DEFAULT_BASE_PROMPT, multiline=True),
+                io.String.Input("additional_details", default=DEFAULT_ADDITIONAL_DETAILS, multiline=True),
+                io.Boolean.Input("use_theme_template", default=True, optional=True),
+                io.Boolean.Input("use_space_reference", default=True, optional=True),
+                io.Boolean.Input("include_people_placeholder", default=True, optional=True),
+                io.Boolean.Input("use_element_reference", default=True, optional=True),
+                io.Boolean.Input("lock_edit_region", default=True, optional=True),
+            ],
+            outputs=[
+                io.String.Output(display_name="prompt"),
+            ],
+        )
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
-    FUNCTION = "build_prompt"
-    CATEGORY = "Seedream/Prompt"
-    DESCRIPTION = "Build a Seedream 4.0/4.5 compliant structured prompt for exhibition hall render workflows."
-
-    def build_prompt(
-        self,
+    @classmethod
+    def execute(
+        cls,
         style_id,
         tone,
         primary_color,
@@ -253,31 +246,21 @@ class SeedreamExhibitionPromptBuilder:
         include_people_placeholder=True,
         use_element_reference=True,
         lock_edit_region=True,
-        visible_text=None,
     ):
-        if isinstance(use_theme_template, str):
-            use_theme_template, use_space_reference, include_people_placeholder, use_element_reference, lock_edit_region = (
-                bool(use_space_reference),
-                bool(include_people_placeholder),
-                bool(use_element_reference),
-                bool(lock_edit_region),
-                bool(visible_text),
-            )
+        if not use_theme_template:
+            return io.NodeOutput(clean_fragment(base_prompt))
 
         styles = load_styles()
         _, style = resolve_style(styles, style_id)
         style_label = clean_fragment(style.get("label", style_id))
-        primary = normalize_hex(primary_color, "#567DF0")
-        secondary = normalize_hex(secondary_color, "#C33C3C")
+        primary = normalize_hex(style.get("primary_color") or primary_color, "#567DF0")
+        secondary = normalize_hex(style.get("secondary_color") or secondary_color, "#C33C3C")
 
-        if use_theme_template:
-            task_sentence = f"创建一张{style_label}风格的展厅写实渲染效果图，用于展厅设计方案呈现"
-        else:
-            task_sentence = "创建一张展厅写实渲染效果图，用于展厅设计方案呈现"
+        task_sentence = f"创建一张{style_label}风格的展厅写实渲染效果图，用于展厅设计方案呈现"
 
         sentences = [
             task_sentence,
-            base_prompt if not use_theme_template else "",
+            "",  # use_theme_template=True 时模板替代 base_prompt，False 时已 early return
         ]
 
         if use_space_reference:
@@ -301,7 +284,7 @@ class SeedreamExhibitionPromptBuilder:
             ]
         )
 
-        return (normalize_prompt(sentences),)
+        return io.NodeOutput(normalize_prompt(sentences))
 
 
 NODE_CLASS_MAPPINGS = {

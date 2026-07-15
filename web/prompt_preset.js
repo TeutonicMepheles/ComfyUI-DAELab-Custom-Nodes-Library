@@ -217,6 +217,13 @@ function selectStyle(node, widget, styleId) {
     node.properties.gpt_image_prompt_style_id = styleId;
     widget.__gptImagePromptPresetValue = styleId;
     setWidgetValue(node, "style_id", styleIdToWidgetValue(styleId));
+    const style = styleData?.[styleId];
+    if (style?.primary_color) {
+        setWidgetValue(node, "primary_color", style.primary_color);
+    }
+    if (style?.secondary_color) {
+        setWidgetValue(node, "secondary_color", style.secondary_color);
+    }
     syncUiPropertiesFromNativeWidgets(node);
     renderStyleDomWidget(widget, node);
     updateSerializedWidgetValues(node);
@@ -389,6 +396,14 @@ function installPromptPresetUi(node) {
             renderStyleDomWidget(domWidget, node);
             resizeNodeForControls(node);
             markNodeDirty(node);
+        }
+        const currentStyleId = getSelectedStyleId(node);
+        const currentStyle = styleData?.[currentStyleId];
+        if (currentStyle?.primary_color) {
+            setWidgetValue(node, "primary_color", currentStyle.primary_color);
+        }
+        if (currentStyle?.secondary_color) {
+            setWidgetValue(node, "secondary_color", currentStyle.secondary_color);
         }
     });
 

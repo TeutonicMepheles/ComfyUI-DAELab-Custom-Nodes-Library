@@ -14,12 +14,10 @@ DAELab 维护的 ComfyUI 自定义节点库。
 | 节点 ID | 显示名称 | 说明 |
 | --- | --- | --- |
 | `BooleanList` | `Boolean List` | 动态维护多组布尔输出。 |
-| `GPTImageStylePromptPreset` | `GPT Image Style Prompt Preset` | 基于风格预设、主/辅色彩和附加提示生成结构化提示词。 |
 | `SeedreamExhibitionPromptBuilder` | `Seedream Exhibition Prompt Builder` | 面向 Seedream 4.0/4.5 展厅写实渲染工作流，按主题、参考图用途、语义色彩和布尔条件生成自然语言结构化提示词。 |
-| `LoadImageBooleanBBox` | `Load Image + BBox` | 加载图片并绘制正向/负向边界框，输出可用于 SAM3 的 prompt。 |
 | `BBoxPromptReroute` | `BBox Prompt Reroute` | 转接正向/负向 SAM3 框 prompt，仅整理工作流连线。 |
-| `LoadImagePolygonMask` | `Load Image + Polygon Mask` | 加载图片，编辑多 polygon，并集成 SAM3 Prompt 画布，输出 polygon 叠加图、原图、SAM3 masks 和 visualization。 |
 | `PolygonMask` | `Polygon Mask` | 接收外部 `IMAGE` socket，提供纯多边形编辑画布，输出 polygon 叠加图和原图尺寸黑白 `raw_mask`。 |
+| `SAM3ComplexCollector` | `SAM3 Complex Collector` | 集 BBox 与交互式 collector 于一体，输出 SAM3 masks 和 visualization。 |
 
 ## 目录结构
 
@@ -31,45 +29,35 @@ ComfyUI-DAELab-Custom-Nodes-Library/
       node.py
       README.md
       assets/
-    gpt_image_prompt_preset/
-      node.py
-      README.md
-      assets/
     seedream_exhibition_prompt_builder/
       node.py
       README.md
-    load_image_boolean_bbox/
-      node.py
-      README.md
-      assets/
     bbox_prompt_reroute/
       node.py
       README.md
       assets/
-    load_image_polygon_mask/
-      node.py
-      README.md
     polygon_mask/
       node.py
       README.md
+    sam3_complex_collector/
+      node.py
+      README.md
+    _shared_sam3.py
   templates/
     new_node/
   web/
     boolean_list.js
     prompt_preset.js
     bbox_loader.js
-    polygon_mask_loader.js
     polygon_mask.js
+    sam3_complex_collector.js
     styles.json
     thumbs/
 ```
 
 ## 提示词节点
 
-- `GPTImageStylePromptPreset` 保持旧工作流兼容，适合继续使用原有 GPT Image 风格提示词链路。
-- `SeedreamExhibitionPromptBuilder` 是新的 Seedream 展厅提示词节点，用于替代工作流中由 `GPT Image Style Prompt Preset`、多个 `LazySwitchKJ` 和 `Text Concatenate` 组成的拼接段。
-- 新节点复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，`style_id` 在前端显示中文标签。
-- 新节点保留 Color Picker 输入，但默认把 Hex 转成自然语言色彩描述，不在最终提示词中输出 `#RRGGBB`。
+`SeedreamExhibitionPromptBuilder` 是 Seedream 展厅提示词节点，复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，`style_id` 在前端显示中文标签。Color Picker 输入默认把 Hex 转成自然语言色彩描述，不在最终提示词中输出 `#RRGGBB`。
 
 ## 安装
 

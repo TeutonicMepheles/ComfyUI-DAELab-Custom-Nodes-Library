@@ -1,8 +1,7 @@
 import { app } from "/scripts/app.js";
 
-const UI_VERSION = "20260707-style-labels-v1";
+const UI_VERSION = "20260715-fix-colors-v2";
 const SUPPORTED_NODE_NAMES = new Set([
-    "GPTImageStylePromptPreset",
     "SeedreamExhibitionPromptBuilder",
 ]);
 const STYLE_URL = new URL("./styles.json", import.meta.url);
@@ -13,18 +12,24 @@ const DEFAULT_STYLE_DATA = {
     aerospace: {
         label: "航天科技",
         thumbnail: "thumb_tech.webp",
+        primary_color: "#567DF0",
+        secondary_color: "#D0D5DD",
     },
     business: {
         label: "商务",
         thumbnail: "thumb_business.webp",
+        primary_color: "#3A4A5C",
+        secondary_color: "#B8A99A",
     },
     party_building: {
         label: "党建",
         thumbnail: "thumb_party.webp",
+        primary_color: "#C33C3C",
+        secondary_color: "#D4A843",
     },
 };
 
-console.info(`[GPTImagePromptPreset] UI loaded: ${UI_VERSION}`);
+console.info(`[GPTImagePromptPreset] UI loaded: ${UI_VERSION} (v2 color fix)`);
 
 let styleData = DEFAULT_STYLE_DATA;
 let styleLoadStarted = false;
@@ -81,11 +86,23 @@ function setWidgetValue(node, widgetName, value) {
     if (!widget) return false;
     const previousValue = widget.value;
     widget.value = value;
+    const type = widget.type || widget.options?.type || "";
+    if (type.toUpperCase() === "COLOR") {
+        const inputEl = widget.element || widget.inputEl;
+        if (inputEl) {
+            inputEl.value = value;
+        }
+    }
     node.onWidgetChanged?.(widgetName, value, previousValue, widget);
     widget.callback?.call(widget, value, app.canvas, node, app.canvas?.graph_mouse);
     updateSerializedWidgetValues(node);
     markNodeDirty(node);
     return true;
+}
+
+function isHexColorString(value) {
+    if (typeof value !== "string") return false;
+    return /^#?[0-9a-fA-F]{6}$/.test(value.trim());
 }
 
 function syncUiPropertiesFromNativeWidgets(node) {
@@ -107,6 +124,22 @@ function repairNativeWidgetValues(node) {
     }
     if (toneWidget && !VALID_TONES.has(toneWidget.value)) {
         toneWidget.value = "标准";
+    }
+    const basePromptWidget = findWidget(node, "base_prompt");
+    if (basePromptWidget) {
+        if (typeof basePromptWidget.value !== "string" || !basePromptWidget.value.trim() || isHexColorString(basePromptWidget.value)) {
+            basePromptWidget.value = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。";
+        } else {
+            basePromptWidget.value = basePromptWidget.value.trim();
+        }
+    }
+    const additionalDetailsWidget = findWidget(node, "additional_details");
+    if (additionalDetailsWidget) {
+        if (typeof additionalDetailsWidget.value !== "string" || !additionalDetailsWidget.value.trim() || isHexColorString(additionalDetailsWidget.value)) {
+            additionalDetailsWidget.value = "地面材质采用高抛光水磨石，含PVC，墙面材质采用乳胶漆，包含不锈钢、铝材的装饰材质与灯带，顶面采用流线型连续灯带系统。";
+        } else {
+            additionalDetailsWidget.value = additionalDetailsWidget.value.trim();
+        }
     }
     syncUiPropertiesFromNativeWidgets(node);
     updateSerializedWidgetValues(node);
@@ -217,6 +250,13 @@ function selectStyle(node, widget, styleId) {
     node.properties.gpt_image_prompt_style_id = styleId;
     widget.__gptImagePromptPresetValue = styleId;
     setWidgetValue(node, "style_id", styleIdToWidgetValue(styleId));
+    const style = styleData?.[styleId];
+    if (style?.primary_color) {
+        setWidgetValue(node, "primary_color", style.primary_color);
+    }
+    if (style?.secondary_color) {
+        setWidgetValue(node, "secondary_color", style.secondary_color);
+    }
     syncUiPropertiesFromNativeWidgets(node);
     renderStyleDomWidget(widget, node);
     updateSerializedWidgetValues(node);
@@ -329,11 +369,27 @@ function removeStyleControls(node) {
 
 function installStyleWidgetCallback(node) {
     const styleWidget = findWidget(node, "style_id");
+    console.log("[prompt_preset] installStyleWidgetCallback | styleWidget:", styleWidget, "| already wrapped:", styleWidget?.__gptImagePromptPresetCallbackWrapped);
     if (!styleWidget || styleWidget.__gptImagePromptPresetCallbackWrapped) return;
     const originalCallback = styleWidget.callback;
     styleWidget.callback = function (value, canvas, node, pos, event) {
         originalCallback?.call(this, value, canvas, node, pos, event);
         syncUiPropertiesFromNativeWidgets(node);
+        const selectedStyleId = getSelectedStyleId(node);
+        const selectedStyle = styleData?.[selectedStyleId];
+        if (selectedStyle?.primary_color) {
+            setWidgetValue(node, "primary_color", selectedStyle.primary_color);
+        }
+        if (selectedStyle?.secondary_color) {
+            setWidgetValue(node, "secondary_color", selectedStyle.secondary_color);
+        }
+        console.log("[prompt_preset] style changed to", selectedStyleId,
+            "| primary_color widget:", findWidget(node, "primary_color"),
+            "| value:", findWidget(node, "primary_color")?.value,
+            "| element:", findWidget(node, "primary_color")?.element,
+            "| inputEl:", findWidget(node, "primary_color")?.inputEl,
+            "| type:", findWidget(node, "primary_color")?.type,
+            "| options.type:", findWidget(node, "primary_color")?.options?.type);
         const domWidget = node.widgets?.find((widget) => widget.__gptImagePromptPresetDomSelector);
         if (domWidget) renderStyleDomWidget(domWidget, node);
         updateSerializedWidgetValues(node);
@@ -390,10 +446,34 @@ function installPromptPresetUi(node) {
             resizeNodeForControls(node);
             markNodeDirty(node);
         }
+        const currentStyleId = getSelectedStyleId(node);
+        const currentStyle = styleData?.[currentStyleId];
+        if (currentStyle?.primary_color) {
+            setWidgetValue(node, "primary_color", currentStyle.primary_color);
+        }
+        if (currentStyle?.secondary_color) {
+            setWidgetValue(node, "secondary_color", currentStyle.secondary_color);
+        }
     });
 
     removeStyleControls(node);
     repairNativeWidgetValues(node);
+    {
+        const initialStyleId = getSelectedStyleId(node);
+        const initialStyle = styleData?.[initialStyleId];
+        if (initialStyle?.primary_color) {
+            setWidgetValue(node, "primary_color", initialStyle.primary_color);
+        }
+        if (initialStyle?.secondary_color) {
+            setWidgetValue(node, "secondary_color", initialStyle.secondary_color);
+        }
+        console.log("[prompt_preset] sync init | styleId:", initialStyleId,
+            "| primary widget:", findWidget(node, "primary_color"),
+            "| value:", findWidget(node, "primary_color")?.value,
+            "| element:", findWidget(node, "primary_color")?.element,
+            "| inputEl:", findWidget(node, "primary_color")?.inputEl,
+            "| type:", findWidget(node, "primary_color")?.type);
+    }
     installStyleWidgetCallback(node);
     addStyleControl(node);
     reorderPromptPresetWidgets(node);
@@ -408,11 +488,16 @@ if (globalThis.__GPT_IMAGE_PROMPT_PRESET_REGISTERED_VERSION !== UI_VERSION) {
         name: "Comfy.GPTImagePromptPreset.UI",
         beforeRegisterNodeDef(nodeType, nodeData) {
             if (!SUPPORTED_NODE_NAMES.has(nodeData.name)) return;
+            console.log("[prompt_preset] matched node:", nodeData.name, "| registering hooks");
 
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 onNodeCreated?.apply(this, arguments);
-                setTimeout(() => installPromptPresetUi(this), 0);
+                const self = this;
+                setTimeout(() => {
+                    console.log("[prompt_preset] onNodeCreated fired | widgets:", self.widgets?.length, "| widgets_by_name:", self.widgets?.map(w => w.name));
+                    installPromptPresetUi(self);
+                }, 0);
             };
 
             const onRemoved = nodeType.prototype.onRemoved;

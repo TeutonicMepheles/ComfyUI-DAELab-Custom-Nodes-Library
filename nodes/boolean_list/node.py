@@ -1,5 +1,7 @@
 import json
 
+from comfy_api.latest import io
+
 
 MAX_BOOLEAN_OUTPUTS = 64
 DEFAULT_CONFIG = json.dumps(
@@ -56,31 +58,31 @@ def _get_config_json(extra_pnginfo=None, unique_id=None):
     return config_json
 
 
-class BooleanList:
+class BooleanList(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {},
-            "hidden": {
-                "extra_pnginfo": "EXTRA_PNGINFO",
-                "unique_id": "UNIQUE_ID",
-            }
-        }
-
-    RETURN_TYPES = tuple("BOOLEAN" for _ in range(MAX_BOOLEAN_OUTPUTS))
-    RETURN_NAMES = tuple(f"Boolean {i}" for i in range(1, MAX_BOOLEAN_OUTPUTS + 1))
-    FUNCTION = "evaluate"
-    CATEGORY = "utils/logic"
+    def define_schema(cls):
+        return io.Schema(
+            node_id="BooleanList",
+            display_name="Boolean List",
+            category="utils/logic",
+            inputs=[],
+            outputs=[
+                io.Boolean.Output(display_name=f"Boolean {i}")
+                for i in range(1, MAX_BOOLEAN_OUTPUTS + 1)
+            ],
+            hidden=[io.Hidden.extra_pnginfo, io.Hidden.unique_id],
+        )
 
     @classmethod
-    def IS_CHANGED(cls, extra_pnginfo=None, unique_id=None):
-        return _get_config_json(extra_pnginfo, unique_id)
+    def fingerprint_inputs(cls):
+        return _get_config_json(cls.hidden.extra_pnginfo, cls.hidden.unique_id)
 
-    def evaluate(self, extra_pnginfo=None, unique_id=None):
-        items = _normalize_items(_get_config_json(extra_pnginfo, unique_id))
+    @classmethod
+    def execute(cls):
+        items = _normalize_items(_get_config_json(cls.hidden.extra_pnginfo, cls.hidden.unique_id))
         values = [item["value"] for item in items]
         values.extend(False for _ in range(MAX_BOOLEAN_OUTPUTS - len(values)))
-        return tuple(values[:MAX_BOOLEAN_OUTPUTS])
+        return io.NodeOutput(*values[:MAX_BOOLEAN_OUTPUTS])
 
 
 NODE_CLASS_MAPPINGS = {

@@ -230,5 +230,7 @@
     "Comfy.WorkflowActions.SeenItems": [
         "enter-app-mode",
         "enter-builder-mode"
-    ]
+    ],
+    "Comfy.LinkRenderMode": 1,
+    "Comfy.DevMode": true
 }

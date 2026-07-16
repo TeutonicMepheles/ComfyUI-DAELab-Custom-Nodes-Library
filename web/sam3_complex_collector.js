@@ -174,25 +174,49 @@ app.registerExtension({
         "display:flex",
         "gap:6px",
         "align-items:center",
+        "justify-content:space-between",
         "padding:5px",
         "box-sizing:border-box",
         "background:#202225",
         "border-bottom:1px solid #333",
       ].join(";");
 
-      const bboxModeButton = button("BBox Collector", "Use bbox collector prompts", () => this.setSAM3ComplexMode(MODE_BBOX));
-      const interactiveModeButton = button("Interactive Collector", "Use interactive point and box prompts", () =>
-        this.setSAM3ComplexMode(MODE_INTERACTIVE),
-      );
-      const refreshButton = button("Refresh", "Load and refresh the connected input image preview", async (event) => {
+      const refreshButton = button("Load Image", "Load the connected IMAGE socket into the collector canvas", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.refreshSAM3ComplexImage();
       });
-      refreshButton.style.marginLeft = "auto";
-      modeBar.appendChild(bboxModeButton);
-      modeBar.appendChild(interactiveModeButton);
+      refreshButton.style.background = "#315f8f";
+      refreshButton.style.borderColor = "#5088c0";
+
+      const modeTabs = document.createElement("div");
+      modeTabs.setAttribute("role", "tablist");
+      modeTabs.setAttribute("aria-label", "Collector mode");
+      modeTabs.style.cssText = [
+        "display:flex",
+        "align-items:center",
+        "margin-left:auto",
+        "border:1px solid #3a3a3a",
+        "border-radius:4px",
+        "overflow:hidden",
+      ].join(";");
+
+      const bboxModeButton = button("BBox Collector", "Use bbox collector prompts", () => this.setSAM3ComplexMode(MODE_BBOX));
+      const interactiveModeButton = button("Interactive Collector", "Use interactive point and box prompts", () =>
+        this.setSAM3ComplexMode(MODE_INTERACTIVE),
+      );
+      for (const modeButton of [bboxModeButton, interactiveModeButton]) {
+        modeButton.setAttribute("role", "tab");
+        modeButton.style.border = "0";
+        modeButton.style.borderRadius = "0";
+        modeButton.style.padding = "0 10px";
+      }
+      bboxModeButton.style.borderRight = "1px solid #3a3a3a";
+      modeTabs.appendChild(bboxModeButton);
+      modeTabs.appendChild(interactiveModeButton);
+
       modeBar.appendChild(refreshButton);
+      modeBar.appendChild(modeTabs);
       container.appendChild(modeBar);
 
       const bboxPane = document.createElement("div");
@@ -401,6 +425,8 @@ app.registerExtension({
         const active = key === normalized;
         modeButton.style.background = active ? "#3f5268" : "#252525";
         modeButton.style.color = active ? "#fff" : "#ddd";
+        modeButton.setAttribute("aria-selected", String(active));
+        modeButton.tabIndex = active ? 0 : -1;
       }
       this.updateSAM3ComplexStorage();
       this.redrawSAM3ComplexAll();
@@ -875,7 +901,7 @@ app.registerExtension({
       ctx.fillStyle = "#888";
       ctx.font = "14px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Connect an image node and click Refresh", canvas.width / 2, canvas.height / 2 - 10);
+      ctx.fillText("Connect an image node and click Load Image", canvas.width / 2, canvas.height / 2 - 10);
     };
 
     nodeType.prototype.redrawSAM3ComplexBBox = function () {

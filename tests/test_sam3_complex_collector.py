@@ -69,6 +69,10 @@ def prompt(prompt_id, x=1, name="Prompt"):
 class SAM3ComplexCollectorCacheTests(unittest.TestCase):
     def setUp(self):
         MODULE._SESSION_CACHE.clear()
+        self.original_run_prompts = MODULE._run_sam3_session_prompts
+
+    def tearDown(self):
+        MODULE._run_sam3_session_prompts = self.original_run_prompts
 
     def test_prompt_fingerprint_tracks_geometry_not_label(self):
         first = prompt("one", name="First")
@@ -115,7 +119,71 @@ class SAM3ComplexCollectorCacheTests(unittest.TestCase):
         self.assertNotIn("b", entry["prompt_results"])
         self.assertNotIn("a", entry["prompt_results"])
         self.assertEqual(entry["prompt_results"]["c"]["masks"], ["c"])
-        self.assertEqual(result, {"overlay": "base64:overlay", "num_masks": 1})
+        self.assertEqual(result, {"overlay": "base64:overlay", "num_masks": 1, "computed_masks": 1})
+
+    def test_bbox_prompts_preserve_stable_ids_and_negative_boxes(self):
+        prompts = MODULE._bbox_store_to_prompts(
+            json.dumps([
+                {"id": "stable", "x1": 1, "y1": 2, "x2": 10, "y2": 20},
+                {"x1": 3, "y1": 4, "x2": 12, "y2": 24},
+            ]),
+            json.dumps([{"x1": 5, "y1": 6, "x2": 8, "y2": 9}]),
+        )
+
+        self.assertEqual([item["id"] for item in prompts], ["bbox:stable", "bbox:legacy-1"])
+        self.assertEqual(prompts[0]["positive_boxes"][0], {"x1": 1.0, "y1": 2.0, "x2": 10.0, "y2": 20.0})
+        self.assertEqual(prompts[0]["negative_boxes"], prompts[1]["negative_boxes"])
+
+    def test_batch_scope_reuses_unchanged_prompts(self):
+        cached = prompt("bbox:a", x=1)
+        added = prompt("bbox:b", x=2)
+        calls = []
+        MODULE._run_sam3_session_prompts = lambda session, prompts: (calls.append(prompts[0]["id"]) or [prompts[0]["id"]], [0.9])
+        entry = {
+            "session": {},
+            "prompt_results": {
+                "bbox:a": {
+                    "fingerprint": MODULE._prompt_fingerprint(cached),
+                    "masks": ["bbox:a"],
+                    "scores": [0.8],
+                },
+            },
+            "last_access": 0,
+        }
+
+        result = MODULE._segment_cached_prompt(entry, [cached, added], run_scope="all")
+
+        self.assertEqual(calls, ["bbox:b"])
+        self.assertEqual(result["num_masks"], 2)
+        self.assertEqual(result["computed_masks"], 1)
+
+    def test_negative_box_change_recomputes_all_bbox_prompts(self):
+        first = prompt("bbox:a", x=1)
+        second = prompt("bbox:b", x=2)
+        for item in (first, second):
+            item["negative_boxes"] = [{"x1": 1, "y1": 1, "x2": 4, "y2": 4}]
+        entry = {
+            "session": {},
+            "prompt_results": {
+                item["id"]: {
+                    "fingerprint": MODULE._prompt_fingerprint(item),
+                    "masks": [item["id"]],
+                    "scores": [0.8],
+                }
+                for item in (first, second)
+            },
+            "last_access": 0,
+        }
+        changed = json.loads(json.dumps([first, second]))
+        for item in changed:
+            item["negative_boxes"][0]["x2"] = 9
+        calls = []
+        MODULE._run_sam3_session_prompts = lambda session, prompts: (calls.append(prompts[0]["id"]) or [prompts[0]["id"]], [0.9])
+
+        result = MODULE._segment_cached_prompt(entry, changed, run_scope="all")
+
+        self.assertEqual(calls, ["bbox:a", "bbox:b"])
+        self.assertEqual(result["computed_masks"], 2)
 
     def test_node_is_partial_execution_target(self):
         schema = MODULE.SAM3ComplexCollector.INPUT_TYPES()

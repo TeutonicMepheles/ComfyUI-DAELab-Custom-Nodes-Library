@@ -102,17 +102,15 @@ def _flatten_prompt_results(prompt_results, prompts):
     return all_masks, all_scores
 
 
-def _segment_cached_prompt(entry, prompts, active_prompt_id):
+def _segment_cached_prompt(entry, prompts, active_prompt_id=None, run_scope="active"):
     if not isinstance(prompts, list):
         raise ValueError("prompts must be a list")
+    if run_scope not in ("active", "all"):
+        raise ValueError("run_scope must be 'active' or 'all'")
 
     prompt_map = {_prompt_key(prompt, index): prompt for index, prompt in enumerate(prompts) if isinstance(prompt, dict)}
-    active_prompt_id = str(active_prompt_id or "")
-    active_prompt = prompt_map.get(active_prompt_id)
-    if active_prompt is None:
-        raise ValueError("active_prompt_id does not identify a current prompt")
-    if not _has_sam3_prompt_content([active_prompt]):
-        raise ValueError("The active prompt has no points or boxes")
+    if not prompt_map:
+        raise ValueError("prompts must contain at least one prompt")
 
     with _SEGMENT_LOCK:
         prompt_results = entry["prompt_results"]
@@ -122,19 +120,41 @@ def _segment_cached_prompt(entry, prompts, active_prompt_id):
             if prompt_id not in valid_ids or prompt_results[prompt_id]["fingerprint"] != _prompt_fingerprint(prompt):
                 prompt_results.pop(prompt_id, None)
 
-        masks, scores = _run_sam3_session_prompts(entry["session"], [active_prompt])
-        prompt_results[active_prompt_id] = {
-            "fingerprint": _prompt_fingerprint(active_prompt),
-            "masks": masks,
-            "scores": scores,
-        }
+        if run_scope == "active":
+            active_prompt_id = str(active_prompt_id or "")
+            active_prompt = prompt_map.get(active_prompt_id)
+            if active_prompt is None:
+                raise ValueError("active_prompt_id does not identify a current prompt")
+            if not _has_sam3_prompt_content([active_prompt]):
+                raise ValueError("The active prompt has no points or boxes")
+            targets = [(active_prompt_id, active_prompt)]
+        else:
+            targets = [
+                (prompt_id, prompt)
+                for prompt_id, prompt in prompt_map.items()
+                if prompt_id not in prompt_results
+            ]
+
+        computed_masks = 0
+        for prompt_id, prompt in targets:
+            if not _has_sam3_prompt_content([prompt]):
+                continue
+            masks, scores = _run_sam3_session_prompts(entry["session"], [prompt])
+            prompt_results[prompt_id] = {
+                "fingerprint": _prompt_fingerprint(prompt),
+                "masks": masks,
+                "scores": scores,
+            }
+            computed_masks += len(masks)
+
         all_masks, all_scores = _flatten_prompt_results(prompt_results, prompts)
         _, _, overlay = _render_sam3_session_results(entry["session"], all_masks, all_scores)
 
     entry["last_access"] = time.monotonic()
     return {
         "overlay": _pil_to_base64(overlay),
-        "num_masks": len(masks),
+        "num_masks": len(all_masks),
+        "computed_masks": computed_masks,
     }
 
 
@@ -159,6 +179,7 @@ async def sam3_complex_segment(request):
             entry,
             body.get("prompts"),
             body.get("active_prompt_id"),
+            body.get("run_scope", "active"),
         )
         return web.json_response(result)
     except _CacheMissError as exc:
@@ -208,7 +229,10 @@ def _normalize_bbox(box):
     if x2 <= x1 or y2 <= y1:
         return None
 
-    return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+    normalized = {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+    if box.get("id"):
+        normalized["id"] = str(box["id"])
+    return normalized
 
 
 def _bbox_store_to_prompts(bboxes, neg_bboxes):
@@ -219,12 +243,14 @@ def _bbox_store_to_prompts(bboxes, neg_bboxes):
 
     prompts = []
     for index, box in enumerate(positive_boxes):
+        box_id = str(box.get("id") or f"legacy-{index}")
         prompts.append(
             {
+                "id": f"bbox:{box_id}",
                 "name": f"BBox {index + 1}",
                 "positive_points": [],
                 "negative_points": [],
-                "positive_boxes": [box],
+                "positive_boxes": [{key: box[key] for key in ("x1", "y1", "x2", "y2")}],
                 "negative_boxes": [dict(neg_box) for neg_box in negative_boxes],
             }
         )

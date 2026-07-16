@@ -22,6 +22,23 @@ function createPromptId() {
   return `prompt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function createBBoxId() {
+  return `bbox-${createPromptId()}`;
+}
+
+function cloneBBox(box, ensureId = false) {
+  const cloned = {
+    x1: Number(box?.x1 ?? box?.x ?? 0),
+    y1: Number(box?.y1 ?? box?.y ?? 0),
+    x2: Number(box?.x2 ?? ((box?.x ?? 0) + (box?.w ?? 0))),
+    y2: Number(box?.y2 ?? ((box?.y ?? 0) + (box?.h ?? 0))),
+  };
+  if (ensureId) {
+    cloned.id = String(box?.id || createBBoxId());
+  }
+  return cloned;
+}
+
 function stableStringify(value) {
   if (Array.isArray(value)) {
     return `[${value.map(stableStringify).join(",")}]`;
@@ -301,17 +318,26 @@ app.registerExtension({
       };
 
       const bboxUi = makeCanvasPane(bboxPane);
+      const bboxRunButton = button("Run", "Run all positive bbox prompts without executing downstream workflow nodes", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await this.runSAM3ComplexBBox();
+      });
+      bboxRunButton.style.background = "#2a7a2a";
+      bboxRunButton.style.borderColor = "#3a9a3a";
       const bboxClear = button("Clear All", "Clear all bbox prompts", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.sam3Complex.bbox.positive = [];
         this.sam3Complex.bbox.negative = [];
         this.sam3Complex.bbox.current = null;
+        this.invalidateSAM3ComplexOverlay(MODE_BBOX);
         this.updateSAM3ComplexStorage();
         this.redrawSAM3ComplexBBox();
       });
       bboxClear.style.background = "#8f2f2f";
       bboxClear.style.borderColor = "#a44";
+      bboxUi.actions.appendChild(bboxRunButton);
       bboxUi.actions.appendChild(bboxClear);
 
       const interactiveUi = makeCanvasPane(interactivePane);
@@ -370,18 +396,9 @@ app.registerExtension({
           canvas: bboxUi.canvas,
           ctx: bboxUi.ctx,
           counter: bboxUi.counter,
-          positive: parseArray(bboxesWidget?.value).map((box) => ({
-            x1: Number(box.x1 ?? box.x ?? 0),
-            y1: Number(box.y1 ?? box.y ?? 0),
-            x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-            y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-          })),
-          negative: parseArray(negBboxesWidget?.value).map((box) => ({
-            x1: Number(box.x1 ?? box.x ?? 0),
-            y1: Number(box.y1 ?? box.y ?? 0),
-            x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-            y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-          })),
+          runButton: bboxRunButton,
+          positive: parseArray(bboxesWidget?.value).map((box) => cloneBBox(box, true)),
+          negative: parseArray(negBboxesWidget?.value).map((box) => cloneBBox(box)),
           current: null,
         },
         interactive: {
@@ -560,18 +577,8 @@ app.registerExtension({
         return;
       }
       state.mode = state.widgets.mode?.value === MODE_INTERACTIVE ? MODE_INTERACTIVE : MODE_BBOX;
-      state.bbox.positive = parseArray(state.widgets.bboxes?.value).map((box) => ({
-        x1: Number(box.x1 ?? box.x ?? 0),
-        y1: Number(box.y1 ?? box.y ?? 0),
-        x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-        y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-      }));
-      state.bbox.negative = parseArray(state.widgets.negBboxes?.value).map((box) => ({
-        x1: Number(box.x1 ?? box.x ?? 0),
-        y1: Number(box.y1 ?? box.y ?? 0),
-        x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-        y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-      }));
+      state.bbox.positive = parseArray(state.widgets.bboxes?.value).map((box) => cloneBBox(box, true));
+      state.bbox.negative = parseArray(state.widgets.negBboxes?.value).map((box) => cloneBBox(box));
       state.interactive.prompts = parseArray(state.widgets.prompts?.value, [promptTemplate(0)]).map(clonePrompt);
       if (!state.interactive.prompts.length) {
         state.interactive.prompts = [promptTemplate(0)];
@@ -628,15 +635,26 @@ app.registerExtension({
           prompt.negative_points.length ||
           prompt.positive_boxes.length ||
           prompt.negative_boxes.length);
-      const disabled = state?.running || !hasPrompt;
-      if (state?.interactive.runButton) {
-        const runButton = state.interactive.runButton;
-        runButton.textContent = state.initializing ? "Initializing…" : state.running ? "Running…" : "Run";
+      const label = state.initializing ? "Initializing…" : state.running ? "Running…" : "Run";
+      const updateButton = (runButton, enabled, title) => {
+        if (!runButton) return;
+        const disabled = state.running || !enabled;
+        runButton.textContent = label;
         runButton.disabled = disabled;
         runButton.style.opacity = disabled ? "0.45" : "1";
         runButton.style.cursor = disabled ? "default" : "pointer";
-        runButton.title = state.runError || "Run the active prompt without executing downstream workflow nodes";
-      }
+        runButton.title = state.runError || title;
+      };
+      updateButton(
+        state?.bbox.runButton,
+        state?.bbox.positive.length > 0,
+        "Run all positive bbox prompts without executing downstream workflow nodes",
+      );
+      updateButton(
+        state?.interactive.runButton,
+        hasPrompt,
+        "Run the active prompt without executing downstream workflow nodes",
+      );
     };
 
     nodeType.prototype.bindSAM3ComplexBBoxEvents = function () {
@@ -652,6 +670,7 @@ app.registerExtension({
         if (event.button === 2 && hit) {
           const list = hit.isNegative ? this.sam3Complex.bbox.negative : this.sam3Complex.bbox.positive;
           list.splice(hit.index, 1);
+          this.invalidateSAM3ComplexOverlay(MODE_BBOX);
           this.updateSAM3ComplexStorage();
           this.redrawSAM3ComplexBBox();
           return;
@@ -690,7 +709,8 @@ app.registerExtension({
         this.sam3Complex.bbox.current = null;
         if (box.x2 - box.x1 > 5 && box.y2 - box.y1 > 5) {
           const list = current.isNegative ? this.sam3Complex.bbox.negative : this.sam3Complex.bbox.positive;
-          list.push(box);
+          list.push(current.isNegative ? box : { ...box, id: createBBoxId() });
+          this.invalidateSAM3ComplexOverlay(MODE_BBOX);
           this.updateSAM3ComplexStorage();
         }
         this.redrawSAM3ComplexBBox();
@@ -914,16 +934,16 @@ app.registerExtension({
       this.redrawSAM3ComplexInteractive();
     };
 
-    nodeType.prototype.invalidateSAM3ComplexOverlay = function () {
+    nodeType.prototype.invalidateSAM3ComplexOverlay = function (mode = this.sam3Complex?.mode) {
       const state = this.sam3Complex;
       if (!state) {
         return;
       }
-      if (state.overlayMode === MODE_INTERACTIVE) {
+      if (mode === null || state.overlayMode === mode) {
         state.overlayImage = null;
         state.overlayMode = null;
       }
-      this.redrawSAM3ComplexInteractive?.();
+      this.redrawSAM3ComplexAll?.();
     };
 
     nodeType.prototype.invalidateSAM3ComplexSession = function () {
@@ -934,7 +954,7 @@ app.registerExtension({
       state.cacheToken = null;
       state.dependencySignature = null;
       state.pendingDependencySignature = null;
-      this.invalidateSAM3ComplexOverlay();
+      this.invalidateSAM3ComplexOverlay(null);
     };
 
     nodeType.prototype.getSAM3ComplexDependencySignature = async function () {
@@ -1026,17 +1046,44 @@ app.registerExtension({
       }
     };
 
+    nodeType.prototype.buildSAM3ComplexBBoxPrompts = function () {
+      const state = this.sam3Complex.bbox;
+      const negativeBoxes = state.negative.map((box) => cloneBBox(box));
+      return state.positive.map((box, index) => ({
+        id: `bbox:${box.id}`,
+        name: `BBox ${index + 1}`,
+        positive_points: [],
+        negative_points: [],
+        positive_boxes: [cloneBBox(box)],
+        negative_boxes: negativeBoxes.map((box) => ({ ...box })),
+      }));
+    };
+
+    nodeType.prototype.runSAM3ComplexBBox = async function () {
+      const prompts = this.buildSAM3ComplexBBoxPrompts();
+      if (!prompts.length || this.sam3Complex.running) {
+        return;
+      }
+      this.updateSAM3ComplexStorage();
+      await this.runSAM3Complex(MODE_BBOX, prompts, null, "all");
+    };
+
     nodeType.prototype.runSAM3ComplexInteractive = async function () {
       const state = this.sam3Complex;
       const prompt = this.getSAM3ComplexActivePrompt();
       if (!prompt || state.running) {
         return;
       }
+      this.updateSAM3ComplexStorage();
+      await this.runSAM3Complex(MODE_INTERACTIVE, state.interactive.prompts.map(clonePrompt), prompt.id, "active");
+    };
+
+    nodeType.prototype.runSAM3Complex = async function (mode, prompts, activePromptId, runScope) {
+      const state = this.sam3Complex;
       state.running = true;
       state.runError = null;
-      this.setSAM3ComplexMode(MODE_INTERACTIVE);
+      this.setSAM3ComplexMode(mode);
       this.updateSAM3ComplexRunButton();
-      this.updateSAM3ComplexStorage();
       try {
         const dependencySignature = await this.getSAM3ComplexDependencySignature();
         if (!state.cacheToken || state.dependencySignature !== dependencySignature) {
@@ -1051,8 +1098,9 @@ app.registerExtension({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             cache_token: state.cacheToken,
-            active_prompt_id: prompt.id,
-            prompts: state.interactive.prompts.map(clonePrompt),
+            active_prompt_id: activePromptId,
+            prompts,
+            run_scope: runScope,
           }),
         });
         const data = await response.json();
@@ -1068,13 +1116,13 @@ app.registerExtension({
           const image = new Image();
           image.onload = () => {
             state.overlayImage = image;
-            state.overlayMode = MODE_INTERACTIVE;
+            state.overlayMode = mode;
             this.redrawSAM3ComplexAll();
           };
           image.src = `data:image/jpeg;base64,${data.overlay}`;
         }
       } catch (error) {
-        console.error("Failed to run SAM3 Complex Collector", error);
+        console.error(`Failed to run SAM3 Complex Collector (${mode})`, error);
         state.runError = error?.message || String(error);
       } finally {
         if (!state.initializing) {

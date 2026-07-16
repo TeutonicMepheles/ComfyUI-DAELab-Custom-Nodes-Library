@@ -1,5 +1,9 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import {
+  getConnectedLoadImageInfo,
+  getConnectedLoadImageKey,
+} from "./polygon_mask_connection.mjs";
 
 const MIN_VERTICES = 3;
 const MAX_VERTICES = 12;
@@ -37,7 +41,11 @@ function createButton(label, title, onClick) {
     "cursor:pointer",
     "padding:0 7px",
   ].join(";");
-  button.addEventListener("click", onClick);
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick(event);
+  });
   return button;
 }
 
@@ -359,6 +367,10 @@ app.registerExtension({
       const loadImageButton = createButton("Load Image", "Load the connected IMAGE socket into the polygon canvas", () =>
         this.loadSocketImage(),
       );
+      loadImageButton.style.minWidth = "auto";
+      loadImageButton.style.padding = "0 8px";
+      loadImageButton.style.background = "#315f8f";
+      loadImageButton.style.borderColor = "#5088c0";
       const undoButton = createButton("Undo", "Undo last polygon edit", () => this.undoPolygon());
       const redoButton = createButton("Redo", "Redo polygon edit", () => this.redoPolygon());
       const refreshButton = createButton("Refresh", "Refresh socket image and redraw canvas", () => {
@@ -575,7 +587,7 @@ app.registerExtension({
       }
 
       if (markDirty) {
-        app.graph.setDirtyCanvas(true, true);
+        (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
       }
     };
 
@@ -598,8 +610,13 @@ app.registerExtension({
       if (polygonDataWidget) {
         polygonDataWidget.options = polygonDataWidget.options || {};
         polygonDataWidget.options.advanced = true;
+        polygonDataWidget.options.serialize = true;
         polygonDataWidget.hidden = true;
         polygonDataWidget.computeSize = () => [0, -4];
+        // graphToPrompt calls serializeValue immediately before submitting the
+        // API prompt. Flush the live canvas state here so the backend always
+        // receives the latest edit, even if queueing follows a drag directly.
+        polygonDataWidget.serializeValue = () => this.serializePolygonInfo();
       }
 
       for (const widgetName of ["color", "fill_opacity", "outline_width"]) {
@@ -629,7 +646,7 @@ app.registerExtension({
       }
 
       if (markDirty) {
-        app.graph.setDirtyCanvas(true, true);
+        (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
       }
     };
 
@@ -760,7 +777,10 @@ app.registerExtension({
       const encoded = message?.source_image?.[0];
       const imageHash = message?.source_image_hash?.[0] || "";
       if (encoded) {
-        const imageValue = this.getPolygonImageValue?.() || imageHash;
+        const connectedInfo = this.getConnectedLoadImageInfo?.();
+        const imageValue = connectedInfo
+          ? this.getConnectedLoadImageKey(connectedInfo)
+          : imageHash || this.getPolygonImageValue?.();
         this.loadPolygonImageFromData?.(encoded, imageValue, true, true);
       }
       if (this.polygonWidget?.isLoadingImage) {
@@ -768,7 +788,7 @@ app.registerExtension({
         this.updatePolygonButtons?.();
       }
       this.suppressDefaultPolygonPreview?.();
-      app.graph.setDirtyCanvas(true, true);
+      (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
     });
 
     chainCallback(nodeType.prototype, "onSerialize", function (serialized) {
@@ -843,15 +863,15 @@ app.registerExtension({
 
     nodeType.prototype.updatePolygonInfo = function () {
       this.serializePolygonInfo();
-      app.graph.setDirtyCanvas(true, true);
+      (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
     };
 
     nodeType.prototype.getCurrentVertexCount = function () {
       return clampVertexCount(this.getPolygonWidget("vertex_count")?.value);
     };
 
-    nodeType.prototype.loadSocketImage = async function () {
-      if (!this.polygonWidget || this.polygonWidget.isLoadingImage) {
+    nodeType.prototype.loadSocketImage = function () {
+      if (!this.polygonWidget) {
         return;
       }
 
@@ -859,45 +879,25 @@ app.registerExtension({
         return;
       }
 
-      this.polygonWidget.isLoadingImage = true;
-      this.updatePolygonButtons();
-
-      try {
-        const result = app.queuePrompt(0, 1);
-        if (result && typeof result.then === "function") {
-          await result;
-        }
-      } catch (error) {
-        console.error("Failed to queue Polygon Mask image load", error);
-        this.polygonWidget.isLoadingImage = false;
-        this.updatePolygonButtons();
+      // Loading an editor preview must never enqueue the user's workflow. If
+      // the input is not a directly readable Load Image node, keep using the
+      // last image returned by a normal user-initiated workflow run instead.
+      if (this.polygonWidget.sourceImageUrl || this.polygonWidget.sourceImageData) {
+        this.loadPolygonImage(true);
+        return;
       }
+
+      console.warn(
+        "Polygon Mask: the connected IMAGE source cannot be read directly. Run the workflow manually once, then click Load Image again.",
+      );
     };
 
     nodeType.prototype.getConnectedLoadImageInfo = function () {
-      const imageInput = this.inputs?.find((input) => input.name === "image");
-      const linkId = imageInput?.link;
-      if (linkId == null || !app.graph) {
-        return null;
-      }
+      return getConnectedLoadImageInfo(this, app.graph);
+    };
 
-      const link = app.graph.links?.[linkId];
-      const originNode = link ? app.graph.getNodeById?.(link.origin_id) : null;
-      if (!originNode) {
-        return null;
-      }
-
-      const imageWidget = originNode.widgets?.find((widget) => widget.name === "image");
-      const imageValue = imageWidget?.value;
-      if (!imageValue) {
-        return null;
-      }
-
-      return {
-        nodeId: originNode.id ?? "unknown",
-        nodeType: originNode.type || originNode.comfyClass || "",
-        imageValue,
-      };
+    nodeType.prototype.getConnectedLoadImageKey = function (info = this.getConnectedLoadImageInfo()) {
+      return getConnectedLoadImageKey(info);
     };
 
     nodeType.prototype.loadConnectedLoadImage = function () {
@@ -906,7 +906,7 @@ app.registerExtension({
         return false;
       }
 
-      const imageKey = `load-image:${info.nodeId}:${info.imageValue}`;
+      const imageKey = this.getConnectedLoadImageKey(info);
       this.loadPolygonImageFromUrl(getImageUrl(info.imageValue), imageKey, true);
       return true;
     };
@@ -1248,6 +1248,10 @@ app.registerExtension({
           this.polygonWidget.pendingDefaultOnLoad = false;
           this.selectPolygon(0, false);
           this.updatePolygonInfo();
+        } else if (changedImage) {
+          // Execution results may replace a stale image identity while keeping
+          // the user's vertices. Persist that corrected identity immediately.
+          this.updatePolygonInfo();
         }
 
         if (this.polygonWidget.history.length === 0) {
@@ -1439,8 +1443,12 @@ app.registerExtension({
         return;
       }
 
-      buttons.loadImage.disabled = Boolean(this.polygonWidget.isLoadingImage);
-      buttons.loadImage.textContent = this.polygonWidget.isLoadingImage ? "Loading..." : "Load Image";
+      // Image loading is now synchronous from the connected Load Image node
+      // (or from the last cached execution result), so this control must never
+      // inherit the obsolete queue-loading lock from an older page session.
+      this.polygonWidget.isLoadingImage = false;
+      buttons.loadImage.disabled = false;
+      buttons.loadImage.textContent = "Load Image";
       buttons.undo.disabled = this.polygonWidget.historyIndex <= 0;
       buttons.redo.disabled = this.polygonWidget.historyIndex >= this.polygonWidget.history.length - 1;
       buttons.clear.disabled = this.polygonWidget.selectedIndex < 0;

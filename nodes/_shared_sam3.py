@@ -182,17 +182,10 @@ def _run_sam3_prompt_masks(model, state, multi_prompts, img_w, img_h):
     return all_masks, all_scores
 
 
-def _run_sam3_prompts(sam3_model_config, image_tensor, sam3_prompts_data):
-    raw_prompts = _parse_sam3_prompts(sam3_prompts_data)
+def _prepare_sam3_session(sam3_model_config, image_tensor):
     pil_image = _tensor_to_pil(image_tensor[0])
-    empty_mask = _empty_mask_for_image(image_tensor)
-    source_vis = _pil_to_tensor(pil_image)
-
-    if not _has_sam3_prompt_content(raw_prompts):
-        return empty_mask, source_vis
-
     if sam3_model_config is None:
-        raise ValueError("sam3_model_config is required when sam3_prompts_data contains prompt points or boxes.")
+        raise ValueError("sam3_model_config is required for SAM3 interactive segmentation.")
 
     try:
         model_cache, utils = _load_sam3_modules()
@@ -211,11 +204,44 @@ def _run_sam3_prompts(sam3_model_config, image_tensor, sam3_prompts_data):
 
     state = processor.set_image(pil_image)
     img_w, img_h = pil_image.size
-    multi_prompts = _normalize_sam3_prompts(raw_prompts, img_w, img_h)
-    all_masks, all_scores = _run_sam3_prompt_masks(model, state, multi_prompts, img_w, img_h)
+    return {
+        "sam3_model": sam3_model,
+        "model": model,
+        "processor": processor,
+        "state": state,
+        "pil_image": pil_image,
+        "img_size": (img_w, img_h),
+        "empty_mask": _empty_mask_for_image(image_tensor),
+        "source_vis": _pil_to_tensor(pil_image),
+        "utils": utils,
+    }
 
+
+def _run_sam3_session_prompts(session, raw_prompts):
+    import comfy.model_management
+
+    comfy.model_management.load_models_gpu([session["sam3_model"]])
+    processor = session["processor"]
+    if hasattr(processor, "sync_device_with_model"):
+        processor.sync_device_with_model()
+
+    img_w, img_h = session["img_size"]
+    multi_prompts = _normalize_sam3_prompts(raw_prompts, img_w, img_h)
+    return _run_sam3_prompt_masks(
+        session["model"],
+        session["state"],
+        multi_prompts,
+        img_w,
+        img_h,
+    )
+
+
+def _render_sam3_session_results(session, all_masks, all_scores):
     if not all_masks:
-        return empty_mask, source_vis
+        return session["empty_mask"], session["source_vis"], session["pil_image"]
+
+    utils = session["utils"]
+    pil_image = session["pil_image"]
 
     masks = torch.stack(all_masks, dim=0)
     scores = torch.tensor(all_scores)
@@ -230,4 +256,16 @@ def _run_sam3_prompts(sam3_model_config, image_tensor, sam3_prompts_data):
 
     masks_out = utils.masks_to_comfy_mask(masks)
     vis_image = utils.visualize_masks_on_image(pil_image, masks, boxes, scores, alpha=0.5)
-    return masks_out, utils.pil_to_comfy_image(vis_image)
+    return masks_out, utils.pil_to_comfy_image(vis_image), vis_image
+
+
+def _run_sam3_prompts(sam3_model_config, image_tensor, sam3_prompts_data):
+    raw_prompts = _parse_sam3_prompts(sam3_prompts_data)
+    if not _has_sam3_prompt_content(raw_prompts):
+        pil_image = _tensor_to_pil(image_tensor[0])
+        return _empty_mask_for_image(image_tensor), _pil_to_tensor(pil_image)
+
+    session = _prepare_sam3_session(sam3_model_config, image_tensor)
+    all_masks, all_scores = _run_sam3_session_prompts(session, raw_prompts)
+    masks, visualization, _ = _render_sam3_session_results(session, all_masks, all_scores)
+    return masks, visualization

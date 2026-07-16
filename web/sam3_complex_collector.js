@@ -15,6 +15,72 @@ const PROMPT_COLORS = [
 ];
 const MAX_PROMPTS = PROMPT_COLORS.length;
 
+function createPromptId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `prompt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createBBoxId() {
+  return `bbox-${createPromptId()}`;
+}
+
+function cloneBBox(box, ensureId = false) {
+  const cloned = {
+    x1: Number(box?.x1 ?? box?.x ?? 0),
+    y1: Number(box?.y1 ?? box?.y ?? 0),
+    x2: Number(box?.x2 ?? ((box?.x ?? 0) + (box?.w ?? 0))),
+    y2: Number(box?.y2 ?? ((box?.y ?? 0) + (box?.h ?? 0))),
+  };
+  if (ensureId) {
+    cloned.id = String(box?.id || createBBoxId());
+  }
+  return cloned;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function graphNodes(graph) {
+  return graph?.nodes || graph?._nodes || [];
+}
+
+function findExecutionPathToGraph(target, root) {
+  for (const node of graphNodes(root)) {
+    if (!node?.isSubgraphNode?.() || !node.subgraph) {
+      continue;
+    }
+    if (node.subgraph === target) {
+      return String(node.id);
+    }
+    const childPath = findExecutionPathToGraph(target, node.subgraph);
+    if (childPath !== null) {
+      return `${node.id}:${childPath}`;
+    }
+  }
+  return null;
+}
+
+function getNodeExecutionId(node) {
+  const rootGraph = app.graph;
+  if (!node?.graph || node.graph === rootGraph || node.graph.isRootGraph) {
+    return String(node.id);
+  }
+  const parentPath = findExecutionPathToGraph(node.graph, rootGraph);
+  return parentPath === null ? null : `${parentPath}:${node.id}`;
+}
+
 function chainCallback(object, property, callback) {
   const original = object[property];
   object[property] = function () {
@@ -62,6 +128,7 @@ function button(label, title, onClick) {
 
 function promptTemplate(index = 0) {
   return {
+    id: createPromptId(),
     positive_points: [],
     negative_points: [],
     positive_boxes: [],
@@ -72,6 +139,7 @@ function promptTemplate(index = 0) {
 
 function clonePrompt(prompt, index) {
   return {
+    id: String(prompt?.id || createPromptId()),
     positive_points: (prompt?.positive_points || []).map((point) => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 })),
     negative_points: (prompt?.negative_points || []).map((point) => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 })),
     positive_boxes: (prompt?.positive_boxes || []).map((box) => ({
@@ -174,25 +242,49 @@ app.registerExtension({
         "display:flex",
         "gap:6px",
         "align-items:center",
+        "justify-content:space-between",
         "padding:5px",
         "box-sizing:border-box",
         "background:#202225",
         "border-bottom:1px solid #333",
       ].join(";");
 
-      const bboxModeButton = button("BBox Collector", "Use bbox collector prompts", () => this.setSAM3ComplexMode(MODE_BBOX));
-      const interactiveModeButton = button("Interactive Collector", "Use interactive point and box prompts", () =>
-        this.setSAM3ComplexMode(MODE_INTERACTIVE),
-      );
-      const refreshButton = button("Refresh", "Load and refresh the connected input image preview", async (event) => {
+      const refreshButton = button("Load Image", "Load the connected IMAGE socket into the collector canvas", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.refreshSAM3ComplexImage();
       });
-      refreshButton.style.marginLeft = "auto";
-      modeBar.appendChild(bboxModeButton);
-      modeBar.appendChild(interactiveModeButton);
+      refreshButton.style.background = "#315f8f";
+      refreshButton.style.borderColor = "#5088c0";
+
+      const modeTabs = document.createElement("div");
+      modeTabs.setAttribute("role", "tablist");
+      modeTabs.setAttribute("aria-label", "Collector mode");
+      modeTabs.style.cssText = [
+        "display:flex",
+        "align-items:center",
+        "margin-left:auto",
+        "border:1px solid #3a3a3a",
+        "border-radius:4px",
+        "overflow:hidden",
+      ].join(";");
+
+      const bboxModeButton = button("BBox Collector", "Use bbox collector prompts", () => this.setSAM3ComplexMode(MODE_BBOX));
+      const interactiveModeButton = button("Interactive Collector", "Use interactive point and box prompts", () =>
+        this.setSAM3ComplexMode(MODE_INTERACTIVE),
+      );
+      for (const modeButton of [bboxModeButton, interactiveModeButton]) {
+        modeButton.setAttribute("role", "tab");
+        modeButton.style.border = "0";
+        modeButton.style.borderRadius = "0";
+        modeButton.style.padding = "0 10px";
+      }
+      bboxModeButton.style.borderRight = "1px solid #3a3a3a";
+      modeTabs.appendChild(bboxModeButton);
+      modeTabs.appendChild(interactiveModeButton);
+
       modeBar.appendChild(refreshButton);
+      modeBar.appendChild(modeTabs);
       container.appendChild(modeBar);
 
       const bboxPane = document.createElement("div");
@@ -226,17 +318,26 @@ app.registerExtension({
       };
 
       const bboxUi = makeCanvasPane(bboxPane);
+      const bboxRunButton = button("Run", "Run all positive bbox prompts without executing downstream workflow nodes", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await this.runSAM3ComplexBBox();
+      });
+      bboxRunButton.style.background = "#2a7a2a";
+      bboxRunButton.style.borderColor = "#3a9a3a";
       const bboxClear = button("Clear All", "Clear all bbox prompts", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.sam3Complex.bbox.positive = [];
         this.sam3Complex.bbox.negative = [];
         this.sam3Complex.bbox.current = null;
+        this.invalidateSAM3ComplexOverlay(MODE_BBOX);
         this.updateSAM3ComplexStorage();
         this.redrawSAM3ComplexBBox();
       });
       bboxClear.style.background = "#8f2f2f";
       bboxClear.style.borderColor = "#a44";
+      bboxUi.actions.appendChild(bboxRunButton);
       bboxUi.actions.appendChild(bboxClear);
 
       const interactiveUi = makeCanvasPane(interactivePane);
@@ -271,6 +372,14 @@ app.registerExtension({
         overlayImage: null,
         overlayMode: null,
         running: false,
+        initializing: false,
+        runError: null,
+        cacheToken: null,
+        dependencySignature: null,
+        pendingDependencySignature: null,
+        bootstrapResolve: null,
+        bootstrapReject: null,
+        bootstrapTimer: null,
         widgets: {
           mode: modeWidget,
           bboxes: bboxesWidget,
@@ -287,18 +396,9 @@ app.registerExtension({
           canvas: bboxUi.canvas,
           ctx: bboxUi.ctx,
           counter: bboxUi.counter,
-          positive: parseArray(bboxesWidget?.value).map((box) => ({
-            x1: Number(box.x1 ?? box.x ?? 0),
-            y1: Number(box.y1 ?? box.y ?? 0),
-            x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-            y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-          })),
-          negative: parseArray(negBboxesWidget?.value).map((box) => ({
-            x1: Number(box.x1 ?? box.x ?? 0),
-            y1: Number(box.y1 ?? box.y ?? 0),
-            x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-            y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-          })),
+          runButton: bboxRunButton,
+          positive: parseArray(bboxesWidget?.value).map((box) => cloneBBox(box, true)),
+          negative: parseArray(negBboxesWidget?.value).map((box) => cloneBBox(box)),
           current: null,
         },
         interactive: {
@@ -332,6 +432,37 @@ app.registerExtension({
       this.updateSAM3ComplexStorage();
       this.redrawSAM3ComplexAll();
 
+      const failBootstrap = (message) => {
+        const state = this.sam3Complex;
+        if (!state?.initializing || !state.bootstrapReject) {
+          return;
+        }
+        const error = new Error(message);
+        state.bootstrapReject(error);
+        state.bootstrapResolve = null;
+        state.bootstrapReject = null;
+        state.initializing = false;
+        state.running = false;
+        state.runError = message;
+        if (state.bootstrapTimer) {
+          clearTimeout(state.bootstrapTimer);
+          state.bootstrapTimer = null;
+        }
+        this.updateSAM3ComplexRunButton();
+      };
+      const onExecutionError = (event) => failBootstrap(event?.detail?.exception_message || "SAM3 initialization failed");
+      const onExecutionInterrupted = () => failBootstrap("SAM3 initialization was interrupted");
+      api.addEventListener("execution_error", onExecutionError);
+      api.addEventListener("execution_interrupted", onExecutionInterrupted);
+
+      chainCallback(this, "onRemoved", function () {
+        api.removeEventListener("execution_error", onExecutionError);
+        api.removeEventListener("execution_interrupted", onExecutionInterrupted);
+        if (this.sam3Complex?.bootstrapTimer) {
+          clearTimeout(this.sam3Complex.bootstrapTimer);
+        }
+      });
+
       chainCallback(this, "onResize", function (size) {
         container.style.height = `${Math.max(420, Number(size?.[1] || 0) - 80)}px`;
       });
@@ -348,6 +479,10 @@ app.registerExtension({
         this.updateSAM3ComplexStorage?.();
       });
 
+      chainCallback(this, "onConnectionsChange", function () {
+        this.invalidateSAM3ComplexSession?.();
+      });
+
       chainCallback(this, "onConfigure", function () {
         setTimeout(() => {
           this.restoreSAM3ComplexFromWidgets?.();
@@ -356,6 +491,20 @@ app.registerExtension({
       });
 
       chainCallback(this, "onExecuted", function (message) {
+        const state = this.sam3Complex;
+        if (message?.cache_token?.[0]) {
+          state.cacheToken = String(message.cache_token[0]);
+          state.dependencySignature = state.pendingDependencySignature;
+          if (!state.dependencySignature) {
+            this.getSAM3ComplexDependencySignature()
+              .then((signature) => {
+                if (this.sam3Complex?.cacheToken === state.cacheToken) {
+                  this.sam3Complex.dependencySignature = signature;
+                }
+              })
+              .catch((error) => console.warn("Unable to fingerprint SAM3 Complex Collector inputs", error));
+          }
+        }
         if (message?.bg_image?.[0]) {
           const image = new Image();
           image.onload = () => {
@@ -376,7 +525,21 @@ app.registerExtension({
           image.src = `data:image/jpeg;base64,${message.overlay_image[0]}`;
         }
 
-        this.sam3Complex.running = false;
+        if (state.bootstrapTimer) {
+          clearTimeout(state.bootstrapTimer);
+          state.bootstrapTimer = null;
+        }
+        if (state.initializing && !message?.cache_token?.[0]) {
+          state.bootstrapReject?.(new Error("SAM3 initialization completed without creating an interactive session"));
+        } else {
+          state.bootstrapResolve?.(state.cacheToken);
+        }
+        state.bootstrapResolve = null;
+        state.bootstrapReject = null;
+        state.pendingDependencySignature = null;
+        state.initializing = false;
+        state.running = false;
+        state.runError = null;
         this.updateSAM3ComplexRunButton();
       });
     });
@@ -401,6 +564,8 @@ app.registerExtension({
         const active = key === normalized;
         modeButton.style.background = active ? "#3f5268" : "#252525";
         modeButton.style.color = active ? "#fff" : "#ddd";
+        modeButton.setAttribute("aria-selected", String(active));
+        modeButton.tabIndex = active ? 0 : -1;
       }
       this.updateSAM3ComplexStorage();
       this.redrawSAM3ComplexAll();
@@ -412,18 +577,8 @@ app.registerExtension({
         return;
       }
       state.mode = state.widgets.mode?.value === MODE_INTERACTIVE ? MODE_INTERACTIVE : MODE_BBOX;
-      state.bbox.positive = parseArray(state.widgets.bboxes?.value).map((box) => ({
-        x1: Number(box.x1 ?? box.x ?? 0),
-        y1: Number(box.y1 ?? box.y ?? 0),
-        x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-        y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-      }));
-      state.bbox.negative = parseArray(state.widgets.negBboxes?.value).map((box) => ({
-        x1: Number(box.x1 ?? box.x ?? 0),
-        y1: Number(box.y1 ?? box.y ?? 0),
-        x2: Number(box.x2 ?? ((box.x ?? 0) + (box.w ?? 0))),
-        y2: Number(box.y2 ?? ((box.y ?? 0) + (box.h ?? 0))),
-      }));
+      state.bbox.positive = parseArray(state.widgets.bboxes?.value).map((box) => cloneBBox(box, true));
+      state.bbox.negative = parseArray(state.widgets.negBboxes?.value).map((box) => cloneBBox(box));
       state.interactive.prompts = parseArray(state.widgets.prompts?.value, [promptTemplate(0)]).map(clonePrompt);
       if (!state.interactive.prompts.length) {
         state.interactive.prompts = [promptTemplate(0)];
@@ -480,12 +635,26 @@ app.registerExtension({
           prompt.negative_points.length ||
           prompt.positive_boxes.length ||
           prompt.negative_boxes.length);
-      const disabled = state?.running || !hasPrompt;
-      if (state?.interactive.runButton) {
-        state.interactive.runButton.disabled = disabled;
-        state.interactive.runButton.style.opacity = disabled ? "0.45" : "1";
-        state.interactive.runButton.style.cursor = disabled ? "default" : "pointer";
-      }
+      const label = state.initializing ? "Initializing…" : state.running ? "Running…" : "Run";
+      const updateButton = (runButton, enabled, title) => {
+        if (!runButton) return;
+        const disabled = state.running || !enabled;
+        runButton.textContent = label;
+        runButton.disabled = disabled;
+        runButton.style.opacity = disabled ? "0.45" : "1";
+        runButton.style.cursor = disabled ? "default" : "pointer";
+        runButton.title = state.runError || title;
+      };
+      updateButton(
+        state?.bbox.runButton,
+        state?.bbox.positive.length > 0,
+        "Run all positive bbox prompts without executing downstream workflow nodes",
+      );
+      updateButton(
+        state?.interactive.runButton,
+        hasPrompt,
+        "Run the active prompt without executing downstream workflow nodes",
+      );
     };
 
     nodeType.prototype.bindSAM3ComplexBBoxEvents = function () {
@@ -501,6 +670,7 @@ app.registerExtension({
         if (event.button === 2 && hit) {
           const list = hit.isNegative ? this.sam3Complex.bbox.negative : this.sam3Complex.bbox.positive;
           list.splice(hit.index, 1);
+          this.invalidateSAM3ComplexOverlay(MODE_BBOX);
           this.updateSAM3ComplexStorage();
           this.redrawSAM3ComplexBBox();
           return;
@@ -539,7 +709,8 @@ app.registerExtension({
         this.sam3Complex.bbox.current = null;
         if (box.x2 - box.x1 > 5 && box.y2 - box.y1 > 5) {
           const list = current.isNegative ? this.sam3Complex.bbox.negative : this.sam3Complex.bbox.positive;
-          list.push(box);
+          list.push(current.isNegative ? box : { ...box, id: createBBoxId() });
+          this.invalidateSAM3ComplexOverlay(MODE_BBOX);
           this.updateSAM3ComplexStorage();
         }
         this.redrawSAM3ComplexBBox();
@@ -578,6 +749,7 @@ app.registerExtension({
         }
         const list = event.button === 2 ? prompt.negative_points : prompt.positive_points;
         list.push({ x: coords.x, y: coords.y });
+        this.invalidateSAM3ComplexOverlay();
         this.updateSAM3ComplexStorage();
         this.redrawSAM3ComplexInteractive();
       });
@@ -616,6 +788,7 @@ app.registerExtension({
           const prompt = this.getSAM3ComplexActivePrompt();
           const list = current.isNegative ? prompt.negative_boxes : prompt.positive_boxes;
           list.push(box);
+          this.invalidateSAM3ComplexOverlay();
           this.updateSAM3ComplexStorage();
         }
         this.redrawSAM3ComplexInteractive();
@@ -711,6 +884,7 @@ app.registerExtension({
             event.stopPropagation();
             state.prompts.splice(index, 1);
             state.activePromptIndex = Math.min(state.activePromptIndex, state.prompts.length - 1);
+            this.invalidateSAM3ComplexOverlay();
             this.updateSAM3ComplexStorage();
             this.rebuildSAM3ComplexPromptTabs();
             this.redrawSAM3ComplexInteractive();
@@ -746,6 +920,7 @@ app.registerExtension({
       prompt.negative_points = [];
       prompt.positive_boxes = [];
       prompt.negative_boxes = [];
+      this.invalidateSAM3ComplexOverlay();
       this.updateSAM3ComplexStorage();
       this.redrawSAM3ComplexInteractive();
     };
@@ -753,9 +928,144 @@ app.registerExtension({
     nodeType.prototype.clearSAM3ComplexPrompts = function () {
       this.sam3Complex.interactive.prompts = [promptTemplate(0)];
       this.sam3Complex.interactive.activePromptIndex = 0;
+      this.invalidateSAM3ComplexOverlay();
       this.updateSAM3ComplexStorage();
       this.rebuildSAM3ComplexPromptTabs();
       this.redrawSAM3ComplexInteractive();
+    };
+
+    nodeType.prototype.invalidateSAM3ComplexOverlay = function (mode = this.sam3Complex?.mode) {
+      const state = this.sam3Complex;
+      if (!state) {
+        return;
+      }
+      if (mode === null || state.overlayMode === mode) {
+        state.overlayImage = null;
+        state.overlayMode = null;
+      }
+      this.redrawSAM3ComplexAll?.();
+    };
+
+    nodeType.prototype.invalidateSAM3ComplexSession = function () {
+      const state = this.sam3Complex;
+      if (!state) {
+        return;
+      }
+      state.cacheToken = null;
+      state.dependencySignature = null;
+      state.pendingDependencySignature = null;
+      this.invalidateSAM3ComplexOverlay(null);
+    };
+
+    nodeType.prototype.getSAM3ComplexDependencySignature = async function () {
+      const executionId = getNodeExecutionId(this);
+      if (!executionId) {
+        throw new Error("Unable to resolve the SAM3 Complex Collector execution ID");
+      }
+      const prompt = await app.graphToPrompt();
+      const output = prompt?.output || {};
+      const target = output[executionId];
+      if (!target?.inputs) {
+        throw new Error("SAM3 Complex Collector is missing from the executable prompt");
+      }
+
+      const collected = {};
+      const visitValue = (value) => {
+        if (Array.isArray(value)) {
+          const originId = String(value[0]);
+          if (value.length === 2 && output[originId]) {
+            visitNode(originId);
+            return;
+          }
+          value.forEach(visitValue);
+          return;
+        }
+        if (value && typeof value === "object") {
+          Object.values(value).forEach(visitValue);
+        }
+      };
+      const visitNode = (nodeId) => {
+        if (collected[nodeId] || !output[nodeId]) {
+          return;
+        }
+        const node = output[nodeId];
+        collected[nodeId] = {
+          class_type: node.class_type,
+          inputs: node.inputs,
+        };
+        Object.values(node.inputs || {}).forEach(visitValue);
+      };
+
+      visitValue(target.inputs.sam3_model_config);
+      visitValue(target.inputs.image);
+      return stableStringify(collected);
+    };
+
+    nodeType.prototype.bootstrapSAM3ComplexSession = async function (dependencySignature) {
+      const state = this.sam3Complex;
+      if (state.bootstrapResolve) {
+        return;
+      }
+      const executionId = getNodeExecutionId(this);
+      if (!executionId) {
+        throw new Error("Unable to resolve the SAM3 Complex Collector execution ID");
+      }
+
+      state.initializing = true;
+      state.running = true;
+      state.runError = null;
+      state.pendingDependencySignature = dependencySignature;
+      this.updateSAM3ComplexRunButton();
+
+      const completion = new Promise((resolve, reject) => {
+        state.bootstrapResolve = resolve;
+        state.bootstrapReject = reject;
+        state.bootstrapTimer = setTimeout(() => {
+          if (state.bootstrapReject === reject) {
+            reject(new Error("SAM3 initialization timed out"));
+            state.bootstrapResolve = null;
+            state.bootstrapReject = null;
+            state.bootstrapTimer = null;
+          }
+        }, 5 * 60 * 1000);
+      });
+
+      try {
+        await app.queuePrompt(0, 1, [executionId]);
+        await completion;
+      } catch (error) {
+        if (state.bootstrapTimer) {
+          clearTimeout(state.bootstrapTimer);
+          state.bootstrapTimer = null;
+        }
+        state.bootstrapResolve = null;
+        state.bootstrapReject = null;
+        state.initializing = false;
+        state.running = false;
+        throw error;
+      }
+    };
+
+    nodeType.prototype.buildSAM3ComplexBBoxPrompts = function () {
+      const state = this.sam3Complex.bbox;
+      const negativeBoxes = state.negative.map((box) => cloneBBox(box));
+      return state.positive.map((box, index) => ({
+        id: `bbox:${box.id}`,
+        name: `BBox ${index + 1}`,
+        positive_points: [],
+        negative_points: [],
+        positive_boxes: [cloneBBox(box)],
+        negative_boxes: negativeBoxes.map((box) => ({ ...box })),
+      }));
+    };
+
+    nodeType.prototype.runSAM3ComplexBBox = async function () {
+      const prompts = this.buildSAM3ComplexBBoxPrompts();
+      if (!prompts.length || this.sam3Complex.running) {
+        return;
+      }
+      this.updateSAM3ComplexStorage();
+      await this.runSAM3Complex(MODE_BBOX, prompts, null, "all");
     };
 
     nodeType.prototype.runSAM3ComplexInteractive = async function () {
@@ -764,19 +1074,61 @@ app.registerExtension({
       if (!prompt || state.running) {
         return;
       }
-      state.running = true;
-      this.setSAM3ComplexMode(MODE_INTERACTIVE);
-      this.updateSAM3ComplexRunButton();
       this.updateSAM3ComplexStorage();
+      await this.runSAM3Complex(MODE_INTERACTIVE, state.interactive.prompts.map(clonePrompt), prompt.id, "active");
+    };
+
+    nodeType.prototype.runSAM3Complex = async function (mode, prompts, activePromptId, runScope) {
+      const state = this.sam3Complex;
+      state.running = true;
+      state.runError = null;
+      this.setSAM3ComplexMode(mode);
+      this.updateSAM3ComplexRunButton();
       try {
-        const result = app.queuePrompt(0, 1);
-        if (result && typeof result.then === "function") {
-          await result;
+        const dependencySignature = await this.getSAM3ComplexDependencySignature();
+        if (!state.cacheToken || state.dependencySignature !== dependencySignature) {
+          this.invalidateSAM3ComplexOverlay();
+          state.cacheToken = null;
+          await this.bootstrapSAM3ComplexSession(dependencySignature);
+          return;
+        }
+
+        const response = await api.fetchApi("/daelab/sam3-complex/segment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cache_token: state.cacheToken,
+            active_prompt_id: activePromptId,
+            prompts,
+            run_scope: runScope,
+          }),
+        });
+        const data = await response.json();
+        if (response.status === 404 && data?.error === "cache_miss") {
+          this.invalidateSAM3ComplexSession();
+          await this.bootstrapSAM3ComplexSession(dependencySignature);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(data?.message || data?.error || `SAM3 request failed (${response.status})`);
+        }
+        if (data.overlay) {
+          const image = new Image();
+          image.onload = () => {
+            state.overlayImage = image;
+            state.overlayMode = mode;
+            this.redrawSAM3ComplexAll();
+          };
+          image.src = `data:image/jpeg;base64,${data.overlay}`;
         }
       } catch (error) {
-        console.error("Failed to queue SAM3 Complex Collector", error);
-        state.running = false;
-        this.updateSAM3ComplexRunButton();
+        console.error(`Failed to run SAM3 Complex Collector (${mode})`, error);
+        state.runError = error?.message || String(error);
+      } finally {
+        if (!state.initializing) {
+          state.running = false;
+          this.updateSAM3ComplexRunButton();
+        }
       }
     };
 
@@ -840,6 +1192,7 @@ app.registerExtension({
       if (!state) {
         return;
       }
+      this.invalidateSAM3ComplexSession();
       state.refreshButton.disabled = true;
       state.refreshButton.style.opacity = "0.45";
       this.updateSAM3ComplexStorage();
@@ -875,7 +1228,7 @@ app.registerExtension({
       ctx.fillStyle = "#888";
       ctx.font = "14px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Connect an image node and click Refresh", canvas.width / 2, canvas.height / 2 - 10);
+      ctx.fillText("Connect an image node and click Load Image", canvas.width / 2, canvas.height / 2 - 10);
     };
 
     nodeType.prototype.redrawSAM3ComplexBBox = function () {

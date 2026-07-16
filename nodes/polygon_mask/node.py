@@ -65,6 +65,24 @@ def _has_polygon_state(info):
     )
 
 
+def _resolve_polygon_info(polygon_data="", unique_id=None, extra_pnginfo=None):
+    """Prefer the current prompt value while supporting legacy workflows."""
+    if polygon_data is not None and polygon_data != "":
+        try:
+            input_info = json.loads(str(polygon_data))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid polygon_data JSON: {exc}") from exc
+
+        # polygon_data is updated by the editor immediately before ComfyUI
+        # builds the prompt. It must win over extra_pnginfo, whose workflow
+        # properties can still contain the previous shape (or invalid legacy
+        # data that should not block a valid current prompt).
+        if _has_polygon_state(input_info):
+            return input_info
+
+    return _get_node_polygon_info(unique_id, extra_pnginfo)
+
+
 def _clamp_int(value, min_value, max_value, default):
     try:
         numeric = int(value)
@@ -284,6 +302,8 @@ class PolygonMask(io.ComfyNode):
                 io.String.Input(
                     "polygon_data",
                     default="",
+                    advanced=True,
+                    tooltip="Internal polygon state managed by the Polygon Mask editor.",
                 ),
             ],
             outputs=[
@@ -308,15 +328,11 @@ class PolygonMask(io.ComfyNode):
             raise ValueError("Polygon Mask requires an IMAGE input tensor.")
 
         ui = _ui_source_image(image_tensor)
-        property_info = _get_node_polygon_info(cls.hidden.unique_id, cls.hidden.extra_pnginfo)
-        input_info = {}
-        if polygon_data:
-            try:
-                parsed_polygon_data = json.loads(str(polygon_data))
-                input_info = parsed_polygon_data if isinstance(parsed_polygon_data, dict) else {}
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"Invalid polygon_data JSON: {exc}") from exc
-        info = property_info if _has_polygon_state(property_info) else input_info
+        info = _resolve_polygon_info(
+            polygon_data,
+            cls.hidden.unique_id,
+            cls.hidden.extra_pnginfo,
+        )
 
         width = int(image_tensor.shape[2])
         height = int(image_tensor.shape[1])
@@ -363,8 +379,11 @@ class PolygonMask(io.ComfyNode):
         digest.update(str(color).encode("utf-8"))
         digest.update(str(_clamp_int(fill_opacity, 0, 100, 35)).encode("utf-8"))
         digest.update(str(_clamp_int(outline_width, 0, 20, 3)).encode("utf-8"))
-        digest.update(str(polygon_data or "").encode("utf-8"))
-        polygon_info = _get_node_polygon_info(cls.hidden.unique_id, cls.hidden.extra_pnginfo)
+        polygon_info = _resolve_polygon_info(
+            polygon_data,
+            cls.hidden.unique_id,
+            cls.hidden.extra_pnginfo,
+        )
         digest.update(json.dumps(polygon_info, sort_keys=True).encode("utf-8"))
         return digest.hexdigest()
 

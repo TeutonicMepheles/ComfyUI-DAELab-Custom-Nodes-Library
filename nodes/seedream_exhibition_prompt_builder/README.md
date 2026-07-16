@@ -77,6 +77,15 @@
 
 `web/prompt_preset.js` 为 `SeedreamExhibitionPromptBuilder` 提供缩略图风格选择器。`style_id` 在前端显示中文标签，同时后端仍兼容英文 style key。用户主动切换主题时会载入主题默认色；打开已有 workflow 或刷新页面时不会覆盖已保存颜色。用户主动清空两个文本输入时，前端会保留空字符串。
 
+缩略图选择器是非序列化 DOM 控件，会插入在原生 `style_id` widget 之前，但不会打乱原生 widget 的保存顺序。加载旧工作流时，前端会修复曾被错误写入文本框的 Hex 颜色或重复文本，并把旧字符串/数字布尔值规范化；合法文本（包括用户主动清空的空字符串）保持原样。
+
+## 兼容性与测试覆盖
+
+- 后端同时接受中文 `label` 和英文 style key，并对非法颜色回退到主题默认色。
+- 5 个布尔输入会规范化旧工作流中的布尔值；损坏值回退到 schema 默认值。
+- 测试覆盖模板旁路的逐字符输出、五段结构、父子开关依赖、主题颜色覆盖、颜色中立的空间模板和默认材质文本。
+- 前端纯逻辑测试覆盖文本修复、旧布尔值迁移，以及不改变原生 widget 序列化顺序的 DOM 控件插入。
+
 ## 示例输出
 
 选择 `航天科技`、主色 `#567DF0`、辅色 `#D0D5DD`，并启用全部参考开关时，输出会类似：
@@ -99,3 +108,6 @@
 - 注册入口：`__init__.py`
 - 风格数据：`web/styles.json`
 - 前端缩略图选择器：`web/prompt_preset.js`
+- 前端纯逻辑模型：`web/prompt_preset_model.mjs`
+- 后端测试：`tests/test_seedream_exhibition_prompt_builder.py`
+- 前端测试：`tests/prompt_preset_model.test.mjs`

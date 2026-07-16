@@ -280,7 +280,7 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
                 clean_details(additional_details),
                 color_rhythm_prompt(primary, secondary),
                 TONE_PROMPTS.get(tone, TONE_PROMPTS["标准"]),
-                "保持现有空间结构和展陈元素，不额外添加未要求的主展品、视觉焦点或大型装置。室内建筑摄影视角，构图清晰，空间层次明确，整体克制、通透、有节奏",
+                "保持现有空间结构和展陈元素。室内建筑摄影视角，构图清晰，空间层次明确，整体克制、通透、有节奏",
             ]
         )
 

@@ -8,6 +8,8 @@ const STYLE_URL = new URL("./styles.json", import.meta.url);
 STYLE_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./thumbs/", import.meta.url);
 const VALID_TONES = new Set(["标准", "明亮", "稳重", "高级", "活泼"]);
+const DEFAULT_BASE_PROMPT = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。";
+const DEFAULT_ADDITIONAL_DETAILS = "地面材质采用高抛光水磨石，含PVC，墙面材质采用乳胶漆，包含不锈钢、铝材的装饰材质与灯带，顶面采用流线型连续灯带系统。";
 const DEFAULT_STYLE_DATA = {
     aerospace: {
         label: "航天科技",
@@ -128,17 +130,19 @@ function repairNativeWidgetValues(node) {
     const basePromptWidget = findWidget(node, "base_prompt");
     if (basePromptWidget) {
         if (typeof basePromptWidget.value !== "string" || !basePromptWidget.value.trim() || isHexColorString(basePromptWidget.value)) {
-            basePromptWidget.value = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。";
+            basePromptWidget.value = DEFAULT_BASE_PROMPT;
         } else {
             basePromptWidget.value = basePromptWidget.value.trim();
         }
     }
     const additionalDetailsWidget = findWidget(node, "additional_details");
     if (additionalDetailsWidget) {
-        if (typeof additionalDetailsWidget.value !== "string" || !additionalDetailsWidget.value.trim() || isHexColorString(additionalDetailsWidget.value)) {
-            additionalDetailsWidget.value = "地面材质采用高抛光水磨石，含PVC，墙面材质采用乳胶漆，包含不锈钢、铝材的装饰材质与灯带，顶面采用流线型连续灯带系统。";
+        const additionalValue = typeof additionalDetailsWidget.value === "string" ? additionalDetailsWidget.value.trim() : "";
+        const baseValue = typeof basePromptWidget?.value === "string" ? basePromptWidget.value.trim() : "";
+        if (!additionalValue || isHexColorString(additionalValue) || additionalValue === baseValue) {
+            additionalDetailsWidget.value = DEFAULT_ADDITIONAL_DETAILS;
         } else {
-            additionalDetailsWidget.value = additionalDetailsWidget.value.trim();
+            additionalDetailsWidget.value = additionalValue;
         }
     }
     syncUiPropertiesFromNativeWidgets(node);

@@ -14,20 +14,34 @@ FALLBACK_STYLES = {
         "subject": "航天科技展厅",
         "primary_color": "#567DF0",
         "secondary_color": "#D0D5DD",
-        "prompt": "以深蓝宇宙空间为背景，使用精密仪器线条、轨道线条和数据可视化图形构成画面，呈现未来科技感与高级海报质感",
-    }
+        "prompt": "采用精密构造线、轨道图形、数据可视化界面、线性照明和局部金属构件，形成克制专业的航天科技空间语言",
+    },
+    "business": {
+        "label": "商务",
+        "subject": "现代企业商务展厅",
+        "primary_color": "#3A4A5C",
+        "secondary_color": "#B8A99A",
+        "prompt": "采用清晰的信息层级、模块化展陈界面、简洁几何构成和克制材质关系，形成现代专业的企业展示空间",
+    },
+    "party_building": {
+        "label": "党建",
+        "subject": "党建展厅",
+        "primary_color": "#C33C3C",
+        "secondary_color": "#D4A843",
+        "prompt": "采用庄重有序的叙事轴线、层次清晰的主题展示墙和具有仪式感的空间构成，形成正式稳健的主题展陈语言",
+    },
 }
 
 TONE_PROMPTS = {
-    "标准": "画面光线自然柔和，对比度适中，色彩还原准确，构图均衡稳定",
-    "明亮": "画面采用高调光线，整体明亮通透，色彩明快干净，适当增加留白与空间感",
-    "稳重": "画面光线沉稳克制，对比度偏低，色彩饱和度低，以深色与中性色为主，风格正式可信赖",
-    "高级": "画面使用柔和定向光，配色克制典雅，强调材质细节与空间层次，视觉质感突出",
-    "活泼": "画面光线明亮饱满，色彩饱和度高，对比鲜明，构图富有动感与节奏感",
+    "标准": "采用自然柔和的光线，曝光准确，对比度适中，构图均衡稳定",
+    "明亮": "采用明亮通透的高调光线，保持准确曝光和清晰空间层次，适当增强留白感",
+    "稳重": "采用沉稳克制的定向光，降低明暗反差，保持空间秩序和正式氛围",
+    "高级": "采用柔和定向光，强调材质细节、反射关系和空间层次，呈现精致专业的视觉质感",
+    "活泼": "采用明亮饱满的光线，适度增强对比和构图节奏，保持空间清晰自然",
 }
 
 DEFAULT_BASE_PROMPT = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。"
-DEFAULT_ADDITIONAL_DETAILS = "地面材质采用高抛光水磨石，含PVC，墙面材质采用乳胶漆，包含不锈钢、铝材的装饰材质与灯带，顶面采用流线型连续灯带系统。"
+DEFAULT_ADDITIONAL_DETAILS = "地面以高抛光水磨石为主，结合局部PVC地材，墙面采用乳胶漆，搭配不锈钢、铝材和灯带装饰，顶面采用流线型连续灯带系统。"
 
 
 def load_styles():
@@ -163,6 +177,20 @@ def describe_color_semantic(hex_value, role):
     return "自然色"
 
 
+def normalize_boolean(value, default=True):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    if value in (0, 1):
+        return bool(value)
+    return default
+
+
 def clean_fragment(value):
     text = "" if value is None else str(value)
     text = re.sub(r"\s+", " ", text).strip()
@@ -181,30 +209,33 @@ def sentence(value):
     text = clean_fragment(value)
     if not text:
         return ""
-    if text.endswith(("。", "！", "？")):
-        return text
     return f"{text}。"
 
 
 def color_rhythm_prompt(primary, secondary):
     return (
-        "以低饱和中性色和浅色材质为基底。"
-        f"主色调为{describe_color_semantic(primary, 'primary')}，用于局部信息面、屏幕内容、发光线条和导视强调，"
-        f"辅色为{describe_color_semantic(secondary, 'secondary')}，用于留白、边界、过渡面和灯光层次。"
-        "墙面色彩与材质层次自然变化，主色信息面之间穿插中性墙面、材质分割和留白，避免整墙连续色块"
+        "整体以低饱和中性色和浅色材质为基底。"
+        f"{describe_color_semantic(primary, 'primary')}（{primary}）作为局部品牌强调色，"
+        "用于信息展示面、屏幕内容、发光线条和导视系统；"
+        f"{describe_color_semantic(secondary, 'secondary')}（{secondary}）用于过渡面、边界、留白和灯光层次。"
+        "墙面通过中性留白、材质分割和明暗变化形成节奏"
     )
 
 
-def normalize_prompt(sentences):
-    prompt = "".join(sentence(item) for item in sentences if clean_fragment(item))
-    prompt = re.sub(r"。{2,}", "。", prompt)
-    prompt = re.sub(r"，{2,}", "，", prompt)
-    prompt = re.sub(r"\s+", " ", prompt).strip()
-    return prompt
+def normalize_paragraph(parts):
+    paragraph = "".join(sentence(item) for item in parts if clean_fragment(item))
+    paragraph = re.sub(r"。{2,}", "。", paragraph)
+    paragraph = re.sub(r"，{2,}", "，", paragraph)
+    return paragraph.strip()
+
+
+def normalize_prompt_sections(sections):
+    paragraphs = [normalize_paragraph(parts) for parts in sections]
+    return "\n\n".join(paragraph for paragraph in paragraphs if paragraph)
 
 
 class SeedreamExhibitionPromptBuilder(io.ComfyNode):
-    """Build a Seedream 4.0/4.5 compliant structured prompt for exhibition hall render workflows."""
+    """Build a Seedream 5.0 Pro prompt for exhibition hall render workflows."""
 
     @classmethod
     def define_schema(cls):
@@ -218,7 +249,7 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
                 io.Combo.Input("style_id", options=labels, default=labels[0] if labels else "航天科技"),
                 io.Combo.Input("tone", options=list(TONE_PROMPTS.keys()), default="标准"),
                 io.Color.Input("primary_color", default="#567DF0", socketless=True),
-                io.Color.Input("secondary_color", default="#C33C3C", socketless=True),
+                io.Color.Input("secondary_color", default="#D0D5DD", socketless=True),
                 io.String.Input("base_prompt", default=DEFAULT_BASE_PROMPT, multiline=True),
                 io.String.Input("additional_details", default=DEFAULT_ADDITIONAL_DETAILS, multiline=True),
                 io.Boolean.Input("use_theme_template", default=True, optional=True),
@@ -247,44 +278,59 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
         use_element_reference=True,
         lock_edit_region=True,
     ):
+        use_theme_template = normalize_boolean(use_theme_template)
+        use_space_reference = normalize_boolean(use_space_reference)
+        include_people_placeholder = normalize_boolean(include_people_placeholder)
+        use_element_reference = normalize_boolean(use_element_reference)
+        lock_edit_region = normalize_boolean(lock_edit_region)
+
         if not use_theme_template:
-            return io.NodeOutput(clean_fragment(base_prompt))
+            raw_prompt = "" if base_prompt is None else base_prompt if isinstance(base_prompt, str) else str(base_prompt)
+            return io.NodeOutput(raw_prompt)
 
         styles = load_styles()
         _, style = resolve_style(styles, style_id)
         style_label = clean_fragment(style.get("label", style_id))
-        primary = normalize_hex(style.get("primary_color") or primary_color, "#567DF0")
-        secondary = normalize_hex(style.get("secondary_color") or secondary_color, "#C33C3C")
+        style_subject = clean_fragment(style.get("subject") or f"{style_label}主题展厅")
+        style_prompt = clean_fragment(style.get("prompt"))
+        primary_default = normalize_hex(style.get("primary_color"), "#567DF0")
+        secondary_default = normalize_hex(style.get("secondary_color"), "#D0D5DD")
+        primary = normalize_hex(primary_color, primary_default)
+        secondary = normalize_hex(secondary_color, secondary_default)
 
-        task_sentence = f"创建一张{style_label}风格的展厅写实渲染效果图，用于展厅设计方案呈现"
+        has_reference = use_space_reference or use_element_reference
+        if has_reference:
+            goal = f"基于参考图，将现有空间改造为{style_subject}，生成用于展厅设计方案呈现的写实室内建筑渲染效果图"
+        else:
+            goal = f"创建一张{style_subject}的写实室内建筑渲染效果图，用于展厅设计方案呈现"
 
-        sentences = [
-            task_sentence,
-            "",  # use_theme_template=True 时模板替代 base_prompt，False 时已 early return
-        ]
+        reference_parts = []
 
         if use_space_reference:
-            reference_parts = ["参考图作为空间布局和建筑结构依据，保持墙体、顶面、地面、动线关系和核心结构位置"]
+            reference_parts.append(
+                "保持参考图中的墙体、顶面、地面、空间尺度、动线关系和核心建筑结构，保持原有相机机位、视角、透视关系和画面构图"
+            )
             if include_people_placeholder:
-                reference_parts.append("参考图中的占位人物或示意人形替换为自然站立、比例合理的真实游客，不保留占位符外观")
-            sentences.append("；".join(reference_parts))
+                reference_parts.append("将参考图中的占位人物或示意人形替换为比例准确、姿态自然、正在参观展览的真实游客")
 
         if use_element_reference:
             if lock_edit_region:
-                sentences.append("参考图中的物品或元素作为元素参考，保留原位置并与周围环境自然结合")
+                reference_parts.append("保留参考图中已有展陈物件的位置、比例和空间关系，使其与改造后的环境自然融合")
             else:
-                sentences.append("参考图中的物品或元素作为元素参考，放置在合理位置并与周围环境自然结合")
+                reference_parts.append("将参考图中的展陈物件作为元素参考，在空间中合理放置并与环境自然融合")
 
-        sentences.extend(
+        sections = [
+            [goal],
+            reference_parts,
+            [style_prompt, clean_details(additional_details)],
+            [color_rhythm_prompt(primary, secondary)],
             [
-                clean_details(additional_details),
-                color_rhythm_prompt(primary, secondary),
                 TONE_PROMPTS.get(tone, TONE_PROMPTS["标准"]),
-                "保持现有空间结构和展陈元素。室内建筑摄影视角，构图清晰，空间层次明确，整体克制、通透、有节奏",
-            ]
-        )
+                "采用室内建筑摄影视角，表现真实材质反射，保持空间层次清晰、尺度合理，呈现高质量写实效果图质感",
+            ],
+        ]
 
-        return io.NodeOutput(normalize_prompt(sentences))
+        return io.NodeOutput(normalize_prompt_sections(sections))
 
 
 NODE_CLASS_MAPPINGS = {

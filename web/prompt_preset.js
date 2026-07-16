@@ -1,6 +1,11 @@
 import { app } from "/scripts/app.js";
+import {
+    normalizeBooleanValue,
+    placeNonSerializingWidgetBefore,
+    repairPromptTextValues,
+} from "./prompt_preset_model.mjs";
 
-const UI_VERSION = "20260715-fix-colors-v2";
+const UI_VERSION = "20260716-seedream5-prompt-v1";
 const SUPPORTED_NODE_NAMES = new Set([
     "SeedreamExhibitionPromptBuilder",
 ]);
@@ -8,8 +13,15 @@ const STYLE_URL = new URL("./styles.json", import.meta.url);
 STYLE_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./thumbs/", import.meta.url);
 const VALID_TONES = new Set(["标准", "明亮", "稳重", "高级", "活泼"]);
+const BOOLEAN_WIDGET_NAMES = [
+    "use_theme_template",
+    "use_space_reference",
+    "include_people_placeholder",
+    "use_element_reference",
+    "lock_edit_region",
+];
 const DEFAULT_BASE_PROMPT = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。";
-const DEFAULT_ADDITIONAL_DETAILS = "地面材质采用高抛光水磨石，含PVC，墙面材质采用乳胶漆，包含不锈钢、铝材的装饰材质与灯带，顶面采用流线型连续灯带系统。";
+const DEFAULT_ADDITIONAL_DETAILS = "地面以高抛光水磨石为主，结合局部PVC地材，墙面采用乳胶漆，搭配不锈钢、铝材和灯带装饰，顶面采用流线型连续灯带系统。";
 const DEFAULT_STYLE_DATA = {
     aerospace: {
         label: "航天科技",
@@ -31,7 +43,7 @@ const DEFAULT_STYLE_DATA = {
     },
 };
 
-console.info(`[GPTImagePromptPreset] UI loaded: ${UI_VERSION} (v2 color fix)`);
+console.info(`[GPTImagePromptPreset] UI loaded: ${UI_VERSION}`);
 
 let styleData = DEFAULT_STYLE_DATA;
 let styleLoadStarted = false;
@@ -77,13 +89,7 @@ function findWidget(node, name) {
     return node.widgets?.find((widget) => widget.name === name);
 }
 
-function updateSerializedWidgetValues(node) {
-    node.widgets_values = (node.widgets || [])
-        .filter((item) => item.serialize !== false)
-        .map((item) => item.value);
-}
-
-function setWidgetValue(node, widgetName, value) {
+function setWidgetValue(node, widgetName, value, { invokeCallback = true } = {}) {
     const widget = findWidget(node, widgetName);
     if (!widget) return false;
     const previousValue = widget.value;
@@ -96,15 +102,11 @@ function setWidgetValue(node, widgetName, value) {
         }
     }
     node.onWidgetChanged?.(widgetName, value, previousValue, widget);
-    widget.callback?.call(widget, value, app.canvas, node, app.canvas?.graph_mouse);
-    updateSerializedWidgetValues(node);
+    if (invokeCallback) {
+        widget.callback?.call(widget, value, app.canvas, node, app.canvas?.graph_mouse);
+    }
     markNodeDirty(node);
     return true;
-}
-
-function isHexColorString(value) {
-    if (typeof value !== "string") return false;
-    return /^#?[0-9a-fA-F]{6}$/.test(value.trim());
 }
 
 function syncUiPropertiesFromNativeWidgets(node) {
@@ -128,25 +130,22 @@ function repairNativeWidgetValues(node) {
         toneWidget.value = "标准";
     }
     const basePromptWidget = findWidget(node, "base_prompt");
-    if (basePromptWidget) {
-        if (typeof basePromptWidget.value !== "string" || !basePromptWidget.value.trim() || isHexColorString(basePromptWidget.value)) {
-            basePromptWidget.value = DEFAULT_BASE_PROMPT;
-        } else {
-            basePromptWidget.value = basePromptWidget.value.trim();
-        }
-    }
     const additionalDetailsWidget = findWidget(node, "additional_details");
-    if (additionalDetailsWidget) {
-        const additionalValue = typeof additionalDetailsWidget.value === "string" ? additionalDetailsWidget.value.trim() : "";
-        const baseValue = typeof basePromptWidget?.value === "string" ? basePromptWidget.value.trim() : "";
-        if (!additionalValue || isHexColorString(additionalValue) || additionalValue === baseValue) {
-            additionalDetailsWidget.value = DEFAULT_ADDITIONAL_DETAILS;
-        } else {
-            additionalDetailsWidget.value = additionalValue;
-        }
+    if (basePromptWidget || additionalDetailsWidget) {
+        const repaired = repairPromptTextValues({
+            basePrompt: basePromptWidget?.value ?? "",
+            additionalDetails: additionalDetailsWidget?.value ?? "",
+            defaultBasePrompt: DEFAULT_BASE_PROMPT,
+            defaultAdditionalDetails: DEFAULT_ADDITIONAL_DETAILS,
+        });
+        if (basePromptWidget) basePromptWidget.value = repaired.basePrompt;
+        if (additionalDetailsWidget) additionalDetailsWidget.value = repaired.additionalDetails;
+    }
+    for (const widgetName of BOOLEAN_WIDGET_NAMES) {
+        const widget = findWidget(node, widgetName);
+        if (widget) widget.value = normalizeBooleanValue(widget.value, true);
     }
     syncUiPropertiesFromNativeWidgets(node);
-    updateSerializedWidgetValues(node);
 }
 
 function getStyleEntries() {
@@ -253,7 +252,7 @@ function selectStyle(node, widget, styleId) {
     node.properties ||= {};
     node.properties.gpt_image_prompt_style_id = styleId;
     widget.__gptImagePromptPresetValue = styleId;
-    setWidgetValue(node, "style_id", styleIdToWidgetValue(styleId));
+    setWidgetValue(node, "style_id", styleIdToWidgetValue(styleId), { invokeCallback: false });
     const style = styleData?.[styleId];
     if (style?.primary_color) {
         setWidgetValue(node, "primary_color", style.primary_color);
@@ -263,7 +262,6 @@ function selectStyle(node, widget, styleId) {
     }
     syncUiPropertiesFromNativeWidgets(node);
     renderStyleDomWidget(widget, node);
-    updateSerializedWidgetValues(node);
     markNodeDirty(node);
 }
 
@@ -373,7 +371,6 @@ function removeStyleControls(node) {
 
 function installStyleWidgetCallback(node) {
     const styleWidget = findWidget(node, "style_id");
-    console.log("[prompt_preset] installStyleWidgetCallback | styleWidget:", styleWidget, "| already wrapped:", styleWidget?.__gptImagePromptPresetCallbackWrapped);
     if (!styleWidget || styleWidget.__gptImagePromptPresetCallbackWrapped) return;
     const originalCallback = styleWidget.callback;
     styleWidget.callback = function (value, canvas, node, pos, event) {
@@ -387,16 +384,8 @@ function installStyleWidgetCallback(node) {
         if (selectedStyle?.secondary_color) {
             setWidgetValue(node, "secondary_color", selectedStyle.secondary_color);
         }
-        console.log("[prompt_preset] style changed to", selectedStyleId,
-            "| primary_color widget:", findWidget(node, "primary_color"),
-            "| value:", findWidget(node, "primary_color")?.value,
-            "| element:", findWidget(node, "primary_color")?.element,
-            "| inputEl:", findWidget(node, "primary_color")?.inputEl,
-            "| type:", findWidget(node, "primary_color")?.type,
-            "| options.type:", findWidget(node, "primary_color")?.options?.type);
         const domWidget = node.widgets?.find((widget) => widget.__gptImagePromptPresetDomSelector);
         if (domWidget) renderStyleDomWidget(domWidget, node);
-        updateSerializedWidgetValues(node);
         markNodeDirty(node);
     };
     styleWidget.__gptImagePromptPresetCallbackWrapped = true;
@@ -405,31 +394,12 @@ function installStyleWidgetCallback(node) {
 function addStyleControl(node) {
     node.widgets ||= [];
     const widget = makeStyleDomWidget(node);
+    return widget || null;
+}
+
+function placeStyleControl(node, widget) {
     if (!widget) return;
-}
-
-function getPromptPresetWidgetRank(widget) {
-    if (widget.__gptImagePromptPresetDomSelector) return 20;
-    if (widget.name === "style_id") return 30;
-    if (widget.name === "tone") return 40;
-    if (widget.name === "primary_color") return 50;
-    if (widget.name === "secondary_color") return 60;
-    if (widget.name === "base_prompt") return 70;
-    if (widget.name === "additional_details") return 80;
-    if (widget.name === "custom_append") return 100;
-    return 100;
-}
-
-function reorderPromptPresetWidgets(node) {
-    if (!node.widgets?.length) return;
-    node.widgets = node.widgets
-        .map((widget, index) => ({ widget, index }))
-        .sort((a, b) => {
-            const rankDiff = getPromptPresetWidgetRank(a.widget) - getPromptPresetWidgetRank(b.widget);
-            return rankDiff || a.index - b.index;
-        })
-        .map((item) => item.widget);
-    updateSerializedWidgetValues(node);
+    node.widgets = placeNonSerializingWidgetBefore(node.widgets, widget, "style_id");
 }
 
 function resizeNodeForControls(node) {
@@ -450,37 +420,13 @@ function installPromptPresetUi(node) {
             resizeNodeForControls(node);
             markNodeDirty(node);
         }
-        const currentStyleId = getSelectedStyleId(node);
-        const currentStyle = styleData?.[currentStyleId];
-        if (currentStyle?.primary_color) {
-            setWidgetValue(node, "primary_color", currentStyle.primary_color);
-        }
-        if (currentStyle?.secondary_color) {
-            setWidgetValue(node, "secondary_color", currentStyle.secondary_color);
-        }
     });
 
     removeStyleControls(node);
     repairNativeWidgetValues(node);
-    {
-        const initialStyleId = getSelectedStyleId(node);
-        const initialStyle = styleData?.[initialStyleId];
-        if (initialStyle?.primary_color) {
-            setWidgetValue(node, "primary_color", initialStyle.primary_color);
-        }
-        if (initialStyle?.secondary_color) {
-            setWidgetValue(node, "secondary_color", initialStyle.secondary_color);
-        }
-        console.log("[prompt_preset] sync init | styleId:", initialStyleId,
-            "| primary widget:", findWidget(node, "primary_color"),
-            "| value:", findWidget(node, "primary_color")?.value,
-            "| element:", findWidget(node, "primary_color")?.element,
-            "| inputEl:", findWidget(node, "primary_color")?.inputEl,
-            "| type:", findWidget(node, "primary_color")?.type);
-    }
     installStyleWidgetCallback(node);
-    addStyleControl(node);
-    reorderPromptPresetWidgets(node);
+    const styleControl = addStyleControl(node);
+    placeStyleControl(node, styleControl);
     resizeNodeForControls(node);
     app.graph?.setDirtyCanvas(true, true);
 }
@@ -492,14 +438,12 @@ if (globalThis.__GPT_IMAGE_PROMPT_PRESET_REGISTERED_VERSION !== UI_VERSION) {
         name: "Comfy.GPTImagePromptPreset.UI",
         beforeRegisterNodeDef(nodeType, nodeData) {
             if (!SUPPORTED_NODE_NAMES.has(nodeData.name)) return;
-            console.log("[prompt_preset] matched node:", nodeData.name, "| registering hooks");
 
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 onNodeCreated?.apply(this, arguments);
                 const self = this;
                 setTimeout(() => {
-                    console.log("[prompt_preset] onNodeCreated fired | widgets:", self.widgets?.length, "| widgets_by_name:", self.widgets?.map(w => w.name));
                     installPromptPresetUi(self);
                 }, 0);
             };

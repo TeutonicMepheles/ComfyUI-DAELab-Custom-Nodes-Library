@@ -5,7 +5,7 @@
     "thumbnail": "thumb_tech.webp",
     "primary_color": "#567DF0",
     "secondary_color": "#D0D5DD",
-    "prompt": "以深蓝宇宙空间为背景，使用精密仪器线条、轨道线条和数据可视化图形构成画面，呈现未来科技感与高级海报质感"
+    "prompt": "采用精密构造线、轨道图形、数据可视化界面、线性照明和局部金属构件，形成克制专业的航天科技空间语言"
   },
   "business": {
     "label": "商务",
@@ -13,7 +13,7 @@
     "thumbnail": "thumb_business.webp",
     "primary_color": "#3A4A5C",
     "secondary_color": "#B8A99A",
-    "prompt": "以简洁专业的版式结构组织画面，使用克制的中性色系与清晰的信息层级，呈现现代商务风格，适合企业宣传与商业展示场景"
+    "prompt": "采用清晰的信息层级、模块化展陈界面、简洁几何构成和克制材质关系，形成现代专业的企业展示空间"
   },
   "party_building": {
     "label": "党建",
@@ -21,6 +21,6 @@
     "thumbnail": "thumb_party.webp",
     "primary_color": "#C33C3C",
     "secondary_color": "#D4A843",
-    "prompt": "以红色为主基调、金色为点缀，使用庄重正式的画面构图，呈现积极向上的党建宣传风格，适合组织宣传与主题海报"
+    "prompt": "采用庄重有序的叙事轴线、层次清晰的主题展示墙和具有仪式感的空间构成，形成正式稳健的主题展陈语言"
   }
 }

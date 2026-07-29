@@ -16,13 +16,6 @@ FALLBACK_STYLES = {
         "secondary_color": "#D0D5DD",
         "prompt": "采用精密构造线、轨道图形、数据可视化界面、线性照明和局部金属构件，形成克制专业的航天科技空间语言",
     },
-    "business": {
-        "label": "商务",
-        "subject": "现代企业商务展厅",
-        "primary_color": "#3A4A5C",
-        "secondary_color": "#B8A99A",
-        "prompt": "采用清晰的信息层级、模块化展陈界面、简洁几何构成和克制材质关系，形成现代专业的企业展示空间",
-    },
     "party_building": {
         "label": "党建",
         "subject": "党建展厅",
@@ -284,8 +277,8 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
         use_element_reference = normalize_boolean(use_element_reference)
         lock_edit_region = normalize_boolean(lock_edit_region)
 
+        raw_prompt = "" if base_prompt is None else base_prompt if isinstance(base_prompt, str) else str(base_prompt)
         if not use_theme_template:
-            raw_prompt = "" if base_prompt is None else base_prompt if isinstance(base_prompt, str) else str(base_prompt)
             return io.NodeOutput(raw_prompt)
 
         styles = load_styles()
@@ -330,7 +323,10 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
             ],
         ]
 
-        return io.NodeOutput(normalize_prompt_sections(sections))
+        template_prompt = normalize_prompt_sections(sections)
+        if raw_prompt.strip():
+            return io.NodeOutput(f"{raw_prompt}\n\n{template_prompt}")
+        return io.NodeOutput(template_prompt)
 
 
 NODE_CLASS_MAPPINGS = {

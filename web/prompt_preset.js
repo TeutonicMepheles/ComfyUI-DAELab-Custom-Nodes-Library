@@ -1,11 +1,16 @@
 import { app } from "/scripts/app.js";
 import {
+    PROMPT_WIDGET_SERIALIZATION_ORDER,
+    getCanonicalPromptWidgetValues,
+    migratePromptWidgetValues,
     normalizeBooleanValue,
-    placeNonSerializingWidgetBefore,
+    orderPromptPanelWidgets,
     repairPromptTextValues,
+    resolveLinkedBooleanValue,
+    setTemplateWidgetsDisabled,
 } from "./prompt_preset_model.mjs";
 
-const UI_VERSION = "20260716-seedream5-prompt-v1";
+const UI_VERSION = "20260730-seedream5-prompt-v4";
 const SUPPORTED_NODE_NAMES = new Set([
     "SeedreamExhibitionPromptBuilder",
 ]);
@@ -20,6 +25,11 @@ const BOOLEAN_WIDGET_NAMES = [
     "use_element_reference",
     "lock_edit_region",
 ];
+const TEMPLATE_COLOR_WIDGET_NAMES = new Set([
+    "primary_color",
+    "secondary_color",
+]);
+const PROMPT_SYNC_INTERVAL_MS = 100;
 const DEFAULT_BASE_PROMPT = "生成写实展厅效果图，并在环境中添加与风格匹配的适当陈列与装饰物。";
 const DEFAULT_ADDITIONAL_DETAILS = "地面以高抛光水磨石为主，结合局部PVC地材，墙面采用乳胶漆，搭配不锈钢、铝材和灯带装饰，顶面采用流线型连续灯带系统。";
 const DEFAULT_STYLE_DATA = {
@@ -28,12 +38,6 @@ const DEFAULT_STYLE_DATA = {
         thumbnail: "thumb_tech.webp",
         primary_color: "#567DF0",
         secondary_color: "#D0D5DD",
-    },
-    business: {
-        label: "商务",
-        thumbnail: "thumb_business.webp",
-        primary_color: "#3A4A5C",
-        secondary_color: "#B8A99A",
     },
     party_building: {
         label: "党建",
@@ -48,6 +52,8 @@ console.info(`[GPTImagePromptPreset] UI loaded: ${UI_VERSION}`);
 let styleData = DEFAULT_STYLE_DATA;
 let styleLoadStarted = false;
 let styleLoadPromise = null;
+const promptPresetNodes = new Set();
+let promptSyncTimer = null;
 
 function markNodeDirty(node) {
     if (node?.graph) {
@@ -188,7 +194,7 @@ function ensureDomStyles() {
 .gpt-image-preset-selector {
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
   height: 100%;
@@ -197,6 +203,11 @@ function ensureDomStyles() {
   pointer-events: auto;
   font-family: Arial, Helvetica, sans-serif;
   overflow: hidden;
+}
+.gpt-image-preset-selector[data-disabled="true"] {
+  filter: grayscale(0.35);
+  opacity: 0.45;
+  pointer-events: none;
 }
 .gpt-image-preset-button {
   appearance: none;
@@ -217,11 +228,19 @@ function ensureDomStyles() {
 .gpt-image-preset-button:hover {
   border-color: #6aa8ff;
 }
+.gpt-image-preset-button:disabled {
+  cursor: not-allowed;
+}
 .gpt-image-preset-button[data-selected="true"] {
   background: #243b63;
   border-color: #6aa8ff;
   box-shadow: inset 0 0 0 1px #6aa8ff;
   color: #ffffff;
+}
+.seedream-template-color-disabled {
+  filter: grayscale(0.35);
+  opacity: 0.45;
+  pointer-events: none;
 }
 .gpt-image-preset-button img {
   display: block;
@@ -249,6 +268,7 @@ function stopCanvasEvent(event) {
 }
 
 function selectStyle(node, widget, styleId) {
+    if (widget.__seedreamTemplateDisabled) return;
     node.properties ||= {};
     node.properties.gpt_image_prompt_style_id = styleId;
     widget.__gptImagePromptPresetValue = styleId;
@@ -280,6 +300,7 @@ function renderStyleDomWidget(widget, node) {
         button.dataset.styleId = style.id;
         button.dataset.selected = String(style.id === selectedId);
         button.title = style.label || style.id;
+        button.disabled = element.dataset.disabled === "true";
 
         const image = document.createElement("img");
         image.alt = style.label || style.id;
@@ -302,7 +323,7 @@ function renderStyleDomWidget(widget, node) {
 
 function getStyleDomHeight(width = 360) {
     const count = Math.max(getStyleEntries().length, 1);
-    const columns = Math.max(1, Math.min(3, Math.floor(((width || 360) - 20) / 104)));
+    const columns = Math.max(1, Math.min(2, Math.floor(((width || 360) - 20) / 104)));
     const rows = Math.ceil(count / columns);
     return 14 + rows * 88;
 }
@@ -352,6 +373,161 @@ function makeStyleDomWidget(node) {
     return widget;
 }
 
+function setStyleSelectorDisabled(node, disabled) {
+    const widget = node.widgets?.find(
+        (candidate) => candidate.__gptImagePromptPresetDomSelector
+    );
+    if (!widget) return false;
+    const element = widget.element || widget.inputEl;
+    const nextValue = String(disabled);
+    const changed = widget.__seedreamTemplateDisabled !== disabled
+        || element?.dataset.disabled !== nextValue;
+    widget.__seedreamTemplateDisabled = disabled;
+    if (element) {
+        element.dataset.disabled = nextValue;
+        element.setAttribute("aria-disabled", nextValue);
+        for (const button of element.querySelectorAll("button")) {
+            button.disabled = disabled;
+        }
+    }
+    return changed;
+}
+
+function findVueNodeElement(node) {
+    const nodeId = String(node?.id ?? "");
+    if (!nodeId) return null;
+    return Array.from(
+        document.querySelectorAll(".lg-node[data-node-id]")
+    ).find((element) => element.dataset.nodeId === nodeId) || null;
+}
+
+function normalizeWidgetLabel(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function setVueColorWidgetsDisabled(node, disabled) {
+    const nodeElement = findVueNodeElement(node);
+    if (!nodeElement) return false;
+    const rows = Array.from(
+        nodeElement.querySelectorAll(".lg-node-widgets > .lg-node-widget")
+    );
+    let changed = false;
+
+    for (const widgetName of TEMPLATE_COLOR_WIDGET_NAMES) {
+        const normalizedName = normalizeWidgetLabel(widgetName);
+        const row = rows.find((candidate) => (
+            normalizeWidgetLabel(candidate.textContent).includes(normalizedName)
+        ));
+        if (!row) continue;
+
+        const wasDisabled = row.classList.contains(
+            "seedream-template-color-disabled"
+        );
+        if (wasDisabled !== disabled) changed = true;
+        row.classList.toggle("seedream-template-color-disabled", disabled);
+        row.setAttribute("aria-disabled", String(disabled));
+
+        for (const control of row.querySelectorAll("button, input, select")) {
+            if (!Object.hasOwn(control, "__seedreamOriginalDisabled")) {
+                control.__seedreamOriginalDisabled = Boolean(control.disabled);
+            }
+            control.disabled = disabled
+                ? true
+                : control.__seedreamOriginalDisabled;
+        }
+    }
+    return changed;
+}
+
+function installTemplateColorGuards(node) {
+    for (const widget of node.widgets || []) {
+        if (
+            !TEMPLATE_COLOR_WIDGET_NAMES.has(widget.name)
+            || widget.__seedreamTemplateColorGuardInstalled
+        ) {
+            continue;
+        }
+        const originalCallback = widget.callback;
+        widget.__seedreamEnabledValue = widget.value;
+        widget.callback = function (value) {
+            if (this.__seedreamTemplateDisabled) {
+                this.value = this.__seedreamEnabledValue;
+                markNodeDirty(node);
+                return;
+            }
+            this.__seedreamEnabledValue = value;
+            return originalCallback?.apply(this, arguments);
+        };
+        widget.__seedreamTemplateColorGuardInstalled = true;
+    }
+}
+
+function resolveTemplateEnabled(node) {
+    const linkedValue = resolveLinkedBooleanValue(node, "use_theme_template");
+    if (linkedValue !== null) return linkedValue;
+    return normalizeBooleanValue(findWidget(node, "use_theme_template")?.value, true);
+}
+
+function updateTemplateControlState(
+    node,
+    { force = false, deferRedraw = false } = {}
+) {
+    const templateEnabled = resolveTemplateEnabled(node);
+    const stateChanged = node.__seedreamTemplateEnabled !== templateEnabled;
+    const nativeChanged = setTemplateWidgetsDisabled(
+        node.widgets,
+        !templateEnabled
+    );
+    const selectorChanged = setStyleSelectorDisabled(node, !templateEnabled);
+    const colorRowsChanged = setVueColorWidgetsDisabled(
+        node,
+        !templateEnabled
+    );
+    node.__seedreamTemplateEnabled = templateEnabled;
+    node.updateComputedDisabled?.();
+    if (
+        force
+        || stateChanged
+        || nativeChanged
+        || selectorChanged
+        || colorRowsChanged
+    ) {
+        if (deferRedraw) {
+            requestAnimationFrame(() => markNodeDirty(node));
+        } else {
+            markNodeDirty(node);
+        }
+    }
+    return templateEnabled;
+}
+
+function runPromptPresetSync() {
+    for (const node of Array.from(promptPresetNodes)) {
+        if (!node?.graph || node.__seedreamPromptPresetRemoved) continue;
+        updateTemplateControlState(node);
+    }
+}
+
+function registerPromptPresetNode(node) {
+    node.__seedreamPromptPresetRemoved = false;
+    promptPresetNodes.add(node);
+    if (!promptSyncTimer) {
+        promptSyncTimer = setInterval(
+            runPromptPresetSync,
+            PROMPT_SYNC_INTERVAL_MS
+        );
+    }
+}
+
+function unregisterPromptPresetNode(node) {
+    node.__seedreamPromptPresetRemoved = true;
+    promptPresetNodes.delete(node);
+    if (!promptPresetNodes.size && promptSyncTimer) {
+        clearInterval(promptSyncTimer);
+        promptSyncTimer = null;
+    }
+}
+
 function removeStyleControls(node) {
     node.widgets = (node.widgets || []).filter((widget) => {
         const shouldRemove = widget.type === "GPT_IMAGE_STYLE_SELECTOR"
@@ -391,15 +567,45 @@ function installStyleWidgetCallback(node) {
     styleWidget.__gptImagePromptPresetCallbackWrapped = true;
 }
 
+function installTemplateWidgetCallback(node) {
+    const templateWidget = findWidget(node, "use_theme_template");
+    if (!templateWidget || templateWidget.__seedreamTemplateCallbackWrapped) return;
+    const originalCallback = templateWidget.callback;
+    templateWidget.callback = function (value, canvas, node, pos, event) {
+        originalCallback?.call(this, value, canvas, node, pos, event);
+        updateTemplateControlState(node);
+    };
+    templateWidget.__seedreamTemplateCallbackWrapped = true;
+}
+
 function addStyleControl(node) {
     node.widgets ||= [];
     const widget = makeStyleDomWidget(node);
     return widget || null;
 }
 
-function placeStyleControl(node, widget) {
-    if (!widget) return;
-    node.widgets = placeNonSerializingWidgetBefore(node.widgets, widget, "style_id");
+function orderPromptControls(node) {
+    node.widgets = orderPromptPanelWidgets(node.widgets);
+}
+
+function restoreCanonicalWidgetValues(node, serializedValues) {
+    const values = migratePromptWidgetValues(serializedValues);
+    if (!values) return false;
+    for (const [index, name] of PROMPT_WIDGET_SERIALIZATION_ORDER.entries()) {
+        const widget = findWidget(node, name);
+        if (widget && index < values.length) widget.value = values[index];
+    }
+    return true;
+}
+
+function installCanonicalSerialization(node) {
+    if (node.__seedreamCanonicalSerializationInstalled) return;
+    const originalOnSerialize = node.onSerialize;
+    node.onSerialize = function (data) {
+        originalOnSerialize?.call(this, data);
+        data.widgets_values = getCanonicalPromptWidgetValues(this.widgets);
+    };
+    node.__seedreamCanonicalSerializationInstalled = true;
 }
 
 function resizeNodeForControls(node) {
@@ -425,8 +631,13 @@ function installPromptPresetUi(node) {
     removeStyleControls(node);
     repairNativeWidgetValues(node);
     installStyleWidgetCallback(node);
-    const styleControl = addStyleControl(node);
-    placeStyleControl(node, styleControl);
+    installTemplateWidgetCallback(node);
+    installTemplateColorGuards(node);
+    addStyleControl(node);
+    orderPromptControls(node);
+    installCanonicalSerialization(node);
+    updateTemplateControlState(node, { force: true });
+    registerPromptPresetNode(node);
     resizeNodeForControls(node);
     app.graph?.setDirtyCanvas(true, true);
 }
@@ -439,6 +650,16 @@ if (globalThis.__GPT_IMAGE_PROMPT_PRESET_REGISTERED_VERSION !== UI_VERSION) {
         beforeRegisterNodeDef(nodeType, nodeData) {
             if (!SUPPORTED_NODE_NAMES.has(nodeData.name)) return;
 
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function (info) {
+                onConfigure?.apply(this, arguments);
+                restoreCanonicalWidgetValues(this, info?.widgets_values);
+                if (this.__gptImagePromptPresetUiInstalled === UI_VERSION) {
+                    repairNativeWidgetValues(this);
+                    updateTemplateControlState(this, { force: true });
+                }
+            };
+
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 onNodeCreated?.apply(this, arguments);
@@ -448,8 +669,17 @@ if (globalThis.__GPT_IMAGE_PROMPT_PRESET_REGISTERED_VERSION !== UI_VERSION) {
                 }, 0);
             };
 
+            const onDrawForeground = nodeType.prototype.onDrawForeground;
+            nodeType.prototype.onDrawForeground = function () {
+                onDrawForeground?.apply(this, arguments);
+                if (this.__gptImagePromptPresetUiInstalled === UI_VERSION) {
+                    updateTemplateControlState(this, { deferRedraw: true });
+                }
+            };
+
             const onRemoved = nodeType.prototype.onRemoved;
             nodeType.prototype.onRemoved = function () {
+                unregisterPromptPresetNode(this);
                 removeStyleControls(this);
                 onRemoved?.apply(this, arguments);
             };

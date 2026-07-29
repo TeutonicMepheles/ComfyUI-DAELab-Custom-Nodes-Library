@@ -5,11 +5,14 @@ import {
     MODE_ACTIVE,
     MODE_BYPASS,
     applyModeToNodes,
+    buildNodeModeAssignments,
     buildGroupOptions,
+    collectBooleanAncestorIds,
     collectControllableNodes,
     desiredMode,
     findPlanConflicts,
     getGraphLink,
+    isAllowedHierarchicalOverlap,
     resolveBooleanSource,
     resolveGroup,
 } from "../web/boolean_group_bypass_controller_model.mjs";
@@ -28,6 +31,34 @@ function makeSource(items, outputs = null) {
     };
 }
 
+function makeGetSource(items, outputItemIds, valid = true) {
+    return {
+        id: 8,
+        type: "BooleanListHierarchyGet",
+        title: "Hierarchy Get",
+        properties: {
+            boolean_get_snapshot: JSON.stringify({
+                version: 1,
+                valid,
+                source_node_id: "7",
+                root_item_id: "root",
+                include_root: true,
+                items,
+                output_item_ids: outputItemIds,
+            }),
+        },
+        outputs: outputItemIds.map((itemId) => {
+            const item = items.find((candidate) => candidate.id === itemId);
+            return {
+                name: item?.label || itemId,
+                type: "BOOLEAN",
+                boolean_item_id: itemId,
+                boolean_get_item_key: `7::${itemId}`,
+            };
+        }),
+    };
+}
+
 function makeController(source, linkStore) {
     const graph = {
         _links: linkStore,
@@ -39,6 +70,30 @@ function makeController(source, linkStore) {
         id: 10,
         graph,
         inputs: [{ name: "boolean", type: "BOOLEAN", link: 101 }],
+    };
+}
+
+function makePlan({
+    controllerId,
+    graph,
+    groupId,
+    nodes,
+    hierarchySourceId = "hierarchy",
+    itemId,
+    ancestorItemIds = [],
+    mode = MODE_ACTIVE,
+}) {
+    return {
+        controller: { id: controllerId },
+        graph,
+        groupId,
+        nodes,
+        mode,
+        source: {
+            hierarchySourceId,
+            itemId,
+            ancestorItemIds,
+        },
     };
 }
 
@@ -64,6 +119,113 @@ test("binds the connected Boolean by stable item id after output reorder", () =>
     assert.equal(resolved.itemId, "b");
     assert.equal(resolved.itemLabel, "B renamed");
     assert.equal(resolved.value, true);
+    assert.equal(resolved.hierarchySourceId, "7");
+    assert.deepEqual(resolved.ancestorItemIds, []);
+});
+
+test("accepts Boolean List Hierarchy Get outputs by stable item id", () => {
+    const items = [
+        { id: "root", label: "Root", value: true, parent_id: null },
+        { id: "child", label: "Child renamed", value: true, parent_id: "root" },
+    ];
+    const source = makeGetSource(items, ["child", "root"]);
+    const controller = makeController(
+        source,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    );
+
+    const resolved = resolveBooleanSource(controller);
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.itemId, "child");
+    assert.equal(resolved.itemLabel, "Child renamed");
+    assert.equal(resolved.value, true);
+    assert.equal(resolved.sourceLabel, "Hierarchy Get");
+    assert.equal(resolved.hierarchySourceId, "7");
+    assert.deepEqual(resolved.ancestorItemIds, ["root"]);
+});
+
+test("collects a stable root-to-parent ancestry without following requires ids", () => {
+    const items = [
+        { id: "root", parent_id: null },
+        { id: "child", parent_id: "root", requires_ids: ["external"] },
+        { id: "grandchild", parent_id: "child" },
+        { id: "external", parent_id: null },
+    ];
+    assert.deepEqual(
+        collectBooleanAncestorIds(items, "grandchild"),
+        ["child", "root"]
+    );
+});
+
+test("matches a direct parent source with a child exposed through Hierarchy Get", () => {
+    const items = [
+        { id: "root", label: "Root", value: true, parent_id: null },
+        { id: "child", label: "Child", value: false, parent_id: "root" },
+    ];
+    const directSource = makeSource(items);
+    const getSource = makeGetSource(items, ["child"]);
+    const direct = resolveBooleanSource(makeController(
+        directSource,
+        new Map([[101, { origin_id: 7, origin_slot: 0 }]])
+    ));
+    const child = resolveBooleanSource(makeController(
+        getSource,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    ));
+    const graph = {};
+    const shared = { id: 1 };
+    const parentPlan = {
+        controller: { id: 1 },
+        graph,
+        groupId: "parent",
+        nodes: [shared],
+        source: direct,
+    };
+    const childPlan = {
+        controller: { id: 2 },
+        graph,
+        groupId: "child",
+        nodes: [shared],
+        source: child,
+    };
+
+    assert.equal(isAllowedHierarchicalOverlap(parentPlan, childPlan), true);
+});
+
+test("ignores dependency context items that are not exposed by Hierarchy Get", () => {
+    const items = [
+        { id: "external", label: "External prerequisite", value: true, parent_id: null },
+        {
+            id: "selected",
+            label: "Selected",
+            value: true,
+            parent_id: null,
+            requires_ids: ["external"],
+        },
+    ];
+    const source = makeGetSource(items, ["selected"]);
+    const controller = makeController(
+        source,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    );
+    const resolved = resolveBooleanSource(controller);
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.itemId, "selected");
+    assert.equal(resolved.value, true);
+});
+
+test("forces a missing Hierarchy Get binding to false", () => {
+    const items = [
+        { id: "root", label: "Root", value: true, parent_id: null },
+    ];
+    const source = makeGetSource(items, ["root"], false);
+    const controller = makeController(
+        source,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    );
+    const resolved = resolveBooleanSource(controller);
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.value, false);
 });
 
 test("rejects disconnected, missing, and non-hierarchy sources without mutation data", () => {
@@ -117,25 +279,241 @@ test("changes only nodes that differ from the requested mode", () => {
     assert.equal(applyModeToNodes([active, bypassed], MODE_BYPASS), false);
 });
 
-test("detects duplicate targets and overlapping controlled members", () => {
+test("allows nested group overlap that follows Boolean ancestry", () => {
     const graph = {};
-    const a = { id: 1 };
-    const b = { id: 2 };
-    const shared = { id: 3 };
-    const plans = [
-        { controller: a, graph, groupId: "g1", nodes: [shared] },
-        { controller: b, graph, groupId: "g2", nodes: [shared] },
+    const parentOnly = { id: 1 };
+    const shared = { id: 2 };
+    const parent = makePlan({
+        controllerId: 10,
+        graph,
+        groupId: "parent-group",
+        nodes: [parentOnly, shared],
+        itemId: "root",
+    });
+    const child = makePlan({
+        controllerId: 11,
+        graph,
+        groupId: "child-group",
+        nodes: [shared],
+        itemId: "child",
+        ancestorItemIds: ["root"],
+    });
+
+    assert.equal(isAllowedHierarchicalOverlap(parent, child), true);
+    assert.equal(findPlanConflicts([parent, child]).size, 0);
+
+    const sameMembers = { ...parent, nodes: [shared] };
+    assert.equal(isAllowedHierarchicalOverlap(sameMembers, child), true);
+    assert.equal(findPlanConflicts([sameMembers, child]).size, 0);
+});
+
+test("combines nested plans with bypass dominance independent of plan order", () => {
+    const graph = {};
+    const rootOnly = { id: 1 };
+    const childOnly = { id: 2 };
+    const grandchildOnly = { id: 3 };
+    const plansFor = (rootMode, childMode, grandchildMode) => [
+        makePlan({
+            controllerId: 1,
+            graph,
+            groupId: "root-group",
+            nodes: [rootOnly, childOnly, grandchildOnly],
+            itemId: "root",
+            mode: rootMode,
+        }),
+        makePlan({
+            controllerId: 2,
+            graph,
+            groupId: "child-group",
+            nodes: [childOnly, grandchildOnly],
+            itemId: "child",
+            ancestorItemIds: ["root"],
+            mode: childMode,
+        }),
+        makePlan({
+            controllerId: 3,
+            graph,
+            groupId: "grandchild-group",
+            nodes: [grandchildOnly],
+            itemId: "grandchild",
+            ancestorItemIds: ["child", "root"],
+            mode: grandchildMode,
+        }),
     ];
-    const overlap = findPlanConflicts(plans);
-    assert.match(overlap.get(a), /重叠/);
-    assert.match(overlap.get(b), /重叠/);
+    const modesFor = (plans) => {
+        const assignments = buildNodeModeAssignments(plans);
+        return [
+            assignments.get(rootOnly),
+            assignments.get(childOnly),
+            assignments.get(grandchildOnly),
+        ];
+    };
+
+    assert.deepEqual(
+        modesFor(plansFor(MODE_BYPASS, MODE_ACTIVE, MODE_ACTIVE)),
+        [MODE_BYPASS, MODE_BYPASS, MODE_BYPASS]
+    );
+    assert.deepEqual(
+        modesFor(plansFor(MODE_ACTIVE, MODE_BYPASS, MODE_ACTIVE)),
+        [MODE_ACTIVE, MODE_BYPASS, MODE_BYPASS]
+    );
+    assert.deepEqual(
+        modesFor(plansFor(MODE_ACTIVE, MODE_ACTIVE, MODE_BYPASS)),
+        [MODE_ACTIVE, MODE_ACTIVE, MODE_BYPASS]
+    );
+    const activePlans = plansFor(MODE_ACTIVE, MODE_ACTIVE, MODE_ACTIVE);
+    assert.deepEqual(
+        modesFor(activePlans),
+        [MODE_ACTIVE, MODE_ACTIVE, MODE_ACTIVE]
+    );
+    assert.deepEqual(
+        modesFor([...activePlans].reverse()),
+        [MODE_ACTIVE, MODE_ACTIVE, MODE_ACTIVE]
+    );
+    assert.deepEqual(
+        modesFor(plansFor(MODE_ACTIVE, desiredMode(false, true), MODE_ACTIVE)),
+        [MODE_ACTIVE, MODE_ACTIVE, MODE_ACTIVE]
+    );
+});
+
+test("rejects duplicate, unrelated, partial, and reversed overlaps", () => {
+    const graph = {};
+    const first = { id: 1 };
+    const second = { id: 2 };
+    const shared = { id: 3 };
+    const extra = { id: 4 };
 
     const duplicate = findPlanConflicts([
-        { controller: a, graph, groupId: "g1", nodes: [] },
-        { controller: b, graph, groupId: "g1", nodes: [] },
+        makePlan({
+            controllerId: 10,
+            graph,
+            groupId: "same",
+            nodes: [],
+            itemId: "root",
+        }),
+        makePlan({
+            controllerId: 11,
+            graph,
+            groupId: "same",
+            nodes: [],
+            itemId: "child",
+            ancestorItemIds: ["root"],
+        }),
     ]);
-    assert.match(duplicate.get(a), /同一组/);
-    assert.match(duplicate.get(b), /同一组/);
+    assert.equal(duplicate.size, 2);
+
+    const siblings = findPlanConflicts([
+        makePlan({
+            controllerId: 12,
+            graph,
+            groupId: "first",
+            nodes: [first, shared],
+            itemId: "left",
+            ancestorItemIds: ["root"],
+        }),
+        makePlan({
+            controllerId: 13,
+            graph,
+            groupId: "second",
+            nodes: [shared, second],
+            itemId: "right",
+            ancestorItemIds: ["root"],
+        }),
+    ]);
+    assert.equal(siblings.size, 2);
+
+    const crossHierarchy = findPlanConflicts([
+        makePlan({
+            controllerId: 14,
+            graph,
+            groupId: "first",
+            nodes: [first, shared],
+            hierarchySourceId: "a",
+            itemId: "root",
+        }),
+        makePlan({
+            controllerId: 15,
+            graph,
+            groupId: "second",
+            nodes: [shared],
+            hierarchySourceId: "b",
+            itemId: "child",
+            ancestorItemIds: ["root"],
+        }),
+    ]);
+    assert.equal(crossHierarchy.size, 2);
+
+    const partial = findPlanConflicts([
+        makePlan({
+            controllerId: 16,
+            graph,
+            groupId: "parent",
+            nodes: [first, shared],
+            itemId: "root",
+        }),
+        makePlan({
+            controllerId: 17,
+            graph,
+            groupId: "child",
+            nodes: [shared, extra],
+            itemId: "child",
+            ancestorItemIds: ["root"],
+        }),
+    ]);
+    assert.equal(partial.size, 2);
+
+    const reversed = findPlanConflicts([
+        makePlan({
+            controllerId: 18,
+            graph,
+            groupId: "parent",
+            nodes: [shared],
+            itemId: "root",
+        }),
+        makePlan({
+            controllerId: 19,
+            graph,
+            groupId: "child",
+            nodes: [shared, extra],
+            itemId: "child",
+            ancestorItemIds: ["root"],
+        }),
+    ]);
+    assert.equal(reversed.size, 2);
+});
+
+test("propagates an invalid binding through its hierarchical overlap chain", () => {
+    const graph = {};
+    const rootOnly = { id: 1 };
+    const childNode = { id: 2 };
+    const leafNode = { id: 3 };
+    const root = makePlan({
+        controllerId: 1,
+        graph,
+        groupId: "root-group",
+        nodes: [rootOnly, childNode, leafNode],
+        itemId: "root",
+    });
+    const child = makePlan({
+        controllerId: 2,
+        graph,
+        groupId: "duplicate-group",
+        nodes: [childNode, leafNode],
+        itemId: "child",
+        ancestorItemIds: ["root"],
+    });
+    const grandchild = makePlan({
+        controllerId: 3,
+        graph,
+        groupId: "duplicate-group",
+        nodes: [leafNode],
+        itemId: "grandchild",
+        ancestorItemIds: ["child", "root"],
+    });
+
+    const conflicts = findPlanConflicts([root, child, grandchild]);
+    assert.equal(conflicts.size, 3);
+    assert.equal(conflicts.has(root.controller), true);
 });
 
 test("does not report conflicts between different graph instances", () => {

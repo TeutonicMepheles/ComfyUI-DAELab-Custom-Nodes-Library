@@ -15,6 +15,11 @@ export function getConnectedLoadImageInfo(node, fallbackGraph = null) {
     return null;
   }
 
+  const nodeType = originNode.type || originNode.comfyClass || "";
+  if (nodeType !== "LoadImage") {
+    return null;
+  }
+
   const imageWidget = originNode.widgets?.find((widget) => widget.name === "image");
   const imageValue = imageWidget?.value;
   if (!imageValue) {
@@ -23,7 +28,7 @@ export function getConnectedLoadImageInfo(node, fallbackGraph = null) {
 
   return {
     nodeId: originNode.id ?? "unknown",
-    nodeType: originNode.type || originNode.comfyClass || "",
+    nodeType,
     imageValue,
   };
 }
@@ -33,4 +38,26 @@ export function getConnectedLoadImageKey(info) {
     return "";
   }
   return `load-image:${info.nodeId}:${info.imageValue}`;
+}
+
+
+export function resolveExecutedImageUpdate(node, message, fallbackGraph = null) {
+  const connectedInfo = getConnectedLoadImageInfo(node, fallbackGraph);
+  if (connectedInfo) {
+    return {
+      type: "connected",
+      connectedInfo,
+    };
+  }
+
+  const encodedImage = message?.source_image?.[0];
+  if (!encodedImage) {
+    return { type: "none" };
+  }
+
+  return {
+    type: "preview",
+    encodedImage,
+    imageValue: message?.source_image_hash?.[0] || `socket-image-${encodedImage.length}`,
+  };
 }

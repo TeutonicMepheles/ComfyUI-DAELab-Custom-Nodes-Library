@@ -3,15 +3,32 @@ import test from "node:test";
 
 import {
     MAX_BOOLEAN_OUTPUTS,
+    MAX_HIERARCHY_DEPTH,
     addChildItem,
     addRootItem,
+    applyHierarchyConstraints,
     applyParentCascade,
+    applyRequirementCascade,
+    canIndentItem,
+    createExclusiveGroup,
+    deleteItemRequirements,
+    deleteExclusiveGroup,
     deleteItem,
+    encodeItems,
+    getExclusiveGroups,
+    getItemDepth,
+    getRequirementClosure,
+    getSubtreeIds,
     indentItem,
     moveItem,
     normalizeItems,
     outdentItem,
     reconcileOutputSlots,
+    sanitizeDependencies,
+    setItemRequirements,
+    updateExclusiveGroup,
+    validateDependencySelection,
+    validateExclusiveGroupSelection,
 } from "../web/boolean_list_hierarchy_model.mjs";
 
 function idFactory() {
@@ -19,8 +36,22 @@ function idFactory() {
     return () => `generated-${++index}`;
 }
 
-function item(id, label, value = false, parentId = null) {
-    return { id, label, value, parent_id: parentId };
+function item(
+    id,
+    label,
+    value = false,
+    parentId = null,
+    exclusiveGroupId = null,
+    requiresIds = []
+) {
+    return {
+        id,
+        label,
+        value,
+        parent_id: parentId,
+        exclusive_group_id: exclusiveGroupId,
+        requires_ids: requiresIds,
+    };
 }
 
 test("migrates legacy level data and repairs orphan children", () => {
@@ -40,20 +71,266 @@ test("migrates legacy level data and repairs orphan children", () => {
     assert.equal(orphan[0].parent_id, null);
 });
 
-test("applies only parent-to-child false cascade", () => {
+test("applies recursive ancestor-to-descendant false cascade", () => {
     const items = applyParentCascade([
         item("a", "A", true),
         item("a-child", "A child", true, "a"),
+        item("a-grandchild", "A grandchild", true, "a-child"),
         item("b", "B", false),
         item("b-child", "B child", true, "b"),
+        item("b-grandchild", "B grandchild", true, "b-child"),
     ]);
-    assert.equal(items[0].value, true);
-    assert.equal(items[1].value, true);
-    assert.equal(items[2].value, false);
-    assert.equal(items[3].value, false);
-    items[2].value = true;
+    assert.deepEqual(
+        items.map((entry) => entry.value),
+        [true, true, true, false, false, false]
+    );
+    items[3].value = true;
     const reenabled = applyParentCascade(items);
-    assert.equal(reenabled[3].value, false);
+    assert.equal(reenabled[4].value, false);
+    assert.equal(reenabled[5].value, false);
+});
+
+test("normalizes two child levels and promotes a fourth level to root", () => {
+    const normalized = normalizeItems([
+        item("root", "Root", true),
+        item("child", "Child", true, "root"),
+        item("grandchild", "Grandchild", true, "child"),
+        item("too-deep", "Too deep", true, "grandchild"),
+    ]);
+    assert.deepEqual(
+        normalized.map((entry) => [entry.id, entry.parent_id]),
+        [
+            ["root", null],
+            ["child", "root"],
+            ["grandchild", "child"],
+            ["too-deep", null],
+        ]
+    );
+    assert.equal(MAX_HIERARCHY_DEPTH, 2);
+    assert.equal(getItemDepth(normalized, "grandchild"), 2);
+});
+
+test("enforces sibling exclusive groups while allowing every member to be false", () => {
+    const normalized = normalizeItems([
+        item("a", "A", true, null, "roots"),
+        item("b", "B", true, null, "roots"),
+        item("c", "C", false, null, "roots"),
+    ]);
+    assert.deepEqual(normalized.map((entry) => entry.value), [true, false, false]);
+
+    const activated = applyHierarchyConstraints(
+        normalized.map((entry) => ({ ...entry, value: entry.id !== "a" })),
+        "c"
+    );
+    assert.deepEqual(activated.map((entry) => entry.value), [false, false, true]);
+
+    const allFalse = applyHierarchyConstraints(
+        normalized.map((entry) => ({ ...entry, value: false }))
+    );
+    assert.deepEqual(allFalse.map((entry) => entry.value), [false, false, false]);
+});
+
+test("repairs invalid exclusive groups and applies parent cascade after exclusivity", () => {
+    const invalid = normalizeItems([
+        item("root-a", "Root A", true),
+        item("a1", "A1", true, "root-a", "cross-parent"),
+        item("root-b", "Root B", true),
+        item("b1", "B1", true, "root-b", "cross-parent"),
+        item("single", "Single", true, null, "single-member"),
+    ]);
+    assert.ok(invalid.every((entry) => !entry.exclusive_group_id));
+
+    const constrained = normalizeItems([
+        item("root-a", "Root A", true, null, "root-group"),
+        item("a1", "A1", true, "root-a"),
+        item("root-b", "Root B", true, null, "root-group"),
+        item("b1", "B1", true, "root-b"),
+    ]);
+    assert.deepEqual(constrained.map((entry) => entry.value), [true, true, false, false]);
+});
+
+test("supports exclusive groups between grandchildren of the same parent", () => {
+    const normalized = normalizeItems([
+        item("root", "Root", true),
+        item("child", "Child", true, "root"),
+        item("g1", "G1", true, "child", "grandchildren"),
+        item("g2", "G2", true, "child", "grandchildren"),
+        item("g3", "G3", false, "child", "grandchildren"),
+    ]);
+    assert.deepEqual(
+        normalized.slice(2).map((entry) => entry.value),
+        [true, false, false]
+    );
+    assert.equal(getExclusiveGroups(normalized)[0].parent_id, "child");
+});
+
+test("auto-enables transitive AND prerequisites and their parent ancestry", () => {
+    const configured = [
+        item("parent", "Parent", false),
+        item("nested", "Nested prerequisite", false, "parent", null, ["leaf"]),
+        item("leaf", "Leaf prerequisite", false),
+        item("other", "Other prerequisite", false),
+        item("dependent", "Dependent", true, null, null, ["nested", "other"]),
+    ];
+    const activated = applyHierarchyConstraints(configured, "dependent");
+    assert.deepEqual(
+        activated.map((entry) => entry.value),
+        [true, true, true, true, true]
+    );
+    assert.deepEqual(
+        [...getRequirementClosure(activated, "dependent")].sort(),
+        ["dependent", "leaf", "nested", "other", "parent"].sort()
+    );
+});
+
+test("turning off a prerequisite recursively disables every dependent", () => {
+    const configured = sanitizeDependencies([
+        item("a", "A", true),
+        item("b", "B", true, null, null, ["a"]),
+        item("c", "C", true, null, null, ["b"]),
+    ]);
+    configured[0].value = false;
+    const cascaded = applyRequirementCascade(configured);
+    assert.deepEqual(cascaded.map((entry) => entry.value), [false, false, false]);
+});
+
+test("auto-enabled prerequisites win exclusivity and cascade the displaced branch", () => {
+    const configured = [
+        item("a", "A", false, null, "roots"),
+        item("c", "C", true, null, "roots"),
+        item("c-child", "C child", true, "c"),
+        item("c-dependent", "C dependent", true, null, null, ["c"]),
+        item("b", "B", true, null, null, ["a"]),
+    ];
+    const activated = applyHierarchyConstraints(configured, "b");
+    assert.deepEqual(
+        activated.map((entry) => entry.value),
+        [true, false, false, false, true]
+    );
+});
+
+test("repairs invalid dependencies deterministically and rejects impossible edits", () => {
+    const repaired = sanitizeDependencies([
+        item("root", "Root", true, null, null, ["child", "missing", "root"]),
+        item("child", "Child", true, "root", null, ["root"]),
+        item("a", "A", true, null, null, ["b"]),
+        item("b", "B", true, null, null, ["a"]),
+        item("x", "X", true, null, "choice"),
+        item("y", "Y", false, null, "choice"),
+        item("dependent", "Dependent", true, null, null, ["x", "y"]),
+    ]);
+    assert.deepEqual(repaired.find((entry) => entry.id === "root").requires_ids, []);
+    assert.deepEqual(repaired.find((entry) => entry.id === "child").requires_ids, []);
+    assert.deepEqual(repaired.find((entry) => entry.id === "a").requires_ids, ["b"]);
+    assert.deepEqual(repaired.find((entry) => entry.id === "b").requires_ids, []);
+    assert.deepEqual(
+        repaired.find((entry) => entry.id === "dependent").requires_ids,
+        ["x"]
+    );
+
+    const impossible = validateDependencySelection(
+        repaired,
+        "dependent",
+        ["x", "y"]
+    );
+    assert.equal(impossible.valid, false);
+    assert.match(impossible.message, /mutually exclusive/i);
+    assert.equal(
+        validateExclusiveGroupSelection(
+            [
+                item("x", "X"),
+                item("y", "Y"),
+                item("dependent", "Dependent", false, null, null, ["x", "y"]),
+            ],
+            null,
+            ["x", "y"]
+        ).valid,
+        false
+    );
+});
+
+test("edits, serializes, and cleans stable dependency ids", () => {
+    const initial = [item("a", "A"), item("b", "B"), item("c", "C")];
+    const configured = setItemRequirements(initial, "c", ["a", "b"]);
+    assert.deepEqual(configured.find((entry) => entry.id === "c").requires_ids, ["a", "b"]);
+    assert.deepEqual(
+        JSON.parse(encodeItems(configured)).find((entry) => entry.id === "c").requires_ids,
+        ["a", "b"]
+    );
+
+    const deletedPrerequisite = deleteItem(configured, "a");
+    assert.deepEqual(
+        deletedPrerequisite.find((entry) => entry.id === "c").requires_ids,
+        ["b"]
+    );
+    const cleared = deleteItemRequirements(deletedPrerequisite, "c");
+    assert.deepEqual(cleared.find((entry) => entry.id === "c").requires_ids, []);
+    assert.equal(
+        "requires_ids" in JSON.parse(encodeItems(cleared)).find((entry) => entry.id === "c"),
+        false
+    );
+});
+
+test("creates, edits, and deletes exclusive groups within one sibling scope", () => {
+    const initial = [
+        item("a", "A", true),
+        item("b", "B", true),
+        item("c", "C", false),
+    ];
+    const created = createExclusiveGroup(initial, ["a", "b"], () => "group-1");
+    assert.equal(getExclusiveGroups(created).length, 1);
+    assert.deepEqual(created.map((entry) => entry.value), [true, false, false]);
+
+    const updated = updateExclusiveGroup(created, "group-1", ["b", "c"]);
+    assert.deepEqual(
+        updated.filter((entry) => entry.exclusive_group_id === "group-1").map((entry) => entry.id),
+        ["b", "c"]
+    );
+    assert.equal(updated.find((entry) => entry.id === "a").exclusive_group_id, null);
+
+    const deleted = deleteExclusiveGroup(updated, "group-1");
+    assert.ok(deleted.every((entry) => !entry.exclusive_group_id));
+    assert.deepEqual(deleted.map((entry) => entry.value), updated.map((entry) => entry.value));
+});
+
+test("serializes exclusive membership without adding fields to legacy ungrouped items", () => {
+    const ungrouped = JSON.parse(encodeItems([item("a", "A")]));
+    assert.equal("exclusive_group_id" in ungrouped[0], false);
+
+    const grouped = JSON.parse(encodeItems([
+        item("a", "A", true, null, "roots"),
+        item("b", "B", false, null, "roots"),
+    ]));
+    assert.deepEqual(grouped.map((entry) => entry.exclusive_group_id), ["roots", "roots"]);
+});
+
+test("cleans exclusive membership after delete, indent, and outdent", () => {
+    const groupedRoots = [
+        item("a", "A", true, null, "roots"),
+        item("b", "B", false, null, "roots"),
+        item("c", "C", false, null, "roots"),
+    ];
+    const deleted = deleteItem(groupedRoots, "c");
+    assert.deepEqual(
+        deleted.filter((entry) => entry.exclusive_group_id === "roots").map((entry) => entry.id),
+        ["a", "b"]
+    );
+
+    const indented = indentItem(groupedRoots, "c");
+    assert.equal(indented.find((entry) => entry.id === "c").exclusive_group_id, null);
+    assert.deepEqual(
+        indented.filter((entry) => entry.exclusive_group_id === "roots").map((entry) => entry.id),
+        ["a", "b"]
+    );
+
+    const groupedChildren = [
+        item("p", "Parent", true),
+        item("p1", "P1", true, "p", "children"),
+        item("p2", "P2", false, "p", "children"),
+        item("q", "Q", false),
+    ];
+    const outdented = outdentItem(groupedChildren, "p1");
+    assert.ok(outdented.every((entry) => !entry.exclusive_group_id));
 });
 
 test("enforces maximum capacity and keeps at least one item", () => {
@@ -64,33 +341,63 @@ test("enforces maximum capacity and keeps at least one item", () => {
     assert.deepEqual(deleteItem([item("only", "Only")], "only").map((entry) => entry.id), ["only"]);
 });
 
-test("supports group moves, sibling moves, indent, outdent, and cascade delete", () => {
+test("moves complete subtrees and edits hierarchy within the depth limit", () => {
     const initial = [
         item("a", "A", true),
-        item("a1", "A1", false, "a"),
+        item("a1", "A1", true, "a"),
+        item("a1x", "A1X", false, "a1"),
         item("a2", "A2", false, "a"),
         item("b", "B", false),
     ];
-    assert.deepEqual(moveItem(initial, "a2", "up").map((entry) => entry.id), ["a", "a2", "a1", "b"]);
-    assert.deepEqual(moveItem(initial, "b", "up").map((entry) => entry.id), ["b", "a", "a1", "a2"]);
+    assert.deepEqual(
+        moveItem(initial, "a2", "up").map((entry) => entry.id),
+        ["a", "a2", "a1", "a1x", "b"]
+    );
+    assert.deepEqual(
+        moveItem(initial, "b", "up").map((entry) => entry.id),
+        ["b", "a", "a1", "a1x", "a2"]
+    );
 
     const indented = indentItem(initial, "b");
     assert.equal(indented.find((entry) => entry.id === "b").parent_id, "a");
-    assert.equal(indentItem([item("p", "P"), ...initial], "a").find((entry) => entry.id === "a").parent_id, null);
+    assert.equal(canIndentItem(initial, "a2"), true);
+    const nestedSibling = indentItem(initial, "a2");
+    assert.equal(nestedSibling.find((entry) => entry.id === "a2").parent_id, "a1");
+    assert.equal(canIndentItem([item("p", "P"), ...initial], "a"), false);
+    assert.equal(
+        indentItem([item("p", "P"), ...initial], "a")
+            .find((entry) => entry.id === "a").parent_id,
+        null
+    );
 
-    const outdented = outdentItem(initial, "a1");
-    assert.deepEqual(outdented.map((entry) => entry.id), ["a", "a2", "a1", "b"]);
-    assert.equal(outdented.find((entry) => entry.id === "a1").parent_id, null);
+    const outdented = outdentItem(initial, "a1x");
+    assert.deepEqual(outdented.map((entry) => entry.id), ["a", "a1", "a1x", "a2", "b"]);
+    assert.equal(outdented.find((entry) => entry.id === "a1x").parent_id, "a");
 
     assert.deepEqual(deleteItem(initial, "a").map((entry) => entry.id), ["b"]);
-    assert.deepEqual(deleteItem([item("a", "A"), item("a1", "A1", false, "a")], "a").map((entry) => entry.id), ["a", "a1"]);
+    assert.deepEqual(deleteItem(initial, "a1").map((entry) => entry.id), ["a", "a2", "b"]);
+    assert.deepEqual([...getSubtreeIds(initial, "a1")], ["a1", "a1x"]);
+    assert.deepEqual(
+        deleteItem([item("a", "A"), item("a1", "A1", false, "a")], "a")
+            .map((entry) => entry.id),
+        ["a", "a1"]
+    );
 });
 
-test("adds children at the end of their parent group", () => {
-    const items = [item("a", "A"), item("a1", "A1", false, "a"), item("b", "B")];
-    const next = addChildItem(items, "a", () => "a2");
-    assert.deepEqual(next.map((entry) => entry.id), ["a", "a1", "a2", "b"]);
-    assert.equal(next[2].parent_id, "a");
+test("adds children at both supported levels but not below a grandchild", () => {
+    const items = [
+        item("a", "A", true),
+        item("a1", "A1", true, "a"),
+        item("a1x", "A1X", false, "a1"),
+        item("b", "B"),
+    ];
+    const next = addChildItem(items, "a1", () => "a1y");
+    assert.deepEqual(next.map((entry) => entry.id), ["a", "a1", "a1x", "a1y", "b"]);
+    assert.equal(next[3].parent_id, "a1");
+    assert.deepEqual(
+        addChildItem(next, "a1x", () => "too-deep"),
+        next
+    );
 });
 
 function createMockNode(items) {

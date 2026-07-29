@@ -49,18 +49,31 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
         self.assertEqual(self.execute(use_theme_template="false", base_prompt=raw), raw)
         self.assertEqual(self.execute(use_theme_template=False, base_prompt=""), "")
 
-    def test_template_output_ignores_base_and_uses_five_sections(self):
+    def test_template_output_starts_with_base_and_uses_six_sections(self):
         prompt = self.execute()
         paragraphs = prompt.split("\n\n")
 
-        self.assertEqual(len(paragraphs), 5)
-        self.assertNotIn("BASE_PROMPT_SENTINEL", prompt)
+        self.assertEqual(len(paragraphs), 6)
+        self.assertEqual(paragraphs[0], "BASE_PROMPT_SENTINEL")
         self.assertTrue(all(paragraph.strip() for paragraph in paragraphs))
-        self.assertIn("精密构造线", paragraphs[2])
-        self.assertIn("明亮科技蓝（#567DF0）", paragraphs[3])
-        self.assertIn("低饱和蓝灰色（#D0D5DD）", paragraphs[3])
+        self.assertIn("精密构造线", paragraphs[3])
+        self.assertIn("明亮科技蓝（#567DF0）", paragraphs[4])
+        self.assertIn("低饱和蓝灰色（#D0D5DD）", paragraphs[4])
         self.assertNotIn("不额外添加未要求的主展品", prompt)
         self.assertNotIn("保持现有空间结构和展陈元素", prompt)
+
+    def test_template_output_preserves_base_prompt_verbatim(self):
+        raw = "  第一行。\n第二行保留  连续空格！  "
+        prompt = self.execute(base_prompt=raw)
+
+        self.assertTrue(prompt.startswith(f"{raw}\n\n"))
+
+    def test_blank_base_prompt_does_not_add_an_empty_template_section(self):
+        prompt = self.execute(base_prompt=" \n ")
+        paragraphs = prompt.split("\n\n")
+
+        self.assertEqual(len(paragraphs), 5)
+        self.assertTrue(paragraphs[0].startswith("基于参考图"))
 
     def test_disabling_all_references_omits_reference_section_and_child_rules(self):
         prompt = self.execute(
@@ -71,8 +84,8 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
         )
         paragraphs = prompt.split("\n\n")
 
-        self.assertEqual(len(paragraphs), 4)
-        self.assertTrue(paragraphs[0].startswith("创建一张航天科技展厅"))
+        self.assertEqual(len(paragraphs), 5)
+        self.assertTrue(paragraphs[1].startswith("创建一张航天科技展厅"))
         self.assertNotIn("参考图", prompt)
         self.assertNotIn("游客", prompt)
         self.assertNotIn("展陈物件", prompt)
@@ -107,27 +120,38 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
     def test_user_colors_override_theme_and_invalid_colors_fall_back(self):
         custom = self.execute(primary_color="#123abc", secondary_color="(210, 213, 221)")
         fallback = self.execute(
-            style_id="商务",
+            style_id="党建",
             primary_color="invalid",
             secondary_color=None,
         )
 
         self.assertIn("#123ABC", custom)
         self.assertIn("#D2D5DD", custom)
-        self.assertIn("#3A4A5C", fallback)
-        self.assertIn("#B8A99A", fallback)
+        self.assertIn("#C33C3C", fallback)
+        self.assertIn("#D4A843", fallback)
+
+    def test_only_aerospace_and_party_building_styles_are_available(self):
+        styles = MODULE.load_styles()
+
+        self.assertEqual(list(styles), ["aerospace", "party_building"])
+        self.assertEqual(list(MODULE.FALLBACK_STYLES), ["aerospace", "party_building"])
+        self.assertEqual(MODULE.style_labels(styles), ["航天科技", "党建"])
+        self.assertNotIn("商务", MODULE.style_labels(styles))
+
+        legacy_business_prompt = self.execute(style_id="商务")
+        self.assertIn("航天科技展厅", legacy_business_prompt)
+        self.assertNotIn("商务展厅", legacy_business_prompt)
 
     def test_each_theme_uses_color_neutral_spatial_design_language(self):
         expectations = {
             "航天科技": "精密构造线",
-            "商务": "模块化展陈界面",
             "党建": "庄重有序的叙事轴线",
         }
         forbidden = ("深蓝宇宙空间", "高级海报质感", "红色为主基调", "金色为点缀")
 
         for style_id, expected in expectations.items():
             with self.subTest(style_id=style_id):
-                design_paragraph = self.execute(style_id=style_id).split("\n\n")[2]
+                design_paragraph = self.execute(style_id=style_id).split("\n\n")[3]
                 self.assertIn(expected, design_paragraph)
                 self.assertFalse(any(value in design_paragraph for value in forbidden))
 

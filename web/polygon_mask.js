@@ -3,14 +3,22 @@ import { api } from "../../scripts/api.js";
 import {
   getConnectedLoadImageInfo,
   getConnectedLoadImageKey,
+  resolveExecutedImageUpdate,
 } from "./polygon_mask_connection.mjs";
+import {
+  migratePolygonsForImage,
+  stagePolygonExecutionPreview,
+} from "./polygon_mask_image_state.mjs";
+import {
+  bindPolygonDataQueueSync,
+  resolveWorkflowPolygonInfo,
+} from "./polygon_mask_state.mjs";
 
 const MIN_VERTICES = 3;
 const MAX_VERTICES = 12;
 const PANEL_DEFAULT_HEIGHT = 430;
 const PANEL_MIN_HEIGHT = 280;
 const PANEL_MAX_HEIGHT = 1400;
-const POLYGON_CACHE_PREFIX = "DAELab.PolygonMask";
 
 function chainCallback(object, property, callback) {
   const original = object[property];
@@ -127,19 +135,6 @@ function clonePoints(points) {
 
 function clonePolygons(polygons) {
   return (polygons || []).map((polygon) => ({ points: clonePoints(polygon.points || polygon) }));
-}
-
-function isValidPolygonInfo(info) {
-  if (!info || typeof info !== "object") {
-    return false;
-  }
-  if (info.cleared === true) {
-    return true;
-  }
-  if (Array.isArray(info.polygons)) {
-    return info.polygons.some((polygon) => clonePoints(polygon?.points || polygon).length >= MIN_VERTICES);
-  }
-  return clonePoints(info.points || []).length >= MIN_VERTICES;
 }
 
 function distanceSquared(left, right) {
@@ -318,6 +313,9 @@ app.registerExtension({
         imageValue: null,
         sourceImageData: null,
         sourceImageUrl: null,
+        pendingSourceImageData: null,
+        pendingSourceImageValue: null,
+        stateImageSize: null,
         isLoadingImage: false,
         loadToken: 0,
         polygons: [],
@@ -335,7 +333,6 @@ app.registerExtension({
         lastNodeHeight: this.size?.[1] || null,
         resizeReady: false,
         suppressVertexCallback: false,
-        pendingDefaultOnLoad: false,
         restoredFromProperties: false,
       };
 
@@ -438,7 +435,11 @@ app.registerExtension({
       });
 
       canvas.addEventListener("mousedown", (event) => {
-        if (!this.polygonWidget.image || (event.button !== 0 && event.button !== 2)) {
+        if (
+          !this.polygonWidget.image
+          || this.polygonWidget.pendingSourceImageData
+          || (event.button !== 0 && event.button !== 2)
+        ) {
           return;
         }
 
@@ -476,7 +477,8 @@ app.registerExtension({
       });
 
       canvas.addEventListener("mousemove", (event) => {
-        if (!this.polygonWidget.image) {
+        if (!this.polygonWidget.image || this.polygonWidget.pendingSourceImageData) {
+          canvas.style.cursor = this.polygonWidget.pendingSourceImageData ? "not-allowed" : "default";
           return;
         }
 
@@ -507,7 +509,11 @@ app.registerExtension({
       canvas.addEventListener("mouseleave", () => this.finishPolygonDrag());
 
       canvas.addEventListener("dblclick", (event) => {
-        if (!this.polygonWidget.image || this.polygonWidget.cleared) {
+        if (
+          !this.polygonWidget.image
+          || this.polygonWidget.pendingSourceImageData
+          || this.polygonWidget.cleared
+        ) {
           return;
         }
         event.preventDefault();
@@ -607,16 +613,16 @@ app.registerExtension({
       }
 
       const polygonDataWidget = this.getPolygonWidget("polygon_data");
-      if (polygonDataWidget) {
+      if (polygonDataWidget && !polygonDataWidget._polygonMaskStorageBound) {
         polygonDataWidget.options = polygonDataWidget.options || {};
         polygonDataWidget.options.advanced = true;
         polygonDataWidget.options.serialize = true;
         polygonDataWidget.hidden = true;
         polygonDataWidget.computeSize = () => [0, -4];
-        // graphToPrompt calls serializeValue immediately before submitting the
-        // API prompt. Flush the live canvas state here so the backend always
-        // receives the latest edit, even if queueing follows a drag directly.
-        polygonDataWidget.serializeValue = () => this.serializePolygonInfo();
+        // Queueing invokes beforeQueued before graphToPrompt reads widgets.
+        // serializeValue repeats the same synchronization as a final guard.
+        bindPolygonDataQueueSync(this, polygonDataWidget);
+        polygonDataWidget._polygonMaskStorageBound = true;
       }
 
       for (const widgetName of ["color", "fill_opacity", "outline_width"]) {
@@ -666,36 +672,6 @@ app.registerExtension({
       return this.polygonWidget?.imageValue || this.properties?.source_image_hash || "";
     };
 
-    nodeType.prototype.getPolygonCacheKey = function (imageValue = this.getPolygonImageValue()) {
-      const nodeId = this.id ?? this.properties?.id ?? "unknown";
-      return `${POLYGON_CACHE_PREFIX}.${nodeId}.${encodeURIComponent(String(imageValue || ""))}`;
-    };
-
-    nodeType.prototype.persistPolygonInfoCache = function (polygonInfo) {
-      const imageValue = this.getPolygonImageValue();
-      if (!imageValue || !polygonInfo) {
-        return;
-      }
-      try {
-        localStorage.setItem(this.getPolygonCacheKey(imageValue), polygonInfo);
-      } catch (error) {
-        console.warn("Failed to cache polygon_info", error);
-      }
-    };
-
-    nodeType.prototype.readPolygonInfoCache = function () {
-      const imageValue = this.getPolygonImageValue();
-      if (!imageValue) {
-        return "";
-      }
-      try {
-        return localStorage.getItem(this.getPolygonCacheKey(imageValue)) || "";
-      } catch (error) {
-        console.warn("Failed to read cached polygon_info", error);
-        return "";
-      }
-    };
-
     nodeType.prototype.serializePolygonInfo = function () {
       this.properties = this.properties || {};
 
@@ -712,7 +688,6 @@ app.registerExtension({
         if (polygonDataWidget) {
           polygonDataWidget.value = polygonInfo;
         }
-        this.persistPolygonInfoCache(polygonInfo);
       }
 
       return this.properties.polygon_info || "";
@@ -726,7 +701,7 @@ app.registerExtension({
       this.polygonWidget.historyIndex = 0;
     };
 
-    nodeType.prototype.restoreCachedPolygonState = function () {
+    nodeType.prototype.restoreConfiguredPolygonState = function () {
       if (!this.polygonWidget) {
         return;
       }
@@ -766,22 +741,25 @@ app.registerExtension({
       this.cleanupLegacyPolygonInputs?.();
       this.suppressDefaultPolygonPreview?.();
       this.captureConfiguredPolygonInfo?.(serialized);
-      this.restoreCachedPolygonState?.();
+      this.restoreConfiguredPolygonState?.();
       setTimeout(() => {
         this.suppressDefaultPolygonPreview?.();
-        this.restoreCachedPolygonState?.();
+        this.restoreConfiguredPolygonState?.();
       }, 0);
     });
 
     chainCallback(nodeType.prototype, "onExecuted", function (message) {
-      const encoded = message?.source_image?.[0];
-      const imageHash = message?.source_image_hash?.[0] || "";
-      if (encoded) {
-        const connectedInfo = this.getConnectedLoadImageInfo?.();
-        const imageValue = connectedInfo
-          ? this.getConnectedLoadImageKey(connectedInfo)
-          : imageHash || this.getPolygonImageValue?.();
-        this.loadPolygonImageFromData?.(encoded, imageValue, true, true);
+      const update = resolveExecutedImageUpdate(this, message, app.graph);
+      if (update.type === "connected") {
+        // ComfyUI routes executed events through the currently active root
+        // graph. Resolve the image from this node's own graph instead of
+        // consuming a possibly unrelated workflow's returned payload.
+        this.loadConnectedLoadImage?.(update.connectedInfo);
+      } else if (update.type === "preview") {
+        // Socket results are only transient previews. Accepting a new source
+        // image is an explicit Load Image action and must not overwrite the
+        // workflow's polygon/widget/properties state.
+        this.loadPolygonExecutionPreview?.(update.encodedImage, update.imageValue);
       }
       if (this.polygonWidget?.isLoadingImage) {
         this.polygonWidget.isLoadingImage = false;
@@ -811,21 +789,7 @@ app.registerExtension({
     });
 
     nodeType.prototype.restorePolygonInfo = function () {
-      const candidates = [
-        this.getPolygonWidget("polygon_data")?.value,
-        this.properties?.polygon_data_value,
-        this.properties?.polygon_info,
-        this.readPolygonInfoCache?.(),
-      ].filter(Boolean);
-
-      const polygonInfo = candidates.find((value) => {
-        try {
-          return isValidPolygonInfo(typeof value === "string" ? JSON.parse(value) : value);
-        } catch {
-          return false;
-        }
-      });
-
+      const polygonInfo = resolveWorkflowPolygonInfo(this);
       if (!polygonInfo) {
         return;
       }
@@ -879,6 +843,15 @@ app.registerExtension({
         return;
       }
 
+      if (this.polygonWidget.pendingSourceImageData) {
+        this.loadPolygonImageFromData(
+          this.polygonWidget.pendingSourceImageData,
+          this.polygonWidget.pendingSourceImageValue,
+          true,
+        );
+        return;
+      }
+
       // Loading an editor preview must never enqueue the user's workflow. If
       // the input is not a directly readable Load Image node, keep using the
       // last image returned by a normal user-initiated workflow run instead.
@@ -900,8 +873,7 @@ app.registerExtension({
       return getConnectedLoadImageKey(info);
     };
 
-    nodeType.prototype.loadConnectedLoadImage = function () {
-      const info = this.getConnectedLoadImageInfo();
+    nodeType.prototype.loadConnectedLoadImage = function (info = this.getConnectedLoadImageInfo()) {
       if (!info) {
         return false;
       }
@@ -1109,6 +1081,14 @@ app.registerExtension({
     };
 
     nodeType.prototype.handlePolygonVertexCountChanged = function (value) {
+      if (this.polygonWidget.pendingSourceImageData) {
+        const selected = this.getSelectedPolygon();
+        if (selected) {
+          this.setVertexCountWidgetValue(selected.points.length);
+        }
+        return;
+      }
+
       const targetCount = clampVertexCount(value);
       this.setVertexCountWidgetValue(targetCount);
 
@@ -1186,12 +1166,41 @@ app.registerExtension({
       }
     };
 
-    nodeType.prototype.loadPolygonImageFromData = function (encodedImage, imageHash = "", force = false, preservePolygons = false) {
+    nodeType.prototype.loadPolygonImageFromData = function (encodedImage, imageHash = "", force = false) {
       if (!encodedImage || !this.polygonWidget) {
         return;
       }
       const imageValue = imageHash || `socket-image-${encodedImage.length}`;
-      this.loadPolygonImageFromUrl(`data:image/jpeg;base64,${encodedImage}`, imageValue, force, encodedImage, null, preservePolygons);
+      this.loadPolygonImageFromUrl(`data:image/jpeg;base64,${encodedImage}`, imageValue, force, encodedImage, null);
+    };
+
+    nodeType.prototype.loadPolygonExecutionPreview = function (encodedImage, imageHash = "") {
+      if (!encodedImage || !this.polygonWidget) {
+        return;
+      }
+
+      const imageValue = imageHash || `socket-image-${encodedImage.length}`;
+      stagePolygonExecutionPreview(this.polygonWidget, encodedImage, imageValue);
+      const loadToken = this.polygonWidget.loadToken + 1;
+      this.polygonWidget.loadToken = loadToken;
+      const image = new Image();
+      image.onload = () => {
+        if (this.polygonWidget.loadToken !== loadToken) {
+          return;
+        }
+        this.polygonWidget.image = image;
+        this.polygonWidget.canvas.width = image.width;
+        this.polygonWidget.canvas.height = image.height;
+        requestAnimationFrame(() => this.redrawPolygonCanvas());
+        this.updatePolygonButtons();
+      };
+      image.onerror = () => {
+        if (this.polygonWidget.loadToken !== loadToken) {
+          return;
+        }
+        this.redrawPolygonCanvas();
+      };
+      image.src = `data:image/jpeg;base64,${encodedImage}`;
     };
 
     nodeType.prototype.loadPolygonImageFromUrl = function (
@@ -1200,7 +1209,6 @@ app.registerExtension({
       force = false,
       sourceImageData = null,
       sourceImageUrl = imageSrc,
-      preservePolygons = false,
     ) {
       if (!imageSrc || !this.polygonWidget) {
         return;
@@ -1212,23 +1220,6 @@ app.registerExtension({
         return;
       }
 
-      const preserveRestoredPolygon = !previousImageValue && this.polygonWidget.polygons.length > 0;
-      if (changedImage && !preserveRestoredPolygon && !preservePolygons) {
-        this.polygonWidget.polygons = [];
-        this.polygonWidget.selectedIndex = -1;
-        this.polygonWidget.cleared = false;
-        this.polygonWidget.pendingDefaultOnLoad = true;
-        this.polygonWidget.history = [];
-        this.polygonWidget.historyIndex = -1;
-      } else if (preservePolygons) {
-        this.polygonWidget.pendingDefaultOnLoad = false;
-      }
-
-      this.polygonWidget.sourceImageData = sourceImageData;
-      this.polygonWidget.sourceImageUrl = sourceImageUrl;
-      this.polygonWidget.imageValue = imageValue;
-      this.properties = this.properties || {};
-      this.properties.source_image_hash = imageValue;
       const loadToken = this.polygonWidget.loadToken + 1;
       this.polygonWidget.loadToken = loadToken;
       const image = new Image();
@@ -1236,25 +1227,49 @@ app.registerExtension({
         if (this.polygonWidget.loadToken !== loadToken) {
           return;
         }
+        this.polygonWidget.sourceImageData = sourceImageData;
+        this.polygonWidget.sourceImageUrl = sourceImageUrl;
+        this.polygonWidget.pendingSourceImageData = null;
+        this.polygonWidget.pendingSourceImageValue = null;
+        this.polygonWidget.imageValue = imageValue;
+        this.properties = this.properties || {};
+        this.properties.source_image_hash = imageValue;
         this.polygonWidget.image = image;
         this.polygonWidget.canvas.width = image.width;
         this.polygonWidget.canvas.height = image.height;
 
-        if (this.polygonWidget.pendingDefaultOnLoad) {
+        const transition = migratePolygonsForImage(
+          this.polygonWidget.polygons,
+          this.polygonWidget.cleared,
+          this.polygonWidget.stateImageSize,
+          { width: image.width, height: image.height },
+        );
+        this.polygonWidget.polygons = transition.polygons;
+        this.polygonWidget.cleared = transition.cleared;
+        this.polygonWidget.stateImageSize = { width: image.width, height: image.height };
+
+        let createdDefault = false;
+        if (transition.shouldCreateDefault) {
           this.polygonWidget.polygons = [
             { points: this.createDefaultPolygon(MIN_VERTICES, { x: image.width / 2, y: image.height / 2 }) },
           ];
           this.polygonWidget.cleared = false;
-          this.polygonWidget.pendingDefaultOnLoad = false;
           this.selectPolygon(0, false);
-          this.updatePolygonInfo();
-        } else if (changedImage) {
-          // Execution results may replace a stale image identity while keeping
-          // the user's vertices. Persist that corrected identity immediately.
+          createdDefault = true;
+        } else if (this.polygonWidget.polygons.length > 0) {
+          this.selectPolygon(
+            clamp(this.polygonWidget.selectedIndex, 0, this.polygonWidget.polygons.length - 1),
+            false,
+          );
+        }
+
+        if (changedImage || transition.geometryChanged || createdDefault) {
           this.updatePolygonInfo();
         }
 
-        if (this.polygonWidget.history.length === 0) {
+        if (transition.geometryChanged || createdDefault) {
+          this.resetPolygonHistory();
+        } else if (this.polygonWidget.history.length === 0) {
           this.pushPolygonHistory();
         }
 
@@ -1447,12 +1462,13 @@ app.registerExtension({
       // (or from the last cached execution result), so this control must never
       // inherit the obsolete queue-loading lock from an older page session.
       this.polygonWidget.isLoadingImage = false;
+      const previewPending = Boolean(this.polygonWidget.pendingSourceImageData);
       buttons.loadImage.disabled = false;
-      buttons.loadImage.textContent = "Load Image";
-      buttons.undo.disabled = this.polygonWidget.historyIndex <= 0;
-      buttons.redo.disabled = this.polygonWidget.historyIndex >= this.polygonWidget.history.length - 1;
-      buttons.clear.disabled = this.polygonWidget.selectedIndex < 0;
-      buttons.reset.disabled = !this.polygonWidget.image || this.polygonWidget.selectedIndex < 0;
+      buttons.loadImage.textContent = previewPending ? "Apply Preview" : "Load Image";
+      buttons.undo.disabled = previewPending || this.polygonWidget.historyIndex <= 0;
+      buttons.redo.disabled = previewPending || this.polygonWidget.historyIndex >= this.polygonWidget.history.length - 1;
+      buttons.clear.disabled = previewPending || this.polygonWidget.selectedIndex < 0;
+      buttons.reset.disabled = previewPending || !this.polygonWidget.image || this.polygonWidget.selectedIndex < 0;
 
       for (const button of [buttons.loadImage, buttons.undo, buttons.redo, buttons.clear, buttons.reset]) {
         button.style.opacity = button.disabled ? "0.45" : "1";
@@ -1529,6 +1545,3 @@ app.registerExtension({
     };
   },
 });
-
-
-

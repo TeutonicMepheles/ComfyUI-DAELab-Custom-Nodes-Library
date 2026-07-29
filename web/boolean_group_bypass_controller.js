@@ -2,7 +2,8 @@ import { app } from "/scripts/app.js";
 import {
     CONTROLLER_NODE_TYPE,
     MODE_ACTIVE,
-    applyModeToNodes,
+    MODE_BYPASS,
+    buildNodeModeAssignments,
     buildGroupOptions,
     collectControllableNodes,
     desiredMode,
@@ -11,7 +12,7 @@ import {
     getGroupId,
     resolveBooleanSource,
     resolveGroup,
-} from "./boolean_group_bypass_controller_model.mjs";
+} from "./boolean_group_bypass_controller_model.mjs?v=hierarchical-overlap-1";
 
 const EXTENSION_NAME = "DAELab.BooleanGroupBypassController";
 const WIDGET_NAME = "boolean_group_bypass_controller_ui";
@@ -291,11 +292,35 @@ function resolveControllerPlan(controller) {
     };
 }
 
-function applyPlan(plan) {
-    const changed = applyModeToNodes(plan.nodes, plan.mode);
-    plan.group.rgthree_hasAnyActiveNode = plan.mode === MODE_ACTIVE;
-    if (changed) markGraphChanged(plan.controller);
-    return changed;
+function applyPlanAssignments(plans) {
+    const assignments = buildNodeModeAssignments(plans);
+    const changedGraphs = new Map();
+    for (const [node, mode] of assignments) {
+        if (!node || node.mode === mode) continue;
+        node.mode = mode;
+        const owner = plans.find((plan) => plan.nodes.includes(node));
+        if (owner && !changedGraphs.has(owner.graph)) {
+            changedGraphs.set(owner.graph, owner.controller);
+        }
+    }
+    for (const plan of plans) {
+        plan.group.rgthree_hasAnyActiveNode = plan.nodes.some(
+            (node) => node.mode !== MODE_BYPASS
+        );
+    }
+    for (const controller of changedGraphs.values()) {
+        markGraphChanged(controller);
+    }
+    return assignments;
+}
+
+function isComposedPlan(plan, plans) {
+    const nodes = new Set(plan.nodes);
+    return plans.some(
+        (candidate) => candidate !== plan
+            && candidate.graph === plan.graph
+            && candidate.nodes.some((node) => nodes.has(node))
+    );
 }
 
 function runSync() {
@@ -310,6 +335,10 @@ function runSync() {
     }
 
     const conflicts = findPlanConflicts(plans);
+    const applicablePlans = plans.filter(
+        (plan) => !conflicts.has(plan.controller)
+    );
+    applyPlanAssignments(applicablePlans);
     for (const controller of liveControllers) {
         const state = resolved.get(controller);
         const conflict = conflicts.get(controller);
@@ -321,12 +350,16 @@ function runSync() {
             updateControllerUI(controller, state);
             continue;
         }
-        applyPlan(state);
         const isActive = state.mode === MODE_ACTIVE;
         const boolLabel = state.source.value ? "ON" : "OFF";
+        const compositionLabel = isComposedPlan(state, applicablePlans)
+            ? " · 层级合成"
+            : "";
         updateControllerUI(controller, {
             ...state,
-            message: isActive ? `ACTIVE · Bool ${boolLabel}` : `BYPASS · Bool ${boolLabel}`,
+            message: isActive
+                ? `ACTIVE · Bool ${boolLabel}${compositionLabel}`
+                : `BYPASS · Bool ${boolLabel}${compositionLabel}`,
             tone: isActive ? "active" : "bypass",
         });
     }

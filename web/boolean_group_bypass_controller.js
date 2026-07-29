@@ -11,7 +11,7 @@ import {
     getGroupId,
     resolveBooleanSource,
     resolveGroup,
-} from "./boolean_group_bypass_controller_model.mjs";
+} from "./boolean_group_bypass_controller_model.mjs?v=hierarchy-get-1";
 
 const EXTENSION_NAME = "DAELab.BooleanGroupBypassController";
 const WIDGET_NAME = "boolean_group_bypass_controller_ui";

@@ -22,6 +22,19 @@ def _to_bool(value):
     return value is True or value == 1 or value == "1" or value == "true"
 
 
+def _clean_id_list(value):
+    values = value if isinstance(value, list) else ([] if value in (None, "") else [value])
+    result = []
+    seen = set()
+    for raw_id in values:
+        item_id = str(raw_id or "").strip()
+        if not item_id or item_id in seen:
+            continue
+        seen.add(item_id)
+        result.append(item_id)
+    return result
+
+
 def _normalize_items(config_json):
     try:
         raw_items = json.loads(config_json or "[]")
@@ -43,6 +56,7 @@ def _normalize_items(config_json):
                 "exclusive_group_id",
                 item.get("exclusiveGroupId"),
             )
+            requires_ids = item.get("requires_ids", item.get("requiresIds", []))
             level = item.get("level", 0)
         else:
             label = f"Boolean {index}"
@@ -50,6 +64,7 @@ def _normalize_items(config_json):
             item_id = ""
             parent_id = None
             exclusive_group_id = None
+            requires_ids = []
             level = 0
 
         if not item_id or item_id in used_ids:
@@ -76,6 +91,7 @@ def _normalize_items(config_json):
                     if exclusive_group_id
                     else None
                 ),
+                "requires_ids": _clean_id_list(requires_ids),
                 "legacy_level": level,
             }
         )
@@ -88,6 +104,7 @@ def _normalize_items(config_json):
                 "value": False,
                 "explicit_parent_id": None,
                 "exclusive_group_id": None,
+                "requires_ids": [],
                 "legacy_level": 0,
             }
         )
@@ -107,6 +124,7 @@ def _normalize_items(config_json):
                 "value": item["value"],
                 "parent_id": parent_id,
                 "exclusive_group_id": item["exclusive_group_id"],
+                "requires_ids": item["requires_ids"],
             }
         )
 
@@ -204,6 +222,117 @@ def _apply_parent_cascade(items):
     return items
 
 
+def _get_ancestor_ids(items, item_id):
+    by_id = {item["id"]: item for item in items}
+    ancestors = []
+    visited = {item_id}
+    item = by_id.get(item_id)
+    while item and item.get("parent_id"):
+        parent = by_id.get(item["parent_id"])
+        if parent is None or parent["id"] in visited:
+            break
+        visited.add(parent["id"])
+        ancestors.append(parent["id"])
+        item = parent
+    return ancestors
+
+
+def _collect_requirement_closure(items, item_id):
+    by_id = {item["id"]: item for item in items}
+    closure = set()
+
+    def collect(required_id):
+        if not required_id or required_id in closure:
+            return
+        item = by_id.get(required_id)
+        if item is None:
+            return
+        closure.add(required_id)
+        collect(item.get("parent_id"))
+        for nested_id in item.get("requires_ids", []):
+            collect(nested_id)
+
+    collect(item_id)
+    return closure
+
+
+def _dependency_graph_issue(items):
+    by_id = {item["id"]: item for item in items}
+    visiting = set()
+    visited = set()
+
+    def visit(item):
+        if item["id"] in visiting:
+            return f'Dependency cycle includes {item["label"]}'
+        if item["id"] in visited:
+            return None
+        visiting.add(item["id"])
+        direct_ids = (
+            ([item["parent_id"]] if item.get("parent_id") else [])
+            + item.get("requires_ids", [])
+        )
+        for required_id in direct_ids:
+            required = by_id.get(required_id)
+            if required is None:
+                continue
+            issue = visit(required)
+            if issue:
+                return issue
+        visiting.remove(item["id"])
+        visited.add(item["id"])
+        return None
+
+    for item in items:
+        issue = visit(item)
+        if issue:
+            return issue
+
+    for item in items:
+        members_by_group = {}
+        for required_id in _collect_requirement_closure(items, item["id"]):
+            required = by_id.get(required_id)
+            group_id = required.get("exclusive_group_id") if required else None
+            if not group_id:
+                continue
+            previous_id = members_by_group.get(group_id)
+            if previous_id and previous_id != required_id:
+                return f'{item["label"]} requires mutually exclusive items'
+            members_by_group[group_id] = required_id
+    return None
+
+
+def _sanitize_dependencies(items):
+    next_items = [
+        {
+            **item,
+            "requires_ids": list(item.get("requires_ids", [])),
+        }
+        for item in items
+    ]
+    _sanitize_exclusive_groups(next_items)
+    by_id = {item["id"]: item for item in next_items}
+    source_by_id = {item["id"]: item for item in items}
+    for item in next_items:
+        item["requires_ids"] = []
+
+    for item in next_items:
+        ancestors = set(_get_ancestor_ids(next_items, item["id"]))
+        source = source_by_id.get(item["id"], {})
+        for required_id in _clean_id_list(
+            source.get("requires_ids", source.get("requiresIds", []))
+        ):
+            if (
+                required_id == item["id"]
+                or required_id not in by_id
+                or required_id in ancestors
+            ):
+                continue
+            item["requires_ids"].append(required_id)
+            if _dependency_graph_issue(next_items):
+                item["requires_ids"].pop()
+    return next_items
+
+
 def _sanitize_exclusive_groups(items):
     """Remove malformed groups that are too small or span sibling scopes."""
     members_by_group = {}
@@ -223,9 +352,14 @@ def _sanitize_exclusive_groups(items):
     return items
 
 
-def _apply_exclusive_constraint(items, preferred_item_id=None):
+def _apply_exclusive_constraint(
+    items,
+    preferred_item_id=None,
+    preferred_item_ids=None,
+):
     """Keep at most one true value in each valid exclusive group."""
     _sanitize_exclusive_groups(items)
+    preferred_item_ids = set(preferred_item_ids or [])
     members_by_group = {}
     for item in items:
         group_id = item.get("exclusive_group_id")
@@ -237,10 +371,19 @@ def _apply_exclusive_constraint(items, preferred_item_id=None):
             (
                 item
                 for item in members
-                if item["id"] == preferred_item_id and item["value"]
+                if item["id"] in preferred_item_ids and item["value"]
             ),
             None,
         )
+        if active is None:
+            active = next(
+                (
+                    item
+                    for item in members
+                    if item["id"] == preferred_item_id and item["value"]
+                ),
+                None,
+            )
         if active is None:
             active = next((item for item in members if item["value"]), None)
         for item in members:
@@ -249,10 +392,47 @@ def _apply_exclusive_constraint(items, preferred_item_id=None):
     return items
 
 
+def _apply_requirement_cascade(items):
+    """Force an item false while any parent or explicit prerequisite is false."""
+    by_id = {item["id"]: item for item in items}
+    changed = True
+    while changed:
+        changed = False
+        for item in items:
+            if not item["value"]:
+                continue
+            direct_ids = (
+                ([item["parent_id"]] if item.get("parent_id") else [])
+                + item.get("requires_ids", [])
+            )
+            if any(not by_id.get(required_id, {}).get("value", False) for required_id in direct_ids):
+                item["value"] = False
+                changed = True
+    return items
+
+
 def _apply_hierarchy_constraints(items, preferred_item_id=None):
-    """Apply sibling exclusivity before the existing parent-to-child cascade."""
-    _apply_exclusive_constraint(items, preferred_item_id)
-    return _apply_parent_cascade(items)
+    """Activate requirements, resolve exclusivity, then cascade false values."""
+    next_items = _sanitize_dependencies(items)
+    activation_ids = set()
+    preferred = next(
+        (item for item in next_items if item["id"] == preferred_item_id),
+        None,
+    )
+    if preferred_item_id and preferred and preferred["value"]:
+        activation_ids = _collect_requirement_closure(
+            next_items,
+            preferred_item_id,
+        )
+        for item in next_items:
+            if item["id"] in activation_ids:
+                item["value"] = True
+    _apply_exclusive_constraint(
+        next_items,
+        preferred_item_id,
+        activation_ids,
+    )
+    return _apply_requirement_cascade(next_items)
 
 
 def _get_config_json(extra_pnginfo=None, unique_id=None):

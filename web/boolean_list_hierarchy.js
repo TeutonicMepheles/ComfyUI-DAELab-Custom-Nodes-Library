@@ -9,6 +9,7 @@ import {
     canIndentItem,
     cloneItems,
     createExclusiveGroup,
+    deleteItemRequirements,
     deleteExclusiveGroup,
     deleteItem,
     encodeItems,
@@ -21,8 +22,11 @@ import {
     normalizeItems,
     outdentItem,
     reconcileOutputSlots,
+    setItemRequirements,
     updateExclusiveGroup,
-} from "./boolean_list_hierarchy_model.mjs?v=hierarchy-depth-2";
+    validateDependencySelection,
+    validateExclusiveGroupSelection,
+} from "./boolean_list_hierarchy_model.mjs?v=hierarchy-dependencies-1";
 
 const NODE_NAME = "BooleanListHierarchy";
 const WIDGET_NAME = "boolean_hierarchy_editor";
@@ -31,6 +35,7 @@ const DEFAULT_WIDTH = 520;
 const TOOLBAR_HEIGHT = 36;
 const ROW_HEIGHT = 34;
 const EXCLUSIVE_PANEL_HEIGHT = 220;
+const DEPENDENCY_PANEL_HEIGHT = 260;
 
 const ICONS = {
     addRoot: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>',
@@ -41,6 +46,7 @@ const ICONS = {
     outdent: '<svg viewBox="0 0 24 24"><path d="M3 5h18M10 12h11M10 19h11M6 9l-3 3 3 3"/></svg>',
     remove: '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>',
     exclusive: '<svg viewBox="0 0 24 24"><path d="M9 7H7a5 5 0 0 0 0 10h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg>',
+    dependencies: '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><path d="M8 6h3a4 4 0 0 1 4 4M8 18h3a4 4 0 0 0 4-4"/></svg>',
     edit: '<svg viewBox="0 0 24 24"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4ZM14 7l3 3"/></svg>',
 };
 
@@ -99,11 +105,17 @@ function storeItems(node, items, preferredItemId = null) {
     return normalized;
 }
 
-function calculateEditorHeight(items, panelOpen = false) {
+function calculateEditorHeight(items, panelHeight = 0) {
     return TOOLBAR_HEIGHT
-        + (panelOpen ? EXCLUSIVE_PANEL_HEIGHT : 0)
+        + panelHeight
         + Math.max(1, items.length) * ROW_HEIGHT
         + 8;
+}
+
+function getOpenPanelHeight(node) {
+    if (node._booleanHierarchyExclusivePanelOpen) return EXCLUSIVE_PANEL_HEIGHT;
+    if (node._booleanHierarchyDependencyPanelOpen) return DEPENDENCY_PANEL_HEIGHT;
+    return 0;
 }
 
 function markDirty(node) {
@@ -384,6 +396,7 @@ function renderExclusivePanel(node, items) {
             if (checkbox.checked) selectedIds.add(candidate.id);
             else selectedIds.delete(candidate.id);
             editor.selectedIds = [...selectedIds];
+            editor.error = "";
             if (saveButton) setTextButtonDisabled(saveButton, selectedIds.size < 2);
         });
         const label = document.createElement("span");
@@ -393,6 +406,13 @@ function renderExclusivePanel(node, items) {
         checklist.appendChild(optionLabel);
     }
     form.appendChild(checklist);
+
+    if (editor.error) {
+        const error = document.createElement("div");
+        error.textContent = editor.error;
+        error.style.cssText = "margin-bottom:6px;color:#ef9a9a;font-size:10px;";
+        form.appendChild(error);
+    }
 
     const formActions = document.createElement("div");
     formActions.style.cssText = "display:flex;justify-content:flex-end;gap:5px;";
@@ -405,6 +425,12 @@ function renderExclusivePanel(node, items) {
         const selected = [...selectedIds];
         const mode = editor.mode;
         const groupId = editor.groupId;
+        const validation = validateExclusiveGroupSelection(items, groupId, selected);
+        if (!validation.valid) {
+            editor.error = validation.message;
+            refreshEditorLayout(node);
+            return;
+        }
         node._booleanHierarchyGroupEditor = null;
         if (mode === "edit") {
             mutateItems(node, (nextItems) => updateExclusiveGroup(nextItems, groupId, selected));
@@ -414,6 +440,201 @@ function renderExclusivePanel(node, items) {
     }, !canSave);
     formActions.appendChild(saveButton);
     form.appendChild(formActions);
+    panel.appendChild(form);
+    return panel;
+}
+
+function getItemPath(items, itemId) {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const labels = [];
+    const visited = new Set();
+    let item = byId.get(itemId);
+    while (item && !visited.has(item.id)) {
+        visited.add(item.id);
+        labels.unshift(item.label);
+        item = item.parent_id ? byId.get(item.parent_id) : null;
+    }
+    return labels.join(" / ");
+}
+
+function renderDependencyPanel(node, items) {
+    const panel = document.createElement("div");
+    panel.style.cssText = `height:${DEPENDENCY_PANEL_HEIGHT}px;max-height:${DEPENDENCY_PANEL_HEIGHT}px;overflow-y:auto;` +
+        "padding:7px;box-sizing:border-box;border-top:1px solid #404040;border-bottom:1px solid #404040;" +
+        "background:#202020;";
+
+    const rules = items.filter((item) => item.requires_ids?.length);
+    const availableDependents = items.filter((item) => !item.requires_ids?.length);
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:6px;";
+    const title = document.createElement("strong");
+    title.textContent = "Dependencies";
+    title.style.cssText = "font-size:11px;color:#ddd;";
+    header.appendChild(title);
+    header.appendChild(createTextButton("New dependency", () => {
+        node._booleanHierarchyDependencyEditor = {
+            mode: "create",
+            dependentId: availableDependents[0]?.id || "",
+            selectedIds: [],
+            error: "",
+        };
+        refreshEditorLayout(node);
+    }, items.length < 2 || availableDependents.length === 0));
+    panel.appendChild(header);
+
+    if (!rules.length) {
+        const empty = document.createElement("div");
+        empty.textContent = "No cross-branch dependencies configured.";
+        empty.style.cssText = "font-size:10px;color:#888;margin:4px 0 7px;";
+        panel.appendChild(empty);
+    }
+
+    for (const dependent of rules) {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;gap:5px;min-height:28px;padding:3px 5px;" +
+            "margin-bottom:4px;border:1px solid #5b4e72;border-radius:4px;background:#292237;";
+        const requirements = dependent.requires_ids
+            .map((requiredId) => itemById.get(requiredId)?.label)
+            .filter(Boolean);
+        const summary = document.createElement("span");
+        summary.textContent = `${dependent.label} \u2190 ${requirements.join(" + ")}`;
+        summary.title = `${getItemPath(items, dependent.id)} requires ${requirements.join(" + ")}`;
+        summary.style.cssText = "min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+            "font-size:10px;color:#d8c7f0;";
+        row.appendChild(summary);
+        row.appendChild(createIconButton(ICONS.edit, "Edit dependency", () => {
+            node._booleanHierarchyDependencyEditor = {
+                mode: "edit",
+                dependentId: dependent.id,
+                selectedIds: [...dependent.requires_ids],
+                error: "",
+            };
+            refreshEditorLayout(node);
+        }));
+        row.appendChild(createIconButton(ICONS.remove, "Delete dependency", () => {
+            if (node._booleanHierarchyDependencyEditor?.dependentId === dependent.id) {
+                node._booleanHierarchyDependencyEditor = null;
+            }
+            mutateItems(node, (nextItems) => deleteItemRequirements(nextItems, dependent.id));
+        }));
+        panel.appendChild(row);
+    }
+
+    let editor = node._booleanHierarchyDependencyEditor;
+    if (editor && !itemById.has(editor.dependentId)) {
+        node._booleanHierarchyDependencyEditor = null;
+        editor = null;
+    }
+    if (!editor) return panel;
+
+    const form = document.createElement("div");
+    form.style.cssText = "margin-top:7px;padding:7px;border:1px solid #4a4a4a;border-radius:4px;background:#191919;";
+    const formTitle = document.createElement("div");
+    formTitle.textContent = editor.mode === "edit" ? "Edit dependency" : "Create dependency";
+    formTitle.style.cssText = "font-size:11px;color:#ddd;margin-bottom:6px;";
+    form.appendChild(formTitle);
+
+    if (editor.mode === "create") {
+        const dependentSelect = document.createElement("select");
+        dependentSelect.setAttribute("aria-label", "Dependent Boolean");
+        dependentSelect.style.cssText = "width:100%;height:25px;margin-bottom:6px;border:1px solid #444;border-radius:4px;" +
+            "background:#222;color:#ddd;font-size:10px;";
+        for (const item of availableDependents) {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = getItemPath(items, item.id);
+            option.selected = item.id === editor.dependentId;
+            dependentSelect.appendChild(option);
+        }
+        dependentSelect.addEventListener("change", () => {
+            editor.dependentId = dependentSelect.value;
+            editor.selectedIds = [];
+            editor.error = "";
+            refreshEditorLayout(node);
+        });
+        form.appendChild(dependentSelect);
+    } else {
+        const dependentLabel = document.createElement("div");
+        dependentLabel.textContent = getItemPath(items, editor.dependentId);
+        dependentLabel.style.cssText = "font-size:10px;color:#aaa;margin-bottom:6px;";
+        form.appendChild(dependentLabel);
+    }
+
+    const selectedIds = new Set(editor.selectedIds);
+    const checklist = document.createElement("div");
+    checklist.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;margin-bottom:7px;";
+    for (const candidate of items) {
+        if (candidate.id === editor.dependentId) continue;
+        const checked = selectedIds.has(candidate.id);
+        const trialIds = checked
+            ? [...selectedIds]
+            : [...selectedIds, candidate.id];
+        const validation = validateDependencySelection(
+            items,
+            editor.dependentId,
+            trialIds
+        );
+        const unavailable = !checked && !validation.valid;
+        const optionLabel = document.createElement("label");
+        optionLabel.title = unavailable
+            ? validation.message
+            : getItemPath(items, candidate.id);
+        optionLabel.style.cssText = "display:flex;align-items:center;gap:4px;min-width:0;font-size:10px;color:#bbb;" +
+            (unavailable ? "opacity:.4;" : "");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = checked;
+        checkbox.disabled = unavailable;
+        checkbox.style.cssText = "width:14px;height:14px;margin:0;accent-color:#8d6cc7;";
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) selectedIds.add(candidate.id);
+            else selectedIds.delete(candidate.id);
+            editor.selectedIds = [...selectedIds];
+            editor.error = "";
+            refreshEditorLayout(node);
+        });
+        const label = document.createElement("span");
+        label.textContent = getItemPath(items, candidate.id);
+        label.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+        optionLabel.append(checkbox, label);
+        checklist.appendChild(optionLabel);
+    }
+    form.appendChild(checklist);
+
+    if (editor.error) {
+        const error = document.createElement("div");
+        error.textContent = editor.error;
+        error.style.cssText = "margin-bottom:6px;color:#ef9a9a;font-size:10px;";
+        form.appendChild(error);
+    }
+
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex;justify-content:flex-end;gap:5px;";
+    actions.appendChild(createTextButton("Cancel", () => {
+        node._booleanHierarchyDependencyEditor = null;
+        refreshEditorLayout(node);
+    }));
+    actions.appendChild(createTextButton("Save", () => {
+        const validation = validateDependencySelection(
+            items,
+            editor.dependentId,
+            [...selectedIds]
+        );
+        if (!validation.valid) {
+            editor.error = validation.message;
+            refreshEditorLayout(node);
+            return;
+        }
+        const dependentId = editor.dependentId;
+        node._booleanHierarchyDependencyEditor = null;
+        mutateItems(node, (nextItems) => setItemRequirements(
+            nextItems,
+            dependentId,
+            validation.requires_ids
+        ));
+    }, selectedIds.size < 1));
+    form.appendChild(actions);
     panel.appendChild(form);
     return panel;
 }
@@ -441,7 +662,15 @@ function makeRow(node, item, index, items) {
     toggle.type = "checkbox";
     toggle.checked = Boolean(item.value);
     toggle.disabled = isChildDisabled(items, item);
-    toggle.title = toggle.disabled ? "Parent is disabled" : item.label;
+    const requiredItems = (item.requires_ids || [])
+        .map((requiredId) => items.find((candidate) => candidate.id === requiredId))
+        .filter(Boolean);
+    const unmetRequirements = requiredItems.filter((required) => !required.value);
+    toggle.title = toggle.disabled
+        ? "Parent is disabled"
+        : unmetRequirements.length
+            ? `Enabling also enables: ${unmetRequirements.map((required) => required.label).join(" + ")}`
+            : item.label;
     toggle.setAttribute("aria-label", `${item.label} value`);
     toggle.style.cssText = "width:16px;height:16px;margin:0;accent-color:#6ca0dc;cursor:pointer;";
     if (toggle.disabled) toggle.style.cursor = "not-allowed";
@@ -481,6 +710,14 @@ function makeRow(node, item, index, items) {
         badge.title = `Exclusive group: ${memberLabels.join(" / ")}`;
         badge.style.cssText = "flex:0 0 auto;padding:2px 4px;border:1px solid #52789b;border-radius:3px;" +
             "background:#20384d;color:#b9d9f5;font-size:8px;font-weight:700;line-height:12px;user-select:none;";
+        labelCell.appendChild(badge);
+    }
+    if (item.requires_ids?.length) {
+        const badge = document.createElement("span");
+        badge.textContent = "REQ";
+        badge.title = `Requires: ${requiredItems.map((required) => required.label).join(" + ")}`;
+        badge.style.cssText = "flex:0 0 auto;padding:2px 4px;border:1px solid #8067a5;border-radius:3px;" +
+            "background:#35284a;color:#ddcaf7;font-size:8px;font-weight:700;line-height:12px;user-select:none;";
         labelCell.appendChild(badge);
     }
     row.appendChild(labelCell);
@@ -546,11 +783,11 @@ function ensureEditorWidget(node) {
         hideOnZoom: false,
         getMinHeight: () => node._booleanHierarchyHeight || calculateEditorHeight(
             getStoredItems(node),
-            Boolean(node._booleanHierarchyExclusivePanelOpen)
+            getOpenPanelHeight(node)
         ),
         getHeight: () => node._booleanHierarchyHeight || calculateEditorHeight(
             getStoredItems(node),
-            Boolean(node._booleanHierarchyExclusivePanelOpen)
+            getOpenPanelHeight(node)
         ),
     });
     widget.serialize = false;
@@ -579,8 +816,19 @@ function renderEditor(node) {
     }, items.length >= MAX_BOOLEAN_OUTPUTS));
     toolbar.appendChild(createToolbarButton(ICONS.exclusive, "Exclusive groups", () => {
         node._booleanHierarchyExclusivePanelOpen = !node._booleanHierarchyExclusivePanelOpen;
+        node._booleanHierarchyDependencyPanelOpen = false;
+        node._booleanHierarchyDependencyEditor = null;
         if (!node._booleanHierarchyExclusivePanelOpen) {
             node._booleanHierarchyGroupEditor = null;
+        }
+        refreshEditorLayout(node);
+    }, false));
+    toolbar.appendChild(createToolbarButton(ICONS.dependencies, "Dependencies", () => {
+        node._booleanHierarchyDependencyPanelOpen = !node._booleanHierarchyDependencyPanelOpen;
+        node._booleanHierarchyExclusivePanelOpen = false;
+        node._booleanHierarchyGroupEditor = null;
+        if (!node._booleanHierarchyDependencyPanelOpen) {
+            node._booleanHierarchyDependencyEditor = null;
         }
         refreshEditorLayout(node);
     }, false));
@@ -591,13 +839,15 @@ function renderEditor(node) {
     fragment.appendChild(toolbar);
     if (node._booleanHierarchyExclusivePanelOpen) {
         fragment.appendChild(renderExclusivePanel(node, items));
+    } else if (node._booleanHierarchyDependencyPanelOpen) {
+        fragment.appendChild(renderDependencyPanel(node, items));
     }
 
     items.forEach((item, index) => fragment.appendChild(makeRow(node, item, index, items)));
     container.replaceChildren(fragment);
     node._booleanHierarchyHeight = calculateEditorHeight(
         items,
-        Boolean(node._booleanHierarchyExclusivePanelOpen)
+        getOpenPanelHeight(node)
     );
     container.style.height = `${node._booleanHierarchyHeight}px`;
 }
@@ -641,6 +891,9 @@ app.registerExtension({
             this._booleanHierarchyWidget = null;
             this._booleanHierarchyContainer = null;
             this._booleanHierarchyGroupEditor = null;
+            this._booleanHierarchyDependencyEditor = null;
+            this._booleanHierarchyExclusivePanelOpen = false;
+            this._booleanHierarchyDependencyPanelOpen = false;
         });
 
         const originalOnResize = nodeType.prototype.onResize;

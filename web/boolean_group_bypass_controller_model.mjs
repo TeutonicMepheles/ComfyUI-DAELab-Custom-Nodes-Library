@@ -1,4 +1,5 @@
 export const SOURCE_NODE_TYPE = "BooleanListHierarchy";
+export const GET_SOURCE_NODE_TYPE = "BooleanListHierarchyGet";
 export const CONTROLLER_NODE_TYPE = "BooleanGroupBypassController";
 export const MODE_ACTIVE = 0;
 export const MODE_BYPASS = 4;
@@ -44,8 +45,64 @@ function parseItems(value) {
     }
 }
 
+function parseObject(value) {
+    if (value && typeof value === "object" && !Array.isArray(value)) return value;
+    if (typeof value !== "string") return null;
+    try {
+        const parsed = JSON.parse(value || "{}");
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+function isNodeType(node, nodeType) {
+    return node?.type === nodeType || node?.comfyClass === nodeType;
+}
+
+export function isSupportedBooleanSource(node) {
+    return isNodeType(node, SOURCE_NODE_TYPE)
+        || isNodeType(node, GET_SOURCE_NODE_TYPE);
+}
+
+function readGetBooleanItems(sourceNode) {
+    const widget = (sourceNode.widgets || []).find(
+        (candidate) => candidate.name === "config_json"
+    );
+    const snapshot = parseObject(
+        sourceNode._booleanHierarchyGetSnapshot
+        || sourceNode.properties?.boolean_get_snapshot
+        || widget?.value
+    );
+    if (!snapshot) return [];
+    const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+    const byId = new Map(
+        items
+            .filter((item) => item && typeof item === "object")
+            .map((item) => [String(item.id), item])
+    );
+    const outputIds = Array.isArray(snapshot.output_item_ids)
+        ? snapshot.output_item_ids
+        : items.map((item) => item?.id);
+    return outputIds.map((itemId, index) => {
+        const id = String(itemId ?? "");
+        const item = byId.get(id);
+        return {
+            ...(item || {}),
+            id: id || String(item?.id ?? index),
+            label: String(item?.label || `Boolean ${index + 1}`),
+            value: snapshot.valid === true && toBoolean(item?.value),
+        };
+    });
+}
+
 export function readBooleanItems(sourceNode) {
     if (!sourceNode) return [];
+    if (isNodeType(sourceNode, GET_SOURCE_NODE_TYPE)) {
+        return readGetBooleanItems(sourceNode);
+    }
     const propertyValue = sourceNode.properties?.boolean_list_items;
     if (propertyValue != null) return parseItems(propertyValue);
     if (Array.isArray(sourceNode._booleanHierarchyItems)) return sourceNode._booleanHierarchyItems;
@@ -61,7 +118,7 @@ export function resolveBooleanSource(controllerNode) {
     const input = (controllerNode?.inputs || []).find((candidate) => candidate.name === "boolean")
         || controllerNode?.inputs?.[0];
     if (!input || input.link == null) {
-        return { ok: false, code: "unconnected", message: "等待连接 Boolean List Hierarchy" };
+        return { ok: false, code: "unconnected", message: "等待连接 Hierarchy 或 Hierarchy Get" };
     }
 
     const graph = controllerNode.graph;
@@ -74,8 +131,8 @@ export function resolveBooleanSource(controllerNode) {
     if (!sourceNode) {
         return { ok: false, code: "missing_source", message: "错误：Boolean 源节点不存在" };
     }
-    if (sourceNode.type !== SOURCE_NODE_TYPE && sourceNode.comfyClass !== SOURCE_NODE_TYPE) {
-        return { ok: false, code: "wrong_source", message: "错误：仅支持 Boolean List Hierarchy" };
+    if (!isSupportedBooleanSource(sourceNode)) {
+        return { ok: false, code: "wrong_source", message: "错误：仅支持 Hierarchy 或 Hierarchy Get" };
     }
 
     const outputIndex = Number(link.origin_slot);

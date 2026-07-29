@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import pathlib
 import sys
 import types
@@ -131,6 +132,155 @@ class BooleanListHierarchyBackendTests(unittest.TestCase):
             [item["value"] for item in items],
             [True, True, False, False],
         )
+
+    def test_dependency_and_transitive_parent_activation(self):
+        items = [
+            {"id": "parent", "label": "Parent", "value": False, "parent_id": None},
+            {
+                "id": "nested",
+                "label": "Nested",
+                "value": False,
+                "parent_id": "parent",
+                "requires_ids": ["leaf"],
+            },
+            {"id": "leaf", "label": "Leaf", "value": False, "parent_id": None},
+            {"id": "other", "label": "Other", "value": False, "parent_id": None},
+            {
+                "id": "dependent",
+                "label": "Dependent",
+                "value": True,
+                "parent_id": None,
+                "requires_ids": ["nested", "other"],
+            },
+        ]
+        activated = MODULE._apply_hierarchy_constraints(items, "dependent")
+        self.assertEqual(
+            [item["value"] for item in activated],
+            [True, True, True, True, True],
+        )
+
+    def test_passive_normalization_cascades_false_dependencies(self):
+        items = MODULE._normalize_items(
+            json.dumps(
+                [
+                    {"id": "a", "label": "A", "value": False, "parent_id": None},
+                    {
+                        "id": "b",
+                        "label": "B",
+                        "value": True,
+                        "parent_id": None,
+                        "requires_ids": ["a"],
+                    },
+                    {
+                        "id": "c",
+                        "label": "C",
+                        "value": True,
+                        "parent_id": None,
+                        "requires_ids": ["b"],
+                    },
+                ]
+            )
+        )
+        self.assertEqual([item["value"] for item in items], [False, False, False])
+
+    def test_dependency_activation_wins_exclusivity_and_closes_dependents(self):
+        items = [
+            {
+                "id": "a",
+                "label": "A",
+                "value": False,
+                "parent_id": None,
+                "exclusive_group_id": "roots",
+            },
+            {
+                "id": "c",
+                "label": "C",
+                "value": True,
+                "parent_id": None,
+                "exclusive_group_id": "roots",
+            },
+            {"id": "c-child", "label": "C child", "value": True, "parent_id": "c"},
+            {
+                "id": "c-dependent",
+                "label": "C dependent",
+                "value": True,
+                "parent_id": None,
+                "requires_ids": ["c"],
+            },
+            {
+                "id": "b",
+                "label": "B",
+                "value": True,
+                "parent_id": None,
+                "requires_ids": ["a"],
+            },
+        ]
+        activated = MODULE._apply_hierarchy_constraints(items, "b")
+        self.assertEqual(
+            [item["value"] for item in activated],
+            [True, False, False, False, True],
+        )
+
+    def test_invalid_dependencies_are_repaired_deterministically(self):
+        items = MODULE._sanitize_dependencies(
+            [
+                {
+                    "id": "root",
+                    "label": "Root",
+                    "value": True,
+                    "parent_id": None,
+                    "requires_ids": ["child", "missing", "root"],
+                },
+                {
+                    "id": "child",
+                    "label": "Child",
+                    "value": True,
+                    "parent_id": "root",
+                    "requires_ids": ["root"],
+                },
+                {
+                    "id": "a",
+                    "label": "A",
+                    "value": True,
+                    "parent_id": None,
+                    "requires_ids": ["b"],
+                },
+                {
+                    "id": "b",
+                    "label": "B",
+                    "value": True,
+                    "parent_id": None,
+                    "requires_ids": ["a"],
+                },
+                {
+                    "id": "x",
+                    "label": "X",
+                    "value": True,
+                    "parent_id": None,
+                    "exclusive_group_id": "choice",
+                },
+                {
+                    "id": "y",
+                    "label": "Y",
+                    "value": False,
+                    "parent_id": None,
+                    "exclusive_group_id": "choice",
+                },
+                {
+                    "id": "dependent",
+                    "label": "Dependent",
+                    "value": True,
+                    "parent_id": None,
+                    "requires_ids": ["x", "y"],
+                },
+            ]
+        )
+        by_id = {item["id"]: item for item in items}
+        self.assertEqual(by_id["root"]["requires_ids"], [])
+        self.assertEqual(by_id["child"]["requires_ids"], [])
+        self.assertEqual(by_id["a"]["requires_ids"], ["b"])
+        self.assertEqual(by_id["b"]["requires_ids"], [])
+        self.assertEqual(by_id["dependent"]["requires_ids"], ["x"])
 
     def test_prompt_config_is_authoritative_over_workflow_property(self):
         prompt_config = '[{"id":"prompt","label":"Prompt","value":true,"parent_id":null}]'

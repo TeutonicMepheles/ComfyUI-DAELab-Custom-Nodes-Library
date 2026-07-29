@@ -34,12 +34,30 @@ function cleanId(value) {
     return id || null;
 }
 
+function cleanIdList(value) {
+    const values = Array.isArray(value)
+        ? value
+        : value == null || value === ""
+            ? []
+            : [value];
+    const ids = [];
+    const seen = new Set();
+    for (const rawId of values) {
+        const id = cleanId(rawId);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+    }
+    return ids;
+}
+
 export function createBooleanItem(index, parentId = null, idFactory = defaultIdFactory) {
     return {
         id: idFactory(),
         label: `Boolean ${index + 1}`,
         value: false,
         parent_id: parentId,
+        requires_ids: [],
     };
 }
 
@@ -72,6 +90,7 @@ export function normalizeItems(value, options = {}) {
             value: toBoolean(source.value),
             explicitParentId: cleanId(source.parent_id ?? source.parentId),
             exclusiveGroupId: cleanId(source.exclusive_group_id ?? source.exclusiveGroupId),
+            requiresIds: cleanIdList(source.requires_ids ?? source.requiresIds),
             legacyLevel: Number(source.level) === 1 ? 1 : 0,
         };
     });
@@ -93,6 +112,7 @@ export function normalizeItems(value, options = {}) {
             value: item.value,
             parent_id: parentId,
             exclusive_group_id: item.exclusiveGroupId,
+            requires_ids: item.requiresIds,
         };
     });
 
@@ -114,6 +134,7 @@ export function encodeItems(items) {
             parent_id: item.parent_id,
         };
         if (item.exclusive_group_id) encoded.exclusive_group_id = item.exclusive_group_id;
+        if (item.requires_ids?.length) encoded.requires_ids = [...item.requires_ids];
         return encoded;
     }));
 }
@@ -237,6 +258,157 @@ export function applyParentCascade(items) {
     return nextItems;
 }
 
+function getAncestorIds(items, itemId) {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const ancestors = [];
+    const visited = new Set([itemId]);
+    let item = byId.get(itemId);
+    while (item?.parent_id) {
+        const parent = byId.get(item.parent_id);
+        if (!parent || visited.has(parent.id)) break;
+        visited.add(parent.id);
+        ancestors.push(parent.id);
+        item = parent;
+    }
+    return ancestors;
+}
+
+function collectRequirementClosure(items, itemId) {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const closure = new Set();
+    function collect(id) {
+        if (!id || closure.has(id)) return;
+        const item = byId.get(id);
+        if (!item) return;
+        closure.add(id);
+        if (item.parent_id) collect(item.parent_id);
+        for (const requiredId of item.requires_ids || []) collect(requiredId);
+    }
+    collect(itemId);
+    return closure;
+}
+
+function dependencyGraphIssue(items) {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const visiting = new Set();
+    const visited = new Set();
+
+    function visit(item) {
+        if (visiting.has(item.id)) {
+            return `Dependency cycle includes ${item.label}`;
+        }
+        if (visited.has(item.id)) return null;
+        visiting.add(item.id);
+        const directIds = [
+            ...(item.parent_id ? [item.parent_id] : []),
+            ...(item.requires_ids || []),
+        ];
+        for (const requiredId of directIds) {
+            const required = byId.get(requiredId);
+            if (!required) continue;
+            const issue = visit(required);
+            if (issue) return issue;
+        }
+        visiting.delete(item.id);
+        visited.add(item.id);
+        return null;
+    }
+
+    for (const item of items) {
+        const issue = visit(item);
+        if (issue) return issue;
+    }
+
+    for (const item of items) {
+        const groupMembers = new Map();
+        for (const requiredId of collectRequirementClosure(items, item.id)) {
+            const required = byId.get(requiredId);
+            const groupId = required?.exclusive_group_id;
+            if (!groupId) continue;
+            const previous = groupMembers.get(groupId);
+            if (previous && previous !== required.id) {
+                return `${item.label} requires mutually exclusive items`;
+            }
+            groupMembers.set(groupId, required.id);
+        }
+    }
+    return null;
+}
+
+export function sanitizeDependencies(items) {
+    const nextItems = sanitizeExclusiveGroups(items);
+    const byId = new Map(nextItems.map((item) => [item.id, item]));
+    for (const item of nextItems) item.requires_ids = [];
+
+    const sourceById = new Map(items.map((item) => [item.id, item]));
+    for (const item of nextItems) {
+        const ancestors = new Set(getAncestorIds(nextItems, item.id));
+        const rawIds = cleanIdList(
+            sourceById.get(item.id)?.requires_ids
+            ?? sourceById.get(item.id)?.requiresIds
+        );
+        for (const requiredId of rawIds) {
+            if (
+                requiredId === item.id
+                || !byId.has(requiredId)
+                || ancestors.has(requiredId)
+            ) {
+                continue;
+            }
+            item.requires_ids.push(requiredId);
+            if (dependencyGraphIssue(nextItems)) item.requires_ids.pop();
+        }
+    }
+    return nextItems;
+}
+
+export function validateDependencySelection(items, dependentId, requiredIds) {
+    const normalized = sanitizeDependencies(items);
+    const dependent = normalized.find((item) => item.id === dependentId);
+    if (!dependent) return { valid: false, message: "Select a dependent Boolean" };
+
+    const cleanedIds = cleanIdList(requiredIds);
+    if (!cleanedIds.length) {
+        return { valid: false, message: "Select at least one prerequisite" };
+    }
+    const byId = new Map(normalized.map((item) => [item.id, item]));
+    const ancestors = new Set(getAncestorIds(normalized, dependent.id));
+    for (const requiredId of cleanedIds) {
+        if (requiredId === dependent.id) {
+            return { valid: false, message: "A Boolean cannot require itself" };
+        }
+        if (!byId.has(requiredId)) {
+            return { valid: false, message: "A prerequisite no longer exists" };
+        }
+        if (ancestors.has(requiredId)) {
+            return { valid: false, message: "Parent ancestry is already required implicitly" };
+        }
+    }
+
+    dependent.requires_ids = cleanedIds;
+    const issue = dependencyGraphIssue(normalized);
+    return issue
+        ? { valid: false, message: issue }
+        : { valid: true, message: "", requires_ids: cleanedIds };
+}
+
+export function setItemRequirements(items, dependentId, requiredIds) {
+    const validation = validateDependencySelection(items, dependentId, requiredIds);
+    if (!validation.valid) return cloneItems(items);
+    const nextItems = cloneItems(items);
+    const dependent = nextItems.find((item) => item.id === dependentId);
+    dependent.requires_ids = [...validation.requires_ids];
+    return applyHierarchyConstraints(nextItems);
+}
+
+export function deleteItemRequirements(items, dependentId) {
+    const nextItems = cloneItems(items);
+    const dependent = nextItems.find((item) => item.id === dependentId);
+    if (!dependent) return nextItems;
+    dependent.requires_ids = [];
+    return applyHierarchyConstraints(nextItems);
+}
+
 export function sanitizeExclusiveGroups(items) {
     const nextItems = cloneItems(items);
     const membersByGroup = new Map();
@@ -256,8 +428,15 @@ export function sanitizeExclusiveGroups(items) {
     return nextItems;
 }
 
-export function applyExclusiveConstraint(items, preferredItemId = null) {
+export function applyExclusiveConstraint(
+    items,
+    preferredItemId = null,
+    preferredItemIds = null
+) {
     const nextItems = sanitizeExclusiveGroups(items);
+    const preferredIds = preferredItemIds instanceof Set
+        ? preferredItemIds
+        : new Set(preferredItemIds || []);
     const membersByGroup = new Map();
     for (const item of nextItems) {
         if (!item.exclusive_group_id) continue;
@@ -268,17 +447,56 @@ export function applyExclusiveConstraint(items, preferredItemId = null) {
     }
 
     for (const members of membersByGroup.values()) {
-        const preferred = members.find(
-            (item) => item.id === preferredItemId && item.value
-        );
+        const preferred = members.find((item) => preferredIds.has(item.id) && item.value)
+            || members.find((item) => item.id === preferredItemId && item.value);
         const active = preferred || members.find((item) => item.value) || null;
         for (const item of members) item.value = item === active;
     }
     return nextItems;
 }
 
+export function applyRequirementCascade(items) {
+    const nextItems = cloneItems(items);
+    const byId = new Map(nextItems.map((item) => [item.id, item]));
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const item of nextItems) {
+            if (!item.value) continue;
+            const directIds = [
+                ...(item.parent_id ? [item.parent_id] : []),
+                ...(item.requires_ids || []),
+            ];
+            if (directIds.some((requiredId) => !byId.get(requiredId)?.value)) {
+                item.value = false;
+                changed = true;
+            }
+        }
+    }
+    return nextItems;
+}
+
+export function getRequirementClosure(items, itemId) {
+    const normalized = sanitizeDependencies(items);
+    return collectRequirementClosure(normalized, itemId);
+}
+
 export function applyHierarchyConstraints(items, preferredItemId = null) {
-    return applyParentCascade(applyExclusiveConstraint(items, preferredItemId));
+    let nextItems = sanitizeDependencies(items);
+    let activationIds = new Set();
+    const preferred = nextItems.find((item) => item.id === preferredItemId);
+    if (preferredItemId && preferred?.value) {
+        activationIds = collectRequirementClosure(nextItems, preferredItemId);
+        for (const item of nextItems) {
+            if (activationIds.has(item.id)) item.value = true;
+        }
+    }
+    nextItems = applyExclusiveConstraint(
+        nextItems,
+        preferredItemId,
+        activationIds
+    );
+    return applyRequirementCascade(nextItems);
 }
 
 export function getExclusiveGroups(items) {
@@ -310,6 +528,36 @@ function resolveExclusiveMembers(items, memberIds) {
     return parentIds.size === 1 ? members : null;
 }
 
+export function validateExclusiveGroupSelection(items, groupId, memberIds) {
+    const nextItems = sanitizeDependencies(items);
+    const cleanGroupId = cleanId(groupId);
+    const members = resolveExclusiveMembers(nextItems, memberIds);
+    if (!members) {
+        return {
+            valid: false,
+            message: "Select at least two Booleans from the same sibling scope",
+        };
+    }
+    if (members.some(
+        (item) => item.exclusive_group_id
+            && item.exclusive_group_id !== cleanGroupId
+    )) {
+        return { valid: false, message: "A selected Boolean already belongs to another group" };
+    }
+
+    for (const item of nextItems) {
+        if (cleanGroupId && item.exclusive_group_id === cleanGroupId) {
+            item.exclusive_group_id = null;
+        }
+    }
+    const candidateGroupId = cleanGroupId || "__dependency_validation_group__";
+    for (const item of members) item.exclusive_group_id = candidateGroupId;
+    const issue = dependencyGraphIssue(nextItems);
+    return issue
+        ? { valid: false, message: issue }
+        : { valid: true, message: "" };
+}
+
 export function createExclusiveGroup(
     items,
     memberIds,
@@ -317,7 +565,12 @@ export function createExclusiveGroup(
 ) {
     const nextItems = sanitizeExclusiveGroups(items);
     const members = resolveExclusiveMembers(nextItems, memberIds);
-    if (!members || members.some((item) => item.exclusive_group_id)) {
+    const validation = validateExclusiveGroupSelection(items, null, memberIds);
+    if (
+        !validation.valid
+        || !members
+        || members.some((item) => item.exclusive_group_id)
+    ) {
         return cloneItems(items);
     }
     let groupId;
@@ -338,7 +591,13 @@ export function updateExclusiveGroup(items, groupId, memberIds) {
         (item) => item.exclusive_group_id === cleanGroupId
     );
     const members = resolveExclusiveMembers(nextItems, memberIds);
-    if (!cleanGroupId || currentMembers.length < 2 || !members) {
+    const validation = validateExclusiveGroupSelection(items, cleanGroupId, memberIds);
+    if (
+        !validation.valid
+        || !cleanGroupId
+        || currentMembers.length < 2
+        || !members
+    ) {
         return cloneItems(items);
     }
     const currentParentId = currentMembers[0].parent_id || null;

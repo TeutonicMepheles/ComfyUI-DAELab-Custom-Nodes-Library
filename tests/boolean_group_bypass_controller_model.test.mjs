@@ -28,6 +28,34 @@ function makeSource(items, outputs = null) {
     };
 }
 
+function makeGetSource(items, outputItemIds, valid = true) {
+    return {
+        id: 8,
+        type: "BooleanListHierarchyGet",
+        title: "Hierarchy Get",
+        properties: {
+            boolean_get_snapshot: JSON.stringify({
+                version: 1,
+                valid,
+                source_node_id: "7",
+                root_item_id: "root",
+                include_root: true,
+                items,
+                output_item_ids: outputItemIds,
+            }),
+        },
+        outputs: outputItemIds.map((itemId) => {
+            const item = items.find((candidate) => candidate.id === itemId);
+            return {
+                name: item?.label || itemId,
+                type: "BOOLEAN",
+                boolean_item_id: itemId,
+                boolean_get_item_key: `7::${itemId}`,
+            };
+        }),
+    };
+}
+
 function makeController(source, linkStore) {
     const graph = {
         _links: linkStore,
@@ -64,6 +92,61 @@ test("binds the connected Boolean by stable item id after output reorder", () =>
     assert.equal(resolved.itemId, "b");
     assert.equal(resolved.itemLabel, "B renamed");
     assert.equal(resolved.value, true);
+});
+
+test("accepts Boolean List Hierarchy Get outputs by stable item id", () => {
+    const items = [
+        { id: "root", label: "Root", value: true, parent_id: null },
+        { id: "child", label: "Child renamed", value: true, parent_id: "root" },
+    ];
+    const source = makeGetSource(items, ["child", "root"]);
+    const controller = makeController(
+        source,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    );
+
+    const resolved = resolveBooleanSource(controller);
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.itemId, "child");
+    assert.equal(resolved.itemLabel, "Child renamed");
+    assert.equal(resolved.value, true);
+    assert.equal(resolved.sourceLabel, "Hierarchy Get");
+});
+
+test("ignores dependency context items that are not exposed by Hierarchy Get", () => {
+    const items = [
+        { id: "external", label: "External prerequisite", value: true, parent_id: null },
+        {
+            id: "selected",
+            label: "Selected",
+            value: true,
+            parent_id: null,
+            requires_ids: ["external"],
+        },
+    ];
+    const source = makeGetSource(items, ["selected"]);
+    const controller = makeController(
+        source,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    );
+    const resolved = resolveBooleanSource(controller);
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.itemId, "selected");
+    assert.equal(resolved.value, true);
+});
+
+test("forces a missing Hierarchy Get binding to false", () => {
+    const items = [
+        { id: "root", label: "Root", value: true, parent_id: null },
+    ];
+    const source = makeGetSource(items, ["root"], false);
+    const controller = makeController(
+        source,
+        new Map([[101, { origin_id: 8, origin_slot: 0 }]])
+    );
+    const resolved = resolveBooleanSource(controller);
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.value, false);
 });
 
 test("rejects disconnected, missing, and non-hierarchy sources without mutation data", () => {

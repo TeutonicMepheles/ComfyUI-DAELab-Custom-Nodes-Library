@@ -5,12 +5,12 @@
 - 节点 ID：`BooleanGroupBypassController`
 - 显示名称：`Boolean Group Bypass Controller`
 - 分类：`utils/logic`
-- 输入：`boolean`，仅支持连接 `Boolean List Hierarchy` 的布尔输出
+- 输入：`boolean`，支持连接 `Boolean List Hierarchy` 或 `Boolean List Hierarchy Get` 的布尔输出
 - 输出：无
 
 ## 功能
 
-该节点把 `Boolean List Hierarchy` 中一个条目的前端状态映射到一个 ComfyUI 可视节点组：
+该节点把 `Boolean List Hierarchy` 或其 Get 节点中的一个布尔状态映射到 ComfyUI 可视节点组：
 
 - 默认逻辑：`true` 激活组内全部节点，`false` 将组内全部节点设为 Bypass。
 - 可开启“反向逻辑”，交换上述映射。
@@ -23,7 +23,7 @@
 ## 使用步骤
 
 1. 添加 `Boolean Group Bypass Controller`。
-2. 从 `Boolean List Hierarchy` 拖出目标 Bool，连接到控制器的 `boolean` 输入。
+2. 从 `Boolean List Hierarchy` 或 `Boolean List Hierarchy Get` 拖出目标 Bool，连接到控制器的 `boolean` 输入。
 3. 在“目标组”下拉框中选择节点组；也可以把控制器放进目标组后点击“绑定所在组”。
 4. 根据需要开启“反向逻辑”。
 5. 查看状态栏确认当前为 `ACTIVE` 或 `BYPASS`。
@@ -48,7 +48,7 @@
 ## 测试覆盖
 
 - 后端：强制布尔输入、无输出、虚拟节点的空执行回退和稳定注册 ID。
-- 前端：对象/Map 链接解析、稳定条目 ID、组 ID、普通/反向映射、最小模式写入和冲突检测。
+- 前端：对象/Map 链接解析、Hierarchy/Get 双来源、稳定条目 ID、失效 Get 强制 `false`、组 ID、普通/反向映射、最小模式写入和冲突检测。
 
 ## 相关文件
 

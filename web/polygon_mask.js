@@ -4,13 +4,16 @@ import {
   getConnectedLoadImageInfo,
   getConnectedLoadImageKey,
 } from "./polygon_mask_connection.mjs";
+import {
+  bindPolygonDataQueueSync,
+  resolveWorkflowPolygonInfo,
+} from "./polygon_mask_state.mjs";
 
 const MIN_VERTICES = 3;
 const MAX_VERTICES = 12;
 const PANEL_DEFAULT_HEIGHT = 430;
 const PANEL_MIN_HEIGHT = 280;
 const PANEL_MAX_HEIGHT = 1400;
-const POLYGON_CACHE_PREFIX = "DAELab.PolygonMask";
 
 function chainCallback(object, property, callback) {
   const original = object[property];
@@ -127,19 +130,6 @@ function clonePoints(points) {
 
 function clonePolygons(polygons) {
   return (polygons || []).map((polygon) => ({ points: clonePoints(polygon.points || polygon) }));
-}
-
-function isValidPolygonInfo(info) {
-  if (!info || typeof info !== "object") {
-    return false;
-  }
-  if (info.cleared === true) {
-    return true;
-  }
-  if (Array.isArray(info.polygons)) {
-    return info.polygons.some((polygon) => clonePoints(polygon?.points || polygon).length >= MIN_VERTICES);
-  }
-  return clonePoints(info.points || []).length >= MIN_VERTICES;
 }
 
 function distanceSquared(left, right) {
@@ -607,16 +597,16 @@ app.registerExtension({
       }
 
       const polygonDataWidget = this.getPolygonWidget("polygon_data");
-      if (polygonDataWidget) {
+      if (polygonDataWidget && !polygonDataWidget._polygonMaskStorageBound) {
         polygonDataWidget.options = polygonDataWidget.options || {};
         polygonDataWidget.options.advanced = true;
         polygonDataWidget.options.serialize = true;
         polygonDataWidget.hidden = true;
         polygonDataWidget.computeSize = () => [0, -4];
-        // graphToPrompt calls serializeValue immediately before submitting the
-        // API prompt. Flush the live canvas state here so the backend always
-        // receives the latest edit, even if queueing follows a drag directly.
-        polygonDataWidget.serializeValue = () => this.serializePolygonInfo();
+        // Queueing invokes beforeQueued before graphToPrompt reads widgets.
+        // serializeValue repeats the same synchronization as a final guard.
+        bindPolygonDataQueueSync(this, polygonDataWidget);
+        polygonDataWidget._polygonMaskStorageBound = true;
       }
 
       for (const widgetName of ["color", "fill_opacity", "outline_width"]) {
@@ -666,36 +656,6 @@ app.registerExtension({
       return this.polygonWidget?.imageValue || this.properties?.source_image_hash || "";
     };
 
-    nodeType.prototype.getPolygonCacheKey = function (imageValue = this.getPolygonImageValue()) {
-      const nodeId = this.id ?? this.properties?.id ?? "unknown";
-      return `${POLYGON_CACHE_PREFIX}.${nodeId}.${encodeURIComponent(String(imageValue || ""))}`;
-    };
-
-    nodeType.prototype.persistPolygonInfoCache = function (polygonInfo) {
-      const imageValue = this.getPolygonImageValue();
-      if (!imageValue || !polygonInfo) {
-        return;
-      }
-      try {
-        localStorage.setItem(this.getPolygonCacheKey(imageValue), polygonInfo);
-      } catch (error) {
-        console.warn("Failed to cache polygon_info", error);
-      }
-    };
-
-    nodeType.prototype.readPolygonInfoCache = function () {
-      const imageValue = this.getPolygonImageValue();
-      if (!imageValue) {
-        return "";
-      }
-      try {
-        return localStorage.getItem(this.getPolygonCacheKey(imageValue)) || "";
-      } catch (error) {
-        console.warn("Failed to read cached polygon_info", error);
-        return "";
-      }
-    };
-
     nodeType.prototype.serializePolygonInfo = function () {
       this.properties = this.properties || {};
 
@@ -712,7 +672,6 @@ app.registerExtension({
         if (polygonDataWidget) {
           polygonDataWidget.value = polygonInfo;
         }
-        this.persistPolygonInfoCache(polygonInfo);
       }
 
       return this.properties.polygon_info || "";
@@ -726,7 +685,7 @@ app.registerExtension({
       this.polygonWidget.historyIndex = 0;
     };
 
-    nodeType.prototype.restoreCachedPolygonState = function () {
+    nodeType.prototype.restoreConfiguredPolygonState = function () {
       if (!this.polygonWidget) {
         return;
       }
@@ -766,10 +725,10 @@ app.registerExtension({
       this.cleanupLegacyPolygonInputs?.();
       this.suppressDefaultPolygonPreview?.();
       this.captureConfiguredPolygonInfo?.(serialized);
-      this.restoreCachedPolygonState?.();
+      this.restoreConfiguredPolygonState?.();
       setTimeout(() => {
         this.suppressDefaultPolygonPreview?.();
-        this.restoreCachedPolygonState?.();
+        this.restoreConfiguredPolygonState?.();
       }, 0);
     });
 
@@ -811,21 +770,7 @@ app.registerExtension({
     });
 
     nodeType.prototype.restorePolygonInfo = function () {
-      const candidates = [
-        this.getPolygonWidget("polygon_data")?.value,
-        this.properties?.polygon_data_value,
-        this.properties?.polygon_info,
-        this.readPolygonInfoCache?.(),
-      ].filter(Boolean);
-
-      const polygonInfo = candidates.find((value) => {
-        try {
-          return isValidPolygonInfo(typeof value === "string" ? JSON.parse(value) : value);
-        } catch {
-          return false;
-        }
-      });
-
+      const polygonInfo = resolveWorkflowPolygonInfo(this);
       if (!polygonInfo) {
         return;
       }

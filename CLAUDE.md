@@ -101,9 +101,9 @@ All JS files in `web/` register ComfyUI extensions via `app.registerExtension({ 
 7. Serialize state through hidden widgets (set `widget.value` + override `widget.serializeValue`) so it persists across workflow save/load. Also persist to `this.properties` for `onConfigure` restoration.
 8. Use `app.graph.setDirtyCanvas(true, true)` to trigger re-renders after state changes.
 
-### Polygon state persistence (localStorage cache)
+### Polygon state persistence
 
-Polygon nodes persist edit state to `localStorage` keyed by `DAELab.PolygonMask.<nodeId>.<imageHash>` as a fallback in case properties are lost. On restore, candidates are tried in order: widget value → `properties.polygon_data_value` → `properties.polygon_info` → localStorage cache.
+Polygon state is persisted only through the hidden `polygon_data` widget and the current workflow's node properties. Restore candidates are tried in order: widget value → `properties.polygon_data_value` → legacy `properties.polygon_info`. Do not use `localStorage` keyed by numeric node ids: copied workflows preserve those ids and would share cached polygon state.
 
 ### Shared prompt style infrastructure
 

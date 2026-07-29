@@ -19,7 +19,7 @@ DAELab 维护的 ComfyUI 自定义节点库。
 | `BooleanGroupBypassController` | `Boolean Group Bypass Controller` | 将 Hierarchy 或 Hierarchy Get 的指定 Bool 映射为可视节点组状态，并支持与 Boolean 祖先关系一致的嵌套 Bypass 合成。 |
 | `SeedreamExhibitionPromptBuilder` | `Seedream Exhibition Prompt Builder` | 面向 Seedream 5.0 Pro 展厅写实渲染工作流，按主题、参考图用途、语义色彩和布尔条件生成分段提示词。 |
 | `BBoxPromptReroute` | `BBox Prompt Reroute` | 转接正向/负向 SAM3 框 prompt，仅整理工作流连线。 |
-| `PolygonMask` | `Polygon Mask` | 接收外部 `IMAGE` socket，提供不会自动排队的多边形编辑画布，并输出叠加图和原图尺寸黑白 `raw_mask`。 |
+| `PolygonMask` | `Polygon Mask` | 接收外部 `IMAGE` socket，隔离复制工作流的多边形状态与执行预览，并输出叠加图和原图尺寸黑白 `raw_mask`。 |
 | `SAM3ComplexCollector` | `SAM3 Complex Collector` | 集 BBox 与交互式 collector 于一体，支持节点内独立 Run、会话缓存和增量分割。 |
 
 ## 目录结构
@@ -69,6 +69,8 @@ ComfyUI-DAELab-Custom-Nodes-Library/
     bbox_loader.js
     polygon_mask.js
     polygon_mask_connection.mjs
+    polygon_mask_image_state.mjs
+    polygon_mask_state.mjs
     sam3_complex_collector.js
     prompt_preset_model.mjs
     styles.json
@@ -85,7 +87,7 @@ ComfyUI-DAELab-Custom-Nodes-Library/
 - `Boolean List Hierarchy` 使用稳定条目 ID 保存连线，支持 Root、子项、孙项、同父项互斥组、跨分支多前置依赖、整棵子树排序、缩进、提升和递归级联删除。
 - `Boolean List Hierarchy Get` 无需连接来源节点，可选择一个 Root 分支并自动同步该分支的输出及其跨分支依赖上下文。
 - `Boolean Group Bypass Controller` 是前端虚拟控制器，不参与正常 API Prompt；它支持 Hierarchy 与 Hierarchy Get 双来源，并允许父 Bool 的外层组与子 Bool 的内层组按 Bypass 优先规则安全合成。
-- `Polygon Mask` 可直接读取相连 `Load Image` 的当前选择；其他图像来源使用最近一次用户主动运行返回的预览，不会因点击 `Load Image` 自动排队。
+- `Polygon Mask` 可直接读取当前工作流中相连 `Load Image` 的选择；其他图像来源先接收不会覆盖持久状态的执行预览，再由 `Apply Preview` 明确应用。换图会保留有效 Polygon，并在分辨率变化时按宽高比例缩放顶点。
 - `SAM3 Complex Collector` 的首次 `Run` 会只执行必要的上游依赖和 collector 以建立缓存，后续可在不执行下游节点的情况下更新当前交互式 prompt 或全部 BBox prompt 的预览。
 
 ## 测试

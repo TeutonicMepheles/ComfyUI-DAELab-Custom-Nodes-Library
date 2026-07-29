@@ -1,20 +1,28 @@
 import { app } from "/scripts/app.js";
+// Comfy Desktop may retain extension modules across reloads. Keep this version
+// aligned with named-export changes in the model to avoid a partial cache hit.
 import {
     MAX_BOOLEAN_OUTPUTS,
+    MAX_HIERARCHY_DEPTH,
     addChildItem,
     addRootItem,
-    applyParentCascade,
+    canIndentItem,
     cloneItems,
+    createExclusiveGroup,
+    deleteExclusiveGroup,
     deleteItem,
     encodeItems,
-    hasChildren,
+    getExclusiveGroups,
+    getItemDepth,
+    getSubtreeIds,
     indentItem,
     isChildDisabled,
     moveItem,
     normalizeItems,
     outdentItem,
     reconcileOutputSlots,
-} from "./boolean_list_hierarchy_model.mjs";
+    updateExclusiveGroup,
+} from "./boolean_list_hierarchy_model.mjs?v=hierarchy-depth-2";
 
 const NODE_NAME = "BooleanListHierarchy";
 const WIDGET_NAME = "boolean_hierarchy_editor";
@@ -22,6 +30,7 @@ const CONFIG_WIDGET_NAME = "config_json";
 const DEFAULT_WIDTH = 520;
 const TOOLBAR_HEIGHT = 36;
 const ROW_HEIGHT = 34;
+const EXCLUSIVE_PANEL_HEIGHT = 220;
 
 const ICONS = {
     addRoot: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>',
@@ -31,6 +40,8 @@ const ICONS = {
     indent: '<svg viewBox="0 0 24 24"><path d="M3 5h18M10 12h11M10 19h11M3 9l3 3-3 3"/></svg>',
     outdent: '<svg viewBox="0 0 24 24"><path d="M3 5h18M10 12h11M10 19h11M6 9l-3 3 3 3"/></svg>',
     remove: '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>',
+    exclusive: '<svg viewBox="0 0 24 24"><path d="M9 7H7a5 5 0 0 0 0 10h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4ZM14 7l3 3"/></svg>',
 };
 
 function chainCallback(target, property, callback) {
@@ -77,8 +88,8 @@ function syncConfigWidget(node, encodedItems) {
     }
 }
 
-function storeItems(node, items) {
-    const normalized = applyParentCascade(normalizeItems(items));
+function storeItems(node, items, preferredItemId = null) {
+    const normalized = normalizeItems(items, { preferredItemId });
     const encodedItems = encodeItems(normalized);
     node.properties = node.properties || {};
     node.properties.boolean_list_count = normalized.length;
@@ -88,8 +99,11 @@ function storeItems(node, items) {
     return normalized;
 }
 
-function calculateEditorHeight(items) {
-    return TOOLBAR_HEIGHT + Math.max(1, items.length) * ROW_HEIGHT + 8;
+function calculateEditorHeight(items, panelOpen = false) {
+    return TOOLBAR_HEIGHT
+        + (panelOpen ? EXCLUSIVE_PANEL_HEIGHT : 0)
+        + Math.max(1, items.length) * ROW_HEIGHT
+        + 8;
 }
 
 function markDirty(node) {
@@ -124,12 +138,14 @@ function graphTransaction(node, callback) {
     }
 }
 
-function commitItems(node, nextItems) {
+function commitItems(node, nextItems, options = {}) {
     const previousItems = node._booleanHierarchyItems || getStoredItems(node);
-    const normalized = applyParentCascade(normalizeItems(nextItems));
+    const normalized = normalizeItems(nextItems, {
+        preferredItemId: options.preferredItemId || null,
+    });
     if (encodeItems(previousItems) === encodeItems(normalized)) return false;
     graphTransaction(node, () => {
-        storeItems(node, normalized);
+        storeItems(node, normalized, options.preferredItemId || null);
         reconcileOutputSlots(node, previousItems, normalized);
         renderEditor(node);
         markDirty(node);
@@ -137,9 +153,9 @@ function commitItems(node, nextItems) {
     return true;
 }
 
-function mutateItems(node, transform) {
+function mutateItems(node, transform, options = {}) {
     const currentItems = cloneItems(node._booleanHierarchyItems || getStoredItems(node));
-    commitItems(node, transform(currentItems));
+    commitItems(node, transform(currentItems), options);
 }
 
 function createIconButton(icon, label, callback, disabled = false) {
@@ -189,16 +205,235 @@ function createToolbarButton(icon, label, callback, disabled) {
     return button;
 }
 
+function setTextButtonDisabled(button, disabled) {
+    button.disabled = disabled;
+    button.style.opacity = disabled ? "0.35" : "1";
+    button.style.cursor = disabled ? "not-allowed" : "pointer";
+}
+
+function createTextButton(label, callback, disabled = false) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.style.cssText = "height:24px;padding:2px 8px;border:1px solid #4b4b4b;border-radius:4px;" +
+        "background:#2b2b2b;color:#d0d0d0;font-size:10px;cursor:pointer;white-space:nowrap;";
+    setTextButtonDisabled(button, disabled);
+    button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!button.disabled) callback();
+    });
+    button.addEventListener("pointerdown", stopCanvasPropagation);
+    button.addEventListener("pointerup", stopCanvasPropagation);
+    return button;
+}
+
+function refreshEditorLayout(node) {
+    renderEditor(node);
+    markDirty(node);
+}
+
+function getScopeItems(items, parentId) {
+    return items.filter((item) => (item.parent_id || null) === (parentId || null));
+}
+
+function getExclusiveScopeOptions(items) {
+    const options = [];
+    const roots = getScopeItems(items, null);
+    if (roots.length >= 2) {
+        options.push({ parent_id: null, label: "Root level", items: roots });
+    }
+    for (const parent of items) {
+        const children = getScopeItems(items, parent.id);
+        if (children.length >= 2) {
+            options.push({
+                parent_id: parent.id,
+                label: `Children of ${parent.label}`,
+                items: children,
+            });
+        }
+    }
+    return options;
+}
+
+function renderExclusivePanel(node, items) {
+    const panel = document.createElement("div");
+    panel.style.cssText = `height:${EXCLUSIVE_PANEL_HEIGHT}px;max-height:${EXCLUSIVE_PANEL_HEIGHT}px;overflow-y:auto;` +
+        "padding:7px;box-sizing:border-box;border-top:1px solid #404040;border-bottom:1px solid #404040;" +
+        "background:#202020;";
+
+    const groups = getExclusiveGroups(items);
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:6px;";
+    const title = document.createElement("strong");
+    title.textContent = "Exclusive groups";
+    title.style.cssText = "font-size:11px;color:#ddd;";
+    header.appendChild(title);
+    header.appendChild(createTextButton("New group", () => {
+        const firstScope = getExclusiveScopeOptions(items)[0];
+        node._booleanHierarchyGroupEditor = {
+            mode: "create",
+            groupId: null,
+            parentId: firstScope?.parent_id || null,
+            selectedIds: [],
+        };
+        refreshEditorLayout(node);
+    }, getExclusiveScopeOptions(items).length === 0));
+    panel.appendChild(header);
+
+    if (!groups.length) {
+        const empty = document.createElement("div");
+        empty.textContent = "No exclusive groups configured.";
+        empty.style.cssText = "font-size:10px;color:#888;margin:4px 0 7px;";
+        panel.appendChild(empty);
+    }
+
+    for (const group of groups) {
+        const groupRow = document.createElement("div");
+        groupRow.style.cssText = "display:flex;align-items:center;gap:5px;min-height:28px;padding:3px 5px;" +
+            "margin-bottom:4px;border:1px solid #3d4f61;border-radius:4px;background:#1d2a35;";
+        const labels = group.member_ids
+            .map((itemId) => itemById.get(itemId)?.label)
+            .filter(Boolean);
+        const summary = document.createElement("span");
+        summary.textContent = labels.join("  /  ");
+        summary.title = labels.join(" / ");
+        summary.style.cssText = "min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+            "font-size:10px;color:#b9d5ee;";
+        groupRow.appendChild(summary);
+        groupRow.appendChild(createIconButton(ICONS.edit, "Edit exclusive group", () => {
+            node._booleanHierarchyGroupEditor = {
+                mode: "edit",
+                groupId: group.id,
+                parentId: group.parent_id,
+                selectedIds: [...group.member_ids],
+            };
+            refreshEditorLayout(node);
+        }));
+        groupRow.appendChild(createIconButton(ICONS.remove, "Delete exclusive group", () => {
+            if (node._booleanHierarchyGroupEditor?.groupId === group.id) {
+                node._booleanHierarchyGroupEditor = null;
+            }
+            mutateItems(node, (nextItems) => deleteExclusiveGroup(nextItems, group.id));
+        }));
+        panel.appendChild(groupRow);
+    }
+
+    let editor = node._booleanHierarchyGroupEditor;
+    if (editor?.mode === "edit" && !groups.some((group) => group.id === editor.groupId)) {
+        node._booleanHierarchyGroupEditor = null;
+        editor = null;
+    }
+    if (!editor) return panel;
+
+    const form = document.createElement("div");
+    form.style.cssText = "margin-top:7px;padding:7px;border:1px solid #4a4a4a;border-radius:4px;background:#191919;";
+    const formTitle = document.createElement("div");
+    formTitle.textContent = editor.mode === "edit" ? "Edit group" : "Create group";
+    formTitle.style.cssText = "font-size:11px;color:#ddd;margin-bottom:6px;";
+    form.appendChild(formTitle);
+
+    const scopes = getExclusiveScopeOptions(items);
+    if (editor.mode === "create") {
+        const scopeSelect = document.createElement("select");
+        scopeSelect.setAttribute("aria-label", "Exclusive group scope");
+        scopeSelect.style.cssText = "width:100%;height:25px;margin-bottom:6px;border:1px solid #444;border-radius:4px;" +
+            "background:#222;color:#ddd;font-size:10px;";
+        for (const scope of scopes) {
+            const option = document.createElement("option");
+            option.value = scope.parent_id || "__root__";
+            option.textContent = scope.label;
+            option.selected = (scope.parent_id || null) === (editor.parentId || null);
+            scopeSelect.appendChild(option);
+        }
+        scopeSelect.addEventListener("change", () => {
+            editor.parentId = scopeSelect.value === "__root__" ? null : scopeSelect.value;
+            editor.selectedIds = [];
+            refreshEditorLayout(node);
+        });
+        form.appendChild(scopeSelect);
+    } else {
+        const parent = editor.parentId ? itemById.get(editor.parentId) : null;
+        const scopeLabel = document.createElement("div");
+        scopeLabel.textContent = parent ? `Children of ${parent.label}` : "Root level";
+        scopeLabel.style.cssText = "font-size:10px;color:#999;margin-bottom:6px;";
+        form.appendChild(scopeLabel);
+    }
+
+    const candidates = getScopeItems(items, editor.parentId);
+    const selectedIds = new Set(editor.selectedIds);
+    let saveButton = null;
+    const checklist = document.createElement("div");
+    checklist.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;margin-bottom:7px;";
+    for (const candidate of candidates) {
+        const occupiedByOther = Boolean(
+            candidate.exclusive_group_id
+            && candidate.exclusive_group_id !== editor.groupId
+        );
+        const optionLabel = document.createElement("label");
+        optionLabel.title = occupiedByOther ? "Already belongs to another exclusive group" : candidate.label;
+        optionLabel.style.cssText = "display:flex;align-items:center;gap:4px;min-width:0;font-size:10px;color:#bbb;" +
+            (occupiedByOther ? "opacity:.4;" : "");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedIds.has(candidate.id);
+        checkbox.disabled = occupiedByOther;
+        checkbox.style.cssText = "width:14px;height:14px;margin:0;accent-color:#6ca0dc;";
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) selectedIds.add(candidate.id);
+            else selectedIds.delete(candidate.id);
+            editor.selectedIds = [...selectedIds];
+            if (saveButton) setTextButtonDisabled(saveButton, selectedIds.size < 2);
+        });
+        const label = document.createElement("span");
+        label.textContent = candidate.label;
+        label.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+        optionLabel.append(checkbox, label);
+        checklist.appendChild(optionLabel);
+    }
+    form.appendChild(checklist);
+
+    const formActions = document.createElement("div");
+    formActions.style.cssText = "display:flex;justify-content:flex-end;gap:5px;";
+    formActions.appendChild(createTextButton("Cancel", () => {
+        node._booleanHierarchyGroupEditor = null;
+        refreshEditorLayout(node);
+    }));
+    const canSave = selectedIds.size >= 2;
+    saveButton = createTextButton("Save", () => {
+        const selected = [...selectedIds];
+        const mode = editor.mode;
+        const groupId = editor.groupId;
+        node._booleanHierarchyGroupEditor = null;
+        if (mode === "edit") {
+            mutateItems(node, (nextItems) => updateExclusiveGroup(nextItems, groupId, selected));
+        } else {
+            mutateItems(node, (nextItems) => createExclusiveGroup(nextItems, selected));
+        }
+    }, !canSave);
+    formActions.appendChild(saveButton);
+    form.appendChild(formActions);
+    panel.appendChild(form);
+    return panel;
+}
+
 function makeRow(node, item, index, items) {
     const row = document.createElement("div");
-    const isChild = Boolean(item.parent_id);
+    const depth = getItemDepth(items, item);
+    const isDescendant = depth > 0;
     row.dataset.itemId = item.id;
     row.style.cssText = "height:34px;display:grid;grid-template-columns:20px 22px minmax(90px,1fr) auto;" +
         "align-items:center;gap:5px;padding:4px 6px;box-sizing:border-box;border-top:1px solid rgba(255,255,255,.07);" +
-        (isChild ? "padding-left:18px;background:rgba(255,255,255,.018);" : "background:rgba(255,255,255,.035);");
+        `padding-left:${6 + Math.max(depth, 0) * 12}px;` +
+        (isDescendant ? "background:rgba(255,255,255,.018);" : "background:rgba(255,255,255,.035);");
 
     const treeMark = document.createElement("span");
-    treeMark.textContent = isChild ? "└" : String(index + 1).padStart(2, "0");
+    const roots = items.filter((candidate) => !candidate.parent_id);
+    const rootPosition = roots.findIndex((candidate) => candidate.id === item.id);
+    treeMark.textContent = depth === 0
+        ? String(rootPosition + 1).padStart(2, "0")
+        : depth === 1 ? "└" : "·└";
     treeMark.style.cssText = "font-size:10px;color:#858585;text-align:center;user-select:none;";
     row.appendChild(treeMark);
 
@@ -215,10 +450,12 @@ function makeRow(node, item, index, items) {
             const target = nextItems.find((candidate) => candidate.id === item.id);
             if (target) target.value = toggle.checked;
             return nextItems;
-        });
+        }, { preferredItemId: toggle.checked ? item.id : null });
     });
     row.appendChild(toggle);
 
+    const labelCell = document.createElement("div");
+    labelCell.style.cssText = "min-width:0;display:flex;align-items:center;gap:4px;";
     const labelInput = document.createElement("input");
     labelInput.type = "text";
     labelInput.value = item.label;
@@ -234,40 +471,60 @@ function makeRow(node, item, index, items) {
         });
     });
     labelInput.addEventListener("keydown", stopCanvasPropagation);
-    row.appendChild(labelInput);
+    labelCell.appendChild(labelInput);
+    if (item.exclusive_group_id) {
+        const memberLabels = items
+            .filter((candidate) => candidate.exclusive_group_id === item.exclusive_group_id)
+            .map((candidate) => candidate.label);
+        const badge = document.createElement("span");
+        badge.textContent = "EX";
+        badge.title = `Exclusive group: ${memberLabels.join(" / ")}`;
+        badge.style.cssText = "flex:0 0 auto;padding:2px 4px;border:1px solid #52789b;border-radius:3px;" +
+            "background:#20384d;color:#b9d9f5;font-size:8px;font-weight:700;line-height:12px;user-select:none;";
+        labelCell.appendChild(badge);
+    }
+    row.appendChild(labelCell);
 
     const actions = document.createElement("div");
     actions.style.cssText = "display:flex;gap:3px;align-items:center;justify-content:flex-end;";
-    const roots = items.filter((candidate) => !candidate.parent_id);
-    const rootPosition = isChild ? -1 : roots.findIndex((candidate) => candidate.id === item.id);
-    const siblings = isChild ? items.filter((candidate) => candidate.parent_id === item.parent_id) : [];
-    const siblingPosition = isChild ? siblings.findIndex((candidate) => candidate.id === item.id) : -1;
-    const itemHasChildren = !isChild && hasChildren(items, item.id);
-    const canDelete = isChild || roots.length > 1;
+    const parentId = item.parent_id || null;
+    const siblings = items.filter(
+        (candidate) => (candidate.parent_id || null) === parentId
+    );
+    const siblingPosition = siblings.findIndex((candidate) => candidate.id === item.id);
+    const subtreeIds = getSubtreeIds(items, item.id);
+    const canDelete = items.length - subtreeIds.size >= 1;
+    const canAddChild = depth >= 0
+        && depth < MAX_HIERARCHY_DEPTH
+        && items.length < MAX_BOOLEAN_OUTPUTS;
 
-    if (!isChild) {
+    if (depth < MAX_HIERARCHY_DEPTH) {
         actions.appendChild(createIconButton(ICONS.addChild, "Add child", () => {
             mutateItems(node, (nextItems) => addChildItem(nextItems, item.id));
-        }, items.length >= MAX_BOOLEAN_OUTPUTS));
+        }, !canAddChild));
     }
     actions.appendChild(createIconButton(ICONS.up, "Move up", () => {
         mutateItems(node, (nextItems) => moveItem(nextItems, item.id, "up"));
-    }, isChild ? siblingPosition <= 0 : rootPosition <= 0));
+    }, siblingPosition <= 0));
     actions.appendChild(createIconButton(ICONS.down, "Move down", () => {
         mutateItems(node, (nextItems) => moveItem(nextItems, item.id, "down"));
-    }, isChild ? siblingPosition < 0 || siblingPosition >= siblings.length - 1 : rootPosition < 0 || rootPosition >= roots.length - 1));
-    if (isChild) {
-        actions.appendChild(createIconButton(ICONS.outdent, "Promote to root", () => {
-            mutateItems(node, (nextItems) => outdentItem(nextItems, item.id));
-        }));
-    } else {
-        const indentDisabled = rootPosition <= 0 || itemHasChildren;
-        const indentLabel = itemHasChildren ? "Cannot indent a parent with children" : "Indent under previous parent";
+    }, siblingPosition < 0 || siblingPosition >= siblings.length - 1));
+    if (depth < MAX_HIERARCHY_DEPTH) {
+        const indentDisabled = !canIndentItem(items, item.id);
+        const indentLabel = indentDisabled
+            ? "Cannot indent at the current position or depth"
+            : "Indent under previous sibling";
         actions.appendChild(createIconButton(ICONS.indent, indentLabel, () => {
             mutateItems(node, (nextItems) => indentItem(nextItems, item.id));
         }, indentDisabled));
     }
-    actions.appendChild(createIconButton(ICONS.remove, isChild ? "Delete Boolean" : "Delete parent and children", () => {
+    if (isDescendant) {
+        actions.appendChild(createIconButton(ICONS.outdent, "Promote one level", () => {
+            mutateItems(node, (nextItems) => outdentItem(nextItems, item.id));
+        }));
+    }
+    const deleteLabel = subtreeIds.size > 1 ? "Delete Boolean subtree" : "Delete Boolean";
+    actions.appendChild(createIconButton(ICONS.remove, deleteLabel, () => {
         mutateItems(node, (nextItems) => deleteItem(nextItems, item.id));
     }, !canDelete));
     row.appendChild(actions);
@@ -287,8 +544,14 @@ function ensureEditorWidget(node) {
     const widget = node.addDOMWidget(WIDGET_NAME, "custom", container, {
         serialize: false,
         hideOnZoom: false,
-        getMinHeight: () => node._booleanHierarchyHeight || calculateEditorHeight(getStoredItems(node)),
-        getHeight: () => node._booleanHierarchyHeight || calculateEditorHeight(getStoredItems(node)),
+        getMinHeight: () => node._booleanHierarchyHeight || calculateEditorHeight(
+            getStoredItems(node),
+            Boolean(node._booleanHierarchyExclusivePanelOpen)
+        ),
+        getHeight: () => node._booleanHierarchyHeight || calculateEditorHeight(
+            getStoredItems(node),
+            Boolean(node._booleanHierarchyExclusivePanelOpen)
+        ),
     });
     widget.serialize = false;
     widget.inputEl = container;
@@ -314,15 +577,28 @@ function renderEditor(node) {
     toolbar.appendChild(createToolbarButton(ICONS.addRoot, "Add root", () => {
         mutateItems(node, (nextItems) => addRootItem(nextItems));
     }, items.length >= MAX_BOOLEAN_OUTPUTS));
+    toolbar.appendChild(createToolbarButton(ICONS.exclusive, "Exclusive groups", () => {
+        node._booleanHierarchyExclusivePanelOpen = !node._booleanHierarchyExclusivePanelOpen;
+        if (!node._booleanHierarchyExclusivePanelOpen) {
+            node._booleanHierarchyGroupEditor = null;
+        }
+        refreshEditorLayout(node);
+    }, false));
     const count = document.createElement("span");
     count.textContent = `${items.length}/${MAX_BOOLEAN_OUTPUTS}`;
     count.style.cssText = "font-size:10px;color:#888;margin-left:auto;";
     toolbar.appendChild(count);
     fragment.appendChild(toolbar);
+    if (node._booleanHierarchyExclusivePanelOpen) {
+        fragment.appendChild(renderExclusivePanel(node, items));
+    }
 
     items.forEach((item, index) => fragment.appendChild(makeRow(node, item, index, items)));
     container.replaceChildren(fragment);
-    node._booleanHierarchyHeight = calculateEditorHeight(items);
+    node._booleanHierarchyHeight = calculateEditorHeight(
+        items,
+        Boolean(node._booleanHierarchyExclusivePanelOpen)
+    );
     container.style.height = `${node._booleanHierarchyHeight}px`;
 }
 
@@ -364,6 +640,7 @@ app.registerExtension({
             this._booleanHierarchyFrame = null;
             this._booleanHierarchyWidget = null;
             this._booleanHierarchyContainer = null;
+            this._booleanHierarchyGroupEditor = null;
         });
 
         const originalOnResize = nodeType.prototype.onResize;

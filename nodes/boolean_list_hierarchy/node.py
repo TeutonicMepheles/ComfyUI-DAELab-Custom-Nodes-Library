@@ -4,6 +4,7 @@ from comfy_api.latest import io
 
 
 MAX_BOOLEAN_OUTPUTS = 64
+MAX_HIERARCHY_DEPTH = 2
 DEFAULT_CONFIG = json.dumps(
     [
         {
@@ -38,12 +39,17 @@ def _normalize_items(config_json):
             value = item.get("value", False)
             item_id = str(item.get("id") or "").strip()
             parent_id = item.get("parent_id", item.get("parentId"))
+            exclusive_group_id = item.get(
+                "exclusive_group_id",
+                item.get("exclusiveGroupId"),
+            )
             level = item.get("level", 0)
         else:
             label = f"Boolean {index}"
             value = item
             item_id = ""
             parent_id = None
+            exclusive_group_id = None
             level = 0
 
         if not item_id or item_id in used_ids:
@@ -65,6 +71,11 @@ def _normalize_items(config_json):
                 "label": str(label).strip() or f"Boolean {index}",
                 "value": _to_bool(value),
                 "explicit_parent_id": str(parent_id).strip() if parent_id else None,
+                "exclusive_group_id": (
+                    str(exclusive_group_id).strip()
+                    if exclusive_group_id
+                    else None
+                ),
                 "legacy_level": level,
             }
         )
@@ -76,6 +87,7 @@ def _normalize_items(config_json):
                 "label": "Boolean 1",
                 "value": False,
                 "explicit_parent_id": None,
+                "exclusive_group_id": None,
                 "legacy_level": 0,
             }
         )
@@ -94,38 +106,153 @@ def _normalize_items(config_json):
                 "label": item["label"],
                 "value": item["value"],
                 "parent_id": parent_id,
+                "exclusive_group_id": item["exclusive_group_id"],
             }
         )
 
-    by_id = {item["id"]: item for item in items}
-    for item in items:
-        parent = by_id.get(item["parent_id"])
-        if parent is None or parent is item or parent.get("parent_id"):
-            item["parent_id"] = None
+    _repair_hierarchy_depths(items)
+    ordered = _order_hierarchy(items)
 
-    roots = [item for item in items if not item["parent_id"]]
-    if not roots:
+    return _apply_hierarchy_constraints(ordered[:MAX_BOOLEAN_OUTPUTS])
+
+
+def _repair_hierarchy_depths(items):
+    """Repair invalid parents while preserving up to two child levels."""
+    by_id = {item["id"]: item for item in items}
+    depth_by_id = {}
+
+    def resolve_depth(item, visiting=None):
+        if item["id"] in depth_by_id:
+            return depth_by_id[item["id"]]
+        if not item["parent_id"]:
+            depth_by_id[item["id"]] = 0
+            return 0
+
+        visiting = set() if visiting is None else visiting
+        parent = by_id.get(item["parent_id"])
+        if parent is None or parent is item or parent["id"] in visiting:
+            item["parent_id"] = None
+            depth_by_id[item["id"]] = 0
+            return 0
+
+        visiting.add(item["id"])
+        parent_depth = resolve_depth(parent, visiting)
+        visiting.remove(item["id"])
+        if parent_depth >= MAX_HIERARCHY_DEPTH:
+            item["parent_id"] = None
+            depth_by_id[item["id"]] = 0
+            return 0
+
+        depth = parent_depth + 1
+        depth_by_id[item["id"]] = depth
+        return depth
+
+    for item in items:
+        resolve_depth(item)
+    if items and not any(not item["parent_id"] for item in items):
         items[0]["parent_id"] = None
+    return items
+
+
+def _order_hierarchy(items):
+    """Return parents before descendants while preserving sibling order."""
+    children = {}
+    for item in items:
+        children.setdefault(item["parent_id"], []).append(item)
 
     ordered = []
-    for root in (item for item in items if not item["parent_id"]):
-        ordered.append(root)
-        ordered.extend(item for item in items if item["parent_id"] == root["id"])
+    visited = set()
 
-    return _apply_parent_cascade(ordered[:MAX_BOOLEAN_OUTPUTS])
+    def append_subtree(item):
+        if item["id"] in visited:
+            return
+        visited.add(item["id"])
+        ordered.append(item)
+        for child in children.get(item["id"], []):
+            append_subtree(child)
+
+    for root in children.get(None, []):
+        append_subtree(root)
+    for item in items:
+        append_subtree(item)
+    return ordered
 
 
 def _apply_parent_cascade(items):
-    """Force children to false while their direct parent is false."""
-    parents = {item["id"]: item for item in items if not item["parent_id"]}
+    """Force descendants to false while any ancestor is false."""
+    by_id = {item["id"]: item for item in items}
+
+    def ancestors_enabled(item, visiting=None):
+        if not item["parent_id"]:
+            return True
+        visiting = set() if visiting is None else visiting
+        if item["id"] in visiting:
+            return False
+        visiting.add(item["id"])
+        parent = by_id.get(item["parent_id"])
+        return bool(parent and parent["value"]) and ancestors_enabled(
+            parent,
+            visiting,
+        )
+
     for item in items:
         if not item["parent_id"]:
             continue
-        parent = parents.get(item["parent_id"])
-        if parent is None or not parent["value"]:
+        if not ancestors_enabled(item):
             item["value"] = False
 
     return items
+
+
+def _sanitize_exclusive_groups(items):
+    """Remove malformed groups that are too small or span sibling scopes."""
+    members_by_group = {}
+    for item in items:
+        group_id = str(item.get("exclusive_group_id") or "").strip() or None
+        item["exclusive_group_id"] = group_id
+        if group_id:
+            members_by_group.setdefault(group_id, []).append(item)
+
+    for members in members_by_group.values():
+        parent_ids = {item.get("parent_id") for item in members}
+        if len(members) >= 2 and len(parent_ids) == 1:
+            continue
+        for item in members:
+            item["exclusive_group_id"] = None
+
+    return items
+
+
+def _apply_exclusive_constraint(items, preferred_item_id=None):
+    """Keep at most one true value in each valid exclusive group."""
+    _sanitize_exclusive_groups(items)
+    members_by_group = {}
+    for item in items:
+        group_id = item.get("exclusive_group_id")
+        if group_id:
+            members_by_group.setdefault(group_id, []).append(item)
+
+    for members in members_by_group.values():
+        active = next(
+            (
+                item
+                for item in members
+                if item["id"] == preferred_item_id and item["value"]
+            ),
+            None,
+        )
+        if active is None:
+            active = next((item for item in members if item["value"]), None)
+        for item in members:
+            item["value"] = item is active
+
+    return items
+
+
+def _apply_hierarchy_constraints(items, preferred_item_id=None):
+    """Apply sibling exclusivity before the existing parent-to-child cascade."""
+    _apply_exclusive_constraint(items, preferred_item_id)
+    return _apply_parent_cascade(items)
 
 
 def _get_config_json(extra_pnginfo=None, unique_id=None):
@@ -206,7 +333,7 @@ class BooleanListHierarchy(io.ComfyNode):
                 cls.hidden.unique_id,
             )
         )
-        items = _apply_parent_cascade(items)
+        items = _apply_hierarchy_constraints(items)
         values = [item["value"] for item in items]
         values.extend(False for _ in range(MAX_BOOLEAN_OUTPUTS - len(values)))
         return io.NodeOutput(*values[:MAX_BOOLEAN_OUTPUTS])

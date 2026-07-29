@@ -107,7 +107,7 @@ Polygon state is persisted only through the hidden `polygon_data` widget and the
 
 ### Shared prompt style infrastructure
 
-`web/styles.json` defines style presets (aerospace, business, party_building) with labels, colors, thumbnails, and prompt text. `web/prompt_preset.js` loads this at runtime and provides the style selector UI for `SeedreamExhibitionPromptBuilder`. Thumbnails live in `web/thumbs/`. The JS uses a `UI_VERSION` string for cache-busting the styles fetch.
+`web/styles.json` defines style presets (aerospace and party_building) with labels, colors, thumbnails, and prompt text. `web/prompt_preset.js` loads this at runtime and provides the style selector UI for `SeedreamExhibitionPromptBuilder`. Thumbnails live in `web/thumbs/`. The JS uses a `UI_VERSION` string for cache-busting the styles fetch.
 
 ## V3→V1 concept mapping
 

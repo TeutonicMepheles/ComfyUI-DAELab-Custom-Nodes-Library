@@ -2,6 +2,7 @@ import { app } from "/scripts/app.js";
 import {
     CONTROLLER_NODE_TYPE,
     MODE_ACTIVE,
+    MODE_BYPASS,
     buildNodeModeAssignments,
     buildGroupOptions,
     collectControllableNodes,

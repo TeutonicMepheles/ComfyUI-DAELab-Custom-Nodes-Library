@@ -78,7 +78,7 @@ ComfyUI-DAELab-Custom-Nodes-Library/
 
 ## 提示词节点
 
-`SeedreamExhibitionPromptBuilder` 是面向 Seedream 5.0 Pro 的展厅提示词节点，复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，`style_id` 在前端显示中文标签。模板模式按目标、参考约束、设计材质、配色、灯光摄影组织段落；Color Picker 输入会同时输出自然语言色彩语义和标准化 `#RRGGBB`。
+`SeedreamExhibitionPromptBuilder` 是面向 Seedream 5.0 Pro 的展厅提示词节点，复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，`style_id` 在前端显示中文标签。`base_prompt` 始终作为基础输入并显示在面板顶部；模板模式在其后按目标、参考约束、设计材质、配色、灯光摄影组织段落。Color Picker 输入会同时输出自然语言色彩语义和标准化 `#RRGGBB`。
 
 ## 交互式节点
 

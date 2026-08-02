@@ -232,5 +232,6 @@
         "enter-builder-mode"
     ],
     "Comfy.LinkRenderMode": 1,
-    "Comfy.DevMode": true
+    "Comfy.DevMode": true,
+    "Comfy.Queue.QPOV2": true
 }

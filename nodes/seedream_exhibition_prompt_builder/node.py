@@ -227,6 +227,28 @@ def normalize_prompt_sections(sections):
     return "\n\n".join(paragraph for paragraph in paragraphs if paragraph)
 
 
+def people_prompt(use_space_reference, include_people):
+    if include_people:
+        if use_space_reference:
+            placement = (
+                "优先将参考图中已有的占位人物或示意人形替换为真实游客，大致保持其位置、尺度和数量；"
+                "若参考图中没有占位人物，则根据空间尺度在主要参观动线上自然加入少量真实游客，通常1至2名"
+            )
+        else:
+            placement = "根据空间尺度在主要参观动线上自然加入少量真实游客，通常1至2名"
+        return (
+            f"人物要求：{placement}。人物比例准确、姿态自然，可观看展项、阅读展板或沿动线行走，"
+            "避免直视镜头或摆拍，不遮挡核心展项、标题、Logo和主要空间结构"
+        )
+
+    if use_space_reference:
+        return (
+            "人物要求：移除参考图中已有的占位人物或示意人形，并自然补全其后方空间；"
+            "不添加游客、工作人员、人物剪影或占位人形"
+        )
+    return "人物要求：展厅内不出现游客、工作人员、人物剪影或占位人形"
+
+
 class SeedreamExhibitionPromptBuilder(io.ComfyNode):
     """Build a Seedream 5.0 Pro prompt for exhibition hall render workflows."""
 
@@ -303,8 +325,6 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
             reference_parts.append(
                 "保持参考图中的墙体、顶面、地面、空间尺度、动线关系和核心建筑结构，保持原有相机机位、视角、透视关系和画面构图"
             )
-            if include_people_placeholder:
-                reference_parts.append("将参考图中的占位人物或示意人形替换为比例准确、姿态自然、正在参观展览的真实游客")
 
         if use_element_reference:
             if lock_edit_region:
@@ -315,6 +335,7 @@ class SeedreamExhibitionPromptBuilder(io.ComfyNode):
         sections = [
             [goal],
             reference_parts,
+            [people_prompt(use_space_reference, include_people_placeholder)],
             [style_prompt, clean_details(additional_details)],
             [color_rhythm_prompt(primary, secondary)],
             [

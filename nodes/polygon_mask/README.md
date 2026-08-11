@@ -21,11 +21,12 @@
 | 输入 | 类型 | 说明 |
 | --- | --- | --- |
 | `image` | `IMAGE` | 外部图像来源，例如 ComfyUI `Load Image`。 |
-| `vertex_count` | `INT` | 重置或新增多边形时使用的顶点数，范围 3–12。 |
+| `vertex_count` | `INT` | 重置或新增多边形时使用的顶点数，范围 3–50。 |
 | `color` | `COLOR` | 多边形颜色，兼容 LayerUtility/LayerStyle Color Picker。 |
 | `fill_opacity` | `INT` | 填充透明度，范围 0–100。 |
 | `outline_width` | `INT` | 轮廓宽度，范围 0–20。 |
 | `polygon_data` | `STRING` | 隐藏的高级状态输入，由前端编辑器维护。 |
+| `text` | `STRING` | 画布面板内的多行文本，原样同步到 `text` 输出。 |
 
 ## 输出
 
@@ -33,15 +34,18 @@
 | --- | --- | --- |
 | `masked_image` | `IMAGE` | 在输入图像上绘制全部多边形后的结果。 |
 | `raw_mask` | `MASK` | 与输入图像同尺寸的黑白 mask；多边形填充区域为白色，其余区域为黑色。 |
+| `text` | `STRING` | 与面板内多行 `text` 输入相同的字符串。 |
 
 ## 编辑操作
 
+- `vertex_count`、`color`、`fill_opacity`、`outline_width` 和多行 `text` 集成在多边形编辑画布面板中；应用构建模式将画布及这五个参数作为同一项输入。
 - 按住 `Shift` 并左键点击图像：新增一个三角形多边形。
 - 按住 `Shift` 并右键点击多边形：删除该多边形。
 - 点击填充区域：选择多边形。
 - 拖动已选多边形的填充区域：整体移动，不改变形状。
 - 拖动已选多边形的顶点：调整形状。
-- 双击已选多边形的任意边（包括闭合边）：插入新顶点。
+- 左键单击已选多边形的任意边（包括闭合边）：在点击位置插入新顶点，最多 50 个顶点。
+- 右键单击已选多边形的顶点：删除该顶点，最少保留 3 个顶点。
 - `Clear`：删除当前选中的多边形。
 - `Reset`：按当前 `vertex_count` 重建已选多边形，并保持其中心位置。
 - `Load Image`：立即加载当前 graph 中相连 `Load Image` 的当前文件；非文件 socket 需要先手动运行工作流一次。
@@ -70,6 +74,14 @@
 - 图像连接解析优先使用节点自身所属 graph，并兼容对象和 `Map` 两种链接存储，避免多个工作流使用相同节点 ID 时串图。
 - 直接 `Load Image` 的执行回传始终重新解析当前 graph 的文件；间接输入回传只写入临时预览字段，排队和工作流序列化仍使用已应用的 Polygon 状态。
 - `masked_image` 同时受 Polygon、`color`、`fill_opacity` 和 `outline_width` 影响；`raw_mask` 只由 Polygon 几何形状决定。
+- 应用构建器会把画布 DOM 控件、`vertex_count`、`color`、`fill_opacity`、`outline_width` 和 `text` 折叠为稳定的 `polygon_canvas` 组合输入；旧的分散输入会迁移并优先保留原面板高度。
+- 节点进入 Bypass、Mute 或其他非正常执行模式时，最终应用中的 Polygon 面板会隐藏；恢复正常模式后重新显示。
+
+## 依赖与交付
+
+- 后端使用 ComfyUI Core 提供的 V3 `comfy_api.latest`、PyTorch、NumPy 和 Pillow，不需要独立模型或外部 API。
+- 交付时必须包含根 `__init__.py`、`web/polygon_mask.js` 及其 `polygon_mask_*` 纯逻辑模块；只复制 `node.py` 会缺少画布、状态同步和应用组合面板。
+- 若输入来自 `AppModeLoadImage`，还需要同仓库的 `web/polygon_mask_app_mode_load_image_compat.js`；普通原生 `LoadImage` 不依赖该兼容层。
 
 ## 测试覆盖
 
@@ -80,8 +92,9 @@
 
 - 后端：`node.py`
 - 前端：`../../web/polygon_mask.js`
+- 画布面板模型：`../../web/polygon_mask_panel.mjs`
 - 连接解析模型：`../../web/polygon_mask_connection.mjs`
 - 图片状态迁移模型：`../../web/polygon_mask_image_state.mjs`
 - 工作流状态同步模型：`../../web/polygon_mask_state.mjs`
 - 后端测试：`../../tests/test_polygon_mask.py`
-- 前端测试：`../../tests/polygon_mask_connection.test.mjs`、`../../tests/polygon_mask_image_state.test.mjs`、`../../tests/polygon_mask_state.test.mjs`
+- 前端测试：`../../tests/polygon_mask_connection.test.mjs`、`../../tests/polygon_mask_image_state.test.mjs`、`../../tests/polygon_mask_panel.test.mjs`、`../../tests/polygon_mask_state.test.mjs`

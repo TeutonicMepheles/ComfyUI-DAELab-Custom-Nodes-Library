@@ -15,6 +15,7 @@ import {
     isAllowedHierarchicalOverlap,
     resolveBooleanSource,
     resolveGroup,
+    setNodeMode,
 } from "../web/boolean_group_bypass_controller_model.mjs";
 
 function makeSource(items, outputs = null) {
@@ -268,6 +269,26 @@ test("maps normal and inverted Boolean values to active and bypass modes", () =>
     assert.equal(desiredMode(false, false), MODE_BYPASS);
     assert.equal(desiredMode(true, true), MODE_BYPASS);
     assert.equal(desiredMode(false, true), MODE_ACTIVE);
+});
+
+test("emits a standard graph property event when changing node mode", () => {
+    const events = [];
+    const node = {
+        id: 12,
+        mode: MODE_ACTIVE,
+        graph: { trigger: (...args) => events.push(args) },
+    };
+
+    assert.equal(setNodeMode(node, MODE_BYPASS), true);
+    assert.equal(node.mode, MODE_BYPASS);
+    assert.deepEqual(events, [["node:property:changed", {
+        nodeId: 12,
+        property: "mode",
+        oldValue: MODE_ACTIVE,
+        newValue: MODE_BYPASS,
+    }]]);
+    assert.equal(setNodeMode(node, MODE_BYPASS), false);
+    assert.equal(events.length, 1);
 });
 
 test("changes only nodes that differ from the requested mode", () => {

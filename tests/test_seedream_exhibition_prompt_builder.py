@@ -49,16 +49,18 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
         self.assertEqual(self.execute(use_theme_template="false", base_prompt=raw), raw)
         self.assertEqual(self.execute(use_theme_template=False, base_prompt=""), "")
 
-    def test_template_output_starts_with_base_and_uses_six_sections(self):
+    def test_template_output_starts_with_base_and_uses_seven_sections(self):
         prompt = self.execute()
         paragraphs = prompt.split("\n\n")
 
-        self.assertEqual(len(paragraphs), 6)
+        self.assertEqual(len(paragraphs), 7)
         self.assertEqual(paragraphs[0], "BASE_PROMPT_SENTINEL")
         self.assertTrue(all(paragraph.strip() for paragraph in paragraphs))
-        self.assertIn("精密构造线", paragraphs[3])
-        self.assertIn("明亮科技蓝（#567DF0）", paragraphs[4])
-        self.assertIn("低饱和蓝灰色（#D0D5DD）", paragraphs[4])
+        self.assertIn("相机机位、视角、透视关系和画面构图", paragraphs[2])
+        self.assertTrue(paragraphs[3].startswith("人物要求："))
+        self.assertIn("精密构造线", paragraphs[4])
+        self.assertIn("明亮科技蓝（#567DF0）", paragraphs[5])
+        self.assertIn("低饱和蓝灰色（#D0D5DD）", paragraphs[5])
         self.assertNotIn("不额外添加未要求的主展品", prompt)
         self.assertNotIn("保持现有空间结构和展陈元素", prompt)
 
@@ -72,10 +74,10 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
         prompt = self.execute(base_prompt=" \n ")
         paragraphs = prompt.split("\n\n")
 
-        self.assertEqual(len(paragraphs), 5)
+        self.assertEqual(len(paragraphs), 6)
         self.assertTrue(paragraphs[0].startswith("基于参考图"))
 
-    def test_disabling_all_references_omits_reference_section_and_child_rules(self):
+    def test_people_enabled_without_space_reference_adds_visitors_independently(self):
         prompt = self.execute(
             use_space_reference=False,
             include_people_placeholder=True,
@@ -84,13 +86,28 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
         )
         paragraphs = prompt.split("\n\n")
 
-        self.assertEqual(len(paragraphs), 5)
+        self.assertEqual(len(paragraphs), 6)
         self.assertTrue(paragraphs[1].startswith("创建一张航天科技展厅"))
         self.assertNotIn("参考图", prompt)
-        self.assertNotIn("游客", prompt)
+        self.assertIn("主要参观动线上自然加入少量真实游客", prompt)
+        self.assertIn("通常1至2名", prompt)
+        self.assertIn("避免直视镜头或摆拍", prompt)
+        self.assertNotIn("优先将", prompt)
         self.assertNotIn("展陈物件", prompt)
 
-    def test_people_rule_depends_on_space_reference(self):
+    def test_people_enabled_with_space_reference_replaces_or_adds_visitors(self):
+        prompt = self.execute(
+            use_space_reference=True,
+            include_people_placeholder=True,
+            use_element_reference=False,
+        )
+
+        self.assertIn("优先将参考图中已有的占位人物或示意人形替换为真实游客", prompt)
+        self.assertIn("大致保持其位置、尺度和数量", prompt)
+        self.assertIn("若参考图中没有占位人物", prompt)
+        self.assertIn("不遮挡核心展项、标题、Logo和主要空间结构", prompt)
+
+    def test_people_disabled_with_space_reference_removes_placeholders(self):
         prompt = self.execute(
             use_space_reference=True,
             include_people_placeholder=False,
@@ -98,8 +115,22 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
         )
 
         self.assertIn("相机机位、视角、透视关系和画面构图", prompt)
-        self.assertNotIn("真实游客", prompt)
+        self.assertIn("移除参考图中已有的占位人物或示意人形", prompt)
+        self.assertIn("自然补全其后方空间", prompt)
+        self.assertIn("不添加游客、工作人员、人物剪影或占位人形", prompt)
+        self.assertNotIn("观看展项", prompt)
         self.assertNotIn("展陈物件", prompt)
+
+    def test_people_disabled_without_space_reference_requires_an_empty_scene(self):
+        prompt = self.execute(
+            use_space_reference=False,
+            include_people_placeholder=False,
+            use_element_reference=False,
+        )
+
+        self.assertIn("人物要求：展厅内不出现游客、工作人员、人物剪影或占位人形", prompt)
+        self.assertNotIn("参考图", prompt)
+        self.assertNotIn("通常1至2名", prompt)
 
     def test_element_position_rule_depends_on_element_reference(self):
         unlocked = self.execute(
@@ -151,7 +182,7 @@ class SeedreamExhibitionPromptBuilderTests(unittest.TestCase):
 
         for style_id, expected in expectations.items():
             with self.subTest(style_id=style_id):
-                design_paragraph = self.execute(style_id=style_id).split("\n\n")[3]
+                design_paragraph = self.execute(style_id=style_id).split("\n\n")[4]
                 self.assertIn(expected, design_paragraph)
                 self.assertFalse(any(value in design_paragraph for value in forbidden))
 

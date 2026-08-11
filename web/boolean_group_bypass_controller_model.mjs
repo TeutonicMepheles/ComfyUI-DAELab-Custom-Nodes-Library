@@ -265,12 +265,24 @@ export function desiredMode(booleanValue, invert = false) {
     return active ? MODE_ACTIVE : MODE_BYPASS;
 }
 
+export function setNodeMode(node, mode) {
+    if (!node || node.mode === mode) return false;
+
+    const oldValue = node.mode;
+    node.mode = mode;
+    node.graph?.trigger?.("node:property:changed", {
+        nodeId: node.id,
+        property: "mode",
+        oldValue,
+        newValue: mode,
+    });
+    return true;
+}
+
 export function applyModeToNodes(nodes, mode) {
     let changed = false;
     for (const node of nodes || []) {
-        if (!node || node.mode === mode) continue;
-        node.mode = mode;
-        changed = true;
+        changed = setNodeMode(node, mode) || changed;
     }
     return changed;
 }

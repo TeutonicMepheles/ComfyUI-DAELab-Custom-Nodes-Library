@@ -26,3 +26,17 @@
 4. 通过节点模式或 Bypass 控制器切换状态，应用面板会同步折叠或恢复该输入。
 
 已有工作流中的原生 `LoadImage` 不会被自动替换；请手动换成此节点并重新连接输出，以免静默修改现有工作流。
+
+## 依赖与兼容性
+
+- 后端继承 ComfyUI Core 的 `LoadImage`，因此要求对应 Core 版本仍提供该原生节点接口。
+- 不需要独立模型、API Key 或额外 pip 包；图片解析依赖均随 ComfyUI 安装。
+- 必须连同仓库根 `__init__.py`、`web/app_mode_bypass.js`、`web/app_mode_bypass_model.mjs` 和 `web/polygon_mask_app_mode_load_image_compat.js` 一起交付，才能获得完整 App Mode 与 Polygon Mask 兼容行为。
+
+## 测试与相关文件
+
+- 后端：`node.py`
+- App Mode 联动：`../../web/app_mode_bypass.js`
+- Polygon Mask 兼容：`../../web/polygon_mask_app_mode_load_image_compat.js`
+- 后端测试：`../../tests/test_app_mode_load_image.py`
+- 前端测试：`../../tests/app_mode_bypass_model.test.mjs`

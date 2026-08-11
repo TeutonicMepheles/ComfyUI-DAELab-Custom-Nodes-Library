@@ -54,6 +54,12 @@
 - “绑定所在组”只在控制器恰好位于一个组内时生效；无组或重叠组需要手动选择。
 - 不同工作流画布之间不会互相报告冲突或修改节点状态。
 
+## 应用构建模式联动
+
+控制器改变组内节点模式后，共享的 `web/app_mode_bypass.js` 会同步检查本库节点对应的应用输入。进入 Bypass、Mute 或其他非正常执行模式的节点，其最终应用输入会折叠隐藏；恢复 Active 后按原有 `hidden`、`inert` 和 `aria-hidden` 状态恢复。
+
+该联动覆盖本库注册的普通节点和组合面板节点，不改变 `linearData.inputs` 的持久输入顺序，也不会删除应用构建器配置。控制器本身仍是前端虚拟节点，不会因此进入 API Prompt。
+
 ## 限制
 
 组 Bypass 仍遵循 ComfyUI 原生的 Bypass 透传规则。输入输出类型无法透传的复杂拓扑，不能通过本节点改变这一限制。
@@ -70,5 +76,7 @@
 - 后端注册：`node.py`
 - 前端交互：`../../web/boolean_group_bypass_controller.js`
 - 纯逻辑模型：`../../web/boolean_group_bypass_controller_model.mjs`
+- 应用输入显隐：`../../web/app_mode_bypass.js`
+- 应用显隐纯逻辑：`../../web/app_mode_bypass_model.mjs`
 - 后端测试：`../../tests/test_boolean_group_bypass_controller.py`
 - 前端测试：`../../tests/boolean_group_bypass_controller_model.test.mjs`

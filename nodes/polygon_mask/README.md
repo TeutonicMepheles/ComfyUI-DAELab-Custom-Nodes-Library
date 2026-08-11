@@ -74,6 +74,14 @@
 - 图像连接解析优先使用节点自身所属 graph，并兼容对象和 `Map` 两种链接存储，避免多个工作流使用相同节点 ID 时串图。
 - 直接 `Load Image` 的执行回传始终重新解析当前 graph 的文件；间接输入回传只写入临时预览字段，排队和工作流序列化仍使用已应用的 Polygon 状态。
 - `masked_image` 同时受 Polygon、`color`、`fill_opacity` 和 `outline_width` 影响；`raw_mask` 只由 Polygon 几何形状决定。
+- 应用构建器会把画布 DOM 控件、`vertex_count`、`color`、`fill_opacity`、`outline_width` 和 `text` 折叠为稳定的 `polygon_canvas` 组合输入；旧的分散输入会迁移并优先保留原面板高度。
+- 节点进入 Bypass、Mute 或其他非正常执行模式时，最终应用中的 Polygon 面板会隐藏；恢复正常模式后重新显示。
+
+## 依赖与交付
+
+- 后端使用 ComfyUI Core 提供的 V3 `comfy_api.latest`、PyTorch、NumPy 和 Pillow，不需要独立模型或外部 API。
+- 交付时必须包含根 `__init__.py`、`web/polygon_mask.js` 及其 `polygon_mask_*` 纯逻辑模块；只复制 `node.py` 会缺少画布、状态同步和应用组合面板。
+- 若输入来自 `AppModeLoadImage`，还需要同仓库的 `web/polygon_mask_app_mode_load_image_compat.js`；普通原生 `LoadImage` 不依赖该兼容层。
 
 ## 测试覆盖
 

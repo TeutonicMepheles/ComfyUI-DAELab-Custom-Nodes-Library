@@ -48,6 +48,44 @@ export const TEMPLATE_CONTROL_WIDGET_NAMES = [
     "lock_edit_region",
 ];
 
+export const TEMPLATE_PANEL_WIDGET_NAME = "style_thumbnail_dom_selector";
+
+export const PROMPT_BOOLEAN_WIDGET_LABELS = Object.freeze({
+    use_theme_template: "使用主题模板",
+    use_space_reference: "使用空间参考",
+    include_people_placeholder: "包含参观者",
+    use_element_reference: "使用元素参考",
+    lock_edit_region: "锁定编辑区域",
+});
+
+export const PROMPT_WIDGET_LABELS = Object.freeze({
+    style_id: "主题风格",
+    tone: "画面氛围",
+    primary_color: "主色",
+    secondary_color: "辅助色",
+    base_prompt: "基础提示词",
+    additional_details: "附加细节描述",
+    ...PROMPT_BOOLEAN_WIDGET_LABELS,
+});
+
+export const PROMPT_WIDGET_PLACEHOLDERS = Object.freeze({
+    additional_details: "输入指定材质、饰品等要求",
+});
+
+const PROMPT_WIDGET_LEGACY_LABELS = Object.freeze({
+    tone: Object.freeze(["画面语气"]),
+    include_people_placeholder: Object.freeze(["替换占位人物"]),
+});
+
+export const TEMPLATE_PANEL_MEMBER_WIDGET_NAMES = Object.freeze([
+    TEMPLATE_PANEL_WIDGET_NAME,
+    "style_id",
+    "tone",
+    "primary_color",
+    "secondary_color",
+    "additional_details",
+]);
+
 const PROMPT_WIDGET_DISPLAY_ORDER = [
     "base_prompt",
     "style_thumbnail_dom_selector",
@@ -124,6 +162,87 @@ export function migratePromptWidgetValues(values) {
         ];
     }
     return null;
+}
+
+export function collapseTemplatePanelInputs(inputs, nodeId) {
+    if (!Array.isArray(inputs)) return { inputs: [], changed: false };
+
+    const memberNames = new Set(TEMPLATE_PANEL_MEMBER_WIDGET_NAMES);
+    const matchesNode = (entry) => (
+        Array.isArray(entry)
+        && String(entry[0]) === String(nodeId)
+        && memberNames.has(entry[1])
+    );
+    const matchingEntries = inputs.filter(matchesNode);
+    if (!matchingEntries.length) return { inputs, changed: false };
+
+    if (
+        matchingEntries.length === 1
+        && matchingEntries[0][1] === TEMPLATE_PANEL_WIDGET_NAME
+    ) {
+        return { inputs, changed: false };
+    }
+
+    const panelEntry = matchingEntries.find(
+        (entry) => entry[1] === TEMPLATE_PANEL_WIDGET_NAME
+    );
+    const detailsEntry = matchingEntries.find(
+        (entry) => entry[1] === "additional_details"
+    );
+    const config = panelEntry?.[2] ?? detailsEntry?.[2];
+    const canonicalNodeId = matchingEntries[0][0];
+    const canonicalEntry = config === undefined
+        ? [canonicalNodeId, TEMPLATE_PANEL_WIDGET_NAME]
+        : [canonicalNodeId, TEMPLATE_PANEL_WIDGET_NAME, config];
+
+    let inserted = false;
+    const nextInputs = [];
+    for (const entry of inputs) {
+        if (!matchesNode(entry)) {
+            nextInputs.push(entry);
+            continue;
+        }
+        if (!inserted) {
+            nextInputs.push(canonicalEntry);
+            inserted = true;
+        }
+    }
+    return { inputs: nextInputs, changed: true };
+}
+
+export function applyPromptWidgetMetadata(widgets) {
+    let changed = false;
+    for (const widget of widgets || []) {
+        const label = PROMPT_WIDGET_LABELS[widget?.name];
+        const legacyLabels = PROMPT_WIDGET_LEGACY_LABELS[widget?.name] || [];
+        const currentLabel = widget?.label;
+        if (
+            label
+            && !(
+                currentLabel
+                && currentLabel !== widget.name
+                && currentLabel !== label
+                && !legacyLabels.includes(currentLabel)
+            )
+            && widget.label !== label
+        ) {
+            widget.label = label;
+            changed = true;
+        }
+        const placeholder = PROMPT_WIDGET_PLACEHOLDERS[widget?.name];
+        if (placeholder && widget.options?.placeholder !== placeholder) {
+            widget.options = {
+                ...(widget.options || {}),
+                placeholder,
+            };
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+export function applyPromptBooleanWidgetLabels(widgets) {
+    return applyPromptWidgetMetadata(widgets);
 }
 
 export function setTemplateWidgetsDisabled(widgets, disabled) {

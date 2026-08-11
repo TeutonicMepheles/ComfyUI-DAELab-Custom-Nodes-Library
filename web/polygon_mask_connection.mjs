@@ -1,3 +1,27 @@
+export const DIRECT_LOAD_IMAGE_NODE_TYPES = Object.freeze([
+  "LoadImage",
+  "AppModeLoadImage",
+]);
+
+const DIRECT_LOAD_IMAGE_NODE_TYPE_SET = new Set(DIRECT_LOAD_IMAGE_NODE_TYPES);
+
+export function isDirectLoadImageNodeType(nodeType) {
+  return DIRECT_LOAD_IMAGE_NODE_TYPE_SET.has(String(nodeType || ""));
+}
+
+export function installConnectedLoadImageResolver(nodeType, resolver) {
+  if (!nodeType?.prototype || typeof resolver !== "function") {
+    return;
+  }
+
+  const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+  nodeType.prototype.onNodeCreated = function () {
+    const result = originalOnNodeCreated?.apply(this, arguments);
+    this.getConnectedLoadImageInfo = () => resolver(this);
+    return result;
+  };
+}
+
 export function getConnectedLoadImageInfo(node, fallbackGraph = null) {
   const imageInput = node?.inputs?.find((input) => input.name === "image");
   const linkId = imageInput?.link;
@@ -16,7 +40,7 @@ export function getConnectedLoadImageInfo(node, fallbackGraph = null) {
   }
 
   const nodeType = originNode.type || originNode.comfyClass || "";
-  if (nodeType !== "LoadImage") {
+  if (!isDirectLoadImageNodeType(nodeType)) {
     return null;
   }
 

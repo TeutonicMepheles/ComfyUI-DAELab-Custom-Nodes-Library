@@ -1,24 +1,109 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+// ComfyUI Desktop can retain old helper modules across extension updates.
+// Version all sibling imports together so their named exports stay in sync.
 import {
   getConnectedLoadImageInfo,
   getConnectedLoadImageKey,
   resolveExecutedImageUpdate,
-} from "./polygon_mask_connection.mjs";
+} from "./polygon_mask_connection.mjs?v=20260805-4";
 import {
   migratePolygonsForImage,
   stagePolygonExecutionPreview,
-} from "./polygon_mask_image_state.mjs";
+} from "./polygon_mask_image_state.mjs?v=20260805-4";
 import {
   bindPolygonDataQueueSync,
   resolveWorkflowPolygonInfo,
-} from "./polygon_mask_state.mjs";
+} from "./polygon_mask_state.mjs?v=20260805-4";
+import {
+  POLYGON_MASK_MAX_VERTICES,
+  collapsePolygonPanelInputs,
+} from "./polygon_mask_panel.mjs?v=20260805-4";
 
 const MIN_VERTICES = 3;
-const MAX_VERTICES = 12;
+const MAX_VERTICES = POLYGON_MASK_MAX_VERTICES;
 const PANEL_DEFAULT_HEIGHT = 430;
-const PANEL_MIN_HEIGHT = 280;
+const PANEL_MIN_HEIGHT = 360;
 const PANEL_MAX_HEIGHT = 1400;
+const PANEL_NATIVE_WIDGET_NAMES = ["vertex_count", "color", "fill_opacity", "outline_width", "text"];
+const POLYGON_PANEL_SYNC_INTERVAL_MS = 100;
+const polygonPanelNodes = new Set();
+let polygonPanelSyncTimer = null;
+
+function normalizeWidgetLabel(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function findVueNodeElement(node) {
+  const nodeId = String(node?.id ?? "");
+  if (!nodeId) {
+    return null;
+  }
+  return Array.from(document.querySelectorAll(".lg-node[data-node-id]"))
+    .find((element) => element.dataset.nodeId === nodeId) || null;
+}
+
+function hidePolygonAppearanceVueRows(node) {
+  const nodeElement = findVueNodeElement(node);
+  if (!nodeElement) {
+    return false;
+  }
+
+  const rows = Array.from(
+    nodeElement.querySelectorAll(".lg-node-widgets > .lg-node-widget"),
+  );
+  const panelRow = node.polygonWidget?.container?.closest(".lg-node-widget") || null;
+  let changed = false;
+
+  for (const widgetName of PANEL_NATIVE_WIDGET_NAMES) {
+    const normalizedName = normalizeWidgetLabel(widgetName);
+    const row = rows.find((candidate) => (
+      candidate !== panelRow
+      && normalizeWidgetLabel(candidate.textContent).startsWith(normalizedName)
+    ));
+    if (!row) {
+      continue;
+    }
+
+    if (row.dataset.polygonAppearanceHidden !== "true") {
+      changed = true;
+    }
+    row.dataset.polygonAppearanceHidden = "true";
+    row.hidden = true;
+    row.inert = true;
+    row.setAttribute("aria-hidden", "true");
+    row.style.setProperty("display", "none", "important");
+  }
+  return changed;
+}
+
+function runPolygonPanelSync() {
+  for (const node of Array.from(polygonPanelNodes)) {
+    if (!node?.graph) {
+      polygonPanelNodes.delete(node);
+      continue;
+    }
+    hidePolygonAppearanceVueRows(node);
+    node.normalizePolygonAppModeInputs?.();
+    node.syncPolygonAppearanceControls?.();
+  }
+}
+
+function registerPolygonPanelNode(node) {
+  polygonPanelNodes.add(node);
+  if (!polygonPanelSyncTimer) {
+    polygonPanelSyncTimer = setInterval(runPolygonPanelSync, POLYGON_PANEL_SYNC_INTERVAL_MS);
+  }
+  queueMicrotask(runPolygonPanelSync);
+}
+
+function unregisterPolygonPanelNode(node) {
+  polygonPanelNodes.delete(node);
+  if (!polygonPanelNodes.size && polygonPanelSyncTimer) {
+    clearInterval(polygonPanelSyncTimer);
+    polygonPanelSyncTimer = null;
+  }
+}
 
 function chainCallback(object, property, callback) {
   const original = object[property];
@@ -91,6 +176,179 @@ function createHelpNote(text) {
     "font:12px sans-serif",
   ].join(";");
   return note;
+}
+
+function createAppearanceField(labelText, control, suffix = "") {
+  const field = document.createElement("label");
+  field.style.cssText = [
+    "min-width:0",
+    "display:flex",
+    "align-items:center",
+    "gap:6px",
+    "color:#cfd3d8",
+    "font:12px sans-serif",
+  ].join(";");
+
+  const label = document.createElement("span");
+  label.textContent = labelText;
+  label.style.cssText = "flex:0 0 auto;white-space:nowrap";
+  field.append(label, control);
+
+  if (suffix) {
+    const suffixElement = document.createElement("span");
+    suffixElement.textContent = suffix;
+    suffixElement.style.cssText = "flex:0 0 auto;color:#9da3aa";
+    field.appendChild(suffixElement);
+  }
+  return field;
+}
+
+function styleAppearanceInput(input, width) {
+  input.style.cssText = [
+    `width:${width}`,
+    "min-width:0",
+    "height:24px",
+    "box-sizing:border-box",
+    "border:1px solid #3a3d42",
+    "border-radius:4px",
+    "background:#292b2f",
+    "color:#f0f0f0",
+    "font:12px sans-serif",
+    "padding:2px 6px",
+    "outline:none",
+  ].join(";");
+}
+
+function createAppearanceControls() {
+  const element = document.createElement("div");
+  element.style.cssText = [
+    "min-height:38px",
+    "flex:0 0 auto",
+    "display:flex",
+    "align-items:center",
+    "flex-wrap:wrap",
+    "gap:6px 14px",
+    "padding:6px 10px",
+    "box-sizing:border-box",
+    "background:#1b1d20",
+    "border-bottom:1px solid #333",
+  ].join(";");
+
+  const vertexCount = document.createElement("input");
+  vertexCount.type = "number";
+  vertexCount.min = String(MIN_VERTICES);
+  vertexCount.max = String(MAX_VERTICES);
+  vertexCount.step = "1";
+  vertexCount.title = "Polygon vertex count";
+  styleAppearanceInput(vertexCount, "58px");
+
+  const colorControl = document.createElement("div");
+  colorControl.style.cssText = "min-width:0;display:flex;align-items:center;gap:5px;flex:1";
+
+  const colorPicker = document.createElement("input");
+  colorPicker.type = "color";
+  colorPicker.title = "Polygon color";
+  colorPicker.style.cssText = [
+    "width:30px",
+    "height:24px",
+    "flex:0 0 30px",
+    "box-sizing:border-box",
+    "border:1px solid #3a3d42",
+    "border-radius:4px",
+    "background:#292b2f",
+    "padding:2px",
+    "cursor:pointer",
+  ].join(";");
+
+  const colorText = document.createElement("input");
+  colorText.type = "text";
+  colorText.title = "Hex or RGB polygon color";
+  colorText.spellcheck = false;
+  styleAppearanceInput(colorText, "92px");
+  colorText.style.flex = "1 1 72px";
+  colorControl.append(colorPicker, colorText);
+
+  const fillOpacity = document.createElement("input");
+  fillOpacity.type = "number";
+  fillOpacity.min = "0";
+  fillOpacity.max = "100";
+  fillOpacity.step = "1";
+  fillOpacity.title = "Polygon fill opacity";
+  styleAppearanceInput(fillOpacity, "58px");
+
+  const outlineWidth = document.createElement("input");
+  outlineWidth.type = "number";
+  outlineWidth.min = "0";
+  outlineWidth.max = "20";
+  outlineWidth.step = "1";
+  outlineWidth.title = "Polygon outline width";
+  styleAppearanceInput(outlineWidth, "58px");
+
+  const text = document.createElement("textarea");
+  text.rows = 2;
+  text.title = "Polygon text output";
+  text.placeholder = "\u8f93\u5165\u5e0c\u671b\u5728\u906e\u7f69\u5904\u751f\u6210\u7684\u5185\u5bb9\uff0c\u82e5\u65e0\u5219\u7559\u7a7a";
+  text.spellcheck = false;
+  text.style.cssText = [
+    "width:100%",
+    "min-width:0",
+    "height:48px",
+    "min-height:42px",
+    "max-height:120px",
+    "flex:1 1 auto",
+    "box-sizing:border-box",
+    "border:1px solid #3a3d42",
+    "border-radius:4px",
+    "background:#292b2f",
+    "color:#f0f0f0",
+    "font:12px/1.4 sans-serif",
+    "padding:5px 7px",
+    "outline:none",
+    "resize:vertical",
+  ].join(";");
+
+  const vertexField = createAppearanceField("\u9876\u70b9\u6570\u91cf", vertexCount);
+  vertexField.style.flex = "0 1 120px";
+  const colorField = createAppearanceField("\u989c\u8272", colorControl);
+  colorField.style.flex = "1 1 165px";
+  const opacityField = createAppearanceField("\u586b\u5145\u900f\u660e\u5ea6", fillOpacity, "%");
+  opacityField.style.flex = "0 1 145px";
+  const outlineField = createAppearanceField("\u8f6e\u5ed3\u5bbd\u5ea6", outlineWidth, "px");
+  outlineField.style.flex = "0 1 135px";
+  const textField = createAppearanceField("\u6587\u672c", text);
+  textField.style.flex = "1 1 100%";
+  textField.style.alignItems = "flex-start";
+  element.append(vertexField, colorField, opacityField, outlineField, textField);
+
+  for (const eventName of [
+    "pointerdown",
+    "pointerup",
+    "mousedown",
+    "mouseup",
+    "click",
+    "dblclick",
+    "wheel",
+    "keydown",
+  ]) {
+    element.addEventListener(eventName, (event) => event.stopPropagation());
+  }
+
+  return {
+    element,
+    vertexCount,
+    colorPicker,
+    colorText,
+    fillOpacity,
+    outlineWidth,
+    text,
+  };
+}
+
+function colorValueToHex(value) {
+  const parsed = parseColor(value);
+  return `#${[parsed.r, parsed.g, parsed.b]
+    .map((channel) => channel.toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
 function clamp(value, min, max) {
@@ -252,6 +510,7 @@ app.registerExtension({
       ].join(";");
 
       const canvasTitle = createSectionTitle("\u591a\u8fb9\u5f62\u7f16\u8f91\u753b\u5e03");
+      const appearanceControls = createAppearanceControls();
 
       const toolbar = document.createElement("div");
       toolbar.style.cssText = [
@@ -273,7 +532,9 @@ app.registerExtension({
       const rightGroup = document.createElement("div");
       rightGroup.style.cssText = "display:flex;align-items:center;gap:4px";
 
-      const helpNote = createHelpNote("Shift+\u5de6\u952e\uff1a\u65b0\u5efa Polygon | Shift+\u53f3\u952e\uff1a\u5220\u9664\u70b9\u51fb\u7684 Polygon");
+      const helpNote = createHelpNote(
+        "\u5de6\u952e\u70b9\u8fb9 / \u53f3\u952e\u70b9\u9876\u70b9\uff1a\u589e / \u5220\u9876\u70b9 | Shift+\u5de6 / \u53f3\u952e\uff1a\u589e / \u5220 Polygon",
+      );
 
       const canvasWrapper = document.createElement("div");
       canvasWrapper.style.cssText = [
@@ -299,6 +560,7 @@ app.registerExtension({
       canvasWrapper.appendChild(canvas);
 
       container.appendChild(canvasTitle);
+      container.appendChild(appearanceControls.element);
       container.appendChild(toolbar);
       container.appendChild(helpNote);
       container.appendChild(canvasWrapper);
@@ -334,7 +596,41 @@ app.registerExtension({
         resizeReady: false,
         suppressVertexCallback: false,
         restoredFromProperties: false,
+        appearanceControls,
       };
+
+      appearanceControls.colorPicker.addEventListener("input", (event) => {
+        this.setPolygonAppearanceWidgetValue("color", event.currentTarget.value, event);
+      });
+      appearanceControls.colorText.addEventListener("change", (event) => {
+        this.setPolygonAppearanceWidgetValue("color", event.currentTarget.value, event);
+        event.currentTarget.value = this.getPolygonWidget("color")?.value || "#FF0000";
+      });
+      appearanceControls.colorText.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      });
+      appearanceControls.text.addEventListener("input", (event) => {
+        this.setPolygonAppearanceWidgetValue("text", event.currentTarget.value, event);
+      });
+
+      for (const [widgetName, input] of [
+        ["vertex_count", appearanceControls.vertexCount],
+        ["fill_opacity", appearanceControls.fillOpacity],
+        ["outline_width", appearanceControls.outlineWidth],
+      ]) {
+        input.addEventListener("input", (event) => {
+          if (event.currentTarget.value !== "") {
+            this.setPolygonAppearanceWidgetValue(widgetName, event.currentTarget.value, event);
+          }
+        });
+        input.addEventListener("change", (event) => {
+          this.setPolygonAppearanceWidgetValue(widgetName, event.currentTarget.value, event);
+          event.currentTarget.value = this.getPolygonWidget(widgetName)?.value ?? "";
+        });
+      }
 
       // ResizeObserver: re-draw once the canvas reaches its final display size.
       // Cached images can load synchronously during onConfigure, causing
@@ -352,6 +648,7 @@ app.registerExtension({
       // element can be garbage-collected.
       const _polygonOnRemoved = this.onRemoved;
       this.onRemoved = function () {
+        unregisterPolygonPanelNode(this);
         if (this.polygonWidget && this.polygonWidget._resizeObserver) {
           this.polygonWidget._resizeObserver.disconnect();
           this.polygonWidget._resizeObserver = null;
@@ -399,12 +696,15 @@ app.registerExtension({
 
       const domWidget = this.addDOMWidget("polygon_canvas", "polygon_canvas", container);
       domWidget.computeSize = (width) => [width, this.getPolygonPanelHeight()];
+      this.normalizePolygonAppModeInputs?.();
 
       this.restorePolygonInfo();
+      this.syncPolygonAppearanceControls();
       this.redrawPolygonCanvas();
       this.updatePolygonButtons();
 
       this.bindPolygonWidgetCallbacks();
+      registerPolygonPanelNode(this);
       this.suppressDefaultPolygonPreview?.();
 
       chainCallback(this, "onResize", function (size) {
@@ -432,9 +732,15 @@ app.registerExtension({
       chainCallback(this, "onDrawForeground", function () {
         this.suppressDefaultPolygonPreview?.();
         this.setPolygonPanelHeight(this.getPolygonPanelHeight(), false);
+        this.syncPolygonAppearanceControls?.();
       });
 
       canvas.addEventListener("mousedown", (event) => {
+        if (event.button === 2) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+
         if (
           !this.polygonWidget.image
           || this.polygonWidget.pendingSourceImageData
@@ -457,14 +763,25 @@ app.registerExtension({
           return;
         }
 
-        if (event.button !== 0) {
+        const vertexHit = this.findPolygonVertexAt(coords, this.polygonWidget.selectedIndex);
+        if (event.button === 2) {
+          if (vertexHit >= 0) {
+            event.preventDefault();
+            this.deletePolygonVertexAt(this.polygonWidget.selectedIndex, vertexHit);
+          }
           return;
         }
 
-        const vertexHit = this.findPolygonVertexAt(coords, this.polygonWidget.selectedIndex);
         if (vertexHit >= 0) {
           event.preventDefault();
           this.startVertexDrag(this.polygonWidget.selectedIndex, vertexHit, coords);
+          return;
+        }
+
+        const segmentIndex = this.findPolygonSegmentAt(coords);
+        if (segmentIndex >= 0) {
+          event.preventDefault();
+          this.insertPolygonVertexAt(this.polygonWidget.selectedIndex, segmentIndex, coords);
           return;
         }
 
@@ -508,36 +825,10 @@ app.registerExtension({
       canvas.addEventListener("mouseup", () => this.finishPolygonDrag());
       canvas.addEventListener("mouseleave", () => this.finishPolygonDrag());
 
-      canvas.addEventListener("dblclick", (event) => {
-        if (
-          !this.polygonWidget.image
-          || this.polygonWidget.pendingSourceImageData
-          || this.polygonWidget.cleared
-        ) {
-          return;
-        }
+      canvasWrapper.addEventListener("contextmenu", (event) => {
         event.preventDefault();
-
-        const polygon = this.getSelectedPolygon();
-        if (!polygon || polygon.points.length >= MAX_VERTICES) {
-          return;
-        }
-
-        const coords = this.getPolygonCanvasCoords(event);
-        const segmentIndex = this.findPolygonSegmentAt(coords);
-        if (segmentIndex < 0) {
-          return;
-        }
-
-        polygon.points.splice(segmentIndex + 1, 0, coords);
-        this.setVertexCountWidgetValue(polygon.points.length);
-        this.updatePolygonInfo();
-        this.pushPolygonHistory();
-        this.redrawPolygonCanvas();
-        this.updatePolygonButtons();
+        event.stopPropagation();
       });
-
-      canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
       container.style.height = `${this.getPolygonPanelHeight()}px`;
       setTimeout(() => {
@@ -577,6 +868,35 @@ app.registerExtension({
       }
     };
 
+    nodeType.prototype.normalizePolygonAppModeInputs = function () {
+      const graph = app.rootGraph;
+      const data = graph?.extra?.linearData;
+      if (!Array.isArray(data?.inputs)) {
+        return false;
+      }
+      if (graph.getNodeById?.(this.id) !== this) {
+        return false;
+      }
+
+      const normalized = collapsePolygonPanelInputs(data.inputs, this.id);
+      if (!normalized.changed) {
+        return false;
+      }
+
+      graph.extra.linearData = {
+        ...data,
+        inputs: normalized.inputs,
+      };
+      if (graph.events && !graph.__polygonMaskPanelRefreshQueued) {
+        graph.__polygonMaskPanelRefreshQueued = true;
+        queueMicrotask(() => {
+          graph.__polygonMaskPanelRefreshQueued = false;
+          graph.events.dispatchEvent?.(new Event("configured"));
+        });
+      }
+      return true;
+    };
+
     nodeType.prototype.getPolygonPanelHeight = function () {
       this.properties = this.properties || {};
       this.properties.polygon_canvas_height = clampPanelHeight(this.properties.polygon_canvas_height);
@@ -597,8 +917,88 @@ app.registerExtension({
       }
     };
 
+    nodeType.prototype.setPolygonAppearanceWidgetValue = function (name, value, event = null) {
+      const widget = this.getPolygonWidget(name);
+      if (!widget) {
+        return;
+      }
+
+      let normalizedValue;
+      if (name === "vertex_count") {
+        normalizedValue = clampVertexCount(value);
+      } else if (name === "color") {
+        normalizedValue = String(value || "#FF0000").trim() || "#FF0000";
+      } else if (name === "fill_opacity") {
+        normalizedValue = clamp(Math.round(Number(value) || 0), 0, 100);
+      } else if (name === "outline_width") {
+        normalizedValue = clamp(Math.round(Number(value) || 0), 0, 20);
+      } else if (name === "text") {
+        normalizedValue = String(value ?? "");
+      } else {
+        return;
+      }
+
+      const changed = widget.value !== normalizedValue;
+      widget.value = normalizedValue;
+      if (changed && typeof widget.callback === "function") {
+        widget.callback(normalizedValue, app.canvas, this, null, event);
+      } else if (changed && name === "text") {
+        (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
+      } else if (changed) {
+        this.savePolygonWidgetState(true);
+        this.redrawPolygonCanvas();
+      }
+      this.syncPolygonAppearanceControls();
+    };
+
+    nodeType.prototype.syncPolygonAppearanceControls = function () {
+      const controls = this.polygonWidget?.appearanceControls;
+      if (!controls) {
+        return;
+      }
+
+      const colorWidget = this.getPolygonWidget("color");
+      const colorValue = String(colorWidget?.value || "#FF0000");
+      controls.colorPicker.value = colorValueToHex(colorValue);
+      if (document.activeElement !== controls.colorText) {
+        controls.colorText.value = colorValue;
+      }
+
+      const textWidget = this.getPolygonWidget("text");
+      if (document.activeElement !== controls.text) {
+        controls.text.value = String(textWidget?.value ?? "");
+      }
+      const textLinked = this.inputs?.find((candidate) => candidate.name === "text")?.link != null;
+      controls.text.disabled = Boolean(
+        textLinked || textWidget?.disabled || textWidget?.options?.disabled,
+      );
+
+      for (const [widgetName, input, fallback, min, max] of [
+        ["vertex_count", controls.vertexCount, MIN_VERTICES, MIN_VERTICES, MAX_VERTICES],
+        ["fill_opacity", controls.fillOpacity, 35, 0, 100],
+        ["outline_width", controls.outlineWidth, 3, 0, 20],
+      ]) {
+        const widget = this.getPolygonWidget(widgetName);
+        const numericValue = widgetName === "vertex_count"
+          ? clampVertexCount(widget?.value ?? fallback)
+          : clamp(Number(widget?.value ?? fallback), min, max);
+        if (document.activeElement !== input) {
+          input.value = String(numericValue);
+        }
+        const linked = this.inputs?.find((candidate) => candidate.name === widgetName)?.link != null;
+        const disabled = Boolean(linked || widget?.disabled || widget?.options?.disabled);
+        input.disabled = disabled;
+      }
+
+      const colorLinked = this.inputs?.find((candidate) => candidate.name === "color")?.link != null;
+      const colorDisabled = Boolean(colorLinked || colorWidget?.disabled || colorWidget?.options?.disabled);
+      controls.colorPicker.disabled = colorDisabled;
+      controls.colorText.disabled = colorDisabled;
+    };
+
     nodeType.prototype.bindPolygonWidgetCallbacks = function () {
       const vertexWidget = this.getPolygonWidget("vertex_count");
+      let appearanceLayoutChanged = false;
 
       if (vertexWidget && !vertexWidget._polygonMaskStateBound) {
         const originalVertexCallback = vertexWidget.callback;
@@ -625,19 +1025,62 @@ app.registerExtension({
         polygonDataWidget._polygonMaskStorageBound = true;
       }
 
-      for (const widgetName of ["color", "fill_opacity", "outline_width"]) {
+      for (const widgetName of PANEL_NATIVE_WIDGET_NAMES) {
         const widget = this.getPolygonWidget(widgetName);
-        if (!widget || widget._polygonMaskGenericStateBound) {
+        if (!widget) {
+          continue;
+        }
+
+        if (!widget._polygonMaskPanelHidden) {
+          widget.origComputeSize = widget.origComputeSize || widget.computeSize;
+          widget.hidden = true;
+          widget.options = {
+            ...(widget.options || {}),
+            canvasOnly: true,
+            hidden: true,
+          };
+          widget.computeSize = () => [0, -4];
+          widget.computeLayoutSize = () => ({
+            minHeight: 0,
+            maxHeight: 0,
+            minWidth: 0,
+          });
+          widget.draw = () => {};
+          for (const element of [widget.element, widget.inputEl]) {
+            if (!element?.style) {
+              continue;
+            }
+            element.style.display = "none";
+            element.style.visibility = "hidden";
+          }
+          widget._polygonMaskPanelHidden = true;
+          appearanceLayoutChanged = true;
+        }
+
+        if (widgetName === "vertex_count" || widget._polygonMaskGenericStateBound) {
           continue;
         }
         const originalCallback = widget.callback;
         widget.callback = (...args) => {
           const result = originalCallback?.apply(widget, args);
+          if (widgetName === "text") {
+            (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
+            this.syncPolygonAppearanceControls();
+            return result;
+          }
           this.savePolygonWidgetState(true);
           this.redrawPolygonCanvas();
+          this.syncPolygonAppearanceControls();
           return result;
         };
         widget._polygonMaskGenericStateBound = true;
+      }
+
+      if (appearanceLayoutChanged && Array.isArray(this.widgets)) {
+        // Nodes 2.0 snapshots widget display options. Replacing the array with
+        // the same widget objects invalidates that snapshot without changing
+        // serialization order or values.
+        this.widgets = [...this.widgets];
       }
     };
 
@@ -666,6 +1109,7 @@ app.registerExtension({
           widget.value = this.properties[propertyName];
         }
       }
+      this.syncPolygonAppearanceControls?.();
     };
 
     nodeType.prototype.getPolygonImageValue = function () {
@@ -742,9 +1186,11 @@ app.registerExtension({
       this.suppressDefaultPolygonPreview?.();
       this.captureConfiguredPolygonInfo?.(serialized);
       this.restoreConfiguredPolygonState?.();
+      this.normalizePolygonAppModeInputs?.();
       setTimeout(() => {
         this.suppressDefaultPolygonPreview?.();
         this.restoreConfiguredPolygonState?.();
+        this.normalizePolygonAppModeInputs?.();
       }, 0);
     });
 
@@ -971,6 +1417,48 @@ app.registerExtension({
       this.pushPolygonHistory();
       this.redrawPolygonCanvas();
       this.updatePolygonButtons();
+    };
+
+    nodeType.prototype.insertPolygonVertexAt = function (polygonIndex, segmentIndex, coords) {
+      const polygon = this.polygonWidget.polygons[polygonIndex];
+      if (
+        !polygon
+        || polygon.points.length >= MAX_VERTICES
+        || !Number.isInteger(segmentIndex)
+        || segmentIndex < 0
+        || segmentIndex >= polygon.points.length
+      ) {
+        return false;
+      }
+
+      polygon.points.splice(segmentIndex + 1, 0, { x: coords.x, y: coords.y });
+      this.setVertexCountWidgetValue(polygon.points.length);
+      this.updatePolygonInfo();
+      this.pushPolygonHistory();
+      this.redrawPolygonCanvas();
+      this.updatePolygonButtons();
+      return true;
+    };
+
+    nodeType.prototype.deletePolygonVertexAt = function (polygonIndex, vertexIndex) {
+      const polygon = this.polygonWidget.polygons[polygonIndex];
+      if (
+        !polygon
+        || polygon.points.length <= MIN_VERTICES
+        || !Number.isInteger(vertexIndex)
+        || vertexIndex < 0
+        || vertexIndex >= polygon.points.length
+      ) {
+        return false;
+      }
+
+      polygon.points.splice(vertexIndex, 1);
+      this.setVertexCountWidgetValue(polygon.points.length);
+      this.updatePolygonInfo();
+      this.pushPolygonHistory();
+      this.redrawPolygonCanvas();
+      this.updatePolygonButtons();
+      return true;
     };
 
     nodeType.prototype.restorePolygonState = function (state) {
@@ -1490,7 +1978,7 @@ app.registerExtension({
         ctx.textAlign = "center";
         ctx.fillText("Connect an IMAGE input and click Load Image", canvas.width / 2, canvas.height / 2 - 12);
         ctx.font = "14px sans-serif";
-        ctx.fillText("Shift-left adds, Shift-right deletes, drag fill to move", canvas.width / 2, canvas.height / 2 + 18);
+        ctx.fillText("Left-click an edge to add; right-click a vertex to delete", canvas.width / 2, canvas.height / 2 + 18);
         return;
       }
 

@@ -13,7 +13,7 @@ from comfy_api.latest import io
 
 
 MIN_VERTEX_COUNT = 3
-MAX_VERTEX_COUNT = 12
+MAX_VERTEX_COUNT = 50
 DEFAULT_COLOR = "#FF0000"
 DEFAULT_POLYGON_RADIUS_RATIO = 0.08
 
@@ -272,7 +272,7 @@ class PolygonMask(io.ComfyNode):
         return io.Schema(
             node_id="PolygonMask",
             display_name="Polygon Mask",
-            description="Load an image, edit closed polygon overlays, and output the composited image plus a raw polygon mask.",
+            description="Load an image, edit closed polygon overlays, and output the composited image, raw polygon mask, and panel text.",
             category="image/polygon",
             search_aliases=["load image polygon", "polygon mask", "polygon overlay"],
             inputs=[
@@ -305,10 +305,17 @@ class PolygonMask(io.ComfyNode):
                     advanced=True,
                     tooltip="Internal polygon state managed by the Polygon Mask editor.",
                 ),
+                io.String.Input(
+                    "text",
+                    default="",
+                    multiline=True,
+                    tooltip="Multiline text passed through to the text output.",
+                ),
             ],
             outputs=[
                 io.Image.Output(display_name="masked_image"),
                 io.Mask.Output(display_name="raw_mask"),
+                io.String.Output(display_name="text"),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
         )
@@ -322,10 +329,12 @@ class PolygonMask(io.ComfyNode):
         fill_opacity=35,
         outline_width=3,
         polygon_data="",
+        text="",
     ):
         image_tensor = image
         if image_tensor is None or len(image_tensor.shape) != 4:
             raise ValueError("Polygon Mask requires an IMAGE input tensor.")
+        output_text = "" if text is None else str(text)
 
         ui = _ui_source_image(image_tensor)
         info = _resolve_polygon_info(
@@ -339,14 +348,14 @@ class PolygonMask(io.ComfyNode):
 
         if info.get("cleared") is True:
             raw_mask = torch.zeros((int(image_tensor.shape[0]), height, width), dtype=torch.float32)
-            return io.NodeOutput(image_tensor, raw_mask, ui=ui)
+            return io.NodeOutput(image_tensor, raw_mask, output_text, ui=ui)
 
         polygons = _parse_polygons(info, width, height)
 
         if not polygons:
             if "polygons" in info or "points" in info:
                 raw_mask = torch.zeros((int(image_tensor.shape[0]), height, width), dtype=torch.float32)
-                return io.NodeOutput(image_tensor, raw_mask, ui=ui)
+                return io.NodeOutput(image_tensor, raw_mask, output_text, ui=ui)
             polygons = [_default_polygon_points(width, height, vertex_count)]
 
         output_images = []
@@ -357,7 +366,12 @@ class PolygonMask(io.ComfyNode):
             output_images.append(_pil_to_tensor(composited))
             output_masks.append(_draw_polygons_to_mask(width, height, polygons))
 
-        return io.NodeOutput(torch.cat(output_images, dim=0), torch.stack(output_masks, dim=0), ui=ui)
+        return io.NodeOutput(
+            torch.cat(output_images, dim=0),
+            torch.stack(output_masks, dim=0),
+            output_text,
+            ui=ui,
+        )
 
     @classmethod
     def fingerprint_inputs(
@@ -368,6 +382,7 @@ class PolygonMask(io.ComfyNode):
         fill_opacity=35,
         outline_width=3,
         polygon_data="",
+        text="",
     ):
         digest = hashlib.sha256()
         if hasattr(image, "shape"):
@@ -379,6 +394,7 @@ class PolygonMask(io.ComfyNode):
         digest.update(str(color).encode("utf-8"))
         digest.update(str(_clamp_int(fill_opacity, 0, 100, 35)).encode("utf-8"))
         digest.update(str(_clamp_int(outline_width, 0, 20, 3)).encode("utf-8"))
+        digest.update(("" if text is None else str(text)).encode("utf-8"))
         polygon_info = _resolve_polygon_info(
             polygon_data,
             cls.hidden.unique_id,

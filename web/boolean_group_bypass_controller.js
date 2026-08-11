@@ -12,7 +12,8 @@ import {
     getGroupId,
     resolveBooleanSource,
     resolveGroup,
-} from "./boolean_group_bypass_controller_model.mjs?v=hierarchical-overlap-1";
+    setNodeMode,
+} from "./boolean_group_bypass_controller_model.mjs?v=hierarchical-overlap-2";
 
 const EXTENSION_NAME = "DAELab.BooleanGroupBypassController";
 const WIDGET_NAME = "boolean_group_bypass_controller_ui";
@@ -296,8 +297,7 @@ function applyPlanAssignments(plans) {
     const assignments = buildNodeModeAssignments(plans);
     const changedGraphs = new Map();
     for (const [node, mode] of assignments) {
-        if (!node || node.mode === mode) continue;
-        node.mode = mode;
+        if (!setNodeMode(node, mode)) continue;
         const owner = plans.find((plan) => plan.nodes.includes(node));
         if (owner && !changedGraphs.has(owner.graph)) {
             changedGraphs.set(owner.graph, owner.controller);

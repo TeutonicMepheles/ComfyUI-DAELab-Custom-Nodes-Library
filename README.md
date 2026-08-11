@@ -18,8 +18,11 @@ DAELab 维护的 ComfyUI 自定义节点库。
 | `BooleanListHierarchyGet` | `Boolean List Hierarchy Get` | 无连线选择 Hierarchy 的 Root 分支，并自动生成该分支的 Bool 输出。 |
 | `BooleanGroupBypassController` | `Boolean Group Bypass Controller` | 将 Hierarchy 或 Hierarchy Get 的指定 Bool 映射为可视节点组状态，并支持与 Boolean 祖先关系一致的嵌套 Bypass 合成。 |
 | `SeedreamExhibitionPromptBuilder` | `Seedream Exhibition Prompt Builder` | 面向 Seedream 5.0 Pro 展厅写实渲染工作流，按主题、参考图用途、语义色彩和布尔条件生成分段提示词。 |
+| `GPTImage2Config` | `GPT Image2 Config` | 集中输出 `gpt-image-2` 的预设尺寸、背景和质量参数；应用构建模式下以一个组合输入统一开关。 |
+| `RMBGConfig` | `RMBG Config` | 集中输出 RMBG 遮罩提取节点的背景类型和背景颜色；应用构建模式下以一个组合输入统一开关。 |
+| `AppModeLoadImage` | `Load Image (App Mode)` | 继承原生图片上传、加载与 Mask 输出，并在 Bypass 时同步折叠应用面板输入。 |
 | `BBoxPromptReroute` | `BBox Prompt Reroute` | 转接正向/负向 SAM3 框 prompt，仅整理工作流连线。 |
-| `PolygonMask` | `Polygon Mask` | 接收外部 `IMAGE` socket，隔离复制工作流的多边形状态与执行预览，并输出叠加图和原图尺寸黑白 `raw_mask`。 |
+| `PolygonMask` | `Polygon Mask` | 接收外部 `IMAGE` socket，隔离复制工作流的多边形状态与执行预览，并输出叠加图、原图尺寸黑白 `raw_mask` 和面板多行文本。 |
 | `SAM3ComplexCollector` | `SAM3 Complex Collector` | 集 BBox 与交互式 collector 于一体，支持节点内独立 Run、会话缓存和增量分割。 |
 
 ## 目录结构
@@ -42,6 +45,15 @@ ComfyUI-DAELab-Custom-Nodes-Library/
       node.py
       README.md
     seedream_exhibition_prompt_builder/
+      node.py
+      README.md
+    gpt_image2_config/
+      node.py
+      README.md
+    rmbg_config/
+      node.py
+      README.md
+    app_mode_load_image/
       node.py
       README.md
     bbox_prompt_reroute/
@@ -80,7 +92,7 @@ ComfyUI-DAELab-Custom-Nodes-Library/
 
 ## 提示词节点
 
-`SeedreamExhibitionPromptBuilder` 是面向 Seedream 5.0 Pro 的展厅提示词节点，复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，`style_id` 在前端显示中文标签。`base_prompt` 始终作为基础输入并显示在面板顶部；模板模式在其后按目标、参考约束、设计材质、配色、灯光摄影组织段落。Color Picker 输入会同时输出自然语言色彩语义和标准化 `#RRGGBB`。
+`SeedreamExhibitionPromptBuilder` 是面向 Seedream 5.0 Pro 的展厅提示词节点，复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，节点输入在前端统一显示中文标签。`base_prompt` 始终作为基础输入并显示在面板顶部；模板模式在其后按目标、参考约束、人物要求、设计材质、配色、灯光摄影组织段落。Color Picker 输入会同时输出自然语言色彩语义和标准化 `#RRGGBB`。应用构建模式可把缩略图至“附加细节描述”合并为一个“提示词模板”面板，并由 `use_theme_template` 控制最终应用中的整组显隐。
 
 ## 交互式节点
 

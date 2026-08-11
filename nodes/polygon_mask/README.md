@@ -21,11 +21,12 @@
 | 输入 | 类型 | 说明 |
 | --- | --- | --- |
 | `image` | `IMAGE` | 外部图像来源，例如 ComfyUI `Load Image`。 |
-| `vertex_count` | `INT` | 重置或新增多边形时使用的顶点数，范围 3–12。 |
+| `vertex_count` | `INT` | 重置或新增多边形时使用的顶点数，范围 3–50。 |
 | `color` | `COLOR` | 多边形颜色，兼容 LayerUtility/LayerStyle Color Picker。 |
 | `fill_opacity` | `INT` | 填充透明度，范围 0–100。 |
 | `outline_width` | `INT` | 轮廓宽度，范围 0–20。 |
 | `polygon_data` | `STRING` | 隐藏的高级状态输入，由前端编辑器维护。 |
+| `text` | `STRING` | 画布面板内的多行文本，原样同步到 `text` 输出。 |
 
 ## 输出
 
@@ -33,15 +34,18 @@
 | --- | --- | --- |
 | `masked_image` | `IMAGE` | 在输入图像上绘制全部多边形后的结果。 |
 | `raw_mask` | `MASK` | 与输入图像同尺寸的黑白 mask；多边形填充区域为白色，其余区域为黑色。 |
+| `text` | `STRING` | 与面板内多行 `text` 输入相同的字符串。 |
 
 ## 编辑操作
 
+- `vertex_count`、`color`、`fill_opacity`、`outline_width` 和多行 `text` 集成在多边形编辑画布面板中；应用构建模式将画布及这五个参数作为同一项输入。
 - 按住 `Shift` 并左键点击图像：新增一个三角形多边形。
 - 按住 `Shift` 并右键点击多边形：删除该多边形。
 - 点击填充区域：选择多边形。
 - 拖动已选多边形的填充区域：整体移动，不改变形状。
 - 拖动已选多边形的顶点：调整形状。
-- 双击已选多边形的任意边（包括闭合边）：插入新顶点。
+- 左键单击已选多边形的任意边（包括闭合边）：在点击位置插入新顶点，最多 50 个顶点。
+- 右键单击已选多边形的顶点：删除该顶点，最少保留 3 个顶点。
 - `Clear`：删除当前选中的多边形。
 - `Reset`：按当前 `vertex_count` 重建已选多边形，并保持其中心位置。
 - `Load Image`：立即加载当前 graph 中相连 `Load Image` 的当前文件；非文件 socket 需要先手动运行工作流一次。
@@ -80,8 +84,9 @@
 
 - 后端：`node.py`
 - 前端：`../../web/polygon_mask.js`
+- 画布面板模型：`../../web/polygon_mask_panel.mjs`
 - 连接解析模型：`../../web/polygon_mask_connection.mjs`
 - 图片状态迁移模型：`../../web/polygon_mask_image_state.mjs`
 - 工作流状态同步模型：`../../web/polygon_mask_state.mjs`
 - 后端测试：`../../tests/test_polygon_mask.py`
-- 前端测试：`../../tests/polygon_mask_connection.test.mjs`、`../../tests/polygon_mask_image_state.test.mjs`、`../../tests/polygon_mask_state.test.mjs`
+- 前端测试：`../../tests/polygon_mask_connection.test.mjs`、`../../tests/polygon_mask_image_state.test.mjs`、`../../tests/polygon_mask_panel.test.mjs`、`../../tests/polygon_mask_state.test.mjs`

@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAE Custom Node Frontend Checklist"
+  short_description: "Audit node sizing, refresh stability, and App Mode Bypass coverage"
+  default_prompt: "Use $dae-custom-node-frontend-checklist to audit this ComfyUI custom node frontend for compact sizing, refresh-safe layout, and DAELab App Mode Bypass coverage."

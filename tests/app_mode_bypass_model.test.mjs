@@ -36,6 +36,21 @@ test("covers every node exported by the DAELab package", () => {
         "BooleanGroupBypassController",
         "SeedreamExhibitionPromptBuilder",
         "GPTImage2Config",
+        "GPTImage2MaterialPrompt",
+        "BadgeReliefPrompt",
+        "DAELabMultiColorMask",
+        "DAELabBadgeHeightLayer",
+        "BadgeHeightEstablishPromptBuilder",
+        "BadgeDesignCanvas",
+        "BadgeRenderPromptBuilder",
+        "BadgeMasterRegistration",
+        "BadgeEditMaskValidator",
+        "BadgeLocalEditPromptBuilder",
+        "BadgeHeightPatch",
+        "BadgeDeterministicComposite",
+        "BadgePresentationPromptBuilder",
+        "BadgeEditStateSave",
+        "BadgeEditStateLoad",
         "RMBGConfig",
         "AppModeLoadImage",
         "BBoxPromptReroute",
@@ -46,8 +61,24 @@ test("covers every node exported by the DAELab package", () => {
     assert.equal(isDaelabNode({ type: "SaveImage" }), false);
 });
 
-test("includes grouped config nodes in app mode bypass collapsing", () => {
-    for (const type of ["GPTImage2Config", "RMBGConfig"]) {
+test("includes grouped panel nodes in app mode bypass collapsing", () => {
+    for (const type of [
+        "GPTImage2Config",
+        "GPTImage2MaterialPrompt",
+        "BadgeReliefPrompt",
+        "DAELabMultiColorMask",
+        "DAELabBadgeHeightLayer",
+        "BadgeHeightEstablishPromptBuilder",
+        "BadgeDesignCanvas",
+        "BadgeMasterRegistration",
+        "BadgeEditMaskValidator",
+        "BadgeLocalEditPromptBuilder",
+        "BadgeHeightPatch",
+        "BadgeDeterministicComposite",
+        "BadgeEditStateSave",
+        "BadgeEditStateLoad",
+        "RMBGConfig",
+    ]) {
         const node = { type, mode: 4 };
         assert.equal(isDaelabNode(node), true);
         assert.equal(isNodeAvailableInAppMode(node), false);

@@ -92,6 +92,9 @@ Nodes that interoperate with SAM3 use the custom type `SAM3_BOXES_PROMPT` for bb
 
 All JS files in `web/` register ComfyUI extensions via `app.registerExtension({ name: "daelab.NodeName", ... })`. The canonical pattern:
 
+- **Mandatory App Mode behavior:** every exported node must reuse `web/app_mode_bypass.js` so its App Mode inputs or composite panel collapse when the node is Bypassed, Muted, or otherwise non-Active, and restore when Active. Add every new or renamed node ID to `DAELAB_NODE_TYPES` in `web/app_mode_bypass_model.mjs` and update `tests/app_mode_bypass_model.test.mjs`; do not duplicate this visibility logic in node-specific scripts.
+- **Mandatory reuse check:** before designing an interactive feature, search `web/`, `nodes/`, and `tests/` for existing controls, panels, state models, and interaction patterns. Prefer importing, extending, parameterizing, or extracting shared code. Add a new control only if reuse cannot satisfy the requirement without regressions; document what was evaluated and reused, or why a new control was necessary.
+
 1. `beforeRegisterNodeDef(nodeType, nodeData)` — gate on `nodeData.name !== "MyNode"` to target only the right node.
 2. Use `chainCallback(object, property, callback)` to hook into lifecycle methods. **Note:** `chainCallback` is NOT a shared utility — it is redefined identically at the top of every JS file that uses it. When creating a new frontend file, copy the definition from an existing file.
 3. Lifecycle hooks used: `onNodeCreated`, `onExecuted`, `onSerialize`, `onConfigure`, `onResize`, `onDrawForeground`, `onConnectionsChange`, `onRemoved`.

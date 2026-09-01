@@ -19,6 +19,11 @@ DAELab 维护的 ComfyUI 自定义节点库。
 | `BooleanGroupBypassController` | `Boolean Group Bypass Controller` | 将 Hierarchy 或 Hierarchy Get 的指定 Bool 映射为可视节点组状态，并支持与 Boolean 祖先关系一致的嵌套 Bypass 合成。 |
 | `SeedreamExhibitionPromptBuilder` | `Seedream Exhibition Prompt Builder` | 面向 Seedream 5.0 Pro 展厅写实渲染工作流，按主题、参考图用途、语义色彩和布尔条件生成分段提示词。 |
 | `GPTImage2Config` | `GPT Image2 Config` | 集中输出 `gpt-image-2` 的预设尺寸、背景和质量参数；应用构建模式下以一个组合输入统一开关。 |
+| `GPTImage2MaterialPrompt` | `GPT Image 2 材质提示词` | 选择徽章材质并可选是否启用自选颜色；关闭时只应用完全去色的材质物理特性，锁定 Image 1 参考图原色，不输出自选颜色或着色预览。 |
+| `BadgeReliefPrompt` | `徽章浮雕强度 / Badge Relief` | 通过 0–5 档分段滑条生成只改变徽章表面 Z 轴浮雕、并锁定材质、文字、颜色和图形的编辑提示词。 |
+| `DAELabMultiColorMask` | `Multi Color Mask (DAELab)` | 默认一组、可动态增删颜色匹配组，并选择输出指定 `mask_N` 或全部启用组的 `combined_mask`。 |
+| `DAELabBadgeHeightLayer` | `Badge Height Layer (DAELab)` | 将动态颜色组映射到镂空及一至五层，输出固定 0.2 等差的离散灰度高度图和未匹配区域。 |
+| `BadgeHeightEstablishPromptBuilder` | `Badge Height Establish Prompt Builder` | 根据 Badge Height Layer 实际命中的离散层级与 Alpha/灰度值动态生成不依赖材质或前景遮罩的 GPT Image 高度建立 Prompt。 |
 | `RMBGConfig` | `RMBG Config` | 集中输出 RMBG 遮罩提取节点的背景类型和背景颜色；应用构建模式下以一个组合输入统一开关。 |
 | `AppModeLoadImage` | `Load Image (App Mode)` | 继承原生图片上传、加载与 Mask 输出，并在 Bypass 时同步折叠应用面板输入。 |
 | `BBoxPromptReroute` | `BBox Prompt Reroute` | 转接正向/负向 SAM3 框 prompt，仅整理工作流连线。 |
@@ -48,6 +53,18 @@ ComfyUI-DAELab-Custom-Nodes-Library/
       node.py
       README.md
     gpt_image2_config/
+      node.py
+      README.md
+    gpt_image2_material_prompt/
+      node.py
+      README.md
+    badge_relief_prompt/
+      node.py
+      README.md
+    multi_color_mask/
+      node.py
+      README.md
+    badge_height_layer/
       node.py
       README.md
     rmbg_config/
@@ -81,6 +98,18 @@ ComfyUI-DAELab-Custom-Nodes-Library/
     boolean_group_bypass_controller_model.mjs
     gpt_image2_config.js
     gpt_image2_config_panel.mjs
+    material_prompt.js
+    material_prompt_model.mjs
+    materials.json
+    material_thumbs/
+    thumbnail_selector.mjs
+    badge_relief_prompt.js
+    badge_relief_prompt_panel.mjs
+    multi_color_mask.js
+    multi_color_mask_model.mjs
+    badge_height_layer.js
+    badge_height_layer_model.mjs
+    color_picker_widget.mjs
     prompt_preset.js
     bbox_loader.js
     polygon_mask.js
@@ -102,18 +131,24 @@ ComfyUI-DAELab-Custom-Nodes-Library/
 
 `SeedreamExhibitionPromptBuilder` 是面向 Seedream 5.0 Pro 的展厅提示词节点，复用 `web/styles.json` 和 `web/prompt_preset.js` 的缩略图选择器，节点输入在前端统一显示中文标签。`base_prompt` 始终作为基础输入并显示在面板顶部；模板模式在其后按目标、参考约束、人物要求、设计材质、配色、灯光摄影组织段落。Color Picker 输入会同时输出自然语言色彩语义和标准化 `#RRGGBB`。应用构建模式可把缩略图至“附加细节描述”合并为一个“提示词模板”面板，并由 `use_theme_template` 控制最终应用中的整组显隐。
 
+`GPTImage2MaterialPrompt` 复用展厅节点的缩略图按钮与网格交互，通过 `web/materials.json` 建立可扩充材质目录。面板顶部以独立的 1:1 Viewport 放大显示当前选中材质，下方八个 1:1 缩略图按钮固定为四列两行；两处共用同一张本地材质图。“编辑目标（可选）”默认留空，只有用户填写后才会写入输出；旧工作流保存的旧自动默认文案会迁移为空。节点同时提供“启用颜色”开关和目标颜色选择器：开关默认开启以兼容已有工作流；关闭时颜色选择器折叠，提示词和 `material_semantics` 改用完全去色的材质语义，并明确锁定 Image 1 参考图中已有的局部颜色和颜色分区，不读取自选色、材质名称、缩略图或目录默认色。此时 `selected_color` 输出为空，`preview_image` 也不再套用自选色。材质图不会自动传入图像输入。
+
 ## 交互式节点
 
 - `Boolean List Hierarchy` 使用稳定条目 ID 保存连线，支持 Root、子项、孙项、同父项互斥组、跨分支多前置依赖、整棵子树排序、缩进、提升和递归级联删除。
 - `Boolean List Hierarchy Get` 无需连接来源节点，可选择一个 Root 分支并自动同步该分支的输出及其跨分支依赖上下文。
 - `Boolean Group Bypass Controller` 是前端虚拟控制器，不参与正常 API Prompt；它支持 Hierarchy 与 Hierarchy Get 双来源，并允许父 Bool 的外层组与子 Bool 的内层组按 Bypass 优先规则安全合成。
+- `Multi Color Mask (DAELab)` 默认显示一组颜色匹配设置，可增加到 16 组；单一输出口由 `output_mask` 在指定 `mask_N` 和 `combined_mask` 之间切换。
+- `Badge Height Layer (DAELab)` 复用 Multi Color Mask 的颜色控件，可把最多 16 种颜色分别映射为镂空或一至五层，并同时输出高度 MASK、灰度 IMAGE、未匹配区域和实际命中层级档案；`Badge Height Establish Prompt Builder` 只读取该档案，动态生成高度建立 Prompt 与诊断报告。
 - `Polygon Mask` 可直接读取当前工作流中相连 `Load Image` 的选择；其他图像来源先接收不会覆盖持久状态的执行预览，再由 `Apply Preview` 明确应用。换图会保留有效 Polygon，并在分辨率变化时按宽高比例缩放顶点。
 - `SAM3 Complex Collector` 的首次 `Run` 会只执行必要的上游依赖和 collector 以建立缓存，后续可在不执行下游节点的情况下更新当前交互式 prompt 或全部 BBox prompt 的预览。
 
 ## 应用构建模式
 
 - `web/app_mode_bypass.js` 统一监听本库节点的 Active、Bypass、Mute 等模式，并折叠最终应用中属于非正常执行节点的输入项；恢复 Active 后会恢复原面板状态。
-- `GPTImage2Config`、`RMBGConfig`、`PolygonMask` 和 `SeedreamExhibitionPromptBuilder` 会把同一用途的多个原生 widget 折叠成稳定的组合面板输入，旧工作流中分散暴露的成员会在加载时迁移。
+- `GPTImage2Config`、`GPTImage2MaterialPrompt`、`BadgeReliefPrompt`、`RMBGConfig`、`PolygonMask` 和 `SeedreamExhibitionPromptBuilder` 会参与统一的 App Mode Bypass 显隐；已有组合面板节点继续把原生 widget 折叠为稳定输入。
+- `DAELabMultiColorMask` 的动态颜色组和输出选择可加入应用输入；节点进入 Bypass、Mute 等状态后，这些输入会随节点一起折叠。
+- `DAELabBadgeHeightLayer` 的动态颜色组会参与相同的 App Mode Bypass 折叠与恢复逻辑。
 - `AppModeLoadImage` 保留原生 `LoadImage` 的上传、Mask 和缓存语义，同时参与应用输入的 Bypass 显隐；`polygon_mask_app_mode_load_image_compat.js` 负责让 Polygon Mask 正确识别该节点。
 - 普通工作流画布仍保留原生 socket、widget 和序列化键；组合面板只改变应用构建器中的呈现方式，不改变后端输入名称。
 

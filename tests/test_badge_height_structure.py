@@ -65,7 +65,7 @@ class BadgeHeightStructureTests(unittest.TestCase):
             "enforce_1024",
         ])
 
-    def test_valid_candidate_is_grayscale_and_preserves_protected_pixels(self):
+    def test_valid_candidate_restores_flat_color_and_preserves_protected_pixels(self):
         candidate, fallback, flat, height, foreground = self.make_inputs()
         image, lightness, accepted, report_text = self.constrain(
             candidate, fallback, flat, height, foreground
@@ -74,11 +74,16 @@ class BadgeHeightStructureTests(unittest.TestCase):
         self.assertTrue(accepted, report)
         self.assertEqual(tuple(image.shape), tuple(candidate.shape))
         self.assertEqual(tuple(lightness.shape), tuple(foreground.shape))
-        torch.testing.assert_close(image[..., 0], image[..., 1])
-        torch.testing.assert_close(image[..., 1], image[..., 2])
+        self.assertGreater(float((image[..., 1] - image[..., 0]).abs().max().item()), 0.1)
+        source_pixel = flat[0, 12, 12]
+        output_pixel = image[0, 12, 12]
+        channel_ratios = output_pixel / source_pixel
+        torch.testing.assert_close(channel_ratios, channel_ratios.mean().expand_as(channel_ratios))
         self.assertEqual(report["outside_max_abs_diff"], 0.0)
         self.assertEqual(report["protected_max_abs_diff"], 0.0)
         self.assertEqual(report["output_source"], "gpt_structure_candidate")
+        self.assertTrue(report["grayscale_candidate_forced"])
+        self.assertTrue(report["flat_color_restored"])
         self.assertGreaterEqual(report["observed_relief_contrast"], 0.08)
         self.assertGreaterEqual(report["observed_boundary_coverage"], 0.60)
 
@@ -93,7 +98,7 @@ class BadgeHeightStructureTests(unittest.TestCase):
         self.assertFalse(accepted)
         self.assertEqual(report["fallback_reason"], "candidate_relief_signal_too_weak")
         self.assertEqual(report["output_source"], "deterministic_height_fallback")
-        torch.testing.assert_close(image[..., 0], image[..., 1])
+        torch.testing.assert_close(image, fallback)
 
     def test_non_finite_candidate_falls_back_without_poisoning_output(self):
         candidate, fallback, flat, height, foreground = self.make_inputs()

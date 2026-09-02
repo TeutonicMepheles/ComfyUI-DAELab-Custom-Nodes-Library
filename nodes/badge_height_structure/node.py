@@ -220,8 +220,8 @@ class BadgeStructureConstraintV1:
     FUNCTION = "constrain"
     CATEGORY = "DAELab/Badge/Height"
     DESCRIPTION = (
-        "Validate a global GPT-Image-2 grayscale relief proof, preserve exact badge and "
-        "height boundaries, and fall back to the deterministic height base when needed."
+        "Validate a global GPT-Image-2 grayscale relief proof, transfer only its lighting "
+        "onto the flat artwork colors, preserve exact boundaries, and fall back safely."
     )
 
     @classmethod
@@ -302,8 +302,8 @@ class BadgeStructureConstraintV1:
                 fallback_reason = ""
 
         accepted = bool(candidate_valid and not fallback_reason)
+        edit_weight = (foreground & ~protected).to(dtype=torch.float32)
         if accepted:
-            edit_weight = (foreground & ~protected).to(dtype=torch.float32)
             output_lightness = (
                 neutral_fallback * (1.0 - edit_weight)
                 + candidate_lightness * edit_weight
@@ -313,21 +313,25 @@ class BadgeStructureConstraintV1:
             output_lightness = neutral_fallback
             output_source = "deterministic_height_fallback"
 
-        if bool(enforce_grayscale):
-            structure_image = output_lightness.unsqueeze(-1).repeat(1, 1, 1, 3)
+        if accepted and bool(enforce_grayscale):
+            # GPT contributes only a normalized light/shadow ratio. Reapplying that
+            # ratio to the immutable flat artwork keeps every region's original
+            # hue/chroma available to the downstream material workflow.
+            light_ratio = (candidate_lightness / NEUTRAL_STRUCTURE_LEVEL).clamp(0.45, 1.45)
+            colorized_candidate = (flat * light_ratio.unsqueeze(-1)).clamp(0.0, 1.0)
+            weight = edit_weight.unsqueeze(-1)
+            structure_image = fallback * (1.0 - weight) + colorized_candidate * weight
         else:
             if accepted:
-                edit_weight = (foreground & ~protected).unsqueeze(-1).to(dtype=torch.float32)
-                neutral_rgb = neutral_fallback.unsqueeze(-1).repeat(1, 1, 1, 3)
-                structure_image = neutral_rgb * (1.0 - edit_weight) + candidate * edit_weight
+                weight = edit_weight.unsqueeze(-1)
+                structure_image = fallback * (1.0 - weight) + candidate * weight
             else:
-                structure_image = neutral_fallback.unsqueeze(-1).repeat(1, 1, 1, 3)
+                structure_image = fallback
 
-        neutral_rgb = neutral_fallback.unsqueeze(-1).repeat(1, 1, 1, 3)
         outside = (~foreground).unsqueeze(-1)
         protected_support = protected.unsqueeze(-1)
-        outside_diff = (structure_image - neutral_rgb).abs() * outside
-        protected_diff = (structure_image - neutral_rgb).abs() * protected_support
+        outside_diff = (structure_image - fallback).abs() * outside
+        protected_diff = (structure_image - fallback).abs() * protected_support
         report = {
             "version": 1,
             "accepted": accepted,
@@ -335,7 +339,8 @@ class BadgeStructureConstraintV1:
             "fallback_reason": fallback_reason or None,
             "candidate_valid": candidate_valid,
             "candidate_input_chroma_mean": candidate_chroma_mean,
-            "grayscale_forced": bool(enforce_grayscale),
+            "grayscale_candidate_forced": bool(enforce_grayscale),
+            "flat_color_restored": bool(accepted and enforce_grayscale),
             "observed_relief_contrast": observed_relief_contrast,
             "minimum_relief_contrast": float(minimum_relief_contrast),
             "observed_boundary_coverage": observed_boundary_coverage,

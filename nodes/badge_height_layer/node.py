@@ -7,8 +7,12 @@ import torch
 
 MAX_COLOR_GROUPS = 16
 CONFIG_PROPERTY = "badge_height_layer_config"
+V1_CONFIG_PROPERTY = "badge_height_layer_v1_config"
+V1_CONFIG_DIGEST_PROPERTY = "badge_height_layer_v1_config_digest"
+V1_CONFIG_INPUT = "height_layer_config"
 DEFAULT_COLORS = ("#d0ad7d", "#d4e3e2", "#055652", "#26877f")
 _HEX_COLOR = re.compile(r"^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+_GROUP_ID_CHARACTER = re.compile(r"[^a-zA-Z0-9_-]")
 
 
 def _default_group(index=0):
@@ -109,11 +113,102 @@ def _get_workflow_node(unique_id, extra_pnginfo):
     return None
 
 
-def _get_node_config(unique_id=None, extra_pnginfo=None):
+def _get_node_config(
+    unique_id=None,
+    extra_pnginfo=None,
+    property_name=CONFIG_PROPERTY,
+    normalizer=_normalize_config,
+):
     node = _get_workflow_node(unique_id, extra_pnginfo)
     properties = node.get("properties", {}) if isinstance(node, dict) else {}
-    value = properties.get(CONFIG_PROPERTY) if isinstance(properties, dict) else None
-    return _normalize_config(value)
+    value = properties.get(property_name) if isinstance(properties, dict) else None
+    return normalizer(value)
+
+
+def _normalize_v1_config(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            value = None
+
+    source = value if isinstance(value, dict) else {}
+    raw_groups = source.get("groups")
+    if not isinstance(raw_groups, list):
+        raw_groups = []
+    groups = []
+    used_ids = set()
+    for source_index, raw_group in enumerate(raw_groups[:MAX_COLOR_GROUPS]):
+        group = raw_group if isinstance(raw_group, dict) else {}
+        if "enabled" in group and not _as_bool(group.get("enabled"), True):
+            continue
+
+        fallback = _default_group(source_index)
+        group_id = _GROUP_ID_CHARACTER.sub("", str(group.get("id", "")).strip())[:80]
+        if not group_id or group_id in used_ids:
+            suffix = source_index + 1
+            group_id = f"height_legacy_{suffix}"
+            while group_id in used_ids:
+                suffix += 1
+                group_id = f"height_legacy_{suffix}"
+        used_ids.add(group_id)
+        groups.append(
+            {
+                "id": group_id,
+                "color": _normalize_color(group.get("color"), fallback["color"]),
+                "threshold": _normalize_threshold(group.get("threshold")),
+                "layer": _normalize_layer(group.get("layer", fallback["layer"])),
+            }
+        )
+
+    if not groups:
+        fallback = _default_group()
+        groups.append(
+            {
+                "id": "height_legacy_1",
+                "color": fallback["color"],
+                "threshold": fallback["threshold"],
+                "layer": fallback["layer"],
+            }
+        )
+    return {"version": 1, "groups": groups}
+
+
+def encode_v1_config(value):
+    return json.dumps(_normalize_v1_config(value), ensure_ascii=False, separators=(",", ":"))
+
+
+def v1_config_digest(value):
+    return hashlib.sha256(encode_v1_config(value).encode("utf-8")).hexdigest()
+
+
+def _resolve_v1_config(height_layer_config="", unique_id=None, extra_pnginfo=None):
+    if height_layer_config is not None and str(height_layer_config).strip():
+        return _normalize_v1_config(height_layer_config)
+    return _get_node_config(
+        unique_id,
+        extra_pnginfo,
+        V1_CONFIG_PROPERTY,
+        _normalize_v1_config,
+    )
+
+
+def build_v1_config_report(config):
+    canonical = _normalize_v1_config(config)
+    group_lines = [
+        (
+            f"{index + 1}. {group['id']}: color={group['color']}, "
+            f"threshold={group['threshold']}, layer={group['layer']}, "
+            f"height={group['layer'] / 5.0:.1f}"
+        )
+        for index, group in enumerate(canonical["groups"])
+    ]
+    return (
+        "Badge Height Layer V1 applied configuration\n"
+        f"Groups: {len(group_lines)}\n"
+        f"SHA-256: {v1_config_digest(canonical)}\n"
+        + "\n".join(group_lines)
+    )
 
 
 def _parse_color(value, *, device):
@@ -162,7 +257,7 @@ def _make_height_map_with_profile(images, config):
     assigned_layer = torch.full(shape, -1, dtype=torch.int8, device=images.device)
 
     for group in config["groups"]:
-        if not group["enabled"]:
+        if not group.get("enabled", True):
             continue
         color = _parse_color(group["color"], device=images.device)
         distance = torch.linalg.vector_norm(working - color, dim=-1)
@@ -195,7 +290,7 @@ def _make_height_map_with_profile(images, config):
     configured_layers = sorted({
         int(group["layer"])
         for group in config["groups"]
-        if group["enabled"]
+        if group.get("enabled", True)
     })
     layer_counts = {
         layer: int((assigned_layer == layer).sum().item())
@@ -247,26 +342,45 @@ def build_height_establish_prompt(height_profile):
 Establish the physical Z-axis height structure of the badge in Image 1 by using Image 2 strictly as a discrete height reference.
 
 IMAGE ROLES
-Image 1 is the sole authority for artwork, visible text, outline, layout, proportions, element positions, and base colors.
+Image 1 is the sole authority for artwork, visible text, outline, layout, proportions, element positions, and source color-region topology. Its source colors identify design regions only and must not appear as final colors in this stage.
 Image 2 controls physical surface height only. It does not define color, material, brightness, exposure, or lighting.
+
+OUTPUT REQUIREMENT — NEUTRAL GRAYSCALE RELIEF PROOF
+Return one front-facing, achromatic grayscale badge relief proof whose only purpose is to establish and inspect geometry before material assignment.
+Render every solid region with the same neutral, uncolored matte base. Allow only restrained diffuse grayscale shading needed to reveal the encoded relief, rounded shoulders, fillets, cutout sidewalls, and gentle coin-like crowning.
+Do not reproduce any hue from Image 1. Do not introduce gold, silver, bronze, colored enamel, lacquer, paint, glitter, crystals, gemstones, patina, texture, gloss, mirror reflections, or any other recognizable final material.
+Use uniform neutral diffuse illumination, an orthographic or near-orthographic front view, and an achromatic neutral or transparent background. Do not use dramatic highlights, colored light, cast-shadow styling, depth of field, or presentation effects.
+The result is a geometry proof, not a finished badge, not a material preview, and not a replacement numeric height map.
 
 ACTIVE HEIGHT LEVELS
 Image 2 contains exactly {solid_count} matched solid height level{'s' if solid_count != 1 else ''}.{cutout_note}
 {active_lines}
 
 HEIGHT RULES
-Interpret the listed alpha/grayscale values as absolute discrete physical elevations, not as visual brightness.
-Use only the active levels listed above. Do not invent missing layers, intermediate ramps, or additional elevations.
-Preserve the absolute values and front-to-back ordering; do not renormalize the active levels into replacement values.
-Generate only the sidewalls, restrained bevels, localized highlights, self-shadows, and ambient occlusion physically required by these elevations.
-Keep every sidewall and bevel strictly inside the corresponding Image 1 boundary.
+Interpret the listed alpha/grayscale values as nominal discrete physical plateau elevations, not as visual brightness.
+Use only the active levels listed above. Do not invent missing semantic layers, extra plateaus, or additional relief tiers.
+Preserve the encoded values and front-to-back ordering; do not renormalize the active levels into replacement values.
+Do not globally blur, feather, or smooth Image 2, and do not soften or move any boundary in the XY plane.
 
-MANDATORY NUMERIC HEIGHT ENCODING — NON-NEGOTIABLE
-For every pixel inside the Image 1 badge graphic, physical relative Z height MUST equal the normalized Alpha/grayscale value encoded at the same XY coordinate in Image 2: Z = Alpha = grayscale / 255.
+CONTOUR PRIORITY — MANDATORY
+Treat the intentional narrow structural linework already present in Image 1 as the highest parts of the badge. This includes the complete outer perimeter rim or outline, internal contour strokes, metal separator lines, and narrow outline strokes around existing text or motifs.
+Assign this existing contour network to the highest active solid height level listed above. If a corresponding nonzero contour-line region in Image 2 is encoded at a lower active height, promote only those contour-line pixels to the highest active solid level. This is the only permitted semantic override to Image 2.
+This rule does not create another height tier and does not promote broad filled motifs merely because they touch the silhouette. Do not invent, duplicate, extend, thicken, thin, close, simplify, or reroute any line. Preserve every contour's exact XY centerline, width, junction, spacing, and ownership from Image 1.
+Keep raised contour tops continuous and gently rounded or softly crowned across their narrow width, like struck or die-cast coin linework, never razor-sharp or knife-edged. Their boundaries against lower filled regions must remain crisp, using only a narrow manufacturable shoulder, small fillet, or restrained bevel.
+
+BOUNDARY AND REGION-INTERIOR PROFILE
+Keep every intentional graphic boundary, text stroke, separator line, cutout edge, and encoded height-region boundary crisp and accurately positioned in the XY plane.
+Within each connected region that has one encoded height, keep the solid surface continuous, planar or gently crowned like manufacturable coin relief. Do not introduce unintended facets, creases, hard-surface panel breaks, box edges, vertical extrusions, or separate mechanical components inside that region.
+Where two different encoded solid heights meet, preserve the localized discrete step and plateau ordering. Join their cross-sections with a narrow manufacturable shoulder and a small rounded fillet or restrained bevel. This local transition does not create an additional semantic height level.
+Intentional rims, text strokes, metal separator lines, engraved grooves, and explicit relief boundaries may retain short, steep, well-defined transitions. Broad solid motifs must not become block-like miniature objects.
+Keep every transition profile inside or centered tightly on its corresponding Image 1 boundary so the front-view silhouette, spacing, and region ownership remain unchanged.
+
+NOMINAL NUMERIC HEIGHT ENCODING — MANDATORY
+For the interior plateau of each encoded solid region, the nominal physical relative Z height equals the normalized Alpha/grayscale value encoded for that region in Image 2: nominal Z = Alpha = grayscale / 255.
 Use this exact absolute mapping: 0/255 = 0.0 = empty Cut Out; 51/255 = 0.2 = Layer 1; 102/255 = 0.4 = Layer 2; 153/255 = 0.6 = Layer 3; 204/255 = 0.8 = Layer 4; 255/255 = 1.0 = Layer 5.
-Pixels with the same encoded value MUST produce the same physical elevation. A numerically larger encoded value MUST always be physically higher and closer to the viewer than a smaller nonzero value at the same front-facing badge orientation.
+Interior plateau areas with the same encoded value must share the same nominal elevation. A numerically larger encoded value must always be physically higher and closer to the viewer than a smaller nonzero value at the same front-facing badge orientation.
 These values are geometric data, not luminance suggestions: do not reinterpret them from apparent brightness, color, material, local contrast, lighting, neighboring regions, or artistic judgment.
-Do not reorder, invert, normalize, rescale, compress, smooth, blend, interpolate, or replace the encoded levels. Do not create any height that is not explicitly encoded in Image 2, except narrow sidewalls or restrained bevels required to join two encoded plateaus.
+Except for the explicit contour-priority promotion defined above, do not reorder, invert, normalize, rescale, compress, or replace the encoded plateau levels. Local interpolation is allowed only within narrow transition bands at explicit height boundaries to form the manufacturable shoulders, fillets, or restrained bevels defined above; never use it to blur region interiors or invent another plateau.
 
 ALPHA-ZERO / CUTOUT RULE
 Every Alpha/grayscale 0.0 region in Image 2 represents empty space, never the lowest solid surface.
@@ -275,10 +389,11 @@ Any zero-valued region enclosed by or located inside the Image 1 badge graphic m
 Sidewalls or restrained edge bevels may exist only along the boundary of an interior cutout; no front-facing surface may cover the opening.
 
 DESIGN LOCK
-Do not alter, redraw, move, resize, add, remove, or reinterpret any text, graphic, contour, color region, spacing, or silhouette from Image 1.
+Do not alter, redraw, move, resize, add, remove, or reinterpret any text, graphic, contour, source-region boundary, spacing, or silhouette from Image 1.
+Preserve the exact topology and ownership of Image 1 color regions while intentionally neutralizing their chroma in the output.
 Do not reproduce Image 2 grayscale values as final badge colors.
 Do not use global contrast, blur, sharpening, depth of field, or painted shading to simulate height.
-This operation establishes badge height only; it is not a redesign, recoloring, material change, camera change, or presentation render."""
+This operation establishes badge height only; it is not a redesign, final coloring, material assignment, camera change, or presentation render."""
 
 
 def build_height_profile_report(height_profile):
@@ -337,6 +452,90 @@ class DAELabBadgeHeightLayer:
         return _make_height_map_with_profile(images, config)
 
 
+class DAELabBadgeHeightLayerV1(DAELabBadgeHeightLayer):
+    """Compact selected-layer editor with a versioned configuration surface."""
+
+    DESCRIPTION = (
+        "Compact color-to-height editor with selected-layer add/delete controls. "
+        "Maps colors to Cut Out or fixed relative heights from 0.2 through 1.0."
+    )
+
+    RETURN_TYPES = (
+        "MASK",
+        "IMAGE",
+        "MASK",
+        "BADGE_HEIGHT_PROFILE",
+        "STRING",
+        "STRING",
+        "STRING",
+    )
+    RETURN_NAMES = (
+        "height_mask",
+        "height_image",
+        "unmatched_mask",
+        "height_profile",
+        "applied_config",
+        "config_digest",
+        "config_report",
+    )
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {"images": ("IMAGE",)},
+            "optional": {
+                V1_CONFIG_INPUT: (
+                    "STRING",
+                    {"default": "", "multiline": False},
+                ),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+            },
+        }
+
+    @classmethod
+    def IS_CHANGED(
+        cls,
+        images,
+        height_layer_config="",
+        unique_id=None,
+        extra_pnginfo=None,
+    ):
+        del images
+        config = _resolve_v1_config(
+            height_layer_config,
+            unique_id,
+            extra_pnginfo,
+        )
+        return v1_config_digest(config)
+
+    def make_height_map(
+        self,
+        images,
+        height_layer_config="",
+        unique_id=None,
+        extra_pnginfo=None,
+    ):
+        config = _resolve_v1_config(
+            height_layer_config,
+            unique_id,
+            extra_pnginfo,
+        )
+        height, height_image, unmatched, profile = _make_height_map_with_profile(images, config)
+        applied_config = encode_v1_config(config)
+        return (
+            height,
+            height_image,
+            unmatched,
+            profile,
+            applied_config,
+            v1_config_digest(config),
+            build_v1_config_report(config),
+        )
+
+
 class BadgeHeightEstablishPromptBuilder:
     """Build a GPT Image height-only prompt from observed Badge Height Layer levels."""
 
@@ -362,10 +561,12 @@ class BadgeHeightEstablishPromptBuilder:
 
 NODE_CLASS_MAPPINGS = {
     "DAELabBadgeHeightLayer": DAELabBadgeHeightLayer,
+    "DAELabBadgeHeightLayerV1": DAELabBadgeHeightLayerV1,
     "BadgeHeightEstablishPromptBuilder": BadgeHeightEstablishPromptBuilder,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "DAELabBadgeHeightLayer": "Badge Height Layer (DAELab)",
+    "DAELabBadgeHeightLayerV1": "Badge Height Layer V1 (DAELab)",
     "BadgeHeightEstablishPromptBuilder": "Badge Height Establish Prompt Builder",
 }

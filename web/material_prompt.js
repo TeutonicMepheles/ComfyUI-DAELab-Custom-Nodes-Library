@@ -1,12 +1,10 @@
 import { app } from "/scripts/app.js";
-import { addColorPickerWidget } from "./color_picker_widget.mjs?v=20260826-2";
 import {
     applyMaterialWidgetLabels,
-    DEFAULT_MATERIAL_COLOR,
-    DEFAULT_USE_COLOR,
     fitMaterialPromptNodeToContent,
+    getCanonicalMaterialOutputs,
+    getLegacyMaterialOutputIndexes,
     getMaterialSelectorLayout,
-    MATERIAL_COLOR_PICKER_WIDGET_NAME,
     MATERIAL_LAYOUT_COLUMNS,
     MATERIAL_LAYOUT_GAP,
     MATERIAL_LAYOUT_HORIZONTAL_INSET,
@@ -15,15 +13,13 @@ import {
     MATERIAL_VIEWPORT_GAP,
     MATERIAL_VIEWPORT_MAX_SIZE,
     getCanonicalMaterialWidgetValues,
+    LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME,
     MATERIAL_PANEL_WIDGET_NAME,
     MATERIAL_WIDGET_SERIALIZATION_ORDER,
     migrateMaterialWidgetValues,
     normalizeMaterialBasePrompt,
     orderMaterialPromptWidgets,
-    isMaterialColorEnabled,
-    resolveMaterialColor,
-} from "./material_prompt_model.mjs?v=20260827-optional-edit-target-v8";
-import { normalizeColor } from "./multi_color_mask_model.mjs?v=20260819-1";
+} from "./material_prompt_model.mjs?v=20260901-drop-selected-color-v12";
 import {
     catalogEntries,
     ensureThumbnailSelectorStyles,
@@ -32,28 +28,24 @@ import {
     resolveCatalogId,
 } from "./thumbnail_selector.mjs";
 
-const UI_VERSION = "20260827-gpt-image2-material-optional-edit-target-v8";
+const UI_VERSION = "20260901-gpt-image2-drop-selected-color-v12";
 const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./material_thumbs/", import.meta.url);
-const MATERIAL_COLOR_OWNER_PROPERTY = "__gptImage2MaterialColorPicker";
+const LEGACY_COLOR_WIDGET_NAMES = new Set([
+    "material_color",
+    "use_color",
+    LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME,
+]);
 const DEFAULT_MATERIALS = {
-    dark_brushed_bronze: {
-        label: "深色拉丝古铜",
-        thumbnail: "dark_brushed_bronze.png",
-        preview_color: "#6B3F24",
-    },
-    light_speckled_enamel: {
-        label: "浅灰细砂珐琅",
-        thumbnail: "glossy_enamel.png",
-        preview_color: "#C7C7C5",
-    },
-    baked_enamel: { label: "烤漆", thumbnail: "baked_enamel.png", preview_color: "#C62828" },
-    transparent_lacquer: { label: "透明漆", thumbnail: "transparent_lacquer.png", preview_color: "#169C98" },
-    satin_gold: { label: "亚金", thumbnail: "satin_gold.png", preview_color: "#C6A15B" },
-    satin_silver: { label: "亚银", thumbnail: "satin_silver.png", preview_color: "#BFC3C8" },
-    glitter: { label: "闪粉", thumbnail: "glitter.png", preview_color: "#C94FA7" },
-    rhinestone: { label: "水钻", thumbnail: "rhinestone.png", preview_color: "#D9F3FF" },
+    dark_brushed_bronze: { label: "深色拉丝古铜", thumbnail: "dark_brushed_bronze.png" },
+    light_speckled_enamel: { label: "浅灰细砂珐琅", thumbnail: "glossy_enamel.png" },
+    baked_enamel: { label: "烤漆", thumbnail: "baked_enamel.png" },
+    transparent_lacquer: { label: "透明漆", thumbnail: "transparent_lacquer.png" },
+    satin_gold: { label: "亚金", thumbnail: "satin_gold.png" },
+    satin_silver: { label: "亚银", thumbnail: "satin_silver.png" },
+    glitter: { label: "闪粉", thumbnail: "glitter.png" },
+    rhinestone: { label: "水钻", thumbnail: "rhinestone.png" },
 };
 
 let materialData = DEFAULT_MATERIALS;
@@ -107,26 +99,6 @@ function selectedMaterialId(node) {
     );
 }
 
-function rawMaterialColor(node) {
-    return String(
-        findWidget(node, "material_color")?.value
-        ?? node.properties?.gpt_image2_material_color
-        ?? DEFAULT_MATERIAL_COLOR
-    ).trim();
-}
-
-function selectedMaterialColor(node) {
-    return resolveMaterialColor(materialData, selectedMaterialId(node), rawMaterialColor(node));
-}
-
-function materialColorEnabled(node) {
-    return isMaterialColorEnabled(
-        findWidget(node, "use_color")?.value
-        ?? node.properties?.gpt_image2_material_use_color
-        ?? DEFAULT_USE_COLOR
-    );
-}
-
 function setMaterialWidgetValue(node, materialId) {
     const widget = findWidget(node, "material_id");
     if (!widget) return;
@@ -135,24 +107,11 @@ function setMaterialWidgetValue(node, materialId) {
     node.onWidgetChanged?.("material_id", widget.value, previousValue, widget);
 }
 
-function setMaterialColorWidgetValue(node, value, event = null) {
-    const widget = findWidget(node, "material_color");
-    if (!widget) return;
-    const normalized = String(value).toLowerCase() === DEFAULT_MATERIAL_COLOR
-        ? DEFAULT_MATERIAL_COLOR
-        : normalizeColor(value, selectedMaterialColor(node));
-    if (widget.value === normalized) return;
-    const previousValue = widget.value;
-    widget.value = normalized;
-    node.onWidgetChanged?.("material_color", normalized, previousValue, widget);
-    widget.callback?.(normalized, app.canvas, node, app.canvas?.graph_mouse, event);
-}
-
 function syncProperties(node) {
     node.properties ||= {};
     node.properties.gpt_image2_material_id = selectedMaterialId(node);
-    node.properties.gpt_image2_material_color = rawMaterialColor(node) || DEFAULT_MATERIAL_COLOR;
-    node.properties.gpt_image2_material_use_color = materialColorEnabled(node);
+    delete node.properties.gpt_image2_material_color;
+    delete node.properties.gpt_image2_material_use_color;
 }
 
 function stopCanvasEvent(event) {
@@ -203,10 +162,9 @@ function ensureMaterialStyles() {
   left: 8px;
   box-sizing: border-box;
   max-width: calc(100% - 16px);
-  min-width: 0;
   padding: 5px 8px;
   overflow: hidden;
-  color: #ffffff;
+  color: #fff;
   background: rgba(12, 15, 20, 0.82);
   border-radius: 6px;
   font-size: 12px;
@@ -274,11 +232,7 @@ function renderMaterialSelector(widget, node) {
         container: grid,
         entries: materialEntries,
         selectedId,
-        getImageUrl: (entry) => makeCatalogThumbnailUrl(
-            entry,
-            THUMB_BASE_URL,
-            UI_VERSION
-        ),
+        getImageUrl: (entry) => makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION),
         dataKey: "materialId",
         stopEvent: stopCanvasEvent,
         onSelect: (materialId) => {
@@ -286,11 +240,6 @@ function renderMaterialSelector(widget, node) {
             node.properties.gpt_image2_material_id = materialId;
             widget.__gptImage2MaterialValue = materialId;
             setMaterialWidgetValue(node, materialId);
-            setMaterialColorWidgetValue(
-                node,
-                resolveMaterialColor(materialData, materialId, DEFAULT_MATERIAL_COLOR)
-            );
-            syncMaterialColorPicker(node);
             renderMaterialSelector(widget, node);
             markNodeDirty(node);
         },
@@ -298,11 +247,12 @@ function renderMaterialSelector(widget, node) {
     element.appendChild(grid);
 }
 
-function removeMaterialSelector(node) {
+function removeOwnedWidgets(node) {
     node.widgets = (node.widgets || []).filter((widget) => {
-        if (!widget.__gptImage2MaterialSelector && !widget[MATERIAL_COLOR_OWNER_PROPERTY]) {
-            return true;
-        }
+        const remove = widget.__gptImage2MaterialSelector
+            || LEGACY_COLOR_WIDGET_NAMES.has(widget.name)
+            || widget.__gptImage2MaterialColorPicker;
+        if (!remove) return true;
         widget._colorPicker?.remove();
         widget.onRemove?.();
         widget.onRemoved?.();
@@ -310,65 +260,21 @@ function removeMaterialSelector(node) {
     });
 }
 
-function getMaterialColorPicker(node) {
-    return node.widgets?.find((widget) => widget[MATERIAL_COLOR_OWNER_PROPERTY]);
-}
+function removeLegacyMaterialOutputs(node) {
+    const indexes = getLegacyMaterialOutputIndexes(node?.outputs);
+    if (!indexes.length) return false;
 
-function syncMaterialColorPicker(node) {
-    const widget = getMaterialColorPicker(node);
-    if (!widget) return;
-    widget.value = selectedMaterialColor(node);
-    const enabled = materialColorEnabled(node);
-    if (!widget.__gptImage2MaterialVisibilityInstalled) {
-        widget.__gptImage2MaterialVisibilityInstalled = true;
-        widget.__gptImage2MaterialOriginalHidden = widget.hidden;
-        widget.__gptImage2MaterialOriginalComputeSize = widget.computeSize;
-        widget.__gptImage2MaterialOriginalComputeLayoutSize = widget.computeLayoutSize;
+    for (const index of indexes.reverse()) {
+        if (typeof node.removeOutput === "function") {
+            node.removeOutput(index);
+            continue;
+        }
+
+        const output = node.outputs?.[index];
+        for (const linkId of output?.links || []) node.graph?.removeLink?.(linkId);
+        node.outputs?.splice(index, 1);
     }
-    widget.hidden = enabled ? widget.__gptImage2MaterialOriginalHidden : true;
-    widget.computeSize = enabled
-        ? widget.__gptImage2MaterialOriginalComputeSize
-        : () => [0, -4];
-    widget.computeLayoutSize = enabled
-        ? widget.__gptImage2MaterialOriginalComputeLayoutSize
-        : () => ({ minHeight: 0, maxHeight: 0, minWidth: 0 });
-    if (!enabled) widget._colorPicker?.remove();
-    widget.triggerDraw?.();
-}
-
-function makeMaterialColorPicker(node) {
-    const widget = addColorPickerWidget(
-        node,
-        MATERIAL_COLOR_PICKER_WIDGET_NAME,
-        selectedMaterialColor(node),
-        (value) => {
-            setMaterialColorWidgetValue(node, value);
-            syncProperties(node);
-            markNodeDirty(node);
-        },
-        MATERIAL_COLOR_OWNER_PROPERTY
-    );
-    widget.label = "颜色";
-    return widget;
-}
-
-function hideNativeMaterialColorWidget(node) {
-    const widget = findWidget(node, "material_color");
-    if (!widget || widget.__gptImage2MaterialColorHidden) return;
-    widget.origComputeSize = widget.origComputeSize || widget.computeSize;
-    widget.hidden = true;
-    widget.options = {
-        ...(widget.options || {}),
-        canvasOnly: true,
-        hidden: true,
-    };
-    widget.computeSize = () => [0, -4];
-    widget.computeLayoutSize = () => ({ minHeight: 0, maxHeight: 0, minWidth: 0 });
-    widget.draw = () => {};
-    for (const element of [widget.element, widget.inputEl]) {
-        if (element?.style) element.style.display = "none";
-    }
-    widget.__gptImage2MaterialColorHidden = true;
+    return true;
 }
 
 function makeMaterialSelector(node) {
@@ -426,36 +332,17 @@ function installMaterialWidgetCallback(node) {
     const originalCallback = widget.callback;
     widget.callback = function (value) {
         originalCallback?.apply(this, arguments);
-        const materialId = resolveCatalogId(materialData, value, defaultMaterialId());
         node.properties ||= {};
-        node.properties.gpt_image2_material_id = materialId;
-        setMaterialColorWidgetValue(
-            node,
-            resolveMaterialColor(materialData, materialId, DEFAULT_MATERIAL_COLOR)
+        node.properties.gpt_image2_material_id = resolveCatalogId(
+            materialData,
+            value,
+            defaultMaterialId()
         );
-        syncMaterialColorPicker(node);
-        const domWidget = node.widgets?.find(
-            (candidate) => candidate.__gptImage2MaterialSelector
-        );
+        const domWidget = node.widgets?.find((candidate) => candidate.__gptImage2MaterialSelector);
         if (domWidget) renderMaterialSelector(domWidget, node);
         markNodeDirty(node);
     };
     widget.__gptImage2MaterialCallbackWrapped = true;
-}
-
-function installUseColorWidgetCallback(node) {
-    const widget = findWidget(node, "use_color");
-    if (!widget || widget.__gptImage2MaterialUseColorCallbackWrapped) return;
-    const originalCallback = widget.callback;
-    widget.callback = function (value) {
-        originalCallback?.apply(this, arguments);
-        widget.value = isMaterialColorEnabled(value);
-        syncProperties(node);
-        syncMaterialColorPicker(node);
-        scheduleCompactNodeSize(node);
-        markNodeDirty(node);
-    };
-    widget.__gptImage2MaterialUseColorCallbackWrapped = true;
 }
 
 function restoreCanonicalValues(node, serializedValues) {
@@ -481,8 +368,12 @@ function installCanonicalSerialization(node) {
     if (node.__gptImage2MaterialSerializationInstalled === UI_VERSION) return;
     const originalOnSerialize = node.onSerialize;
     node.onSerialize = function (data) {
+        removeLegacyMaterialOutputs(this);
         originalOnSerialize?.call(this, data);
         data.widgets_values = getCanonicalMaterialWidgetValues(this.widgets);
+        if (Array.isArray(data.outputs)) {
+            data.outputs = getCanonicalMaterialOutputs(data.outputs);
+        }
     };
     node.__gptImage2MaterialSerializationInstalled = UI_VERSION;
 }
@@ -506,25 +397,19 @@ function scheduleCompactNodeSize(node) {
 function installMaterialPromptUi(node) {
     if (node.__gptImage2MaterialUiInstalled === UI_VERSION) return;
     node.__gptImage2MaterialUiInstalled = UI_VERSION;
-    removeMaterialSelector(node);
+    removeLegacyMaterialOutputs(node);
+    removeOwnedWidgets(node);
     applyMaterialWidgetLabels(node.widgets);
     migrateLegacyBasePromptWidget(node);
     syncProperties(node);
     installMaterialWidgetCallback(node);
-    installUseColorWidgetCallback(node);
     makeMaterialSelector(node);
-    makeMaterialColorPicker(node);
-    syncMaterialColorPicker(node);
-    hideNativeMaterialColorWidget(node);
     node.widgets = orderMaterialPromptWidgets(node.widgets);
     installCanonicalSerialization(node);
     scheduleCompactNodeSize(node);
     requestMaterials().then(() => {
         syncProperties(node);
-        syncMaterialColorPicker(node);
-        const selector = node.widgets?.find(
-            (candidate) => candidate.__gptImage2MaterialSelector
-        );
+        const selector = node.widgets?.find((candidate) => candidate.__gptImage2MaterialSelector);
         if (selector) renderMaterialSelector(selector, node);
         scheduleCompactNodeSize(node);
         markNodeDirty(node);
@@ -541,6 +426,7 @@ if (globalThis.__GPT_IMAGE2_MATERIAL_PROMPT_UI_VERSION !== UI_VERSION) {
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = function (info) {
                 onConfigure?.apply(this, arguments);
+                removeLegacyMaterialOutputs(this);
                 restoreCanonicalValues(this, info?.widgets_values);
                 syncProperties(this);
             };
@@ -554,7 +440,7 @@ if (globalThis.__GPT_IMAGE2_MATERIAL_PROMPT_UI_VERSION !== UI_VERSION) {
 
             const onRemoved = nodeType.prototype.onRemoved;
             nodeType.prototype.onRemoved = function () {
-                removeMaterialSelector(this);
+                removeOwnedWidgets(this);
                 onRemoved?.apply(this, arguments);
             };
         },

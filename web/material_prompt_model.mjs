@@ -1,9 +1,5 @@
-import { normalizeColor } from "./multi_color_mask_model.mjs";
-
 export const MATERIAL_PANEL_WIDGET_NAME = "material_thumbnail_dom_selector";
-export const MATERIAL_COLOR_PICKER_WIDGET_NAME = "material_color_picker";
-export const DEFAULT_MATERIAL_COLOR = "auto";
-export const DEFAULT_USE_COLOR = true;
+export const LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME = "material_color_picker";
 export const LEGACY_DEFAULT_MATERIAL_BASE_PROMPT = (
     "仅修改 Image 1 中红色覆盖标记的目标区域；红色仅是编辑区域指示色，" +
     "必须在输出中完全移除，不能成为最终材质颜色。"
@@ -16,8 +12,25 @@ export const MATERIAL_LAYOUT_VERTICAL_PADDING = 12;
 export const MATERIAL_VIEWPORT_MAX_SIZE = 320;
 export const MATERIAL_VIEWPORT_GAP = 12;
 export const MATERIAL_MIN_NODE_WIDTH = 460;
-export const MATERIAL_FALLBACK_NODE_HEIGHT = 880;
-const VALID_HEX_COLOR = /^#?[0-9a-fA-F]{6}$/;
+export const MATERIAL_FALLBACK_NODE_HEIGHT = 760;
+export const LEGACY_MATERIAL_OUTPUT_NAME = "selected_color";
+
+export function isLegacyMaterialOutput(output) {
+    return [output?.name, output?.localized_name, output?.label]
+        .some((name) => name === LEGACY_MATERIAL_OUTPUT_NAME);
+}
+
+export function getLegacyMaterialOutputIndexes(outputs) {
+    const indexes = [];
+    for (const [index, output] of (outputs || []).entries()) {
+        if (isLegacyMaterialOutput(output)) indexes.push(index);
+    }
+    return indexes;
+}
+
+export function getCanonicalMaterialOutputs(outputs) {
+    return (outputs || []).filter((output) => !isLegacyMaterialOutput(output));
+}
 
 export function getMaterialThumbnailLayout(width = MATERIAL_MIN_NODE_WIDTH, count = 8) {
     const resolvedWidth = Number.isFinite(Number(width))
@@ -75,9 +88,6 @@ export function fitMaterialPromptNodeToContent(node) {
         Number.isFinite(currentWidth) ? currentWidth : 0
     );
 
-    // Modern ComfyUI distributes surplus node height across `auto` widget rows.
-    // Resetting height before computeSize makes it measure the widgets' minimum
-    // content height instead of feeding the restored workflow height back in.
     applyNodeSize(node, [width, 1]);
     node.arrange?.();
     const computedHeight = Number(node.computeSize?.()?.[1]);
@@ -88,23 +98,6 @@ export function fitMaterialPromptNodeToContent(node) {
     return [width, height];
 }
 
-export function isAutomaticMaterialColor(value) {
-    return !VALID_HEX_COLOR.test(String(value ?? "").trim());
-}
-
-export function resolveMaterialColor(catalog, materialId, value) {
-    const fallback = normalizeColor(catalog?.[materialId]?.preview_color, "#6b3f24");
-    return isAutomaticMaterialColor(value) ? fallback : normalizeColor(value, fallback);
-}
-
-export function isMaterialColorEnabled(value) {
-    if (value == null) return DEFAULT_USE_COLOR;
-    if (typeof value === "string") {
-        return !["", "0", "false", "no", "off"].includes(value.trim().toLowerCase());
-    }
-    return Boolean(value);
-}
-
 export function normalizeMaterialBasePrompt(value) {
     const text = String(value ?? "");
     return text.trim() === LEGACY_DEFAULT_MATERIAL_BASE_PROMPT ? "" : text;
@@ -112,28 +105,21 @@ export function normalizeMaterialBasePrompt(value) {
 
 export const MATERIAL_WIDGET_SERIALIZATION_ORDER = Object.freeze([
     "material_id",
-    "material_color",
     "base_prompt",
     "additional_details",
-    "use_color",
 ]);
 
 const MATERIAL_WIDGET_DISPLAY_ORDER = Object.freeze([
     MATERIAL_PANEL_WIDGET_NAME,
     "material_id",
-    "use_color",
-    MATERIAL_COLOR_PICKER_WIDGET_NAME,
-    "material_color",
     "base_prompt",
     "additional_details",
 ]);
 
 export const MATERIAL_WIDGET_LABELS = Object.freeze({
     material_id: "材质",
-    material_color: "颜色",
     base_prompt: "编辑目标（可选）",
     additional_details: "补充要求",
-    use_color: "启用颜色",
 });
 
 export function orderMaterialPromptWidgets(widgets) {
@@ -155,49 +141,33 @@ export function getCanonicalMaterialWidgetValues(widgets) {
     );
 }
 
-function normalizeMigratedMaterialWidgetValues(values) {
-    const normalized = values.slice();
-    const basePromptIndex = MATERIAL_WIDGET_SERIALIZATION_ORDER.indexOf("base_prompt");
-    normalized[basePromptIndex] = normalizeMaterialBasePrompt(normalized[basePromptIndex]);
+function normalizeMigratedValues(values) {
+    const normalized = values.slice(0, MATERIAL_WIDGET_SERIALIZATION_ORDER.length);
+    normalized[1] = normalizeMaterialBasePrompt(normalized[1]);
     return normalized;
 }
 
 export function migrateMaterialWidgetValues(values) {
     if (!Array.isArray(values)) return null;
-    const expectedLength = MATERIAL_WIDGET_SERIALIZATION_ORDER.length;
-    let migrated = null;
-    if (values.length === expectedLength + 1 && values[0] == null) {
-        migrated = values.slice(1);
-    } else if (values.length === expectedLength && values[0] == null) {
-        migrated = [...values.slice(1), DEFAULT_USE_COLOR];
-    } else if (values.length === expectedLength) {
-        migrated = values.slice();
-    } else {
-        const previousLength = expectedLength - 1;
-        if (values.length === previousLength) {
-            if (values[0] == null) {
-                migrated = [
-                    values[1],
-                    DEFAULT_MATERIAL_COLOR,
-                    ...values.slice(2),
-                    DEFAULT_USE_COLOR,
-                ];
-            } else {
-                migrated = [...values, DEFAULT_USE_COLOR];
-            }
-        } else {
-            const legacyLength = previousLength - 1;
-            if (values.length === legacyLength) {
-                migrated = [
-                    values[0],
-                    DEFAULT_MATERIAL_COLOR,
-                    ...values.slice(1),
-                    DEFAULT_USE_COLOR,
-                ];
-            }
-        }
+
+    // Current achromatic schema: material, edit target, additional details.
+    if (values.length === 3) return normalizeMigratedValues(values);
+    if (values.length === 4 && values[0] == null) {
+        return normalizeMigratedValues(values.slice(1));
     }
-    return migrated ? normalizeMigratedMaterialWidgetValues(migrated) : null;
+
+    // Legacy color schema:
+    // material, color, edit target, additional details[, enable color].
+    if (values.length === 5) {
+        return normalizeMigratedValues([values[0], values[2], values[3]]);
+    }
+    if (values.length === 6 && values[0] == null) {
+        return normalizeMigratedValues([values[1], values[3], values[4]]);
+    }
+    if (values.length === 4) {
+        return normalizeMigratedValues([values[0], values[2], values[3]]);
+    }
+    return null;
 }
 
 export function applyMaterialWidgetLabels(widgets) {

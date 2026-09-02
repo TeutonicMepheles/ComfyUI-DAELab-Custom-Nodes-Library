@@ -39,6 +39,36 @@ class BadgeWorkflowTests(unittest.TestCase):
         self.assertEqual(info["content_box"], [0, 2, 8, 4])
         self.assertEqual(float(foreground.sum()), 16.0)
 
+    def test_design_canvas_clamps_bicubic_edge_overshoot(self):
+        image = torch.zeros((1, 2, 2, 3), dtype=torch.float32)
+        image[:, :, 1, :] = 1.0
+        normalized, _, _, _, _ = MODULE.BadgeDesignCanvas().normalize(
+            image, 31, 31, "bicubic", "Explicit colors", "#000000", "#ff00ff", 0
+        )
+        self.assertTrue(torch.isfinite(normalized).all().item())
+        self.assertGreaterEqual(float(normalized.amin().item()), 0.0)
+        self.assertLessEqual(float(normalized.amax().item()), 1.0)
+        self.assertEqual(float(normalized[:, :, 0, :].amin().item()), 0.0)
+        self.assertEqual(float(normalized[:, :, -1, :].amax().item()), 1.0)
+
+    def test_design_canvas_ignores_mismatched_empty_loader_placeholder_mask_in_auto_mode(self):
+        image = torch.ones((1, 8, 12, 3), dtype=torch.float32)
+        image[:, 2:6, 3:9] = torch.tensor([0.0, 1.0, 0.0])
+        placeholder = torch.zeros((1, 64, 64), dtype=torch.float32)
+        _, foreground, _, _, report = MODULE.BadgeDesignCanvas().normalize(
+            image, 12, 8, "nearest", "Auto: alpha, else explicit colors", "#ffffff", "#ff00ff", 0, placeholder
+        )
+        self.assertEqual(json.loads(report)["foreground_source"], "explicit_background_and_cutout_colors")
+        self.assertEqual(float(foreground.sum()), 24.0)
+
+    def test_design_canvas_rejects_mismatched_nonempty_mask(self):
+        image = torch.ones((1, 8, 12, 3), dtype=torch.float32)
+        bad_mask = torch.ones((1, 64, 64), dtype=torch.float32)
+        with self.assertRaisesRegex(ValueError, "identical spatial dimensions"):
+            MODULE.BadgeDesignCanvas().normalize(
+                image, 12, 8, "nearest", "Auto: alpha, else explicit colors", "#ffffff", "#ff00ff", 0, bad_mask
+            )
+
     def test_registration_recovers_translation_with_provided_mask(self):
         design = torch.zeros((1, 64, 64, 3), dtype=torch.float32)
         design_mask = torch.zeros((1, 64, 64), dtype=torch.float32)

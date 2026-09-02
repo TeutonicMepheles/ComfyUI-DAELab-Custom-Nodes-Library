@@ -12,14 +12,14 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
-def metadata(config, node_id=2):
+def metadata(config, node_id=2, property_name=None):
     return {
         "workflow": {
             "nodes": [
                 {
                     "id": node_id,
                     "properties": {
-                        MODULE.CONFIG_PROPERTY: json.dumps(config),
+                        property_name or MODULE.CONFIG_PROPERTY: json.dumps(config),
                     },
                 }
             ]
@@ -139,6 +139,57 @@ class MultiColorMaskTests(unittest.TestCase):
         self.assertEqual(
             MODULE.NODE_DISPLAY_NAME_MAPPINGS["DAELabMultiColorMask"],
             "Multi Color Mask (DAELab)",
+        )
+
+    def test_v1_filters_disabled_legacy_groups_and_remaps_output(self):
+        config = MODULE._normalize_v1_config(
+            {
+                "groups": [
+                    {"enabled": False, "color": "#ff0000"},
+                    {"enabled": True, "color": "#00ff00", "threshold": 4},
+                    {"color": "#0000ff", "invert": True},
+                ],
+                "output": "mask_2",
+            }
+        )
+
+        self.assertEqual([group["id"] for group in config["groups"]], ["mask_legacy_2", "mask_legacy_3"])
+        self.assertTrue(all(group["enabled"] for group in config["groups"]))
+        self.assertEqual(config["output"], "mask_1")
+
+    def test_v1_reads_its_independent_property_and_preserves_mask_outputs(self):
+        images = torch.tensor(
+            [[[[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]],
+            dtype=torch.float32,
+        )
+        config = {
+            "groups": [
+                {"id": "red", "color": "#ff0000", "threshold": 0, "invert": False},
+                {"id": "blue", "color": "#0000ff", "threshold": 0, "invert": False},
+            ],
+            "output": "mask_2",
+        }
+
+        result = MODULE.DAELabMultiColorMaskV1().make_mask(
+            images,
+            unique_id=2,
+            extra_pnginfo=metadata(config, property_name=MODULE.V1_CONFIG_PROPERTY),
+        )[0]
+
+        torch.testing.assert_close(result, torch.tensor([[[0.0, 1.0]]]))
+
+    def test_v1_registration_does_not_replace_the_legacy_node(self):
+        self.assertIs(
+            MODULE.NODE_CLASS_MAPPINGS["DAELabMultiColorMaskV1"],
+            MODULE.DAELabMultiColorMaskV1,
+        )
+        self.assertIs(
+            MODULE.NODE_CLASS_MAPPINGS["DAELabMultiColorMask"],
+            MODULE.DAELabMultiColorMask,
+        )
+        self.assertEqual(
+            MODULE.NODE_DISPLAY_NAME_MAPPINGS["DAELabMultiColorMaskV1"],
+            "Multi Color Mask V1 (DAELab)",
         )
 
 

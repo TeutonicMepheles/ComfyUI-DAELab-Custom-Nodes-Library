@@ -102,7 +102,13 @@ def _resize_image(image, height, width, mode="bicubic"):
         mode=mode,
         align_corners=False if mode in {"bilinear", "bicubic"} else None,
     )
-    return resized.permute(0, 2, 3, 1).contiguous()
+    if not torch.isfinite(resized).all().item():
+        raise ValueError("Image resampling produced NaN or infinite values.")
+    # Bicubic kernels legitimately overshoot around high-contrast color edges.
+    # Clamp at the normalization boundary so every downstream ComfyUI IMAGE
+    # remains in its documented [0, 1] range while strict nodes can continue to
+    # reject genuinely invalid external tensors.
+    return resized.permute(0, 2, 3, 1).contiguous().clamp(0.0, 1.0)
 
 
 def _resize_mask(mask, height, width):
@@ -293,15 +299,22 @@ class BadgeDesignCanvas:
         batch, height, width, _ = image.shape
         use_alpha = foreground_source != "Explicit colors" and alpha_mask is not None
         if use_alpha:
-            transparency = _broadcast_batch(_mask_float(alpha_mask, "alpha_mask"), batch, "alpha_mask")
+            transparency = _mask_float(alpha_mask, "alpha_mask")
             if transparency.shape[1:3] != (height, width):
-                raise ValueError("alpha_mask and images must have identical spatial dimensions.")
-            has_alpha = bool((transparency > 1e-6).any().item())
-            if foreground_source == "Load Image alpha" or has_alpha:
-                foreground = (1.0 - transparency > 0.5).float()
-                source_used = "load_image_alpha"
-            else:
-                use_alpha = False
+                if bool((transparency > 1e-6).any().item()):
+                    raise ValueError("alpha_mask and images must have identical spatial dimensions.")
+                if foreground_source == "Load Image alpha":
+                    transparency = torch.zeros((batch, height, width), device=image.device, dtype=image.dtype)
+                else:
+                    use_alpha = False
+            if use_alpha:
+                transparency = _broadcast_batch(transparency, batch, "alpha_mask")
+                has_alpha = bool((transparency > 1e-6).any().item())
+                if foreground_source == "Load Image alpha" or has_alpha:
+                    foreground = (1.0 - transparency > 0.5).float()
+                    source_used = "load_image_alpha"
+                else:
+                    use_alpha = False
         if not use_alpha:
             background = _parse_color(background_color).to(image.device)
             cutout = _parse_color(cutout_color, "#ff00ff").to(image.device)
@@ -809,9 +822,21 @@ class BadgeEditStateSave:
         target = _safe_state_target(folder_paths.get_output_directory(), filename_prefix)
         workflow = extra_pnginfo.get("workflow", {}) if isinstance(extra_pnginfo, dict) else {}
         color_configs = []
+        color_config_properties = {
+            "DAELabMultiColorMask": "multi_color_mask_config",
+            "DAELabMultiColorMaskV1": "multi_color_mask_v1_config",
+        }
         for node in workflow.get("nodes", []) if isinstance(workflow, dict) else []:
-            if isinstance(node, dict) and node.get("type") == "DAELabMultiColorMask":
-                color_configs.append({"node_id": node.get("id"), "config": (node.get("properties") or {}).get("multi_color_mask_config")})
+            node_type = node.get("type") if isinstance(node, dict) else None
+            property_name = color_config_properties.get(node_type)
+            if property_name:
+                color_configs.append(
+                    {
+                        "node_id": node.get("id"),
+                        "node_type": node_type,
+                        "config": (node.get("properties") or {}).get(property_name),
+                    }
+                )
         metadata = {
             "version": 1,
             "height_enabled": bool(height_enabled),

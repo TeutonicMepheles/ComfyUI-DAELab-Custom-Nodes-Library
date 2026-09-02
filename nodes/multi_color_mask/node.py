@@ -7,6 +7,7 @@ import torch
 
 MAX_MASK_GROUPS = 16
 CONFIG_PROPERTY = "multi_color_mask_config"
+V1_CONFIG_PROPERTY = "multi_color_mask_v1_config"
 COMBINED_OUTPUT = "combined_mask"
 DEFAULT_COLORS = ("#0000ff", "#00ff00", "#ff0000", "#ffffff")
 _HEX_COLOR = re.compile(r"^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
@@ -99,6 +100,61 @@ def _normalize_config(value):
     return {"version": 1, "groups": groups, "output": output}
 
 
+def _normalize_v1_config(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            value = None
+
+    source = value if isinstance(value, dict) else {}
+    raw_groups = source.get("groups")
+    if not isinstance(raw_groups, list):
+        raw_groups = []
+
+    output_match = re.fullmatch(r"mask_(\d+)", str(source.get("output", "")).strip().lower())
+    requested_index = int(output_match.group(1)) - 1 if output_match else -1
+    groups = []
+    requested_output_index = None
+    used_ids = set()
+    for source_index, raw_group in enumerate(raw_groups[:MAX_MASK_GROUPS]):
+        fallback = _default_group(source_index)
+        group = raw_group if isinstance(raw_group, dict) else {}
+        if "enabled" in group and not _as_bool(group.get("enabled"), True):
+            continue
+
+        group_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(group.get("id", "")).strip())[:80]
+        if not group_id or group_id in used_ids:
+            suffix = source_index + 1
+            group_id = f"mask_legacy_{suffix}"
+            while group_id in used_ids:
+                suffix += 1
+                group_id = f"mask_legacy_{suffix}"
+        used_ids.add(group_id)
+        groups.append(
+            {
+                "id": group_id,
+                "enabled": True,
+                "color": _normalize_color(group.get("color"), fallback["color"]),
+                "threshold": _normalize_threshold(group.get("threshold")),
+                "invert": _as_bool(group.get("invert"), fallback["invert"]),
+            }
+        )
+        if source_index == requested_index:
+            requested_output_index = len(groups) - 1
+
+    if not groups:
+        group = _default_group()
+        groups.append({"id": "mask_legacy_1", **group})
+
+    output = (
+        f"mask_{requested_output_index + 1}"
+        if requested_output_index is not None
+        else COMBINED_OUTPUT
+    )
+    return {"version": 1, "groups": groups, "output": output}
+
+
 def _get_workflow_node(unique_id, extra_pnginfo):
     workflow = extra_pnginfo.get("workflow") if isinstance(extra_pnginfo, dict) else None
     nodes = workflow.get("nodes", []) if isinstance(workflow, dict) else []
@@ -108,11 +164,17 @@ def _get_workflow_node(unique_id, extra_pnginfo):
     return None
 
 
-def _get_node_config(unique_id=None, extra_pnginfo=None):
+def _get_node_config(
+    unique_id=None,
+    extra_pnginfo=None,
+    *,
+    property_name=CONFIG_PROPERTY,
+    normalizer=_normalize_config,
+):
     node = _get_workflow_node(unique_id, extra_pnginfo)
     properties = node.get("properties", {}) if isinstance(node, dict) else {}
-    value = properties.get(CONFIG_PROPERTY) if isinstance(properties, dict) else None
-    return _normalize_config(value)
+    value = properties.get(property_name) if isinstance(properties, dict) else None
+    return normalizer(value)
 
 
 def _parse_color(value, *, device):
@@ -212,10 +274,47 @@ class DAELabMultiColorMask:
         return (masks[index],)
 
 
+class DAELabMultiColorMaskV1(DAELabMultiColorMask):
+    """Compact selected-group editor without per-group enable switches."""
+
+    DESCRIPTION = (
+        "Build color masks with a compact selected-group editor and output one "
+        "selected group mask or the union of all groups."
+    )
+
+    @classmethod
+    def IS_CHANGED(cls, images, unique_id=None, extra_pnginfo=None):
+        del images
+        config = _get_node_config(
+            unique_id,
+            extra_pnginfo,
+            property_name=V1_CONFIG_PROPERTY,
+            normalizer=_normalize_v1_config,
+        )
+        payload = json.dumps(config, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def make_mask(self, images, unique_id=None, extra_pnginfo=None):
+        config = _get_node_config(
+            unique_id,
+            extra_pnginfo,
+            property_name=V1_CONFIG_PROPERTY,
+            normalizer=_normalize_v1_config,
+        )
+        masks, combined = _make_masks(images, config)
+        if config["output"] == COMBINED_OUTPUT:
+            return (combined,)
+
+        index = int(config["output"].split("_", 1)[1]) - 1
+        return (masks[index],)
+
+
 NODE_CLASS_MAPPINGS = {
     "DAELabMultiColorMask": DAELabMultiColorMask,
+    "DAELabMultiColorMaskV1": DAELabMultiColorMaskV1,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "DAELabMultiColorMask": "Multi Color Mask (DAELab)",
+    "DAELabMultiColorMaskV1": "Multi Color Mask V1 (DAELab)",
 }

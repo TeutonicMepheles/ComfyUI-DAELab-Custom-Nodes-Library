@@ -27,6 +27,8 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "BadgeEditStateLoad",
     "BadgeHeightReferenceAlignV1",
     "BadgeHeightLockedBaseV1",
+    "DAELAB.BadgeReliefGeometryV1",
+    "DAELAB.BadgeGPTStructureTransferV1",
     "DAELAB.BadgeStructureConstraintV1",
     "BadgeMaterialConstraintV1",
     "BadgeMaterialRegionGPTChannelV1",

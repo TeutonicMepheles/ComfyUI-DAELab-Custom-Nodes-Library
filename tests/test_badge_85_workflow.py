@@ -31,10 +31,10 @@ class Badge85WorkflowTests(unittest.TestCase):
         by_type = {node["type"]: node for node in self.nodes.values()}
         expected = {
             "BadgeHeightReferenceAlignV1",
-            "BadgeHeightLockedBaseV1",
+            "DAELAB.BadgeReliefGeometryV1",
             "BadgeHeightEstablishPromptBuilder",
             "OpenAIGPTImageNodeV2",
-            "DAELAB.BadgeStructureConstraintV1",
+            "DAELAB.BadgeGPTStructureTransferV1",
             "BadgeMaterialRegionGPTChannelV1",
             "BadgeMaterialRegionMergeV1",
             "BadgeStudioCompositeV1",
@@ -52,12 +52,12 @@ class Badge85WorkflowTests(unittest.TestCase):
             ])
             self.assertEqual(channel["widgets_values"], [slot, "medium", 4, 16])
             base_link = next(link for link in self.workflow["links"] if link[0] == channel["inputs"][0]["link"])
-            self.assertEqual(self.nodes[base_link[1]]["type"], "DAELAB.BadgeStructureConstraintV1")
+            self.assertEqual(self.nodes[base_link[1]]["type"], "DAELAB.BadgeGPTStructureTransferV1")
         merge = by_type["BadgeMaterialRegionMergeV1"]
         self.assertEqual(len(merge["inputs"]), 13)
         self.assertTrue(all(entry["link"] is not None for entry in merge["inputs"]))
         merge_base_link = next(link for link in self.workflow["links"] if link[0] == merge["inputs"][0]["link"])
-        self.assertEqual(self.nodes[merge_base_link[1]]["type"], "DAELAB.BadgeStructureConstraintV1")
+        self.assertEqual(self.nodes[merge_base_link[1]]["type"], "DAELAB.BadgeGPTStructureTransferV1")
         studio = by_type["BadgeStudioCompositeV1"]
         self.assertEqual(studio["widgets_values"], ["#FFFFFF", 0.1, 10, 0, 6, 0.04, True])
 
@@ -65,8 +65,9 @@ class Badge85WorkflowTests(unittest.TestCase):
         gpt = next(node for node in self.nodes.values() if node["type"] == "OpenAIGPTImageNodeV2")
         self.assertEqual(
             gpt["widgets_values"],
-            ["", "gpt-image-2", "auto", 1024, 1024, "auto", "medium", 1, 0, "fixed"],
+            ["", "gpt-image-2", "1024x1024", 1024, 1024, "auto", "medium", 1, 0, "fixed"],
         )
+        self.assertEqual(gpt["widgets_values_named"]["model.size"], "1024x1024")
         self.assertNotIn("title", gpt)
         expected_sources = {
             "prompt": "BadgeHeightEstablishPromptBuilder",
@@ -81,14 +82,59 @@ class Badge85WorkflowTests(unittest.TestCase):
         mask_input = next(entry for entry in gpt["inputs"] if entry["name"] == "model.mask")
         self.assertIsNone(mask_input["link"])
 
-        constraint = next(
+        geometry = next(
             node for node in self.nodes.values()
-            if node["type"] == "DAELAB.BadgeStructureConstraintV1"
+            if node["type"] == "DAELAB.BadgeReliefGeometryV1"
         )
-        self.assertEqual([entry["name"] for entry in constraint["inputs"][:5]], [
-            "candidate_image", "fallback_image", "flat_image", "height_map", "foreground_mask",
+        self.assertEqual([entry["name"] for entry in geometry["inputs"][:3]], [
+            "flat_image", "height_map", "foreground_mask",
         ])
-        self.assertEqual(constraint["widgets_values"], [1, 0.08, 0.015, 0.60, True, True])
+        self.assertEqual(
+            geometry["widgets_values"],
+            [7, 1.0, 11.0, 0.72, 0.34, 0.07, 28.0, 0.10, 10, -135.0, 45.0, True],
+        )
+        self.assertEqual(
+            geometry["widgets_values_named"],
+            {
+                "bevel_radius_px": 7,
+                "relief_depth": 1.0,
+                "normal_strength": 11.0,
+                "ambient": 0.72,
+                "key_strength": 0.34,
+                "specular_strength": 0.07,
+                "specular_power": 28.0,
+                "ao_strength": 0.10,
+                "ao_radius_px": 10,
+                "light_azimuth_degrees": -135.0,
+                "light_elevation_degrees": 45.0,
+                "enforce_1024": True,
+            },
+        )
+        transfer = next(
+            node for node in self.nodes.values()
+            if node["type"] == "DAELAB.BadgeGPTStructureTransferV1"
+        )
+        self.assertEqual([entry["name"] for entry in transfer["inputs"][:5]], [
+            "candidate_image", "geometry_base", "flat_image", "height_map", "foreground_mask",
+        ])
+        self.assertEqual(transfer["widgets_values"], [0.40, 0.24, 1, 8, 0.08, 0.24, True])
+        self.assertEqual(
+            transfer["widgets_values_named"],
+            {
+                "form_strength": 0.40,
+                "detail_strength": 0.24,
+                "boundary_lock_px": 1,
+                "maximum_translation_px": 8,
+                "minimum_relief_contrast": 0.08,
+                "minimum_edge_coverage": 0.24,
+                "enforce_1024": True,
+            },
+        )
+        geometry_link = next(
+            link for link in self.workflow["links"]
+            if link[0] == transfer["inputs"][1]["link"]
+        )
+        self.assertEqual(self.nodes[geometry_link[1]]["type"], "DAELAB.BadgeReliefGeometryV1")
 
     def test_nodes_use_registered_names_without_workflow_title_overrides(self):
         titled = {
@@ -148,7 +194,7 @@ class Badge85WorkflowTests(unittest.TestCase):
     def test_canvas_groups_match_editor_mode_contract(self):
         titles = [group["title"] for group in self.workflow["groups"]]
         for prefix in (
-            "[Input]", "[Height Mapping]", "[Material Mapping]", "[Height Structure Guide]",
+            "[Input]", "[Height Mapping]", "[Material Mapping]", "[Height Structure Geometry]",
             "[Height Structure Generate]",
             "[Material Generate]", "[Color / Height QA]", "[Final]",
         ):

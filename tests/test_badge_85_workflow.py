@@ -16,7 +16,10 @@ class Badge85WorkflowTests(unittest.TestCase):
     def test_editor_mode_workflow_has_no_app_builder_linear_data(self):
         self.assertNotIn("linearData", self.workflow.get("extra", {}))
         self.assertEqual([node["type"] for node in self.nodes.values()].count("AppModeLoadImage"), 2)
-        self.assertFalse(any(node["type"] == "OpenAIGPTImageNodeV2" for node in self.nodes.values()))
+        self.assertEqual(
+            [node["type"] for node in self.nodes.values()].count("OpenAIGPTImageNodeV2"),
+            1,
+        )
         self.assertEqual(
             [node["type"] for node in self.nodes.values()].count("BadgeMaterialRegionGPTChannelV1"),
             4,
@@ -29,6 +32,9 @@ class Badge85WorkflowTests(unittest.TestCase):
         expected = {
             "BadgeHeightReferenceAlignV1",
             "BadgeHeightLockedBaseV1",
+            "BadgeHeightEstablishPromptBuilder",
+            "OpenAIGPTImageNodeV2",
+            "DAELAB.BadgeStructureConstraintV1",
             "BadgeMaterialRegionGPTChannelV1",
             "BadgeMaterialRegionMergeV1",
             "BadgeStudioCompositeV1",
@@ -45,11 +51,44 @@ class Badge85WorkflowTests(unittest.TestCase):
                 "base_image", "flat_image", "height_map", "material_region_set"
             ])
             self.assertEqual(channel["widgets_values"], [slot, "medium", 4, 16])
+            base_link = next(link for link in self.workflow["links"] if link[0] == channel["inputs"][0]["link"])
+            self.assertEqual(self.nodes[base_link[1]]["type"], "DAELAB.BadgeStructureConstraintV1")
         merge = by_type["BadgeMaterialRegionMergeV1"]
         self.assertEqual(len(merge["inputs"]), 13)
         self.assertTrue(all(entry["link"] is not None for entry in merge["inputs"]))
+        merge_base_link = next(link for link in self.workflow["links"] if link[0] == merge["inputs"][0]["link"])
+        self.assertEqual(self.nodes[merge_base_link[1]]["type"], "DAELAB.BadgeStructureConstraintV1")
         studio = by_type["BadgeStudioCompositeV1"]
         self.assertEqual(studio["widgets_values"], ["#FFFFFF", 0.1, 10, 0, 6, 0.04, True])
+
+    def test_native_gpt_structure_stage_uses_flat_height_and_foreground_inputs(self):
+        gpt = next(node for node in self.nodes.values() if node["type"] == "OpenAIGPTImageNodeV2")
+        self.assertEqual(
+            gpt["widgets_values"],
+            ["", "gpt-image-2", "auto", 1024, 1024, "auto", "medium", 1, 0, "fixed"],
+        )
+        self.assertNotIn("title", gpt)
+        expected_sources = {
+            "prompt": "BadgeHeightEstablishPromptBuilder",
+            "model.images.image_1": "BadgeDesignCanvas",
+            "model.images.image_2": "BadgeHeightReferenceAlignV1",
+        }
+        for input_name, source_type in expected_sources.items():
+            input_entry = next(entry for entry in gpt["inputs"] if entry["name"] == input_name)
+            self.assertIsNotNone(input_entry["link"], input_name)
+            link = next(entry for entry in self.workflow["links"] if entry[0] == input_entry["link"])
+            self.assertEqual(self.nodes[link[1]]["type"], source_type, input_name)
+        mask_input = next(entry for entry in gpt["inputs"] if entry["name"] == "model.mask")
+        self.assertIsNone(mask_input["link"])
+
+        constraint = next(
+            node for node in self.nodes.values()
+            if node["type"] == "DAELAB.BadgeStructureConstraintV1"
+        )
+        self.assertEqual([entry["name"] for entry in constraint["inputs"][:5]], [
+            "candidate_image", "fallback_image", "flat_image", "height_map", "foreground_mask",
+        ])
+        self.assertEqual(constraint["widgets_values"], [1, 0.08, 0.015, 0.60, True, True])
 
     def test_nodes_use_registered_names_without_workflow_title_overrides(self):
         titled = {
@@ -109,7 +148,8 @@ class Badge85WorkflowTests(unittest.TestCase):
     def test_canvas_groups_match_editor_mode_contract(self):
         titles = [group["title"] for group in self.workflow["groups"]]
         for prefix in (
-            "[Input]", "[Height Mapping]", "[Material Mapping]", "[Strict Base]",
+            "[Input]", "[Height Mapping]", "[Material Mapping]", "[Height Structure Guide]",
+            "[Height Structure Generate]",
             "[Material Generate]", "[Color / Height QA]", "[Final]",
         ):
             self.assertTrue(any(title.startswith(prefix) for title in titles), prefix)

@@ -401,6 +401,85 @@ def build_region_edit_prompt(region, material):
     ))
 
 
+class BadgeMaterialCanvasNormalizeV1:
+    RETURN_TYPES = ("IMAGE", "MASK", "MASK", "STRING")
+    RETURN_NAMES = (
+        "normalized_flat_image",
+        "normalized_height_map",
+        "normalized_foreground_mask",
+        "report",
+    )
+    FUNCTION = "normalize"
+    CATEGORY = "DAELab/Badge/Strict"
+    DESCRIPTION = (
+        "Normalize flat artwork, height, and foreground masks to the actual baked-enamel base canvas "
+        "before masked GPT-Image-2 material edits. Label-bearing inputs use nearest-neighbor scaling."
+    )
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "base_image": ("IMAGE",),
+            "flat_image": ("IMAGE",),
+            "height_map": ("MASK",),
+            "foreground_mask": ("MASK",),
+        }}
+
+    def normalize(self, base_image, flat_image, height_map, foreground_mask):
+        base = _image_float(base_image, "base_image")
+        if base.shape[0] != 1:
+            raise ValueError("Badge Material Canvas Normalize V1 requires exactly one base image.")
+        batch, target_height, target_width, _ = base.shape
+
+        flat = _broadcast(_image_float(flat_image, "flat_image"), batch, "flat_image")
+        height = _broadcast(_mask_float(height_map, "height_map"), batch, "height_map")
+        foreground = _broadcast(
+            _mask_float(foreground_mask, "foreground_mask"),
+            batch,
+            "foreground_mask",
+        )
+        source_sizes = {
+            "flat_image": [int(flat.shape[2]), int(flat.shape[1])],
+            "height_map": [int(height.shape[2]), int(height.shape[1])],
+            "foreground_mask": [int(foreground.shape[2]), int(foreground.shape[1])],
+        }
+
+        if flat.shape[1:3] != (target_height, target_width):
+            flat = F.interpolate(
+                flat.permute(0, 3, 1, 2),
+                size=(target_height, target_width),
+                mode="nearest-exact",
+            ).permute(0, 2, 3, 1).contiguous()
+        if height.shape[1:] != (target_height, target_width):
+            height = _resize_mask(height, target_height, target_width)
+        if foreground.shape[1:] != (target_height, target_width):
+            foreground = _resize_mask(foreground, target_height, target_width)
+        foreground = (foreground > 0.5).to(dtype=torch.float32)
+
+        expected_image_shape = (batch, target_height, target_width, 3)
+        expected_mask_shape = (batch, target_height, target_width)
+        if tuple(flat.shape) != expected_image_shape:
+            raise RuntimeError("Normalized flat image does not match the base image canvas.")
+        if tuple(height.shape) != expected_mask_shape or tuple(foreground.shape) != expected_mask_shape:
+            raise RuntimeError("Normalized material masks do not match the base image canvas.")
+
+        report = {
+            "version": 1,
+            "base_canvas": [target_width, target_height],
+            "source_sizes": source_sizes,
+            "output_sizes": {
+                "flat_image": [int(flat.shape[2]), int(flat.shape[1])],
+                "height_map": [int(height.shape[2]), int(height.shape[1])],
+                "foreground_mask": [int(foreground.shape[2]), int(foreground.shape[1])],
+            },
+            "flat_interpolation": "nearest-exact",
+            "mask_interpolation": "nearest-exact",
+            "foreground_binary": True,
+            "legal_height_max_error": float(_legal_height_error(height).max().item()),
+        }
+        return flat.clamp(0.0, 1.0), height, foreground, json.dumps(report, separators=(",", ":"))
+
+
 class BadgeHeightReferenceAlignV1:
     RETURN_TYPES = ("MASK", "IMAGE", "MASK", "FLOAT", "FLOAT", "BOOLEAN", "STRING")
     RETURN_NAMES = (
@@ -958,6 +1037,151 @@ class BadgeStudioCompositeV1:
         return output, shadow, json.dumps(report, separators=(",", ":"))
 
 
+def _validated_semantic_mask(base_image, region_mask, foreground_mask):
+    base = _image_float(base_image, "base_image")
+    if base.shape[0] != 1:
+        raise ValueError("GPT masked editing requires exactly one immutable base image.")
+    region = _broadcast(_mask_float(region_mask, "region_mask"), 1, "region_mask")
+    foreground = _broadcast(_mask_float(foreground_mask, "foreground_mask"), 1, "foreground_mask")
+    if region.shape[1:] != base.shape[1:3] or foreground.shape[1:] != base.shape[1:3]:
+        raise ValueError("base_image, region_mask, and foreground_mask must share the same canvas.")
+    return base, ((region > 0.5) & (foreground > 0.5)).to(base.dtype)
+
+
+def _semantic_prompt(user_prompt):
+    instruction = str(user_prompt or "").strip()
+    if not instruction:
+        instruction = "Refine the selected region while preserving its original design intent."
+    return (
+        "Image 1 is the completed badge material master and the only reference image. "
+        "Edit only pixels selected by the white mask. Keep every pixel outside the mask visually unchanged. "
+        "Preserve the badge canvas, camera, framing, silhouette, geometry, visible text, typography, linework, "
+        "region boundaries, neighboring materials, and background. Do not expand beyond the mask, reinterpret "
+        "the design, add unrelated objects, change perspective, or create a studio scene. This is a local semantic "
+        "repaint, not a full-image regeneration.\n\nLOCAL EDIT INSTRUCTION: " + instruction
+    )
+
+
+def _merge_semantic_channels(base_image, channels):
+    base = _image_float(base_image, "base_image")
+    batch, height, width, _ = base.shape
+    result = base.clone()
+    total_weight = torch.zeros((batch, height, width), device=base.device, dtype=base.dtype)
+    statuses = []
+    for slot, (region_image, region_mask, status) in enumerate(channels, start=1):
+        image = _broadcast(_image_float(region_image, f"region_{slot}_image"), batch, f"region_{slot}_image")
+        mask = _broadcast(_mask_float(region_mask, f"region_{slot}_mask"), batch, f"region_{slot}_mask")
+        if image.shape[1:3] != (height, width) or mask.shape[1:] != (height, width):
+            raise ValueError(f"Semantic channel {slot} must match the base canvas.")
+        mask = (mask > 0.5).to(base.dtype)
+        result = result * (1.0 - mask.unsqueeze(-1)) + image * mask.unsqueeze(-1)
+        total_weight += mask
+        try:
+            statuses.append(json.loads(str(status or "{}")))
+        except (TypeError, json.JSONDecodeError):
+            statuses.append({"region_slot": slot, "status_parse_error": True})
+    outside = (total_weight <= 0.0).unsqueeze(-1)
+    outside_max = float(torch.where(outside, (result - base).abs(), torch.zeros_like(result)).max().item())
+    overlap_pixels = int((total_weight > 1.0).sum().item())
+    return result.clamp(0.0, 1.0), statuses, overlap_pixels, outside_max
+
+
+class BadgeSemanticRegionMergeV1:
+    RETURN_TYPES = ("IMAGE", "STRING")
+    RETURN_NAMES = ("image", "report")
+    FUNCTION = "merge"
+    CATEGORY = "DAELab/Badge/PP"
+    DESCRIPTION = "Merge four strict semantic repaint channels. Later slots win on overlap."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        required = {"base_image": ("IMAGE",)}
+        for slot in range(1, 5):
+            required[f"region_{slot}_image"] = ("IMAGE",)
+            required[f"region_{slot}_mask"] = ("MASK",)
+            required[f"region_{slot}_status"] = ("STRING", {"forceInput": True})
+        return {"required": required}
+
+    def merge(self, base_image, **kwargs):
+        channels = [(
+            kwargs[f"region_{slot}_image"],
+            kwargs[f"region_{slot}_mask"],
+            kwargs[f"region_{slot}_status"],
+        ) for slot in range(1, 5)]
+        image, statuses, overlap_pixels, outside_max = _merge_semantic_channels(base_image, channels)
+        report = {
+            "visible_semantic_channels": 4,
+            "gpt_node_use_count": sum(bool(item.get("gpt_node_used")) for item in statuses),
+            "overlap_policy": "later_slot_wins",
+            "overlap_pixels": overlap_pixels,
+            "outside_max_abs_diff": outside_max,
+            "channels": statuses,
+        }
+        return image, json.dumps(report, ensure_ascii=False, separators=(",", ":"))
+
+
+class BadgeStudioColorLockV1:
+    RETURN_TYPES = ("IMAGE", "IMAGE", "FLOAT", "STRING")
+    RETURN_NAMES = ("presentation_image", "color_locked_badge", "subject_geometry_max_diff", "report")
+    FUNCTION = "compose"
+    CATEGORY = "DAELab/Badge/PP"
+    DESCRIPTION = "Deterministically restore badge geometry and pull subject chroma toward the normalized flat artwork."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "editable_master": ("IMAGE",),
+            "studio_candidate": ("IMAGE",),
+            "flat_image": ("IMAGE",),
+            "foreground_mask": ("MASK",),
+            "color_lock_strength": ("FLOAT", {"default": 0.65, "min": 0.0, "max": 1.0, "step": 0.01}),
+            "neutral_material_protection": ("FLOAT", {"default": 0.75, "min": 0.0, "max": 1.0, "step": 0.01}),
+        }}
+
+    def compose(
+        self,
+        editable_master,
+        studio_candidate,
+        flat_image,
+        foreground_mask,
+        color_lock_strength=0.65,
+        neutral_material_protection=0.75,
+    ):
+        master = _image_float(editable_master, "editable_master")
+        studio = _broadcast(_image_float(studio_candidate, "studio_candidate"), master.shape[0], "studio_candidate")
+        flat = _broadcast(_image_float(flat_image, "flat_image"), master.shape[0], "flat_image")
+        foreground = _broadcast(_mask_float(foreground_mask, "foreground_mask"), master.shape[0], "foreground_mask")
+        if studio.shape != master.shape or flat.shape != master.shape or foreground.shape[1:] != master.shape[1:3]:
+            raise ValueError("All studio color-lock inputs must share identical batch and canvas dimensions.")
+        foreground = (foreground > 0.5).to(master.dtype)
+        master_lab = _rgb_to_oklab(master)
+        flat_lab = _rgb_to_oklab(flat)
+        flat_chroma = torch.linalg.vector_norm(flat_lab[..., 1:3], dim=-1)
+        neutral_scale = (flat_chroma / 0.08).clamp(0.0, 1.0)
+        protection = float(neutral_material_protection)
+        effective = float(color_lock_strength) * ((1.0 - protection) + protection * neutral_scale)
+        locked_lab = master_lab.clone()
+        locked_lab[..., 1:3] = (
+            master_lab[..., 1:3] * (1.0 - effective.unsqueeze(-1))
+            + flat_lab[..., 1:3] * effective.unsqueeze(-1)
+        )
+        locked = _oklab_to_rgb(locked_lab)
+        subject = torch.where(foreground.unsqueeze(-1) > 0.5, locked, master)
+        presentation = torch.where(foreground.unsqueeze(-1) > 0.5, subject, studio)
+        geometry_diff = float(
+            (((presentation - subject).abs()) * foreground.unsqueeze(-1)).max().item()
+        )
+        report = {
+            "color_space": "OKLab",
+            "color_lock_strength": float(color_lock_strength),
+            "neutral_material_protection": protection,
+            "subject_geometry_policy": "editable_master_foreground_reinserted_exactly_after_chroma_lock",
+            "studio_candidate_used_only_outside_foreground": True,
+            "subject_geometry_max_diff": geometry_diff,
+        }
+        return presentation, subject, geometry_diff, json.dumps(report, ensure_ascii=False, separators=(",", ":"))
+
+
 def _executor_preflight(material_region_set, max_regions=4, minimum_region_pixels=16):
     if not isinstance(material_region_set, dict):
         raise TypeError("material_region_set must come from Badge Material Region V1.")
@@ -1210,6 +1434,210 @@ if comfy_io is not None:
                 expand=graph.finalize(),
             )
 
+    class BadgeSemanticRegionGPTChannelV1(comfy_io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return comfy_io.Schema(
+                node_id="DAELAB.BadgeSemanticRegionGPTChannelV1",
+                display_name="Badge Semantic Region GPT Channel V1",
+                category="DAELab/Badge/PP",
+                description=(
+                    "One visible GPT-Image-2 local semantic repaint channel. Disabled, empty, or tiny masks "
+                    "return the immutable base without expanding a billable API node."
+                ),
+                enable_expand=True,
+                inputs=[
+                    comfy_io.Image.Input("base_image"),
+                    comfy_io.Mask.Input("region_mask"),
+                    comfy_io.Mask.Input("foreground_mask"),
+                    comfy_io.Boolean.Input("enabled", default=False),
+                    comfy_io.String.Input(
+                        "edit_prompt",
+                        default="Refine the selected region while preserving its original color and boundaries.",
+                        multiline=True,
+                    ),
+                    comfy_io.Combo.Input("quality", options=["low", "medium", "high"], default="medium"),
+                    comfy_io.Int.Input("reroll_revision", default=0, min=0, max=2147483647),
+                    comfy_io.Int.Input("minimum_region_pixels", default=16, min=1, max=65536),
+                ],
+                outputs=[
+                    comfy_io.Image.Output("region_image"),
+                    comfy_io.Mask.Output("validated_mask"),
+                    comfy_io.String.Output("call_status"),
+                ],
+            )
+
+        @classmethod
+        def execute(
+            cls,
+            base_image,
+            region_mask,
+            foreground_mask,
+            enabled=False,
+            edit_prompt="",
+            quality="medium",
+            reroll_revision=0,
+            minimum_region_pixels=16,
+        ):
+            base, validated = _validated_semantic_mask(base_image, region_mask, foreground_mask)
+            selected_pixels = int(validated.sum().item())
+            active = bool(enabled) and selected_pixels >= int(minimum_region_pixels)
+            reason = "active_semantic_region" if active else (
+                "disabled" if not bool(enabled) else "empty_or_too_small_mask"
+            )
+            status = json.dumps({
+                "gpt_node_used": active,
+                "billable_api_request_on_cache_miss": active,
+                "native_gpt_node_type": "OpenAIGPTImageNodeV2" if active else None,
+                "selected_pixels": selected_pixels,
+                "minimum_region_pixels": int(minimum_region_pixels),
+                "quality": str(quality),
+                "reroll_revision": int(reroll_revision),
+                "reason": reason,
+                "mask_polarity": "white_is_edited",
+                "masked_reference_image_count": 1,
+            }, ensure_ascii=False, separators=(",", ":"))
+            if not active:
+                empty = torch.zeros_like(validated)
+                return comfy_io.NodeOutput(base, empty, status)
+
+            graph = GraphBuilder()
+            gpt = graph.node(
+                "OpenAIGPTImageNodeV2",
+                id="semantic_gpt",
+                prompt=_semantic_prompt(edit_prompt),
+                model="gpt-image-2",
+                **{
+                    "model.size": "1024x1024",
+                    "model.custom_width": 1024,
+                    "model.custom_height": 1024,
+                    "model.background": "opaque",
+                    "model.quality": quality,
+                    "model.images.image_1": base_image,
+                    "model.mask": validated,
+                },
+                n=1,
+                seed=int(reroll_revision),
+            )
+            composite = graph.node(
+                "BadgeDeterministicComposite",
+                id="semantic_strict_composite",
+                previous_master=base_image,
+                edit_candidate=gpt.out(0),
+                edit_mask=validated,
+            )
+            return comfy_io.NodeOutput(
+                composite.out(0),
+                validated,
+                status,
+                expand=graph.finalize(),
+            )
+
+    class BadgeStudioBackgroundGPTV1(comfy_io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return comfy_io.Schema(
+                node_id="DAELAB.BadgeStudioBackgroundGPTV1",
+                display_name="Badge Studio Background GPT V1",
+                category="DAELab/Badge/PP",
+                description=(
+                    "Generate only the studio environment outside a protected badge foreground. "
+                    "The flat artwork is applied later by the deterministic color-lock node."
+                ),
+                enable_expand=True,
+                inputs=[
+                    comfy_io.Image.Input("badge_image"),
+                    comfy_io.Mask.Input("foreground_mask"),
+                    comfy_io.Boolean.Input("enabled", default=True),
+                    comfy_io.String.Input(
+                        "studio_prompt",
+                        default="Clean premium product photography on a pure white seamless studio background, soft contact shadow, controlled softbox lighting.",
+                        multiline=True,
+                    ),
+                    comfy_io.Int.Input("protection_px", default=2, min=0, max=64),
+                    comfy_io.Combo.Input("quality", options=["low", "medium", "high"], default="high"),
+                    comfy_io.Int.Input("reroll_revision", default=0, min=0, max=2147483647),
+                ],
+                outputs=[
+                    comfy_io.Image.Output("studio_candidate"),
+                    comfy_io.Mask.Output("background_edit_mask"),
+                    comfy_io.String.Output("call_status"),
+                ],
+            )
+
+        @classmethod
+        def execute(
+            cls,
+            badge_image,
+            foreground_mask,
+            enabled=True,
+            studio_prompt="",
+            protection_px=2,
+            quality="high",
+            reroll_revision=0,
+        ):
+            badge = _image_float(badge_image, "badge_image")
+            if badge.shape[0] != 1:
+                raise ValueError("Studio masked editing requires exactly one badge image.")
+            foreground = _broadcast(_mask_float(foreground_mask, "foreground_mask"), 1, "foreground_mask")
+            if foreground.shape[1:] != badge.shape[1:3]:
+                raise ValueError("foreground_mask must match badge_image dimensions.")
+            protected = (foreground > 0.5).to(badge.dtype)
+            radius = max(0, int(protection_px))
+            if radius:
+                protected = F.max_pool2d(
+                    protected.unsqueeze(1),
+                    kernel_size=radius * 2 + 1,
+                    stride=1,
+                    padding=radius,
+                )[:, 0]
+            background_mask = (1.0 - protected).clamp(0.0, 1.0)
+            active = bool(enabled) and int(background_mask.sum().item()) > 0
+            status = json.dumps({
+                "gpt_node_used": active,
+                "billable_api_request_on_cache_miss": active,
+                "native_gpt_node_type": "OpenAIGPTImageNodeV2" if active else None,
+                "reason": "active_background_edit" if active else ("disabled" if not enabled else "empty_background_mask"),
+                "protection_px": radius,
+                "quality": str(quality),
+                "reroll_revision": int(reroll_revision),
+                "mask_polarity": "white_is_background_edit",
+                "masked_reference_image_count": 1,
+            }, ensure_ascii=False, separators=(",", ":"))
+            if not active:
+                return comfy_io.NodeOutput(badge, torch.zeros_like(background_mask), status)
+
+            direction = str(studio_prompt or "").strip()
+            prompt = (
+                "Image 1 contains the completed badge master. Edit only the white background mask. "
+                "The protected badge foreground, silhouette, edge, graphics, text, colors, materials, geometry, "
+                "framing, scale, and position must remain unchanged. Create only a coherent product-photography "
+                "environment on a clean pure white seamless studio background in the editable area. The final "
+                "background must read as white, not gray, beige, colored, gradient, or environmental scenery. "
+                "Do not duplicate, move, redraw, crop, or cover the badge. "
+                "Keep the background compatible with the existing front-view object and reserve natural space for "
+                "a subtle contact shadow.\n\nSTUDIO DIRECTION: " + direction
+            )
+            graph = GraphBuilder()
+            gpt = graph.node(
+                "OpenAIGPTImageNodeV2",
+                id="studio_background_gpt",
+                prompt=prompt,
+                model="gpt-image-2",
+                **{
+                    "model.size": "1024x1024",
+                    "model.custom_width": 1024,
+                    "model.custom_height": 1024,
+                    "model.background": "opaque",
+                    "model.quality": quality,
+                    "model.images.image_1": badge_image,
+                    "model.mask": background_mask,
+                },
+                n=1,
+                seed=int(reroll_revision),
+            )
+            return comfy_io.NodeOutput(gpt.out(0), background_mask, status, expand=graph.finalize())
+
     class BadgeMaterialRegionExecutorV1(comfy_io.ComfyNode):
         @classmethod
         def define_schema(cls):
@@ -1329,8 +1757,27 @@ else:
         def execute(cls, *args, **kwargs):
             raise RuntimeError("ComfyUI V3 API is required for BadgeMaterialRegionExecutorV1.")
 
+    class BadgeSemanticRegionGPTChannelV1:  # pragma: no cover
+        @classmethod
+        def define_schema(cls):
+            return None
+
+        @classmethod
+        def execute(cls, *args, **kwargs):
+            raise RuntimeError("ComfyUI V3 API is required for BadgeSemanticRegionGPTChannelV1.")
+
+    class BadgeStudioBackgroundGPTV1:  # pragma: no cover
+        @classmethod
+        def define_schema(cls):
+            return None
+
+        @classmethod
+        def execute(cls, *args, **kwargs):
+            raise RuntimeError("ComfyUI V3 API is required for BadgeStudioBackgroundGPTV1.")
+
 
 NODE_CLASS_MAPPINGS = {
+    "DAELAB.BadgeMaterialCanvasNormalizeV1": BadgeMaterialCanvasNormalizeV1,
     "BadgeHeightReferenceAlignV1": BadgeHeightReferenceAlignV1,
     "BadgeHeightLockedBaseV1": BadgeHeightLockedBaseV1,
     "BadgeMaterialConstraintV1": BadgeMaterialConstraintV1,
@@ -1338,9 +1785,14 @@ NODE_CLASS_MAPPINGS = {
     "BadgeMaterialRegionMergeV1": BadgeMaterialRegionMergeV1,
     "BadgeMaterialRegionExecutorV1": BadgeMaterialRegionExecutorV1,
     "BadgeStudioCompositeV1": BadgeStudioCompositeV1,
+    "DAELAB.BadgeSemanticRegionGPTChannelV1": BadgeSemanticRegionGPTChannelV1,
+    "DAELAB.BadgeSemanticRegionMergeV1": BadgeSemanticRegionMergeV1,
+    "DAELAB.BadgeStudioBackgroundGPTV1": BadgeStudioBackgroundGPTV1,
+    "DAELAB.BadgeStudioColorLockV1": BadgeStudioColorLockV1,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "DAELAB.BadgeMaterialCanvasNormalizeV1": "Badge Material Canvas Normalize V1 (DAELab)",
     "BadgeHeightReferenceAlignV1": "Badge Height Reference Align V1 (DAELab)",
     "BadgeHeightLockedBaseV1": "Badge Height Locked Base V1 (DAELab)",
     "BadgeMaterialConstraintV1": "Badge Material Constraint V1 (DAELab)",
@@ -1348,4 +1800,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BadgeMaterialRegionMergeV1": "Badge Material Region Merge V1 (DAELab)",
     "BadgeMaterialRegionExecutorV1": "Badge Material Region Executor V1 (DAELab)",
     "BadgeStudioCompositeV1": "Badge Studio Composite V1 (DAELab)",
+    "DAELAB.BadgeSemanticRegionGPTChannelV1": "Badge Semantic Region GPT Channel V1 (DAELab)",
+    "DAELAB.BadgeSemanticRegionMergeV1": "Badge Semantic Region Merge V1 (DAELab)",
+    "DAELAB.BadgeStudioBackgroundGPTV1": "Badge Studio Background GPT V1 (DAELab)",
+    "DAELAB.BadgeStudioColorLockV1": "Badge Studio Color Lock V1 (DAELab)",
 }

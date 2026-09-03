@@ -152,6 +152,7 @@ class BadgeHeightLayerTests(unittest.TestCase):
             "transparent_pixels": 10,
         }
         prompt = MODULE.build_height_establish_prompt(profile)
+        structure_prompt = MODULE.build_height_structure_prompt(profile)
         report = MODULE.build_height_profile_report(profile)
         self.assertIn("exactly 2 matched solid height levels", prompt)
         self.assertIn("Alpha/grayscale 0.0: Cut Out", prompt)
@@ -188,7 +189,33 @@ class BadgeHeightLayerTests(unittest.TestCase):
         self.assertIn("must remain a true through-cut opening", prompt)
         self.assertIn("do not fill, cap, bridge, emboss, or place material across it", prompt)
         self.assertNotIn("material semantics", prompt.lower())
+        self.assertIn("HEIGHT STRUCTURE — DISCRETE GEOMETRY REFERENCE", structure_prompt)
+        self.assertIn("exactly 2 matched solid height levels", structure_prompt)
+        self.assertIn("Alpha/grayscale 1.0: Layer 5", structure_prompt)
+        self.assertIn("ordered categorical targets", structure_prompt)
+        self.assertIn("not as output brightness, calibrated engineering dimensions", structure_prompt)
+        self.assertNotIn("Use this exact absolute mapping", structure_prompt)
+        self.assertNotIn("NEUTRAL GRAYSCALE RELIEF PROOF", structure_prompt)
+        self.assertNotIn("Do not reproduce any hue from Image 1", structure_prompt)
+        self.assertNotIn("same neutral, uncolored matte base", structure_prompt)
         self.assertIn("Configured but empty: Layer 3 (0.6)", report)
+
+        material = "SURFACE PROPERTIES\nOpaque baked enamel."
+        base_render_prompt = MODULE.build_badge_base_render_prompt(profile, material)
+        self.assertIn("Create one finished, front-facing colored badge", base_render_prompt)
+        self.assertIn(material, base_render_prompt)
+        self.assertIn("uniform opaque pure-white background", base_render_prompt)
+        self.assertNotIn("transparent background", base_render_prompt)
+        self.assertIn("Do not darken, brighten", base_render_prompt)
+        self.assertIn("the Image 1 color lock wins", base_render_prompt)
+        self.assertIn("must not change the mean or median base lightness", base_render_prompt)
+
+        outputs = MODULE.BadgeHeightEstablishPromptBuilder().build(profile, material)
+        self.assertEqual(outputs, (prompt, report, structure_prompt, base_render_prompt))
+        self.assertEqual(
+            list(MODULE.BadgeHeightEstablishPromptBuilder.INPUT_TYPES()["optional"]),
+            ["material_semantics"],
+        )
 
     def test_prompt_builder_rejects_profile_without_solid_pixels(self):
         with self.assertRaisesRegex(ValueError, "no matched solid height level"):

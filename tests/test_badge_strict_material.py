@@ -21,6 +21,25 @@ class BadgeStrictMaterialTests(unittest.TestCase):
         flat[:, 12:size - 12, 12:size - 12] = torch.tensor([0.12, 0.62, 0.48])
         return flat, mask, height
 
+    def test_material_canvas_normalize_matches_the_actual_base_size(self):
+        flat, foreground, height = self.make_square(80)
+        base = torch.zeros((1, 64, 64, 3), dtype=torch.float32)
+        result = MODULE.BadgeMaterialCanvasNormalizeV1().normalize(
+            base,
+            flat,
+            height,
+            foreground,
+        )
+        self.assertEqual(tuple(result[0].shape), (1, 64, 64, 3))
+        self.assertEqual(tuple(result[1].shape), (1, 64, 64))
+        self.assertEqual(tuple(result[2].shape), (1, 64, 64))
+        self.assertTrue(set(torch.unique(result[2]).tolist()).issubset({0.0, 1.0}))
+        self.assertTrue(set(torch.unique(result[1]).tolist()).issubset({0.0, 0.6000000238418579}))
+        report = json.loads(result[3])
+        self.assertEqual(report["base_canvas"], [64, 64])
+        self.assertEqual(report["source_sizes"]["flat_image"], [80, 80])
+        self.assertEqual(report["output_sizes"]["height_map"], [64, 64])
+
     def test_height_alignment_preserves_legal_levels_and_passes_exact_reference(self):
         _, foreground, height = self.make_square()
         unmatched = torch.zeros_like(height)
@@ -274,8 +293,63 @@ class BadgeStrictMaterialTests(unittest.TestCase):
                 (base, torch.zeros_like(mask), status),
             ])
 
+    def test_semantic_mask_is_binary_and_clipped_to_foreground(self):
+        base = torch.zeros((1, 32, 32, 3), dtype=torch.float32)
+        region = torch.zeros((1, 32, 32), dtype=torch.float32)
+        region[:, 2:24, 2:24] = 0.8
+        foreground = torch.zeros_like(region)
+        foreground[:, 8:28, 8:28] = 1.0
+        _, validated = MODULE._validated_semantic_mask(base, region, foreground)
+        self.assertEqual(set(torch.unique(validated).tolist()), {0.0, 1.0})
+        self.assertEqual(int(validated.sum()), 16 * 16)
+        self.assertEqual(float((validated * (1.0 - foreground)).max()), 0.0)
+
+    def test_semantic_merge_uses_later_slot_priority_and_preserves_outside(self):
+        base = torch.zeros((1, 16, 16, 3), dtype=torch.float32)
+        first = base.clone()
+        first[:, 2:10, 2:10] = 0.25
+        first_mask = torch.zeros((1, 16, 16), dtype=torch.float32)
+        first_mask[:, 2:10, 2:10] = 1.0
+        second = base.clone()
+        second[:, 6:14, 6:14] = 0.75
+        second_mask = torch.zeros_like(first_mask)
+        second_mask[:, 6:14, 6:14] = 1.0
+        empty = torch.zeros_like(first_mask)
+        status = json.dumps({"gpt_node_used": True})
+        inactive = json.dumps({"gpt_node_used": False})
+        result, statuses, overlap, outside_max = MODULE._merge_semantic_channels(base, [
+            (first, first_mask, status),
+            (second, second_mask, status),
+            (base, empty, inactive),
+            (base, empty, inactive),
+        ])
+        self.assertEqual(len(statuses), 4)
+        self.assertEqual(overlap, 16)
+        self.assertEqual(outside_max, 0.0)
+        self.assertEqual(float(result[0, 7, 7, 0]), 0.75)
+        self.assertEqual(float(result[0, 0, 0, 0]), 0.0)
+
+    def test_studio_color_lock_reinserts_subject_over_generated_background(self):
+        flat, foreground, _ = self.make_square(48)
+        master = flat * 0.7
+        studio = torch.full_like(master, 0.2)
+        result = MODULE.BadgeStudioColorLockV1().compose(
+            master, studio, flat, foreground, 0.65, 0.75
+        )
+        presentation, locked, geometry_diff, report_json = result
+        torch.testing.assert_close(
+            presentation * foreground.unsqueeze(-1),
+            locked * foreground.unsqueeze(-1),
+        )
+        self.assertAlmostEqual(float(presentation[0, 0, 0, 0]), 0.2, places=6)
+        self.assertEqual(geometry_diff, 0.0)
+        report = json.loads(report_json)
+        self.assertTrue(report["studio_candidate_used_only_outside_foreground"])
+        self.assertEqual(report["color_space"], "OKLab")
+
     def test_all_strict_nodes_are_registered(self):
         self.assertEqual(set(MODULE.NODE_CLASS_MAPPINGS), {
+            "DAELAB.BadgeMaterialCanvasNormalizeV1",
             "BadgeHeightReferenceAlignV1",
             "BadgeHeightLockedBaseV1",
             "BadgeMaterialConstraintV1",
@@ -283,6 +357,10 @@ class BadgeStrictMaterialTests(unittest.TestCase):
             "BadgeMaterialRegionMergeV1",
             "BadgeMaterialRegionExecutorV1",
             "BadgeStudioCompositeV1",
+            "DAELAB.BadgeSemanticRegionGPTChannelV1",
+            "DAELAB.BadgeSemanticRegionMergeV1",
+            "DAELAB.BadgeStudioBackgroundGPTV1",
+            "DAELAB.BadgeStudioColorLockV1",
         })
 
 

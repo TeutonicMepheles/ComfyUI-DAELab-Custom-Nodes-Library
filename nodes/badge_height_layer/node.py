@@ -325,7 +325,7 @@ def _layer_line(layer):
     return f"- Alpha/grayscale {alpha:.1f}: Layer {layer}, {labels[layer]}."
 
 
-def build_height_establish_prompt(height_profile):
+def _height_prompt_context(height_profile):
     if not isinstance(height_profile, dict) or height_profile.get("version") != 1:
         raise ValueError("height_profile must be a Badge Height Layer version 1 profile.")
     present_layers = sorted({int(value) for value in height_profile.get("present_layers", [])})
@@ -338,6 +338,70 @@ def build_height_establish_prompt(height_profile):
     active_lines = "\n".join(_layer_line(layer) for layer in present_layers)
     solid_count = len(solid_layers)
     cutout_note = " An explicit Cut Out level is also active." if 0 in present_layers else " No explicit Cut Out level is active."
+    return active_lines, solid_count, cutout_note
+
+
+def build_height_structure_prompt(height_profile):
+    """Build a concise geometry contract, leaving appearance to another block."""
+    active_lines, solid_count, cutout_note = _height_prompt_context(height_profile)
+    return f"""HEIGHT STRUCTURE — DISCRETE GEOMETRY REFERENCE
+Use Image 2 to guide the relative relief structure of the badge shown in Image 1.
+
+IMAGE ROLES
+Image 1 is the sole authority for artwork, visible text, silhouette, layout, proportions, element positions, and color-region topology.
+Image 2 is a categorical height reference only. It does not define final color, material, exposure, or lighting.
+
+ACTIVE HEIGHT CATEGORIES
+Image 2 contains exactly {solid_count} matched solid height level{'s' if solid_count != 1 else ''}.{cutout_note}
+{active_lines}
+
+HEIGHT INTERPRETATION
+Treat the listed grayscale values as ordered categorical targets for relative plateau height, not as output brightness, calibrated engineering dimensions, or a guarantee of exact mesh or pixel Z values.
+Use only the active categories listed above. A larger nonzero category must appear physically higher and closer to the viewer than a smaller category, and regions sharing one category must read as one consistent nominal plateau.
+Preserve category identity and front-to-back ordering. Do not renormalize the active categories, invent missing levels, or simulate relief with painted contrast, global blur, sharpening, or depth of field.
+
+CONTOURS AND TRANSITIONS
+Treat the existing outer rim, internal contour strokes, text outlines, and metal separator lines in Image 1 as the highest active solid category. This limited contour-priority rule may promote existing narrow linework, but it must not create a new tier or promote broad filled motifs.
+Do not invent, duplicate, extend, thicken, thin, close, simplify, or reroute any line. Keep narrow raised tops continuous and gently rounded rather than razor sharp.
+Keep graphic boundaries and height-region boundaries fixed in the Image 1 XY layout. Within one connected height category, use a continuous planar or gently crowned coin-like surface. Between different categories, use a localized discrete step with only a narrow manufacturable shoulder, small fillet, or restrained bevel; do not blur region interiors or create box-like miniature objects.
+
+CUTOUTS
+Every active 0.0 category represents empty space, not a solid low surface. Preserve interior openings as true through-cuts and keep exterior zero regions as background. Do not fill, cap, bridge, emboss, or coat across them.
+
+PRESERVE
+Keep Image 1's visible text, graphics, contours, spacing, silhouette, proportions, orientation, and color-region ownership unchanged. Do not reproduce Image 2 grayscale values as final badge colors. Appearance and presentation remain governed by the separate material and output sections."""
+
+
+def build_badge_base_render_prompt(height_profile, material_semantics=""):
+    """Compose the complete first-pass GPT Image prompt used by badge workflow 8.4."""
+    structure = build_height_structure_prompt(height_profile)
+    material = str(material_semantics or "").strip()
+    if not material:
+        material = (
+            "Preserve Image 1's existing intrinsic colors and use a restrained, smooth manufactured "
+            "surface response without introducing a new material identity."
+        )
+    return f"""OUTPUT TARGET
+Create one finished, front-facing colored badge on a uniform opaque pure-white background. Keep the badge centered, fully visible, at the same orientation and proportions as Image 1. This is a base product render, not a grayscale proof, technical diagram, or presentation redesign.
+
+{structure}
+
+COLOR AUTHORITY
+Image 1 is the sole and highest-priority authority for intrinsic color and underlying albedo. At every corresponding location, preserve its hue, saturation, base lightness, local color relationship, boundary, and region ownership. Do not darken, brighten, mute, enrich, harmonize, recolor, tint, or shift any base color because of the material treatment. Do not apply global or per-region exposure changes, gamma changes, contrast expansion, tone mapping, color grading, or white-balance shifts. If any material instruction conflicts with this color lock, the Image 1 color lock wins.
+
+MATERIAL SEMANTICS
+{material}
+Apply material properties only to solid visible badge surfaces. Treat baked enamel as an optically colorless surface-response layer over the locked Image 1 albedo, not as a new paint color. Material may control coating coverage, reflectance, roughness, gloss, and microscopic texture, but it must not change the underlying base lightness or create, flatten, reorder, enlarge, or simulate any badge-level height tier, contour, rim, groove, text stroke, separator, or cutout.
+
+CAMERA, LIGHTING, AND BACKGROUND
+Use an orthographic or near-orthographic front view, neutral white illumination, restrained localized achromatic highlights and contact shading, and a uniform opaque pure-white background. Lighting effects may reveal relief and gloss but must not change the mean or median base lightness of any color region or make the badge read globally or regionally darker or lighter than Image 1. Keep all text and graphics legible. Do not introduce colored light, dramatic cast shadows, depth of field, lens effects, or a new camera angle.
+
+PRESERVE AND AVOID
+Preserve the design topology and the registered XY correspondence between the references. Output one badge only. Do not add props, hands, packaging, stands, chains, pins, new text, watermarks, logos, decorations, or duplicated elements. Do not recolor, harmonize, mute, tint, crop, rotate, distort, or redraw the artwork."""
+
+
+def build_height_establish_prompt(height_profile):
+    active_lines, solid_count, cutout_note = _height_prompt_context(height_profile)
     return f"""TASK
 Establish the physical Z-axis height structure of the badge in Image 1 by using Image 2 strictly as a discrete height reference.
 
@@ -539,23 +603,30 @@ class DAELabBadgeHeightLayerV1(DAELabBadgeHeightLayer):
 class BadgeHeightEstablishPromptBuilder:
     """Build a GPT Image height-only prompt from observed Badge Height Layer levels."""
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("prompt", "height_report")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("prompt", "height_report", "structure_prompt", "base_render_prompt")
     FUNCTION = "build"
     CATEGORY = "DAELab/Badge/Prompt"
     DESCRIPTION = (
         "Build a material-independent GPT Image prompt from the height levels that "
-        "actually matched pixels in Badge Height Layer."
+        "actually matched pixels in Badge Height Layer. The legacy prompt remains "
+        "a neutral grayscale proof; structure_prompt omits appearance policy, while "
+        "base_render_prompt combines the observed height categories with optional material semantics."
     )
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": {"height_profile": ("BADGE_HEIGHT_PROFILE",)}}
+        return {
+            "required": {"height_profile": ("BADGE_HEIGHT_PROFILE",)},
+            "optional": {"material_semantics": ("STRING",)},
+        }
 
-    def build(self, height_profile):
+    def build(self, height_profile, material_semantics=""):
         return (
             build_height_establish_prompt(height_profile),
             build_height_profile_report(height_profile),
+            build_height_structure_prompt(height_profile),
+            build_badge_base_render_prompt(height_profile, material_semantics),
         )
 
 

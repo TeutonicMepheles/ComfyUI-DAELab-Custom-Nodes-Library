@@ -15,11 +15,16 @@ MATERIAL_FILE = ROOT_DIR / "web" / "materials.json"
 MATERIAL_THUMB_DIR = ROOT_DIR / "web" / "material_thumbs"
 
 REFERENCE_COLOR_LOCK = (
-    "严格继承 Image 1 参考图中目标区域每个局部位置已有的固有色、综合色相、饱和度、"
-    "基础明度关系和颜色分区；不得读取或采用所选材质名称、材质缩略图或目录数据中的"
-    "任何颜色信息；所选材质只提供基材类型、金属度、反射、粗糙度和微观表面纹理，"
-    "允许在原有光照下产生物理合理的局部高光、反射与明暗变化，但不得造成综合色相"
-    "偏移或重新配色"
+    "Preserve the intrinsic color at every location in the Image 1 target region, including hue, "
+    "saturation, base lightness, local color relationships, color boundaries, and region ownership. "
+    "Do not obtain color from the material name, thumbnail, or catalog metadata. The selected "
+    "material controls only substrate type, metalness, reflection, roughness, and microscopic "
+    "surface texture. Treat it as an optically colorless surface-response layer over the locked "
+    "Image 1 albedo. Do not darken, brighten, mute, enrich, tint, or recolor any base color, and do "
+    "not apply global or per-region exposure, gamma, contrast, tone-mapping, color-grading, or "
+    "white-balance changes. Restrained localized achromatic highlights and contact shading may "
+    "reveal relief, but they must not change any color region's mean or median base lightness. "
+    "If a material instruction conflicts with this lock, the Image 1 color lock wins."
 )
 
 LEGACY_DEFAULT_BASE_PROMPT = (
@@ -224,12 +229,17 @@ def material_application(material: dict) -> str:
 
 
 def build_material_semantics(material: dict) -> str:
-    parts = [REFERENCE_COLOR_LOCK]
-    for key in ("semantic", "application", "avoid"):
-        text = material_prompt_field(material, key)
-        if text:
-            parts.append(text)
-    return "；".join(parts) + "。"
+    semantic = material_prompt_field(material, "semantic")
+    application = material_prompt_field(material, "application")
+    avoid = material_prompt_field(material, "avoid")
+    sections = [f"REFERENCE COLOR LOCK\n{REFERENCE_COLOR_LOCK}"]
+    if semantic:
+        sections.append(f"SURFACE PROPERTIES\n{semantic}")
+    if application:
+        sections.append(f"APPLICATION\n{application}")
+    if avoid:
+        sections.append(f"AVOID\n{avoid}")
+    return "\n\n".join(sections)
 
 
 def build_material_prompt(
@@ -522,7 +532,8 @@ def _material_color_rule(material_id: str, color_policy: str = DEFAULT_COLOR_POL
         )
     return (
         "Change surface response only. Strictly preserve the region's intrinsic color from Image 2, "
-        "including its hue, saturation, and base-value relationship."
+        "including its hue, saturation, base lightness, and local value relationships. Do not make "
+        "the region globally or locally darker or lighter because of the material assignment."
     )
 
 
@@ -533,10 +544,9 @@ def build_material_region_semantics(assignment: dict, materials: dict[str, dict]
     sections = [
         (
             "MATERIAL IMAGE ROLE\n"
-            "Image 1 is the neutral grayscale height-stage relief proof and the sole authority for macro relief, "
-            "front-to-back ordering, silhouette, visible text, artwork layout, proportions, and element positions. "
-            "Its gray values and neutral shading describe geometry only; they are not output colors or material cues. "
-            "Edit Image 1 in place; do not reconstruct the badge from scratch. Image 2 is the original flat badge "
+            "Image 1 is the colored first-pass baked-enamel badge render and the sole authority for macro relief, "
+            "front-to-back ordering, current surface continuity, silhouette, visible text, artwork layout, proportions, "
+            "and element positions. Edit Image 1 in place; do not reconstruct the badge from scratch. Image 2 is the original flat badge "
             "artwork and the sole authority for intrinsic colors, source-color regions, and exact region boundaries. "
             "The hexadecimal values below are source-region selectors for Image 2 only. They are not output colors "
             "and must never be interpreted as recoloring instructions."
@@ -552,15 +562,15 @@ def build_material_region_semantics(assignment: dict, materials: dict[str, dict]
             "network exactly; no material may flatten, lower, swell, interrupt, or cover that raised structure. "
             "Where materials differ but the encoded height is the same, keep a crisp visual material boundary "
             "on one continuous nominal support surface. Do not add a macro ridge, groove, gap, bevel, or height step "
-            "unless Image 2 explicitly specifies one. Within each connected region that shares one material and one "
+            "unless that macro transition is already present in Image 1. Within each connected region that shares one material and one "
             "encoded height, keep the underlying support surface continuous and free of unintended seams, facets, "
             "or panel breaks."
         ),
         (
             "DEFAULT MATERIAL\n"
-            "Apply transparent clear lacquer to every badge-foreground region not matched by a regional rule. "
-            f"{material_prompt_field(default_material, 'semantic')}；"
-            f"{material_prompt_field(default_material, 'application')}；"
+            f"Apply {default_id.replace('_', ' ')} to every badge-foreground region not matched by a regional rule. "
+            f"{material_prompt_field(default_material, 'semantic')} "
+            f"{material_prompt_field(default_material, 'application')} "
             f"{_material_color_rule(default_id, DEFAULT_COLOR_POLICY)}"
         ),
     ]
@@ -582,14 +592,14 @@ def build_material_region_semantics(assignment: dict, materials: dict[str, dict]
     else:
         sections.append(
             "REGIONAL MATERIAL ASSIGNMENTS\n"
-            "No configured regional rule matched foreground pixels. Apply only the default clear lacquer."
+            f"No configured regional rule matched foreground pixels. Apply only the default {default_id.replace('_', ' ')}."
         )
     sections.append(
         "BOUNDARY AND PRESERVATION LOCK\n"
         "Confine every material exactly to its selected Image 2 source-region boundary. Do not cross adjacent colors, "
         "visible text, linework, cutouts, or the outer silhouette. Preserve Image 1's macro relief, exact visible text, "
-        "proportions, positions, front-facing camera, and composition. Do not retain Image 1's neutral gray as a final "
-        "surface color. Preserve Image 2's artwork and intrinsic colors except where one regional rule explicitly "
+        "proportions, positions, front-facing camera, composition, and existing baked-enamel continuity outside the selected regions. "
+        "Preserve Image 2's artwork and intrinsic colors except where one regional rule explicitly "
         "selects the catalog-declared material_intrinsic color policy."
     )
     return "\n\n".join(sections)

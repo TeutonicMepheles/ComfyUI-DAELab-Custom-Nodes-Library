@@ -147,8 +147,10 @@ def build():
         "上传徽章高度层次图",
         "取色参考图｜高度层次图（请从这里吸色）",
     )
+    set_app_heading(47, "步骤一补充｜选择平面图背景与镂空颜色", "背景与镂空颜色（按上方平面图取色）")
     set_app_heading(3, "步骤三｜设置徽章高度层级", "高度层级设置（按上方层次图取色）")
     set_app_heading(49, "可选｜设置特殊材质区域", "特殊材质区域（按平面图取色，最多四个）")
+    retained_by_id[49].setdefault("properties", {})["badge_material_region_v1_max_groups"] = 4
     set_app_heading(55, "步骤四｜选择默认基础材质", "基础材质｜选择默认烤漆效果")
 
     # Preview/debug output nodes must not become independent execution roots.
@@ -511,7 +513,9 @@ def build():
     workflow.setdefault("extra", {})["linearData"] = {
         "inputs": [
             scoped(95, "boolean_hierarchy_editor"),
-            scoped(1, "image"), scoped(2, "image"),
+            scoped(1, "image"),
+            scoped(47, "multi_color_mask_v1_panel"),
+            scoped(2, "image"),
             scoped(3, "badge_height_layer_v1_panel"),
             scoped(55, "material_thumbnail_dom_selector"),
             scoped(49, "badge_material_region_v1_panel"),

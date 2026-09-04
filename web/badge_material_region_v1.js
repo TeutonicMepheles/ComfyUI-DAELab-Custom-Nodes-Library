@@ -26,6 +26,8 @@ import {
     collapseBadgeMaterialRegionV1Inputs,
     encodeMaterialRegionConfig,
     getBadgeMaterialRegionV1PanelHeight,
+    getMaterialDropdownPosition,
+    getMaterialDropdownTargetIndex,
     materialRegionConfigDigest,
     normalizeMaterialRegionConfig,
     removeSelectedMaterialRegion,
@@ -34,18 +36,24 @@ import {
     syncMaterialRegionPromptConfigWidget,
     updateMaterialRegion,
     validateMaterialRegionConfigSnapshot,
-} from "./badge_material_region_v1_model.mjs?v=20260902-visible-material-v4";
+} from "./badge_material_region_v1_model.mjs?v=20260904-material-menu-v6";
 import {
     catalogEntries,
     makeCatalogThumbnailUrl,
 } from "./thumbnail_selector.mjs";
+import {
+    ensureMaterialHoverPreviewStyles,
+    hideMaterialHoverPreview,
+    showMaterialHoverPreview,
+} from "./material_hover_preview.mjs?v=20260904-1";
 
 const NODE_TYPE = "DAELabBadgeMaterialRegionV1";
 const CONFIG_PROPERTY = "badge_material_region_v1_config";
 const WIDTH_PROPERTY = "badge_material_region_v1_width";
+const MAX_GROUPS_PROPERTY = "badge_material_region_v1_max_groups";
 const DEFAULT_WIDTH = 410;
 const MIN_WIDTH = 360;
-const UI_VERSION = "20260904-chinese-heading-v5";
+const UI_VERSION = "20260904-material-menu-v7";
 const APP_HEADING_PROPERTY = "daelab_app_heading";
 const DIGEST_PROPERTY = "badge_material_region_v1_config_digest";
 const OWNED_WIDGET_PROPERTY = "__daelabBadgeMaterialRegionV1Panel";
@@ -93,6 +101,237 @@ function materialEntry(materialId) {
         ?? entries[0];
 }
 
+function maximumMaterialGroups(node) {
+    const requested = Number(node?.properties?.[MAX_GROUPS_PROPERTY]);
+    if (!Number.isFinite(requested)) return MAX_MATERIAL_REGION_GROUPS;
+    return Math.max(1, Math.min(MAX_MATERIAL_REGION_GROUPS, Math.round(requested)));
+}
+
+function normalizeConfigForNode(node, value) {
+    const config = normalizeMaterialRegionConfig(value);
+    const maximum = maximumMaterialGroups(node);
+    if (config.groups.length > maximum) config.groups = config.groups.slice(0, maximum);
+    return config;
+}
+
+function ensureMaterialMenuStyles() {
+    ensureMaterialHoverPreviewStyles();
+    const styleId = "daelab-badge-material-menu-style";
+    const existing = document.getElementById(styleId);
+    if (existing?.dataset.uiVersion === UI_VERSION) return;
+    existing?.remove();
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.dataset.uiVersion = UI_VERSION;
+    style.textContent = `
+.daelab-badge-material-trigger {
+  width: 100%;
+  height: 26px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid #50545b;
+  border-radius: 5px;
+  color: #e1e5eb;
+  background: #292c31;
+  cursor: pointer;
+  box-sizing: border-box;
+  font: 11px sans-serif;
+  text-align: left;
+}
+.daelab-badge-material-trigger:focus-visible {
+  border-color: #6aa8ff;
+  outline: 1px solid #6aa8ff;
+}
+.daelab-badge-material-trigger span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.daelab-badge-material-trigger span:last-child {
+  color: #b7c7da;
+  text-align: center;
+}
+.daelab-badge-material-menu {
+  position: fixed;
+  z-index: 2147482000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(288px, calc(100vh - 16px));
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid #5a6472;
+  border-radius: 7px;
+  color: #e7ebf0;
+  background: rgba(38, 42, 48, .99);
+  box-shadow: 0 10px 28px rgba(0,0,0,.48);
+  box-sizing: border-box;
+}
+.daelab-badge-material-option {
+  flex: 0 0 32px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: 12px sans-serif;
+  text-align: left;
+}
+.daelab-badge-material-option:hover,
+.daelab-badge-material-option:focus-visible {
+  border-color: #6aa8ff;
+  background: #30445f;
+  outline: none;
+}
+.daelab-badge-material-option[aria-selected="true"] {
+  color: #fff;
+  background: #3d6a9c;
+}
+`;
+    document.head.appendChild(style);
+}
+
+function hideMaterialDropdown(node, { restoreFocus = false } = {}) {
+    const state = node?._badgeMaterialRegionV1Dropdown;
+    hideMaterialHoverPreview(node);
+    if (!state) return;
+    document.removeEventListener?.("pointerdown", state.onDocumentPointerDown, true);
+    document.removeEventListener?.("scroll", state.onDocumentScroll, true);
+    globalThis.removeEventListener?.("resize", state.dismiss);
+    globalThis.removeEventListener?.("blur", state.dismiss);
+    state.trigger?.setAttribute?.("aria-expanded", "false");
+    state.popup?.remove?.();
+    node._badgeMaterialRegionV1Dropdown = null;
+    if (restoreFocus && state.trigger?.isConnected) state.trigger.focus?.();
+}
+
+function selectMaterialForGroup(node, groupId, materialId) {
+    const selectedEntry = materialEntry(materialId);
+    const config = updateMaterialRegion(getConfig(node), groupId, {
+        material_id: selectedEntry?.id || materialId,
+        ...(!selectedEntry?.intrinsic_color_hex ? { color_policy: DEFAULT_COLOR_POLICY } : {}),
+    });
+    hideMaterialDropdown(node);
+    commitConfig(node, config, { selectedId: groupId, render: true });
+}
+
+function showMaterialDropdown(node, group, trigger, focusIndex = null) {
+    if (!trigger?.isConnected || Number(node?.mode ?? 0) !== 0) return false;
+    hideMaterialDropdown(node);
+    ensureMaterialMenuStyles();
+    const entries = materialEntries();
+    if (!entries.length) return false;
+
+    const popup = document.createElement("div");
+    popup.className = "daelab-badge-material-menu";
+    popup.id = `daelab-badge-material-menu-${node.id}-${group.id}`;
+    popup.setAttribute("role", "listbox");
+    popup.setAttribute("aria-label", "区域材质选项（悬浮可预览）");
+    const buttons = entries.map((entry, index) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "daelab-badge-material-option";
+        option.dataset.materialId = entry.id;
+        option.setAttribute("role", "option");
+        option.setAttribute("aria-selected", String(entry.id === group.material_id));
+        option.textContent = entry.label || entry.id;
+        option.addEventListener("mouseenter", () => showMaterialHoverPreview({
+            owner: node,
+            entry,
+            anchorElement: option,
+            imageUrl: makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION),
+            active: Number(node?.mode ?? 0) === 0,
+        }));
+        option.addEventListener("mouseleave", () => hideMaterialHoverPreview(node));
+        option.addEventListener("focus", () => showMaterialHoverPreview({
+            owner: node,
+            entry,
+            anchorElement: option,
+            imageUrl: makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION),
+            active: Number(node?.mode ?? 0) === 0,
+        }));
+        option.addEventListener("blur", () => hideMaterialHoverPreview(node));
+        option.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectMaterialForGroup(node, group.id, entry.id);
+        });
+        option.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                hideMaterialDropdown(node, { restoreFocus: true });
+                return;
+            }
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                event.stopPropagation();
+                selectMaterialForGroup(node, group.id, entry.id);
+                return;
+            }
+            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            buttons[getMaterialDropdownTargetIndex(index, event.key, buttons.length)]?.focus?.();
+        });
+        popup.appendChild(option);
+        return option;
+    });
+    for (const eventName of ["pointerdown", "pointerup", "click", "wheel", "keydown"]) {
+        popup.addEventListener(eventName, stopCanvasPropagation);
+    }
+    document.body.appendChild(popup);
+    const anchor = trigger.getBoundingClientRect();
+    const width = Math.max(220, anchor.width || 0);
+    popup.style.width = `${Math.round(width)}px`;
+    const position = getMaterialDropdownPosition({
+        anchor,
+        viewportWidth: globalThis.innerWidth || document.documentElement.clientWidth,
+        viewportHeight: globalThis.innerHeight || document.documentElement.clientHeight,
+        menuWidth: width,
+        menuHeight: popup.offsetHeight,
+    });
+    popup.style.left = `${position.left}px`;
+    popup.style.top = `${position.top}px`;
+    trigger.setAttribute("aria-expanded", "true");
+    trigger.setAttribute("aria-controls", popup.id);
+
+    const dismiss = () => hideMaterialDropdown(node);
+    const onDocumentPointerDown = (event) => {
+        if (popup.contains(event.target) || trigger.contains(event.target)) return;
+        dismiss();
+    };
+    const onDocumentScroll = (event) => {
+        if (popup.contains(event.target)) return;
+        dismiss();
+    };
+    node._badgeMaterialRegionV1Dropdown = {
+        popup,
+        trigger,
+        dismiss,
+        onDocumentPointerDown,
+        onDocumentScroll,
+    };
+    document.addEventListener?.("pointerdown", onDocumentPointerDown, true);
+    document.addEventListener?.("scroll", onDocumentScroll, true);
+    globalThis.addEventListener?.("resize", dismiss);
+    globalThis.addEventListener?.("blur", dismiss);
+    const selectedIndex = Math.max(0, entries.findIndex(({ id }) => id === group.material_id));
+    const targetIndex = focusIndex == null
+        ? selectedIndex
+        : Math.max(0, Math.min(buttons.length - 1, focusIndex));
+    requestAnimationFrame(() => buttons[targetIndex]?.focus?.());
+    return true;
+}
+
 function updateSyncStatus(node) {
     const element = node._badgeMaterialRegionV1Panel?.element?.querySelector?.("[data-role='config-status']");
     if (!element) return;
@@ -132,12 +371,12 @@ function graphTransaction(node, callback) {
 
 function getConfig(node) {
     if (node._badgeMaterialRegionV1Draft) {
-        return normalizeMaterialRegionConfig(node._badgeMaterialRegionV1Draft);
+        return normalizeConfigForNode(node, node._badgeMaterialRegionV1Draft);
     }
     node.properties ||= {};
     const promptWidget = getPromptConfigWidget(node);
     const source = node.properties[CONFIG_PROPERTY] || promptWidget?.value;
-    const config = normalizeMaterialRegionConfig(source);
+    const config = normalizeConfigForNode(node, source);
     node._badgeMaterialRegionV1Draft = config;
     return config;
 }
@@ -231,7 +470,7 @@ function scheduleConfigFlush(node) {
 
 function stageMaterialRegionConfig(node, value, { flush = false } = {}) {
     const current = getConfig(node);
-    const candidate = normalizeMaterialRegionConfig(value);
+    const candidate = normalizeConfigForNode(node, value);
     candidate.revision = current.revision;
     const currentEncoded = encodeMaterialRegionConfig(current);
     const candidateEncoded = encodeMaterialRegionConfig(candidate);
@@ -403,26 +642,40 @@ function createMaterialControl(node, group) {
     preview.src = entry ? makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION) : "";
     preview.style.cssText = "width:26px;height:26px;display:block;object-fit:cover;border:1px solid #4b4f56;border-radius:5px;background:#2d3137;box-sizing:border-box";
 
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", "区域材质");
-    select.title = "材质只改变命中区域的表面物理特性；取色器不会修改输出颜色。";
-    select.style.cssText = compactInputStyle("width:100%;padding:2px 7px;cursor:pointer");
-    for (const optionEntry of materialEntries()) {
-        const option = document.createElement("option");
-        option.value = optionEntry.id;
-        option.textContent = optionEntry.label || optionEntry.id;
-        select.appendChild(option);
-    }
-    select.value = entry?.id || DEFAULT_REGION_MATERIAL_ID;
-    select.addEventListener("change", () => {
-        const selectedEntry = materialEntry(select.value);
-        const config = updateMaterialRegion(getConfig(node), group.id, {
-            material_id: select.value,
-            ...(!selectedEntry?.intrinsic_color_hex ? { color_policy: DEFAULT_COLOR_POLICY } : {}),
-        });
-        commitConfig(node, config, { selectedId: group.id, render: true });
+    ensureMaterialMenuStyles();
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "daelab-badge-material-trigger";
+    trigger.setAttribute("aria-label", "区域材质；打开后悬浮选项可查看大图");
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.title = "材质只改变命中区域的表面物理特性；打开后悬浮或聚焦选项可查看材质大图。";
+    const name = document.createElement("span");
+    name.textContent = entry?.label || group.material_id;
+    const arrow = document.createElement("span");
+    arrow.textContent = "⌄";
+    arrow.setAttribute("aria-hidden", "true");
+    trigger.append(name, arrow);
+    trigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const current = node._badgeMaterialRegionV1Dropdown;
+        if (current?.trigger === trigger) hideMaterialDropdown(node);
+        else showMaterialDropdown(node, group, trigger);
     });
-    return { label, preview, select };
+    trigger.addEventListener("keydown", (event) => {
+        if (!["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (node._badgeMaterialRegionV1Dropdown?.trigger === trigger) return;
+        const entries = materialEntries();
+        const selectedIndex = Math.max(0, entries.findIndex(({ id }) => id === group.material_id));
+        const focusIndex = ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+            ? getMaterialDropdownTargetIndex(selectedIndex, event.key, entries.length)
+            : selectedIndex;
+        showMaterialDropdown(node, group, trigger, focusIndex);
+    });
+    return { label, preview, trigger };
 }
 
 function createColorPolicyControl(node, group) {
@@ -524,7 +777,7 @@ function createGroupCard(node, group, index) {
     secondRow.append(
         materialControl.label,
         materialControl.preview,
-        materialControl.select,
+        materialControl.trigger,
         createColorPolicyControl(node, group),
     );
     const thirdRow = document.createElement("div");
@@ -575,6 +828,8 @@ function createToolbar(node, config, selectedId) {
             const result = addMaterialRegionAfter(
                 getConfig(node),
                 node._badgeMaterialRegionV1SelectedId,
+                undefined,
+                maximumMaterialGroups(node),
             );
             commitConfig(node, result.config, {
                 selectedId: result.selectedId,
@@ -582,7 +837,7 @@ function createToolbar(node, config, selectedId) {
                 fit: true,
             });
         },
-        config.groups.length >= MAX_MATERIAL_REGION_GROUPS,
+        config.groups.length >= maximumMaterialGroups(node),
     ));
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.remove,
@@ -619,7 +874,7 @@ function createToolbar(node, config, selectedId) {
     status.title = "未被任何源颜色规则命中的徽章前景区域统一使用透明清漆";
     status.style.cssText = "font:10px sans-serif;color:#aeb4bc;margin-left:auto;white-space:nowrap";
     const count = document.createElement("span");
-    count.textContent = `${config.groups.length}/${MAX_MATERIAL_REGION_GROUPS}`;
+    count.textContent = `${config.groups.length}/${maximumMaterialGroups(node)}`;
     count.style.cssText = "font:10px sans-serif;color:#8e949c";
     toolbar.append(status, count);
     queueMicrotask(() => updateSyncStatus(node));
@@ -629,6 +884,7 @@ function createToolbar(node, config, selectedId) {
 function renderPanel(node) {
     const panel = node._badgeMaterialRegionV1Panel;
     if (!panel?.element) return;
+    hideMaterialDropdown(node);
     const config = getConfig(node);
     const selectedId = resolveSelectedMaterialRegionId(
         config,
@@ -684,6 +940,7 @@ function createPanelElement() {
 }
 
 function removeOwnedPanel(node) {
+    hideMaterialDropdown(node);
     const widgets = Array.isArray(node.widgets) ? [...node.widgets] : [];
     for (const widget of widgets) {
         if (!widget?.[OWNED_WIDGET_PROPERTY]) continue;
@@ -733,7 +990,7 @@ function installPanel(node) {
                 || encodeMaterialRegionConfig(getConfig(node))
             ),
             setValue: (value) => {
-                node._badgeMaterialRegionV1Draft = normalizeMaterialRegionConfig(value);
+                node._badgeMaterialRegionV1Draft = normalizeConfigForNode(node, value);
                 flushMaterialRegionConfig(node);
                 renderPanel(node);
                 scheduleFit(node);
@@ -754,6 +1011,7 @@ function installPanel(node) {
     });
     const originalOnRemove = widget.onRemove?.bind(widget);
     widget.onRemove = () => {
+        hideMaterialDropdown(node);
         originalOnRemove?.();
         element.remove();
     };
@@ -784,6 +1042,23 @@ if (globalThis.__DAELAB_BADGE_MATERIAL_REGION_V1_VERSION !== UI_VERSION) {
     app.registerExtension({
         name: "DAELab.BadgeMaterialRegionV1",
         setup() {
+            const previousAppModeHandler = globalThis.__daelabBadgeMaterialRegionV1AppModeHandler;
+            if (previousAppModeHandler) {
+                globalThis.removeEventListener?.("daelab:app-mode-synced", previousAppModeHandler);
+            }
+            const appModeHandler = () => {
+                const graph = app.rootGraph || app.graph;
+                for (const node of graph?.nodes || graph?._nodes || []) {
+                    if (
+                        (node?.comfyClass === NODE_TYPE || node?.type === NODE_TYPE)
+                        && Number(node.mode ?? 0) !== 0
+                    ) {
+                        hideMaterialDropdown(node);
+                    }
+                }
+            };
+            globalThis.__daelabBadgeMaterialRegionV1AppModeHandler = appModeHandler;
+            globalThis.addEventListener?.("daelab:app-mode-synced", appModeHandler);
             const setExecutionState = (active) => {
                 executionActive = active;
                 for (const node of app.rootGraph?._nodes || []) {
@@ -841,6 +1116,7 @@ if (globalThis.__DAELAB_BADGE_MATERIAL_REGION_V1_VERSION !== UI_VERSION) {
                 this._badgeMaterialRegionV1InstallFrame = null;
                 this._badgeMaterialRegionV1FitFrame = null;
                 this._badgeMaterialRegionV1ConfigFrame = null;
+                hideMaterialDropdown(this);
                 removeOwnedPanel(this);
             });
         },

@@ -13,6 +13,8 @@ import {
     collapseBadgeMaterialRegionV1Inputs,
     encodeMaterialRegionConfig,
     getBadgeMaterialRegionV1PanelHeight,
+    getMaterialDropdownPosition,
+    getMaterialDropdownTargetIndex,
     materialRegionConfigDigest,
     normalizeMaterialRegionConfig,
     removeSelectedMaterialRegion,
@@ -22,6 +24,9 @@ import {
     updateMaterialRegion,
     validateMaterialRegionConfigSnapshot,
 } from "../web/badge_material_region_v1_model.mjs";
+import {
+    getMaterialHoverPreviewPosition,
+} from "../web/material_hover_preview.mjs";
 
 test("normalizes legacy region groups with transparent lacquer as the fixed default", () => {
     const config = normalizeMaterialRegionConfig({
@@ -55,6 +60,10 @@ test("adds after the selected region and keeps stable ids", () => {
     assert.deepEqual(result.config.groups.map(({ id }) => id), ["a", "inserted", "b"]);
     assert.equal(result.selectedId, "inserted");
     assert.equal(result.config.groups[1].material_id, DEFAULT_REGION_MATERIAL_ID);
+
+    const capped = addMaterialRegionAfter(result.config, "inserted", () => "blocked", 3);
+    assert.equal(capped.addedId, null);
+    assert.deepEqual(capped.config.groups.map(({ id }) => id), ["a", "inserted", "b"]);
 });
 
 test("removes the selected region and updates only the requested material mapping", () => {
@@ -157,6 +166,30 @@ test("derives fixed panel height only from material region count", () => {
         getBadgeMaterialRegionV1PanelHeight(999),
         getBadgeMaterialRegionV1PanelHeight(MAX_MATERIAL_REGION_GROUPS),
     );
+});
+
+test("keeps the material dropdown and hover preview inside the viewport", () => {
+    assert.deepEqual(getMaterialDropdownPosition({
+        anchor: { left: 900, top: 700, bottom: 726, width: 240 },
+        viewportWidth: 1100,
+        viewportHeight: 800,
+        menuWidth: 240,
+        menuHeight: 280,
+    }), { left: 852, top: 416 });
+    assert.deepEqual(getMaterialHoverPreviewPosition({
+        anchor: { left: 880, right: 1040, top: 690 },
+        viewportWidth: 1100,
+        viewportHeight: 800,
+    }), { left: 640, top: 522 });
+});
+
+test("navigates the material dropdown with wrapping arrow keys", () => {
+    assert.equal(getMaterialDropdownTargetIndex(7, "ArrowDown", 8), 0);
+    assert.equal(getMaterialDropdownTargetIndex(0, "ArrowUp", 8), 7);
+    assert.equal(getMaterialDropdownTargetIndex(4, "Home", 8), 0);
+    assert.equal(getMaterialDropdownTargetIndex(4, "End", 8), 7);
+    assert.equal(getMaterialDropdownTargetIndex(4, "Tab", 8), 4);
+    assert.equal(getMaterialDropdownTargetIndex(0, "ArrowDown", 0), -1);
 });
 
 test("syncs material config into the serialized prompt widget before queueing", () => {

@@ -25,8 +25,13 @@ import {
     makeCatalogThumbnailUrl,
     resolveCatalogId,
 } from "./thumbnail_selector.mjs";
+import {
+    ensureMaterialHoverPreviewStyles,
+    hideMaterialHoverPreview,
+    showMaterialHoverPreview,
+} from "./material_hover_preview.mjs?v=20260904-1";
 
-const UI_VERSION = "20260904-gpt-image2-carousel-v14";
+const UI_VERSION = "20260904-gpt-image2-carousel-v15";
 const APP_HEADING_PROPERTY = "daelab_app_heading";
 const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
@@ -124,6 +129,7 @@ function stopCanvasEvent(event) {
 
 function ensureMaterialStyles() {
     ensureThumbnailSelectorStyles();
+    ensureMaterialHoverPreviewStyles();
     const existingStyle = document.getElementById("gpt-image2-material-prompt-style");
     if (existingStyle?.dataset.uiVersion === UI_VERSION) return;
     existingStyle?.remove();
@@ -203,33 +209,6 @@ function ensureMaterialStyles() {
   object-fit: contain;
   pointer-events: none;
 }
-.gpt-image2-material-tip {
-  position: fixed;
-  z-index: 2147483000;
-  width: 230px;
-  padding: 8px;
-  border: 1px solid #6aa8ff;
-  border-radius: 10px;
-  color: #fff;
-  background: rgba(18, 22, 29, .97);
-  box-shadow: 0 10px 28px rgba(0,0,0,.48);
-  pointer-events: none;
-}
-.gpt-image2-material-tip img {
-  display: block;
-  width: 214px;
-  height: 214px;
-  object-fit: contain;
-  background: #252a33;
-  border-radius: 6px;
-}
-.gpt-image2-material-tip span {
-  display: block;
-  padding-top: 6px;
-  font-size: 12px;
-  line-height: 16px;
-  text-align: center;
-}
 `;
     document.head.appendChild(style);
 }
@@ -238,57 +217,10 @@ function selectorHeight(width = MATERIAL_MIN_NODE_WIDTH) {
     return getMaterialSelectorLayout(width, entries().length).height;
 }
 
-function hideMaterialTip(node) {
-    const state = node?.__gptImage2MaterialTipState;
-    if (!state) return;
-    state.tip?.remove();
-    globalThis.removeEventListener?.("blur", state.dismiss);
-    globalThis.removeEventListener?.("resize", state.dismiss);
-    document.removeEventListener?.("scroll", state.dismiss, true);
-    node.__gptImage2MaterialTipState = null;
-}
-
-function positionMaterialTip(tip, anchor) {
-    const margin = 10;
-    const width = tip.offsetWidth || 230;
-    const height = tip.offsetHeight || 268;
-    const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || width;
-    const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || height;
-    let left = anchor.right + margin;
-    let top = anchor.top;
-    if (left + width + margin > viewportWidth) left = anchor.left - width - margin;
-    left = Math.max(margin, Math.min(left, viewportWidth - width - margin));
-    top = Math.max(margin, Math.min(top, viewportHeight - height - margin));
-    tip.style.left = `${Math.round(left)}px`;
-    tip.style.top = `${Math.round(top)}px`;
-}
-
-function showMaterialTip(node, entry, anchorElement) {
-    hideMaterialTip(node);
-    if (!anchorElement?.isConnected || Number(node?.mode ?? 0) !== 0) return;
-    const tip = document.createElement("div");
-    tip.className = "gpt-image2-material-tip";
-    tip.setAttribute("role", "tooltip");
-    const image = document.createElement("img");
-    image.alt = "";
-    image.decoding = "async";
-    image.src = makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION);
-    const label = document.createElement("span");
-    label.textContent = entry.label || entry.id;
-    tip.append(image, label);
-    document.body.appendChild(tip);
-    positionMaterialTip(tip, anchorElement.getBoundingClientRect());
-    const dismiss = () => hideMaterialTip(node);
-    node.__gptImage2MaterialTipState = { tip, dismiss };
-    globalThis.addEventListener?.("blur", dismiss, { once: true });
-    globalThis.addEventListener?.("resize", dismiss, { once: true });
-    document.addEventListener?.("scroll", dismiss, true);
-}
-
 function renderMaterialSelector(widget, node) {
     const element = widget?.element || widget?.inputEl;
     if (!element) return;
-    hideMaterialTip(node);
+    hideMaterialHoverPreview(node);
     const selectedId = selectedMaterialId(node);
     const materialEntries = entries();
     const selectedEntry = materialEntries.find((entry) => entry.id === selectedId);
@@ -362,10 +294,17 @@ function renderMaterialSelector(widget, node) {
             if (strip.__materialDragMoved) return;
             selectIndex(index, false);
         });
-        button.addEventListener("mouseenter", () => showMaterialTip(node, entry, button));
-        button.addEventListener("mouseleave", () => hideMaterialTip(node));
-        button.addEventListener("focus", () => showMaterialTip(node, entry, button));
-        button.addEventListener("blur", () => hideMaterialTip(node));
+        const showPreview = () => showMaterialHoverPreview({
+            owner: node,
+            entry,
+            anchorElement: button,
+            imageUrl: makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION),
+            active: Number(node?.mode ?? 0) === 0,
+        });
+        button.addEventListener("mouseenter", showPreview);
+        button.addEventListener("mouseleave", () => hideMaterialHoverPreview(node));
+        button.addEventListener("focus", showPreview);
+        button.addEventListener("blur", () => hideMaterialHoverPreview(node));
         button.addEventListener("keydown", (event) => {
             let targetIndex = null;
             if (event.key === "ArrowLeft") targetIndex = index - 1;
@@ -423,7 +362,7 @@ function removeOwnedWidgets(node) {
             || LEGACY_COLOR_WIDGET_NAMES.has(widget.name)
             || widget.__gptImage2MaterialColorPicker;
         if (!remove) return true;
-        hideMaterialTip(node);
+        hideMaterialHoverPreview(node);
         widget._colorPicker?.remove();
         widget.onRemove?.();
         widget.onRemoved?.();
@@ -490,7 +429,7 @@ function makeMaterialSelector(node) {
     });
     const originalOnRemove = widget.onRemove?.bind(widget);
     widget.onRemove = () => {
-        hideMaterialTip(node);
+        hideMaterialHoverPreview(node);
         originalOnRemove?.();
         element.remove();
     };
@@ -599,7 +538,7 @@ if (globalThis.__GPT_IMAGE2_MATERIAL_PROMPT_UI_VERSION !== UI_VERSION) {
                 const graph = app.rootGraph || app.graph;
                 for (const node of graph?.nodes || graph?._nodes || []) {
                     if (node?.comfyClass === "GPTImage2MaterialPrompt" && Number(node.mode ?? 0) !== 0) {
-                        hideMaterialTip(node);
+                        hideMaterialHoverPreview(node);
                     }
                 }
             };

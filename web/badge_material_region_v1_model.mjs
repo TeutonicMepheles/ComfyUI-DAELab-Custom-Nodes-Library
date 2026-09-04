@@ -15,6 +15,47 @@ export const MATERIAL_REGION_TOOLBAR_HEIGHT = 34;
 export const MATERIAL_REGION_GROUP_HEIGHT = 92;
 export const MATERIAL_REGION_PANEL_PADDING = 8;
 
+function finiteNumber(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+}
+
+export function getMaterialDropdownPosition({
+    anchor,
+    viewportWidth,
+    viewportHeight,
+    menuWidth,
+    menuHeight,
+    margin = 8,
+    gap = 4,
+} = {}) {
+    const rect = anchor || {};
+    const width = Math.max(1, finiteNumber(menuWidth, finiteNumber(rect.width, 220)));
+    const height = Math.max(1, finiteNumber(menuHeight, 280));
+    const availableWidth = Math.max(width + margin * 2, finiteNumber(viewportWidth, width));
+    const availableHeight = Math.max(height + margin * 2, finiteNumber(viewportHeight, height));
+    const anchorLeft = finiteNumber(rect.left);
+    const anchorTop = finiteNumber(rect.top);
+    const anchorBottom = finiteNumber(rect.bottom, anchorTop);
+    let left = anchorLeft;
+    let top = anchorBottom + gap;
+    if (top + height + margin > availableHeight) top = anchorTop - height - gap;
+    left = Math.max(margin, Math.min(left, availableWidth - width - margin));
+    top = Math.max(margin, Math.min(top, availableHeight - height - margin));
+    return { left: Math.round(left), top: Math.round(top) };
+}
+
+export function getMaterialDropdownTargetIndex(currentIndex, key, count) {
+    const length = Math.max(0, Math.trunc(finiteNumber(count)));
+    if (!length) return -1;
+    const current = Math.max(0, Math.min(length - 1, Math.trunc(finiteNumber(currentIndex))));
+    if (key === "ArrowDown") return (current + 1) % length;
+    if (key === "ArrowUp") return (current - 1 + length) % length;
+    if (key === "Home") return 0;
+    if (key === "End") return length - 1;
+    return current;
+}
+
 let generatedIdCounter = 0;
 
 function defaultIdFactory() {
@@ -308,9 +349,18 @@ export function resolveSelectedMaterialRegionId(value, selectedId = null) {
         : config.groups[0].id;
 }
 
-export function addMaterialRegionAfter(value, selectedId = null, idFactory = defaultIdFactory) {
+export function addMaterialRegionAfter(
+    value,
+    selectedId = null,
+    idFactory = defaultIdFactory,
+    maximumGroups = MAX_MATERIAL_REGION_GROUPS,
+) {
     const config = normalizeMaterialRegionConfig(value);
-    if (config.groups.length >= MAX_MATERIAL_REGION_GROUPS) {
+    const limit = Math.max(
+        1,
+        Math.min(MAX_MATERIAL_REGION_GROUPS, Math.round(Number(maximumGroups) || 1)),
+    );
+    if (config.groups.length >= limit) {
         return {
             config,
             selectedId: resolveSelectedMaterialRegionId(config, selectedId),

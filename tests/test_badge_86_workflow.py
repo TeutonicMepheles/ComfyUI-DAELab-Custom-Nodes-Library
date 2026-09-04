@@ -214,6 +214,7 @@ class Badge86WorkflowTests(unittest.TestCase):
             [
                 (95, "boolean_hierarchy_editor"),
                 (1, "image"),
+                (47, "multi_color_mask_v1_panel"),
                 (2, "image"),
                 (3, "badge_height_layer_v1_panel"),
                 (55, "material_thumbnail_dom_selector"),
@@ -278,6 +279,7 @@ class Badge86WorkflowTests(unittest.TestCase):
 
         expected_panel_headings = {
             95: "制作流程与后处理选项",
+            47: "背景与镂空颜色（按上方平面图取色）",
             3: "高度层级设置（按上方层次图取色）",
             55: "基础材质｜选择默认烤漆效果",
             49: "特殊材质区域（按平面图取色，最多四个）",
@@ -286,6 +288,9 @@ class Badge86WorkflowTests(unittest.TestCase):
         }
         for node_id, heading in expected_panel_headings.items():
             self.assertEqual(self.nodes[node_id]["properties"]["daelab_app_heading"], heading)
+        self.assertEqual(
+            self.nodes[49]["properties"]["badge_material_region_v1_max_groups"], 4
+        )
 
         semantic_input = next(
             value for value in self.nodes[105]["inputs"] if value["name"] == "semantic_prompt"

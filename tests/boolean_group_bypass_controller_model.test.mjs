@@ -259,7 +259,13 @@ test("collects group nodes while excluding all controller nodes", () => {
     const controller = { id: 10, type: "BooleanGroupBypassController", mode: 0 };
     const otherController = { id: 11, type: "BooleanGroupBypassController", mode: 0 };
     const sampler = { id: 12, type: "KSampler", mode: 0 };
-    const group = { _children: new Set([controller, otherController, sampler, { id: 99 }]) };
+    const preserved = {
+        id: 13,
+        type: "PreviewImage",
+        mode: MODE_BYPASS,
+        properties: { daelab_preserve_mode: true },
+    };
+    const group = { _children: new Set([controller, otherController, sampler, preserved, { id: 99 }]) };
 
     assert.deepEqual(collectControllableNodes(group, controller), [sampler]);
 });

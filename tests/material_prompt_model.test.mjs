@@ -7,8 +7,8 @@ import {
     getCanonicalMaterialOutputs,
     getCanonicalMaterialWidgetValues,
     getLegacyMaterialOutputIndexes,
+    getMaterialCarouselLayout,
     getMaterialSelectorLayout,
-    getMaterialThumbnailLayout,
     LEGACY_DEFAULT_MATERIAL_BASE_PROMPT,
     MATERIAL_FALLBACK_NODE_HEIGHT,
     MATERIAL_MIN_NODE_WIDTH,
@@ -16,6 +16,7 @@ import {
     migrateMaterialWidgetValues,
     normalizeMaterialBasePrompt,
     orderMaterialPromptWidgets,
+    wrapMaterialIndex,
 } from "../web/material_prompt_model.mjs";
 import {
     catalogEntries,
@@ -47,28 +48,36 @@ test("builds cache-busted thumbnail URLs", () => {
     assert.equal(url, "https://example.com/thumbs/bronze.png?v=v1");
 });
 
-test("lays out eight square material buttons in four columns and two rows", () => {
-    const narrow = getMaterialThumbnailLayout(470, 8);
+test("lays out all material buttons in one horizontally scrollable row", () => {
+    const narrow = getMaterialCarouselLayout(470, 8);
     assert.equal(narrow.columns, 4);
-    assert.equal(narrow.rows, 2);
-    assert.equal(narrow.cardSize, 105.5);
-    assert.equal(narrow.height, 231);
+    assert.equal(narrow.rows, 1);
+    assert.equal(narrow.cardSize, 76);
+    assert.equal(narrow.height, 110);
+    assert.equal(narrow.viewportWidth, 378);
 
-    const wide = getMaterialThumbnailLayout(900, 8);
-    assert.equal(wide.cardSize, 120);
-    assert.equal(wide.height, 260);
+    const wide = getMaterialCarouselLayout(900, 8);
+    assert.equal(wide.columns, 8);
+    assert.equal(wide.rows, 1);
+    assert.equal(wide.cardSize, 76);
+    assert.equal(wide.height, 110);
 });
 
-test("adds a capped square selected-material viewport to the fixed selector row", () => {
+test("selector is the same fixed-height carousel without a selected viewport", () => {
     const narrow = getMaterialSelectorLayout(470, 8);
-    assert.equal(narrow.viewportSize, 320);
-    assert.equal(narrow.thumbnailHeight, 231);
-    assert.equal(narrow.height, 563);
+    assert.equal(narrow.rows, 1);
+    assert.equal(narrow.height, 110);
 
     const wide = getMaterialSelectorLayout(900, 8);
-    assert.equal(wide.viewportSize, 320);
-    assert.equal(wide.thumbnailHeight, 260);
-    assert.equal(wide.height, 592);
+    assert.equal(wide.rows, 1);
+    assert.equal(wide.height, 110);
+});
+
+test("wraps carousel selection across both ends", () => {
+    assert.equal(wrapMaterialIndex(-1, 8), 7);
+    assert.equal(wrapMaterialIndex(8, 8), 0);
+    assert.equal(wrapMaterialIndex(17, 8), 1);
+    assert.equal(wrapMaterialIndex(2, 0), -1);
 });
 
 test("measures compact node height without restored surplus", () => {

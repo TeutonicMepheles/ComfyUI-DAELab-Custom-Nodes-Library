@@ -4,15 +4,14 @@ export const LEGACY_DEFAULT_MATERIAL_BASE_PROMPT = (
     "仅修改 Image 1 中红色覆盖标记的目标区域；红色仅是编辑区域指示色，" +
     "必须在输出中完全移除，不能成为最终材质颜色。"
 );
-export const MATERIAL_LAYOUT_COLUMNS = 4;
 export const MATERIAL_LAYOUT_GAP = 8;
-export const MATERIAL_LAYOUT_MAX_CARD_SIZE = 120;
-export const MATERIAL_LAYOUT_HORIZONTAL_INSET = 24;
+export const MATERIAL_CAROUSEL_CARD_SIZE = 76;
+export const MATERIAL_CAROUSEL_BUTTON_SIZE = 28;
+export const MATERIAL_CAROUSEL_LABEL_HEIGHT = 22;
+export const MATERIAL_LAYOUT_HORIZONTAL_INSET = 20;
 export const MATERIAL_LAYOUT_VERTICAL_PADDING = 12;
-export const MATERIAL_VIEWPORT_MAX_SIZE = 320;
-export const MATERIAL_VIEWPORT_GAP = 12;
 export const MATERIAL_MIN_NODE_WIDTH = 460;
-export const MATERIAL_FALLBACK_NODE_HEIGHT = 760;
+export const MATERIAL_FALLBACK_NODE_HEIGHT = 360;
 export const LEGACY_MATERIAL_OUTPUT_NAME = "selected_color";
 
 export function isLegacyMaterialOutput(output) {
@@ -32,47 +31,42 @@ export function getCanonicalMaterialOutputs(outputs) {
     return (outputs || []).filter((output) => !isLegacyMaterialOutput(output));
 }
 
-export function getMaterialThumbnailLayout(width = MATERIAL_MIN_NODE_WIDTH, count = 8) {
+export function getMaterialCarouselLayout(width = MATERIAL_MIN_NODE_WIDTH, count = 8) {
     const resolvedWidth = Number.isFinite(Number(width))
         ? Math.max(Number(width), MATERIAL_MIN_NODE_WIDTH)
         : MATERIAL_MIN_NODE_WIDTH;
     const resolvedCount = Math.max(1, Math.trunc(Number(count)) || 1);
-    const rowCount = Math.ceil(resolvedCount / MATERIAL_LAYOUT_COLUMNS);
     const availableWidth = Math.max(
-        0,
+        MATERIAL_CAROUSEL_CARD_SIZE,
         resolvedWidth
             - MATERIAL_LAYOUT_HORIZONTAL_INSET
-            - MATERIAL_LAYOUT_GAP * (MATERIAL_LAYOUT_COLUMNS - 1)
-    );
-    const cardSize = Math.min(
-        MATERIAL_LAYOUT_MAX_CARD_SIZE,
-        availableWidth / MATERIAL_LAYOUT_COLUMNS
+            - MATERIAL_CAROUSEL_BUTTON_SIZE * 2
+            - MATERIAL_LAYOUT_GAP * 2
     );
     return {
-        cardSize,
-        columns: MATERIAL_LAYOUT_COLUMNS,
+        cardSize: MATERIAL_CAROUSEL_CARD_SIZE,
+        columns: Math.min(resolvedCount, Math.max(1, Math.floor(
+            (availableWidth + MATERIAL_LAYOUT_GAP)
+            / (MATERIAL_CAROUSEL_CARD_SIZE + MATERIAL_LAYOUT_GAP)
+        ))),
         height: MATERIAL_LAYOUT_VERTICAL_PADDING
-            + rowCount * cardSize
-            + Math.max(0, rowCount - 1) * MATERIAL_LAYOUT_GAP,
-        rows: rowCount,
+            + MATERIAL_CAROUSEL_LABEL_HEIGHT
+            + MATERIAL_CAROUSEL_CARD_SIZE,
+        rows: 1,
+        scrollable: resolvedCount > 1,
+        viewportWidth: availableWidth,
     };
 }
 
 export function getMaterialSelectorLayout(width = MATERIAL_MIN_NODE_WIDTH, count = 8) {
-    const resolvedWidth = Number.isFinite(Number(width))
-        ? Math.max(Number(width), MATERIAL_MIN_NODE_WIDTH)
-        : MATERIAL_MIN_NODE_WIDTH;
-    const thumbnailLayout = getMaterialThumbnailLayout(resolvedWidth, count);
-    const viewportSize = Math.min(
-        MATERIAL_VIEWPORT_MAX_SIZE,
-        Math.max(0, resolvedWidth - MATERIAL_LAYOUT_HORIZONTAL_INSET)
-    );
-    return {
-        ...thumbnailLayout,
-        height: thumbnailLayout.height + viewportSize + MATERIAL_VIEWPORT_GAP,
-        thumbnailHeight: thumbnailLayout.height,
-        viewportSize,
-    };
+    return getMaterialCarouselLayout(width, count);
+}
+
+export function wrapMaterialIndex(index, count) {
+    const length = Math.max(0, Math.trunc(Number(count)) || 0);
+    if (!length) return -1;
+    const numeric = Math.trunc(Number(index)) || 0;
+    return ((numeric % length) + length) % length;
 }
 
 function applyNodeSize(node, size) {

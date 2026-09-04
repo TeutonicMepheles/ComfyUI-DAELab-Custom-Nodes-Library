@@ -499,6 +499,42 @@ export function applyHierarchyConstraints(items, preferredItemId = null) {
     return applyRequirementCascade(nextItems);
 }
 
+function itemValueById(items, itemId) {
+    return Boolean((items || []).find((item) => item.id === itemId)?.value);
+}
+
+export function applyConfirmationPolicy(previousItems, nextItems, policy) {
+    const items = cloneItems(nextItems || []);
+    const applyItemId = String(policy?.apply_item_id || "").trim();
+    if (!applyItemId) return { items, increment_revision: false, invalidated: false };
+    const applyItem = items.find((item) => item.id === applyItemId);
+    if (!applyItem) return { items, increment_revision: false, invalidated: false };
+    const invalidatingIds = Array.isArray(policy?.invalidating_item_ids)
+        ? policy.invalidating_item_ids.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+    const invalidated = invalidatingIds.some(
+        (itemId) => itemValueById(previousItems, itemId) !== itemValueById(items, itemId)
+    );
+    if (invalidated && applyItem.value) applyItem.value = false;
+    const incrementRevision = !invalidated
+        && !itemValueById(previousItems, applyItemId)
+        && Boolean(applyItem.value);
+    return {
+        items: applyHierarchyConstraints(items),
+        increment_revision: incrementRevision,
+        invalidated,
+    };
+}
+
+export function resetConfirmationOnLoad(items, policy) {
+    const nextItems = cloneItems(items || []);
+    if (policy?.reset_apply_on_load !== true) return nextItems;
+    const applyItemId = String(policy?.apply_item_id || "").trim();
+    const applyItem = nextItems.find((item) => item.id === applyItemId);
+    if (applyItem) applyItem.value = false;
+    return applyHierarchyConstraints(nextItems);
+}
+
 export function getExclusiveGroups(items) {
     const normalized = sanitizeExclusiveGroups(items);
     const groups = [];

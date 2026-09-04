@@ -256,6 +256,7 @@ export function collectControllableNodes(group, controllerNode = null) {
     return getGroupChildren(group).filter((node) => {
         if (!node || node === controllerNode) return false;
         if (node.type === CONTROLLER_NODE_TYPE || node.comfyClass === CONTROLLER_NODE_TYPE) return false;
+        if (node.properties?.daelab_preserve_mode === true) return false;
         return node.id != null && ("mode" in node || Array.isArray(node.inputs) || Array.isArray(node.outputs));
     });
 }
@@ -339,9 +340,18 @@ export function findPlanConflicts(plans) {
             overlapGraph.get(right).add(left);
             const sameGroup = String(left.groupId) === String(right.groupId);
             if (!sameGroup && isAllowedHierarchicalOverlap(left, right)) continue;
+            const leftLabel = String(left.group?.title || left.groupId || "?");
+            const rightLabel = String(right.group?.title || right.groupId || "?");
+            const rightNodes = new Set(right.nodes || []);
+            const sharedNodeLabels = (left.nodes || [])
+                .filter((node) => rightNodes.has(node))
+                .map((node) => String(node?.title || node?.id || "?"));
+            const sharedSuffix = sharedNodeLabels.length
+                ? `；重叠：${sharedNodeLabels.join("、")}`
+                : "";
             const message = sameGroup
-                ? "冲突：同一组被多个控制器绑定"
-                : "冲突：仅允许 Boolean 祖先与节点组包含方向一致的重叠";
+                ? `冲突：同一组被多个控制器绑定（${leftLabel}）`
+                : `冲突：仅允许 Boolean 祖先与节点组包含方向一致的重叠（${leftLabel} ↔ ${rightLabel}${sharedSuffix}）`;
             directlyInvalid.set(left, message);
             directlyInvalid.set(right, message);
         }

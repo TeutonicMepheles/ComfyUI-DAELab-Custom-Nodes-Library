@@ -168,12 +168,14 @@ def _get_node_config(
     unique_id=None,
     extra_pnginfo=None,
     *,
+    config_json=None,
     property_name=CONFIG_PROPERTY,
     normalizer=_normalize_config,
 ):
     node = _get_workflow_node(unique_id, extra_pnginfo)
     properties = node.get("properties", {}) if isinstance(node, dict) else {}
-    value = properties.get(property_name) if isinstance(properties, dict) else None
+    workflow_value = properties.get(property_name) if isinstance(properties, dict) else None
+    value = config_json if config_json not in (None, "") else workflow_value
     return normalizer(value)
 
 
@@ -250,7 +252,10 @@ class DAELabMultiColorMask:
     @classmethod
     def INPUT_TYPES(cls):
         return {
-            "required": {"images": ("IMAGE",)},
+            "required": {
+                "images": ("IMAGE",),
+                "config_json": ("STRING", {"default": "", "multiline": True}),
+            },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
                 "extra_pnginfo": "EXTRA_PNGINFO",
@@ -258,14 +263,14 @@ class DAELabMultiColorMask:
         }
 
     @classmethod
-    def IS_CHANGED(cls, images, unique_id=None, extra_pnginfo=None):
+    def IS_CHANGED(cls, images, config_json="", unique_id=None, extra_pnginfo=None):
         del images
-        config = _get_node_config(unique_id, extra_pnginfo)
+        config = _get_node_config(unique_id, extra_pnginfo, config_json=config_json)
         payload = json.dumps(config, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def make_mask(self, images, unique_id=None, extra_pnginfo=None):
-        config = _get_node_config(unique_id, extra_pnginfo)
+    def make_mask(self, images, config_json="", unique_id=None, extra_pnginfo=None):
+        config = _get_node_config(unique_id, extra_pnginfo, config_json=config_json)
         masks, combined = _make_masks(images, config)
         if config["output"] == COMBINED_OUTPUT:
             return (combined,)
@@ -283,21 +288,23 @@ class DAELabMultiColorMaskV1(DAELabMultiColorMask):
     )
 
     @classmethod
-    def IS_CHANGED(cls, images, unique_id=None, extra_pnginfo=None):
+    def IS_CHANGED(cls, images, config_json="", unique_id=None, extra_pnginfo=None):
         del images
         config = _get_node_config(
             unique_id,
             extra_pnginfo,
+            config_json=config_json,
             property_name=V1_CONFIG_PROPERTY,
             normalizer=_normalize_v1_config,
         )
         payload = json.dumps(config, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def make_mask(self, images, unique_id=None, extra_pnginfo=None):
+    def make_mask(self, images, config_json="", unique_id=None, extra_pnginfo=None):
         config = _get_node_config(
             unique_id,
             extra_pnginfo,
+            config_json=config_json,
             property_name=V1_CONFIG_PROPERTY,
             normalizer=_normalize_v1_config,
         )

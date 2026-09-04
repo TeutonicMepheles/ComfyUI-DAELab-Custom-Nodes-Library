@@ -10,6 +10,7 @@ import {
     getSelectedInputEntries,
     isDaelabNode,
     isNodeAvailableInAppMode,
+    normalizeLinearInputReference,
     refreshGraphNodesReference,
     resolveNode,
 } from "../web/app_mode_bypass_model.mjs";
@@ -47,6 +48,13 @@ test("covers every node exported by the DAELab package", () => {
         "BadgeHeightEstablishPromptBuilder",
         "DAELAB.BadgeMaterialCanvasNormalizeV1",
         "DAELAB.BadgeRenderSpaceMaskAlignV1",
+        "DAELAB.BadgeRoute2CanvasV1",
+        "DAELAB.BadgeEntryRouteV1",
+        "DAELAB.BadgeEditPromptRouteV1",
+        "DAELAB.BadgeLazyImageSwitchV1",
+        "DAELAB.BadgeColorIdMapV1",
+        "DAELAB.BadgeColorIdMapCacheStoreV1",
+        "DAELAB.BadgeLocalSelectionGuardV1",
         "BadgeDesignCanvas",
         "BadgeRenderPromptBuilder",
         "BadgeMasterRegistration",
@@ -95,6 +103,13 @@ test("includes grouped panel nodes in app mode bypass collapsing", () => {
         "BadgeHeightEstablishPromptBuilder",
         "DAELAB.BadgeMaterialCanvasNormalizeV1",
         "DAELAB.BadgeRenderSpaceMaskAlignV1",
+        "DAELAB.BadgeRoute2CanvasV1",
+        "DAELAB.BadgeEntryRouteV1",
+        "DAELAB.BadgeEditPromptRouteV1",
+        "DAELAB.BadgeLazyImageSwitchV1",
+        "DAELAB.BadgeColorIdMapV1",
+        "DAELAB.BadgeColorIdMapCacheStoreV1",
+        "DAELAB.BadgeLocalSelectionGuardV1",
         "BadgeDesignCanvas",
         "BadgeMasterRegistration",
         "BadgeEditMaskValidator",
@@ -217,6 +232,22 @@ test("builds exact Inspector keys from the persisted input order", () => {
     assert.deepEqual(
         getSelectedInputEntries(graph).map(({ key, node: entryNode }) => [key, entryNode]),
         [["7:base_prompt", node], ["7:tone", node]]
+    );
+});
+
+test("resolves workflow-scoped App Mode widget references", () => {
+    const node = { id: 7, type: "AppModeLoadImage", mode: 0 };
+    const graph = makeGraph([node], {
+        inputs: [["workflow-uuid:7:image", "image"]],
+    });
+
+    assert.deepEqual(normalizeLinearInputReference("workflow-uuid:7:image", "image"), {
+        nodeId: "7",
+        widgetKey: "workflow-uuid:7:image",
+    });
+    assert.deepEqual(
+        getSelectedInputEntries(graph).map(({ nodeId, key, node: entryNode }) => [nodeId, key, entryNode]),
+        [["7", "workflow-uuid:7:image", node]],
     );
 });
 

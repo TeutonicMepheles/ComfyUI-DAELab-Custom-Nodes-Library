@@ -131,6 +131,46 @@ class MultiColorMaskTests(unittest.TestCase):
 
         self.assertNotEqual(first, second)
 
+    def test_prompt_config_overrides_workflow_property_and_invalidates_cache(self):
+        image = torch.tensor(
+            [[[[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]],
+            dtype=torch.float32,
+        )
+        persisted = {
+            "groups": [{"id": "red", "color": "#ff0000", "threshold": 0}],
+            "output": "combined_mask",
+        }
+        prompt_config = json.dumps({
+            "groups": [{"id": "blue", "color": "#0000ff", "threshold": 0}],
+            "output": "combined_mask",
+        })
+
+        result = MODULE.DAELabMultiColorMaskV1().make_mask(
+            image,
+            config_json=prompt_config,
+            unique_id=2,
+            extra_pnginfo=metadata(persisted, property_name=MODULE.V1_CONFIG_PROPERTY),
+        )[0]
+        property_fingerprint = MODULE.DAELabMultiColorMaskV1.IS_CHANGED(
+            image,
+            unique_id=2,
+            extra_pnginfo=metadata(persisted, property_name=MODULE.V1_CONFIG_PROPERTY),
+        )
+        prompt_fingerprint = MODULE.DAELabMultiColorMaskV1.IS_CHANGED(
+            image,
+            config_json=prompt_config,
+            unique_id=2,
+            extra_pnginfo=metadata(persisted, property_name=MODULE.V1_CONFIG_PROPERTY),
+        )
+
+        torch.testing.assert_close(result, torch.tensor([[[0.0, 1.0]]]))
+        self.assertNotEqual(property_fingerprint, prompt_fingerprint)
+
+    def test_schema_exposes_serialized_prompt_config(self):
+        config = MODULE.DAELabMultiColorMaskV1.INPUT_TYPES()["required"]["config_json"]
+        self.assertEqual(config[0], "STRING")
+        self.assertEqual(config[1]["default"], "")
+
     def test_registration_uses_stable_daelab_node_id(self):
         self.assertIs(
             MODULE.NODE_CLASS_MAPPINGS["DAELabMultiColorMask"],

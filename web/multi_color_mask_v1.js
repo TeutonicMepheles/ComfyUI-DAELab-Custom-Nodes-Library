@@ -29,10 +29,12 @@ import {
 
 const NODE_TYPE = "DAELabMultiColorMaskV1";
 const CONFIG_PROPERTY = "multi_color_mask_v1_config";
+const CONFIG_WIDGET_NAME = "config_json";
 const WIDTH_PROPERTY = "multi_color_mask_v1_width";
 const DEFAULT_WIDTH = 390;
 const MIN_WIDTH = 340;
-const UI_VERSION = "20260901-2";
+const UI_VERSION = "20260904-prompt-config-1";
+const APP_HEADING_PROPERTY = "daelab_app_heading";
 const OWNED_WIDGET_PROPERTY = "__daelabMultiColorMaskV1Panel";
 
 function chainCallback(object, property, callback) {
@@ -62,12 +64,36 @@ function getConfig(node) {
     return config;
 }
 
+function syncPromptConfigWidget(node, encoded) {
+    const widget = node.widgets?.find((candidate) => candidate.name === CONFIG_WIDGET_NAME);
+    if (!widget) return;
+    widget.value = encoded;
+    widget.options ||= {};
+    widget.options.advanced = true;
+    widget.options.serialize = true;
+    widget.serialize = true;
+    widget.hidden = true;
+    widget.origType ||= widget.type;
+    widget.origComputeSize ||= widget.computeSize;
+    widget.type = "converted-widget";
+    widget.computeSize = () => [0, -4];
+    widget.computeLayoutSize = () => ({ minHeight: 0, maxHeight: 0, minWidth: 0 });
+    widget.draw = () => {};
+    widget.serializeValue = () => node.properties?.[CONFIG_PROPERTY] || widget.value;
+    for (const element of [widget.element, widget.inputEl]) {
+        if (!element?.style) continue;
+        element.style.display = "none";
+        element.style.visibility = "hidden";
+    }
+}
+
 function storeConfig(node, value, { notify = true } = {}) {
     const config = normalizeMaskV1Config(value);
     const encoded = encodeMaskV1Config(config);
     node.properties ||= {};
     const previous = node.properties[CONFIG_PROPERTY];
     node.properties[CONFIG_PROPERTY] = encoded;
+    syncPromptConfigWidget(node, encoded);
     if (notify && previous !== encoded) {
         node.onWidgetChanged?.(
             MULTI_COLOR_MASK_V1_PANEL_WIDGET_NAME,
@@ -386,6 +412,9 @@ function removeOwnedPanel(node) {
 
 function installPanel(node) {
     if (node._multiColorMaskV1InstalledVersion === UI_VERSION && node._multiColorMaskV1Panel?.widget) {
+        node._multiColorMaskV1Panel.widget.label = String(
+            node.properties?.[APP_HEADING_PROPERTY] || "多颜色选区（按参考图取色）"
+        );
         renderPanel(node);
         scheduleFit(node);
         return;
@@ -395,6 +424,7 @@ function installPanel(node) {
     removeOwnedPanel(node);
     const element = createPanelElement();
     const config = getConfig(node);
+    syncPromptConfigWidget(node, encodeMaskV1Config(config));
     const panelHeight = getMultiColorMaskV1PanelHeight(config.groups.length);
     const widget = node.addDOMWidget(
         MULTI_COLOR_MASK_V1_PANEL_WIDGET_NAME,
@@ -414,7 +444,9 @@ function installPanel(node) {
         },
     );
     widget.serialize = false;
-    widget.label = "Multi Color Mask V1";
+    widget.label = String(
+        node.properties?.[APP_HEADING_PROPERTY] || "多颜色选区（按参考图取色）"
+    );
     widget.inputEl = element;
     widget[OWNED_WIDGET_PROPERTY] = true;
     widget.computeSize = (width) => [width || DEFAULT_WIDTH, panelHeight];
@@ -459,7 +491,9 @@ if (globalThis.__DAELAB_MULTI_COLOR_MASK_V1_VERSION !== UI_VERSION) {
             });
             chainCallback(nodeType.prototype, "onSerialize", function (serialized) {
                 serialized.properties ||= {};
-                serialized.properties[CONFIG_PROPERTY] = encodeMaskV1Config(getConfig(this));
+                const encoded = encodeMaskV1Config(getConfig(this));
+                serialized.properties[CONFIG_PROPERTY] = encoded;
+                syncPromptConfigWidget(this, encoded);
             });
             chainCallback(nodeType.prototype, "onResize", function (size) {
                 const width = Number(size?.[0]);

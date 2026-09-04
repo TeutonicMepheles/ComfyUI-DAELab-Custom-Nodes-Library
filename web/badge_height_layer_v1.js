@@ -35,9 +35,14 @@ const CONFIG_PROPERTY = "badge_height_layer_v1_config";
 const WIDTH_PROPERTY = "badge_height_layer_v1_width";
 const DEFAULT_WIDTH = 390;
 const MIN_WIDTH = 340;
-const UI_VERSION = "20260902-sync-1";
+const UI_VERSION = "20260904-chinese-heading-1";
 const DIGEST_PROPERTY = "badge_height_layer_v1_config_digest";
 const OWNED_WIDGET_PROPERTY = "__daelabBadgeHeightLayerV1Panel";
+const APP_HEADING_PROPERTY = "daelab_app_heading";
+
+function appHeading(node) {
+    return String(node?.properties?.[APP_HEADING_PROPERTY] || "高度层级设置（按层次图取色）");
+}
 
 function chainCallback(object, property, callback) {
     const original = object[property];
@@ -496,6 +501,7 @@ function removeOwnedPanel(node) {
 
 function installPanel(node) {
     if (node._badgeHeightLayerV1InstalledVersion === UI_VERSION && node._badgeHeightLayerV1Panel?.widget) {
+        node._badgeHeightLayerV1Panel.widget.label = appHeading(node);
         configurePromptConfigWidget(node);
         renderPanel(node);
         scheduleFit(node);
@@ -526,7 +532,7 @@ function installPanel(node) {
         },
     );
     widget.serialize = false;
-    widget.label = "Badge Height Layer V1";
+    widget.label = appHeading(node);
     widget.inputEl = element;
     widget[OWNED_WIDGET_PROPERTY] = true;
     widget.computeSize = (width) => [width || DEFAULT_WIDTH, panelHeight];

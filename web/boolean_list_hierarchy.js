@@ -6,6 +6,7 @@ import {
     MAX_HIERARCHY_DEPTH,
     addChildItem,
     addRootItem,
+    applyConfirmationPolicy,
     canIndentItem,
     cloneItems,
     createExclusiveGroup,
@@ -22,11 +23,12 @@ import {
     normalizeItems,
     outdentItem,
     reconcileOutputSlots,
+    resetConfirmationOnLoad,
     setItemRequirements,
     updateExclusiveGroup,
     validateDependencySelection,
     validateExclusiveGroupSelection,
-} from "./boolean_list_hierarchy_model.mjs?v=hierarchy-dependencies-1";
+} from "./boolean_list_hierarchy_model.mjs?v=badge-confirmation-policy-2";
 import {
     LIST_EDITOR_ICONS as ICONS,
     createIconButton,
@@ -36,11 +38,35 @@ import {
 const NODE_NAME = "BooleanListHierarchy";
 const WIDGET_NAME = "boolean_hierarchy_editor";
 const CONFIG_WIDGET_NAME = "config_json";
+const APP_HEADING_PROPERTY = "daelab_app_heading";
 const DEFAULT_WIDTH = 520;
 const TOOLBAR_HEIGHT = 36;
 const ROW_HEIGHT = 34;
 const EXCLUSIVE_PANEL_HEIGHT = 220;
 const DEPENDENCY_PANEL_HEIGHT = 260;
+
+function ensureStyles() {
+    const styleId = "daelab-boolean-list-hierarchy-style";
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+[data-testid="app-mode-widget-item"] .daelab-boolean-hierarchy-toolbar,
+[data-testid="app-mode-widget-item"] .daelab-boolean-hierarchy-row-actions,
+[data-testid="app-mode-widget-item"] .daelab-boolean-hierarchy-editor-panel {
+    display: none !important;
+}
+[data-testid="app-mode-widget-item"] .daelab-boolean-hierarchy-container {
+    height: auto !important;
+}
+[data-testid="app-mode-widget-item"] .daelab-boolean-hierarchy-label {
+    border-color: transparent !important;
+    background: transparent !important;
+    pointer-events: none !important;
+}
+`;
+    document.head.appendChild(style);
+}
 
 function chainCallback(target, property, callback) {
     const original = target[property];
@@ -140,16 +166,36 @@ function graphTransaction(node, callback) {
 
 function commitItems(node, nextItems, options = {}) {
     const previousItems = node._booleanHierarchyItems || getStoredItems(node);
-    const normalized = normalizeItems(nextItems, {
+    let normalized = normalizeItems(nextItems, {
         preferredItemId: options.preferredItemId || null,
     });
+    const confirmation = applyConfirmationPolicy(
+        previousItems,
+        normalized,
+        node.properties?.badge_confirmation_policy
+    );
+    normalized = confirmation.items;
     if (encodeItems(previousItems) === encodeItems(normalized)) return false;
     graphTransaction(node, () => {
         storeItems(node, normalized, options.preferredItemId || null);
         reconcileOutputSlots(node, previousItems, normalized);
+        if (confirmation.increment_revision) bumpConfirmationRevision(node);
         renderEditor(node);
         markDirty(node);
     });
+    return true;
+}
+
+function bumpConfirmationRevision(sourceNode) {
+    const targetId = sourceNode.properties?.badge_confirmation_policy?.target_node_id;
+    if (targetId === undefined || targetId === null) return false;
+    const target = sourceNode.graph?.getNodeById?.(targetId);
+    const widget = target?.widgets?.find((candidate) => candidate.name === "confirmation_revision");
+    if (!widget) return false;
+    const previous = Number(widget.value) || 0;
+    widget.value = Math.min(2147483647, previous + 1);
+    widget.callback?.(widget.value);
+    target.onWidgetChanged?.("confirmation_revision", widget.value, previous, widget);
     return true;
 }
 
@@ -205,14 +251,14 @@ function getExclusiveScopeOptions(items) {
     const options = [];
     const roots = getScopeItems(items, null);
     if (roots.length >= 2) {
-        options.push({ parent_id: null, label: "Root level", items: roots });
+        options.push({ parent_id: null, label: "顶层选项", items: roots });
     }
     for (const parent of items) {
         const children = getScopeItems(items, parent.id);
         if (children.length >= 2) {
             options.push({
                 parent_id: parent.id,
-                label: `Children of ${parent.label}`,
+                label: `${parent.label} 的子选项`,
                 items: children,
             });
         }
@@ -222,6 +268,7 @@ function getExclusiveScopeOptions(items) {
 
 function renderExclusivePanel(node, items) {
     const panel = document.createElement("div");
+    panel.className = "daelab-boolean-hierarchy-editor-panel";
     panel.style.cssText = `height:${EXCLUSIVE_PANEL_HEIGHT}px;max-height:${EXCLUSIVE_PANEL_HEIGHT}px;overflow-y:auto;` +
         "padding:7px;box-sizing:border-box;border-top:1px solid #404040;border-bottom:1px solid #404040;" +
         "background:#202020;";
@@ -231,10 +278,10 @@ function renderExclusivePanel(node, items) {
     const header = document.createElement("div");
     header.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:6px;";
     const title = document.createElement("strong");
-    title.textContent = "Exclusive groups";
+    title.textContent = "互斥组选项";
     title.style.cssText = "font-size:11px;color:#ddd;";
     header.appendChild(title);
-    header.appendChild(createTextButton("New group", () => {
+    header.appendChild(createTextButton("新建互斥组", () => {
         const firstScope = getExclusiveScopeOptions(items)[0];
         node._booleanHierarchyGroupEditor = {
             mode: "create",
@@ -248,7 +295,7 @@ function renderExclusivePanel(node, items) {
 
     if (!groups.length) {
         const empty = document.createElement("div");
-        empty.textContent = "No exclusive groups configured.";
+        empty.textContent = "尚未配置互斥组。";
         empty.style.cssText = "font-size:10px;color:#888;margin:4px 0 7px;";
         panel.appendChild(empty);
     }
@@ -266,7 +313,7 @@ function renderExclusivePanel(node, items) {
         summary.style.cssText = "min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
             "font-size:10px;color:#b9d5ee;";
         groupRow.appendChild(summary);
-        groupRow.appendChild(createIconButton(ICONS.edit, "Edit exclusive group", () => {
+        groupRow.appendChild(createIconButton(ICONS.edit, "编辑互斥组", () => {
             node._booleanHierarchyGroupEditor = {
                 mode: "edit",
                 groupId: group.id,
@@ -275,7 +322,7 @@ function renderExclusivePanel(node, items) {
             };
             refreshEditorLayout(node);
         }));
-        groupRow.appendChild(createIconButton(ICONS.remove, "Delete exclusive group", () => {
+        groupRow.appendChild(createIconButton(ICONS.remove, "删除互斥组", () => {
             if (node._booleanHierarchyGroupEditor?.groupId === group.id) {
                 node._booleanHierarchyGroupEditor = null;
             }
@@ -294,14 +341,14 @@ function renderExclusivePanel(node, items) {
     const form = document.createElement("div");
     form.style.cssText = "margin-top:7px;padding:7px;border:1px solid #4a4a4a;border-radius:4px;background:#191919;";
     const formTitle = document.createElement("div");
-    formTitle.textContent = editor.mode === "edit" ? "Edit group" : "Create group";
+    formTitle.textContent = editor.mode === "edit" ? "编辑互斥组" : "创建互斥组";
     formTitle.style.cssText = "font-size:11px;color:#ddd;margin-bottom:6px;";
     form.appendChild(formTitle);
 
     const scopes = getExclusiveScopeOptions(items);
     if (editor.mode === "create") {
         const scopeSelect = document.createElement("select");
-        scopeSelect.setAttribute("aria-label", "Exclusive group scope");
+        scopeSelect.setAttribute("aria-label", "互斥组范围");
         scopeSelect.style.cssText = "width:100%;height:25px;margin-bottom:6px;border:1px solid #444;border-radius:4px;" +
             "background:#222;color:#ddd;font-size:10px;";
         for (const scope of scopes) {
@@ -320,7 +367,7 @@ function renderExclusivePanel(node, items) {
     } else {
         const parent = editor.parentId ? itemById.get(editor.parentId) : null;
         const scopeLabel = document.createElement("div");
-        scopeLabel.textContent = parent ? `Children of ${parent.label}` : "Root level";
+        scopeLabel.textContent = parent ? `${parent.label} 的子选项` : "顶层选项";
         scopeLabel.style.cssText = "font-size:10px;color:#999;margin-bottom:6px;";
         form.appendChild(scopeLabel);
     }
@@ -336,7 +383,7 @@ function renderExclusivePanel(node, items) {
             && candidate.exclusive_group_id !== editor.groupId
         );
         const optionLabel = document.createElement("label");
-        optionLabel.title = occupiedByOther ? "Already belongs to another exclusive group" : candidate.label;
+        optionLabel.title = occupiedByOther ? "已属于另一个互斥组" : candidate.label;
         optionLabel.style.cssText = "display:flex;align-items:center;gap:4px;min-width:0;font-size:10px;color:#bbb;" +
             (occupiedByOther ? "opacity:.4;" : "");
         const checkbox = document.createElement("input");
@@ -368,12 +415,12 @@ function renderExclusivePanel(node, items) {
 
     const formActions = document.createElement("div");
     formActions.style.cssText = "display:flex;justify-content:flex-end;gap:5px;";
-    formActions.appendChild(createTextButton("Cancel", () => {
+    formActions.appendChild(createTextButton("取消", () => {
         node._booleanHierarchyGroupEditor = null;
         refreshEditorLayout(node);
     }));
     const canSave = selectedIds.size >= 2;
-    saveButton = createTextButton("Save", () => {
+    saveButton = createTextButton("保存", () => {
         const selected = [...selectedIds];
         const mode = editor.mode;
         const groupId = editor.groupId;
@@ -411,6 +458,7 @@ function getItemPath(items, itemId) {
 
 function renderDependencyPanel(node, items) {
     const panel = document.createElement("div");
+    panel.className = "daelab-boolean-hierarchy-editor-panel";
     panel.style.cssText = `height:${DEPENDENCY_PANEL_HEIGHT}px;max-height:${DEPENDENCY_PANEL_HEIGHT}px;overflow-y:auto;` +
         "padding:7px;box-sizing:border-box;border-top:1px solid #404040;border-bottom:1px solid #404040;" +
         "background:#202020;";
@@ -421,10 +469,10 @@ function renderDependencyPanel(node, items) {
     const header = document.createElement("div");
     header.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:6px;";
     const title = document.createElement("strong");
-    title.textContent = "Dependencies";
+    title.textContent = "依赖关系";
     title.style.cssText = "font-size:11px;color:#ddd;";
     header.appendChild(title);
-    header.appendChild(createTextButton("New dependency", () => {
+    header.appendChild(createTextButton("新建依赖", () => {
         node._booleanHierarchyDependencyEditor = {
             mode: "create",
             dependentId: availableDependents[0]?.id || "",
@@ -437,7 +485,7 @@ function renderDependencyPanel(node, items) {
 
     if (!rules.length) {
         const empty = document.createElement("div");
-        empty.textContent = "No cross-branch dependencies configured.";
+        empty.textContent = "尚未配置跨分支依赖。";
         empty.style.cssText = "font-size:10px;color:#888;margin:4px 0 7px;";
         panel.appendChild(empty);
     }
@@ -451,11 +499,11 @@ function renderDependencyPanel(node, items) {
             .filter(Boolean);
         const summary = document.createElement("span");
         summary.textContent = `${dependent.label} \u2190 ${requirements.join(" + ")}`;
-        summary.title = `${getItemPath(items, dependent.id)} requires ${requirements.join(" + ")}`;
+        summary.title = `${getItemPath(items, dependent.id)} 依赖 ${requirements.join(" + ")}`;
         summary.style.cssText = "min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
             "font-size:10px;color:#d8c7f0;";
         row.appendChild(summary);
-        row.appendChild(createIconButton(ICONS.edit, "Edit dependency", () => {
+        row.appendChild(createIconButton(ICONS.edit, "编辑依赖", () => {
             node._booleanHierarchyDependencyEditor = {
                 mode: "edit",
                 dependentId: dependent.id,
@@ -464,7 +512,7 @@ function renderDependencyPanel(node, items) {
             };
             refreshEditorLayout(node);
         }));
-        row.appendChild(createIconButton(ICONS.remove, "Delete dependency", () => {
+        row.appendChild(createIconButton(ICONS.remove, "删除依赖", () => {
             if (node._booleanHierarchyDependencyEditor?.dependentId === dependent.id) {
                 node._booleanHierarchyDependencyEditor = null;
             }
@@ -483,13 +531,13 @@ function renderDependencyPanel(node, items) {
     const form = document.createElement("div");
     form.style.cssText = "margin-top:7px;padding:7px;border:1px solid #4a4a4a;border-radius:4px;background:#191919;";
     const formTitle = document.createElement("div");
-    formTitle.textContent = editor.mode === "edit" ? "Edit dependency" : "Create dependency";
+    formTitle.textContent = editor.mode === "edit" ? "编辑依赖" : "创建依赖";
     formTitle.style.cssText = "font-size:11px;color:#ddd;margin-bottom:6px;";
     form.appendChild(formTitle);
 
     if (editor.mode === "create") {
         const dependentSelect = document.createElement("select");
-        dependentSelect.setAttribute("aria-label", "Dependent Boolean");
+        dependentSelect.setAttribute("aria-label", "需要设置依赖的选项");
         dependentSelect.style.cssText = "width:100%;height:25px;margin-bottom:6px;border:1px solid #444;border-radius:4px;" +
             "background:#222;color:#ddd;font-size:10px;";
         for (const item of availableDependents) {
@@ -563,11 +611,11 @@ function renderDependencyPanel(node, items) {
 
     const actions = document.createElement("div");
     actions.style.cssText = "display:flex;justify-content:flex-end;gap:5px;";
-    actions.appendChild(createTextButton("Cancel", () => {
+    actions.appendChild(createTextButton("取消", () => {
         node._booleanHierarchyDependencyEditor = null;
         refreshEditorLayout(node);
     }));
-    actions.appendChild(createTextButton("Save", () => {
+    actions.appendChild(createTextButton("保存", () => {
         const validation = validateDependencySelection(
             items,
             editor.dependentId,
@@ -593,6 +641,7 @@ function renderDependencyPanel(node, items) {
 
 function makeRow(node, item, index, items) {
     const row = document.createElement("div");
+    row.className = "daelab-boolean-hierarchy-row";
     const depth = getItemDepth(items, item);
     const isDescendant = depth > 0;
     row.dataset.itemId = item.id;
@@ -619,11 +668,11 @@ function makeRow(node, item, index, items) {
         .filter(Boolean);
     const unmetRequirements = requiredItems.filter((required) => !required.value);
     toggle.title = toggle.disabled
-        ? "Parent is disabled"
+        ? "父级选项未启用"
         : unmetRequirements.length
-            ? `Enabling also enables: ${unmetRequirements.map((required) => required.label).join(" + ")}`
+            ? `启用时也会启用：${unmetRequirements.map((required) => required.label).join(" + ")}`
             : item.label;
-    toggle.setAttribute("aria-label", `${item.label} value`);
+    toggle.setAttribute("aria-label", `${item.label} 开关`);
     toggle.style.cssText = "width:16px;height:16px;margin:0;accent-color:#6ca0dc;cursor:pointer;";
     if (toggle.disabled) toggle.style.cursor = "not-allowed";
     toggle.addEventListener("change", () => {
@@ -638,10 +687,11 @@ function makeRow(node, item, index, items) {
     const labelCell = document.createElement("div");
     labelCell.style.cssText = "min-width:0;display:flex;align-items:center;gap:4px;";
     const labelInput = document.createElement("input");
+    labelInput.className = "daelab-boolean-hierarchy-label";
     labelInput.type = "text";
     labelInput.value = item.label;
-    labelInput.title = "Boolean label";
-    labelInput.setAttribute("aria-label", `Label for Boolean ${index + 1}`);
+    labelInput.title = "选项名称";
+    labelInput.setAttribute("aria-label", `选项 ${index + 1} 的名称`);
     labelInput.style.cssText = "min-width:0;width:100%;height:24px;padding:2px 6px;box-sizing:border-box;" +
         "border:1px solid #444;border-radius:4px;background:#202020;color:#ddd;font-size:11px;outline:none;";
     labelInput.addEventListener("change", () => {
@@ -659,7 +709,7 @@ function makeRow(node, item, index, items) {
             .map((candidate) => candidate.label);
         const badge = document.createElement("span");
         badge.textContent = "EX";
-        badge.title = `Exclusive group: ${memberLabels.join(" / ")}`;
+        badge.title = `互斥组：${memberLabels.join(" / ")}`;
         badge.style.cssText = "flex:0 0 auto;padding:2px 4px;border:1px solid #52789b;border-radius:3px;" +
             "background:#20384d;color:#b9d9f5;font-size:8px;font-weight:700;line-height:12px;user-select:none;";
         labelCell.appendChild(badge);
@@ -667,7 +717,7 @@ function makeRow(node, item, index, items) {
     if (item.requires_ids?.length) {
         const badge = document.createElement("span");
         badge.textContent = "REQ";
-        badge.title = `Requires: ${requiredItems.map((required) => required.label).join(" + ")}`;
+        badge.title = `依赖：${requiredItems.map((required) => required.label).join(" + ")}`;
         badge.style.cssText = "flex:0 0 auto;padding:2px 4px;border:1px solid #8067a5;border-radius:3px;" +
             "background:#35284a;color:#ddcaf7;font-size:8px;font-weight:700;line-height:12px;user-select:none;";
         labelCell.appendChild(badge);
@@ -675,6 +725,7 @@ function makeRow(node, item, index, items) {
     row.appendChild(labelCell);
 
     const actions = document.createElement("div");
+    actions.className = "daelab-boolean-hierarchy-row-actions";
     actions.style.cssText = "display:flex;gap:3px;align-items:center;justify-content:flex-end;";
     const parentId = item.parent_id || null;
     const siblings = items.filter(
@@ -688,31 +739,31 @@ function makeRow(node, item, index, items) {
         && items.length < MAX_BOOLEAN_OUTPUTS;
 
     if (depth < MAX_HIERARCHY_DEPTH) {
-        actions.appendChild(createIconButton(ICONS.addChild, "Add child", () => {
+        actions.appendChild(createIconButton(ICONS.addChild, "新增子选项", () => {
             mutateItems(node, (nextItems) => addChildItem(nextItems, item.id));
         }, !canAddChild));
     }
-    actions.appendChild(createIconButton(ICONS.up, "Move up", () => {
+    actions.appendChild(createIconButton(ICONS.up, "上移", () => {
         mutateItems(node, (nextItems) => moveItem(nextItems, item.id, "up"));
     }, siblingPosition <= 0));
-    actions.appendChild(createIconButton(ICONS.down, "Move down", () => {
+    actions.appendChild(createIconButton(ICONS.down, "下移", () => {
         mutateItems(node, (nextItems) => moveItem(nextItems, item.id, "down"));
     }, siblingPosition < 0 || siblingPosition >= siblings.length - 1));
     if (depth < MAX_HIERARCHY_DEPTH) {
         const indentDisabled = !canIndentItem(items, item.id);
         const indentLabel = indentDisabled
-            ? "Cannot indent at the current position or depth"
-            : "Indent under previous sibling";
+            ? "当前位置或层级无法缩进"
+            : "缩进到上一项下方";
         actions.appendChild(createIconButton(ICONS.indent, indentLabel, () => {
             mutateItems(node, (nextItems) => indentItem(nextItems, item.id));
         }, indentDisabled));
     }
     if (isDescendant) {
-        actions.appendChild(createIconButton(ICONS.outdent, "Promote one level", () => {
+        actions.appendChild(createIconButton(ICONS.outdent, "提升一级", () => {
             mutateItems(node, (nextItems) => outdentItem(nextItems, item.id));
         }));
     }
-    const deleteLabel = subtreeIds.size > 1 ? "Delete Boolean subtree" : "Delete Boolean";
+    const deleteLabel = subtreeIds.size > 1 ? "删除选项及其子项" : "删除选项";
     actions.appendChild(createIconButton(ICONS.remove, deleteLabel, () => {
         mutateItems(node, (nextItems) => deleteItem(nextItems, item.id));
     }, !canDelete));
@@ -722,8 +773,14 @@ function makeRow(node, item, index, items) {
 }
 
 function ensureEditorWidget(node) {
-    if (node._booleanHierarchyWidget && node._booleanHierarchyContainer) return;
+    if (node._booleanHierarchyWidget && node._booleanHierarchyContainer) {
+        node._booleanHierarchyWidget.label = String(
+            node.properties?.[APP_HEADING_PROPERTY] || "层级布尔选项"
+        );
+        return;
+    }
     const container = document.createElement("div");
+    container.className = "daelab-boolean-hierarchy-container";
     container.style.cssText = "width:100%;box-sizing:border-box;overflow:hidden;border:1px solid #3b3b3b;" +
         "border-radius:5px;background:#181818;color:#ddd;font-family:Arial,sans-serif;";
     for (const eventName of ["pointerdown", "pointerup", "click", "dblclick", "contextmenu"]) {
@@ -743,6 +800,7 @@ function ensureEditorWidget(node) {
         ),
     });
     widget.serialize = false;
+    widget.label = String(node.properties?.[APP_HEADING_PROPERTY] || "层级布尔选项");
     widget.inputEl = container;
     widget.computeSize = (width) => [width || DEFAULT_WIDTH, node._booleanHierarchyHeight || TOOLBAR_HEIGHT + ROW_HEIGHT + 8];
     widget.computeLayoutSize = () => ({
@@ -761,12 +819,13 @@ function renderEditor(node) {
     const fragment = document.createDocumentFragment();
 
     const toolbar = document.createElement("div");
+    toolbar.className = "daelab-boolean-hierarchy-toolbar";
     toolbar.style.cssText = "height:36px;display:flex;align-items:center;justify-content:space-between;gap:6px;" +
         "padding:5px 6px;box-sizing:border-box;background:#242424;";
-    toolbar.appendChild(createToolbarButton(ICONS.addRoot, "Add root", () => {
+    toolbar.appendChild(createToolbarButton(ICONS.addRoot, "新增顶层选项", () => {
         mutateItems(node, (nextItems) => addRootItem(nextItems));
     }, items.length >= MAX_BOOLEAN_OUTPUTS));
-    toolbar.appendChild(createToolbarButton(ICONS.exclusive, "Exclusive groups", () => {
+    toolbar.appendChild(createToolbarButton(ICONS.exclusive, "互斥组选项", () => {
         node._booleanHierarchyExclusivePanelOpen = !node._booleanHierarchyExclusivePanelOpen;
         node._booleanHierarchyDependencyPanelOpen = false;
         node._booleanHierarchyDependencyEditor = null;
@@ -775,7 +834,7 @@ function renderEditor(node) {
         }
         refreshEditorLayout(node);
     }, false));
-    toolbar.appendChild(createToolbarButton(ICONS.dependencies, "Dependencies", () => {
+    toolbar.appendChild(createToolbarButton(ICONS.dependencies, "依赖关系", () => {
         node._booleanHierarchyDependencyPanelOpen = !node._booleanHierarchyDependencyPanelOpen;
         node._booleanHierarchyExclusivePanelOpen = false;
         node._booleanHierarchyGroupEditor = null;
@@ -805,7 +864,14 @@ function renderEditor(node) {
 }
 
 function initializeNode(node) {
-    const loadedItems = getStoredItems(node);
+    const storedItems = getStoredItems(node);
+    const loadedItems = node._badgeConfirmationLoadResetDone
+        ? storedItems
+        : resetConfirmationOnLoad(
+            storedItems,
+            node.properties?.badge_confirmation_policy
+        );
+    node._badgeConfirmationLoadResetDone = true;
     const previousItems = node._booleanHierarchyItems || loadedItems;
     const items = storeItems(node, loadedItems);
     reconcileOutputSlots(node, previousItems, items);
@@ -823,6 +889,9 @@ function scheduleInitialize(node) {
 
 app.registerExtension({
     name: "BooleanListHierarchy.DynamicOutputs",
+    setup() {
+        ensureStyles();
+    },
     beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== NODE_NAME) return;
 
@@ -831,6 +900,7 @@ app.registerExtension({
             scheduleInitialize(this);
         });
         chainCallback(nodeType.prototype, "onConfigure", function () {
+            this._badgeConfirmationLoadResetDone = false;
             scheduleInitialize(this);
         });
         chainCallback(nodeType.prototype, "onAdded", function () {

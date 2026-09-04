@@ -5,13 +5,11 @@ import {
     getCanonicalMaterialOutputs,
     getLegacyMaterialOutputIndexes,
     getMaterialSelectorLayout,
-    MATERIAL_LAYOUT_COLUMNS,
+    MATERIAL_CAROUSEL_BUTTON_SIZE,
+    MATERIAL_CAROUSEL_CARD_SIZE,
     MATERIAL_LAYOUT_GAP,
     MATERIAL_LAYOUT_HORIZONTAL_INSET,
-    MATERIAL_LAYOUT_MAX_CARD_SIZE,
     MATERIAL_MIN_NODE_WIDTH,
-    MATERIAL_VIEWPORT_GAP,
-    MATERIAL_VIEWPORT_MAX_SIZE,
     getCanonicalMaterialWidgetValues,
     LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME,
     MATERIAL_PANEL_WIDGET_NAME,
@@ -19,16 +17,17 @@ import {
     migrateMaterialWidgetValues,
     normalizeMaterialBasePrompt,
     orderMaterialPromptWidgets,
-} from "./material_prompt_model.mjs?v=20260901-drop-selected-color-v12";
+    wrapMaterialIndex,
+} from "./material_prompt_model.mjs?v=20260903-carousel-v13";
 import {
     catalogEntries,
     ensureThumbnailSelectorStyles,
     makeCatalogThumbnailUrl,
-    renderThumbnailGrid,
     resolveCatalogId,
 } from "./thumbnail_selector.mjs";
 
-const UI_VERSION = "20260901-gpt-image2-drop-selected-color-v12";
+const UI_VERSION = "20260904-gpt-image2-carousel-v14";
+const APP_HEADING_PROPERTY = "daelab_app_heading";
 const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./material_thumbs/", import.meta.url);
@@ -112,6 +111,10 @@ function syncProperties(node) {
     node.properties.gpt_image2_material_id = selectedMaterialId(node);
     delete node.properties.gpt_image2_material_color;
     delete node.properties.gpt_image2_material_use_color;
+    const selector = node.widgets?.find((candidate) => candidate.__gptImage2MaterialSelector);
+    if (selector) {
+        selector.label = String(node.properties?.[APP_HEADING_PROPERTY] || "材质选择");
+    }
 }
 
 function stopCanvasEvent(event) {
@@ -137,58 +140,95 @@ function ensureMaterialStyles() {
   font-family: Arial, Helvetica, sans-serif;
   align-self: start;
 }
-.gpt-image2-material-viewport {
-  position: relative;
-  box-sizing: border-box;
-  width: min(calc(100% - ${MATERIAL_LAYOUT_HORIZONTAL_INSET}px), ${MATERIAL_VIEWPORT_MAX_SIZE}px);
-  aspect-ratio: 1 / 1;
-  margin: 0 auto ${MATERIAL_VIEWPORT_GAP}px;
+.gpt-image2-material-current {
+  height: 22px;
   overflow: hidden;
-  border: 1px solid #6aa8ff;
-  border-radius: 10px;
-  background: #171a20;
-  box-shadow: inset 0 0 0 1px rgba(106, 168, 255, 0.24);
-}
-.gpt-image2-material-viewport img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #232832;
-}
-.gpt-image2-material-viewport-label {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  box-sizing: border-box;
-  max-width: calc(100% - 16px);
-  padding: 5px 8px;
-  overflow: hidden;
-  color: #fff;
-  background: rgba(12, 15, 20, 0.82);
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 16px;
+  color: #d8e8ff;
+  font-size: 11px;
+  line-height: 22px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.gpt-image2-material-selector .daelab-thumbnail-grid {
-  grid-template-columns: repeat(${MATERIAL_LAYOUT_COLUMNS}, minmax(0, ${MATERIAL_LAYOUT_MAX_CARD_SIZE}px));
+.gpt-image2-material-carousel {
+  display: grid;
+  grid-template-columns: ${MATERIAL_CAROUSEL_BUTTON_SIZE}px minmax(0, 1fr) ${MATERIAL_CAROUSEL_BUTTON_SIZE}px;
+  align-items: center;
   gap: ${MATERIAL_LAYOUT_GAP}px;
-  justify-content: center;
-  align-content: start;
+  box-sizing: border-box;
+  padding: 0 ${MATERIAL_LAYOUT_HORIZONTAL_INSET / 2}px;
 }
-.gpt-image2-material-selector .daelab-thumbnail-button {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
+.gpt-image2-material-nav {
+  width: ${MATERIAL_CAROUSEL_BUTTON_SIZE}px;
+  height: ${MATERIAL_CAROUSEL_BUTTON_SIZE}px;
+  padding: 0;
+  border: 1px solid #4d5f77;
+  border-radius: 50%;
+  color: #d8e8ff;
+  background: #252d38;
+  cursor: pointer;
 }
-.gpt-image2-material-selector .daelab-thumbnail-button img {
+.gpt-image2-material-strip {
+  display: flex;
+  gap: ${MATERIAL_LAYOUT_GAP}px;
+  height: ${MATERIAL_CAROUSEL_CARD_SIZE}px;
+  overflow: hidden;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  cursor: grab;
+}
+.gpt-image2-material-strip::-webkit-scrollbar { display: none; }
+.gpt-image2-material-strip[data-dragging="true"] { cursor: grabbing; }
+.gpt-image2-material-card {
+  position: relative;
+  flex: 0 0 ${MATERIAL_CAROUSEL_CARD_SIZE}px;
+  width: ${MATERIAL_CAROUSEL_CARD_SIZE}px;
+  height: ${MATERIAL_CAROUSEL_CARD_SIZE}px;
+  padding: 3px;
+  overflow: hidden;
+  border: 1px solid #4a4f58;
+  border-radius: 8px;
+  background: #20242b;
+  cursor: pointer;
+}
+.gpt-image2-material-card[aria-selected="true"] {
+  border-color: #6aa8ff;
+  box-shadow: inset 0 0 0 2px rgba(106, 168, 255, .7);
+}
+.gpt-image2-material-card img {
   width: 100%;
   height: 100%;
-  min-height: 0;
   object-fit: contain;
+  pointer-events: none;
+}
+.gpt-image2-material-tip {
+  position: fixed;
+  z-index: 2147483000;
+  width: 230px;
+  padding: 8px;
+  border: 1px solid #6aa8ff;
+  border-radius: 10px;
+  color: #fff;
+  background: rgba(18, 22, 29, .97);
+  box-shadow: 0 10px 28px rgba(0,0,0,.48);
+  pointer-events: none;
+}
+.gpt-image2-material-tip img {
+  display: block;
+  width: 214px;
+  height: 214px;
+  object-fit: contain;
+  background: #252a33;
+  border-radius: 6px;
+}
+.gpt-image2-material-tip span {
+  display: block;
+  padding-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
 }
 `;
     document.head.appendChild(style);
@@ -198,53 +238,183 @@ function selectorHeight(width = MATERIAL_MIN_NODE_WIDTH) {
     return getMaterialSelectorLayout(width, entries().length).height;
 }
 
+function hideMaterialTip(node) {
+    const state = node?.__gptImage2MaterialTipState;
+    if (!state) return;
+    state.tip?.remove();
+    globalThis.removeEventListener?.("blur", state.dismiss);
+    globalThis.removeEventListener?.("resize", state.dismiss);
+    document.removeEventListener?.("scroll", state.dismiss, true);
+    node.__gptImage2MaterialTipState = null;
+}
+
+function positionMaterialTip(tip, anchor) {
+    const margin = 10;
+    const width = tip.offsetWidth || 230;
+    const height = tip.offsetHeight || 268;
+    const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || width;
+    const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || height;
+    let left = anchor.right + margin;
+    let top = anchor.top;
+    if (left + width + margin > viewportWidth) left = anchor.left - width - margin;
+    left = Math.max(margin, Math.min(left, viewportWidth - width - margin));
+    top = Math.max(margin, Math.min(top, viewportHeight - height - margin));
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(top)}px`;
+}
+
+function showMaterialTip(node, entry, anchorElement) {
+    hideMaterialTip(node);
+    if (!anchorElement?.isConnected || Number(node?.mode ?? 0) !== 0) return;
+    const tip = document.createElement("div");
+    tip.className = "gpt-image2-material-tip";
+    tip.setAttribute("role", "tooltip");
+    const image = document.createElement("img");
+    image.alt = "";
+    image.decoding = "async";
+    image.src = makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION);
+    const label = document.createElement("span");
+    label.textContent = entry.label || entry.id;
+    tip.append(image, label);
+    document.body.appendChild(tip);
+    positionMaterialTip(tip, anchorElement.getBoundingClientRect());
+    const dismiss = () => hideMaterialTip(node);
+    node.__gptImage2MaterialTipState = { tip, dismiss };
+    globalThis.addEventListener?.("blur", dismiss, { once: true });
+    globalThis.addEventListener?.("resize", dismiss, { once: true });
+    document.addEventListener?.("scroll", dismiss, true);
+}
+
 function renderMaterialSelector(widget, node) {
     const element = widget?.element || widget?.inputEl;
     if (!element) return;
+    hideMaterialTip(node);
     const selectedId = selectedMaterialId(node);
     const materialEntries = entries();
     const selectedEntry = materialEntries.find((entry) => entry.id === selectedId);
     widget.__gptImage2MaterialValue = selectedId;
     element.replaceChildren();
 
-    if (selectedEntry) {
-        const viewport = document.createElement("div");
-        viewport.className = "gpt-image2-material-viewport";
-        viewport.dataset.materialId = selectedEntry.id;
-        viewport.title = selectedEntry.label || selectedEntry.id;
+    const current = document.createElement("div");
+    current.className = "gpt-image2-material-current";
+    current.textContent = `当前材质 · ${selectedEntry?.label || selectedId}`;
+    element.appendChild(current);
 
+    const carousel = document.createElement("div");
+    carousel.className = "gpt-image2-material-carousel";
+    const previous = document.createElement("button");
+    previous.type = "button";
+    previous.className = "gpt-image2-material-nav";
+    previous.textContent = "‹";
+    previous.setAttribute("aria-label", "上一个材质");
+    const strip = document.createElement("div");
+    strip.className = "gpt-image2-material-strip";
+    strip.setAttribute("role", "listbox");
+    strip.setAttribute("aria-label", "材质选择");
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "gpt-image2-material-nav";
+    next.textContent = "›";
+    next.setAttribute("aria-label", "下一个材质");
+
+    const selectIndex = (rawIndex, focus = false) => {
+        const index = wrapMaterialIndex(rawIndex, materialEntries.length);
+        const entry = materialEntries[index];
+        if (!entry) return;
+        node.properties ||= {};
+        node.properties.gpt_image2_material_id = entry.id;
+        widget.__gptImage2MaterialValue = entry.id;
+        setMaterialWidgetValue(node, entry.id);
+        renderMaterialSelector(widget, node);
+        const selectedButton = [...element.querySelectorAll("[data-material-id]")]
+            .find((candidate) => candidate.dataset.materialId === entry.id);
+        selectedButton?.scrollIntoView?.({ block: "nearest", inline: "center" });
+        if (focus) selectedButton?.focus?.();
+        markNodeDirty(node);
+    };
+    const selectedIndex = Math.max(0, materialEntries.findIndex((entry) => entry.id === selectedId));
+    previous.addEventListener("click", (event) => {
+        stopCanvasEvent(event);
+        selectIndex(selectedIndex - 1, true);
+    });
+    next.addEventListener("click", (event) => {
+        stopCanvasEvent(event);
+        selectIndex(selectedIndex + 1, true);
+    });
+
+    materialEntries.forEach((entry, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "gpt-image2-material-card";
+        button.dataset.materialId = entry.id;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-label", entry.label || entry.id);
+        button.setAttribute("aria-selected", String(entry.id === selectedId));
+        button.tabIndex = entry.id === selectedId ? 0 : -1;
         const image = document.createElement("img");
-        image.alt = `${selectedEntry.label || selectedEntry.id} 当前材质预览`;
+        image.alt = entry.label || entry.id;
         image.decoding = "async";
         image.draggable = false;
-        image.src = makeCatalogThumbnailUrl(selectedEntry, THUMB_BASE_URL, UI_VERSION);
-
-        const label = document.createElement("span");
-        label.className = "gpt-image2-material-viewport-label";
-        label.textContent = `当前材质 · ${selectedEntry.label || selectedEntry.id}`;
-        viewport.append(image, label);
-        element.appendChild(viewport);
-    }
-
-    const grid = document.createElement("div");
-    grid.className = "daelab-thumbnail-grid";
-    renderThumbnailGrid({
-        container: grid,
-        entries: materialEntries,
-        selectedId,
-        getImageUrl: (entry) => makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION),
-        dataKey: "materialId",
-        stopEvent: stopCanvasEvent,
-        onSelect: (materialId) => {
-            node.properties ||= {};
-            node.properties.gpt_image2_material_id = materialId;
-            widget.__gptImage2MaterialValue = materialId;
-            setMaterialWidgetValue(node, materialId);
-            renderMaterialSelector(widget, node);
-            markNodeDirty(node);
-        },
+        image.src = makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION);
+        button.appendChild(image);
+        button.addEventListener("click", (event) => {
+            stopCanvasEvent(event);
+            if (strip.__materialDragMoved) return;
+            selectIndex(index, false);
+        });
+        button.addEventListener("mouseenter", () => showMaterialTip(node, entry, button));
+        button.addEventListener("mouseleave", () => hideMaterialTip(node));
+        button.addEventListener("focus", () => showMaterialTip(node, entry, button));
+        button.addEventListener("blur", () => hideMaterialTip(node));
+        button.addEventListener("keydown", (event) => {
+            let targetIndex = null;
+            if (event.key === "ArrowLeft") targetIndex = index - 1;
+            else if (event.key === "ArrowRight") targetIndex = index + 1;
+            else if (event.key === "Home") targetIndex = 0;
+            else if (event.key === "End") targetIndex = materialEntries.length - 1;
+            else if (event.key === "Enter" || event.key === " ") targetIndex = index;
+            if (targetIndex === null) return;
+            stopCanvasEvent(event);
+            selectIndex(targetIndex, true);
+        });
+        strip.appendChild(button);
     });
-    element.appendChild(grid);
+
+    strip.addEventListener("wheel", (event) => {
+        if (!event.deltaX && !event.deltaY) return;
+        event.preventDefault();
+        event.stopPropagation();
+        strip.scrollLeft += event.deltaX || event.deltaY;
+    }, { passive: false });
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+    strip.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        dragStartX = event.clientX;
+        dragStartScroll = strip.scrollLeft;
+        strip.__materialDragMoved = false;
+        strip.dataset.dragging = "true";
+        strip.setPointerCapture?.(event.pointerId);
+    });
+    strip.addEventListener("pointermove", (event) => {
+        if (strip.dataset.dragging !== "true") return;
+        const delta = event.clientX - dragStartX;
+        if (Math.abs(delta) > 4) strip.__materialDragMoved = true;
+        strip.scrollLeft = dragStartScroll - delta;
+    });
+    const stopDragging = (event) => {
+        if (strip.dataset.dragging !== "true") return;
+        delete strip.dataset.dragging;
+        strip.releasePointerCapture?.(event.pointerId);
+        setTimeout(() => { strip.__materialDragMoved = false; }, 0);
+    };
+    strip.addEventListener("pointerup", stopDragging);
+    strip.addEventListener("pointercancel", stopDragging);
+    carousel.append(previous, strip, next);
+    element.appendChild(carousel);
+    requestAnimationFrame(() => {
+        element.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: "nearest", inline: "center" });
+    });
 }
 
 function removeOwnedWidgets(node) {
@@ -253,6 +423,7 @@ function removeOwnedWidgets(node) {
             || LEGACY_COLOR_WIDGET_NAMES.has(widget.name)
             || widget.__gptImage2MaterialColorPicker;
         if (!remove) return true;
+        hideMaterialTip(node);
         widget._colorPicker?.remove();
         widget.onRemove?.();
         widget.onRemoved?.();
@@ -304,7 +475,7 @@ function makeMaterialSelector(node) {
         },
     });
     widget.serialize = false;
-    widget.label = "材质选择";
+    widget.label = String(node.properties?.[APP_HEADING_PROPERTY] || "材质选择");
     widget.inputEl = element;
     widget.__gptImage2MaterialSelector = true;
     widget.__gptImage2MaterialValue = selectedMaterialId(node);
@@ -319,6 +490,7 @@ function makeMaterialSelector(node) {
     });
     const originalOnRemove = widget.onRemove?.bind(widget);
     widget.onRemove = () => {
+        hideMaterialTip(node);
         originalOnRemove?.();
         element.remove();
     };
@@ -420,6 +592,20 @@ if (globalThis.__GPT_IMAGE2_MATERIAL_PROMPT_UI_VERSION !== UI_VERSION) {
     globalThis.__GPT_IMAGE2_MATERIAL_PROMPT_UI_VERSION = UI_VERSION;
     app.registerExtension({
         name: "DAELab.GPTImage2MaterialPrompt.UI",
+        setup() {
+            const previous = globalThis.__gptImage2MaterialAppModeHandler;
+            if (previous) globalThis.removeEventListener?.("daelab:app-mode-synced", previous);
+            const handler = () => {
+                const graph = app.rootGraph || app.graph;
+                for (const node of graph?.nodes || graph?._nodes || []) {
+                    if (node?.comfyClass === "GPTImage2MaterialPrompt" && Number(node.mode ?? 0) !== 0) {
+                        hideMaterialTip(node);
+                    }
+                }
+            };
+            globalThis.__gptImage2MaterialAppModeHandler = handler;
+            globalThis.addEventListener?.("daelab:app-mode-synced", handler);
+        },
         beforeRegisterNodeDef(nodeType, nodeData) {
             if (nodeData.name !== "GPTImage2MaterialPrompt") return;
 

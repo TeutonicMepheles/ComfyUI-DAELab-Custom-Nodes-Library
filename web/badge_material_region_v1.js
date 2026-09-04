@@ -45,7 +45,8 @@ const CONFIG_PROPERTY = "badge_material_region_v1_config";
 const WIDTH_PROPERTY = "badge_material_region_v1_width";
 const DEFAULT_WIDTH = 410;
 const MIN_WIDTH = 360;
-const UI_VERSION = "20260902-visible-material-v4";
+const UI_VERSION = "20260904-chinese-heading-v5";
+const APP_HEADING_PROPERTY = "daelab_app_heading";
 const DIGEST_PROPERTY = "badge_material_region_v1_config_digest";
 const OWNED_WIDGET_PROPERTY = "__daelabBadgeMaterialRegionV1Panel";
 const MATERIAL_URL = new URL("./materials.json", import.meta.url);
@@ -703,6 +704,9 @@ function installPanel(node) {
         node._badgeMaterialRegionV1InstalledVersion === UI_VERSION
         && node._badgeMaterialRegionV1Panel?.widget
     ) {
+        node._badgeMaterialRegionV1Panel.widget.label = String(
+            node.properties?.[APP_HEADING_PROPERTY] || "特殊材质区域（按平面图取色）"
+        );
         configurePromptConfigWidget(node);
         renderPanel(node);
         scheduleFit(node);
@@ -737,7 +741,9 @@ function installPanel(node) {
         },
     );
     widget.serialize = false;
-    widget.label = "Badge Material Region V1";
+    widget.label = String(
+        node.properties?.[APP_HEADING_PROPERTY] || "特殊材质区域（按平面图取色）"
+    );
     widget.inputEl = element;
     widget[OWNED_WIDGET_PROPERTY] = true;
     widget.computeSize = (width) => [width || DEFAULT_WIDTH, panelHeight];

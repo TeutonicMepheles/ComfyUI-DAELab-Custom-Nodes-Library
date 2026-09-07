@@ -1,0 +1,62 @@
+{
+  "dark_brushed_bronze": {
+    "label": "深色拉丝古铜",
+    "thumbnail": "dark_brushed_bronze.png",
+    "semantic": "A metallic substrate with fine linear brushing and subtly irregular anisotropic microtexture, medium-high metallic reflectance, and medium-low roughness. Change only microscopic texture and surface reflection while preserving the region's existing value structure.",
+    "application": "Align the brushing with the local surface and structural direction. Reflections, highlights, and shadows must follow the badge's existing light direction, curvature, relief, and environment.",
+    "avoid": "corrosion, obvious scratches, excessive mirror reflection, or any material-preview sample shape"
+  },
+  "light_speckled_enamel": {
+    "label": "浅灰细砂珐琅",
+    "thumbnail": "glossy_enamel.png",
+    "semantic": "A continuous vitreous enamel glaze with an even distribution of extremely fine mineral-like micro-particles, a smooth rounded surface, clear soft highlights, medium-high reflection, and low overall roughness. The particles affect only micro-relief and reflection distribution.",
+    "application": "Keep the particles very small and appropriate to badge scale, embedded uniformly within the enamel rather than floating above it. Highlights and value gradients must follow the existing curvature, relief, and lighting.",
+    "avoid": "stone pores, coarse terrazzo aggregate, metal brushing, orange peel, cracks, bubbles, a material-sample outline, or copied studio-window highlights"
+  },
+  "baked_enamel": {
+    "label": "烤漆",
+    "thumbnail": "baked_enamel.png",
+    "semantic": "An opaque heat-cured enamel coating with uniform full coverage, a dense smooth surface, controlled medium highlights, and a subtle rounded glaze response, without metallic particles.",
+    "application": "Apply only the coverage, density, and glaze response of cured enamel. Value variation must come only from the badge's existing curvature, relief, light, and environmental reflection.",
+    "avoid": "transparent coating, metal brushing, glitter particles, orange peel, sagging, bubbles, or a plastic appearance"
+  },
+  "transparent_lacquer": {
+    "label": "透明漆",
+    "thumbnail": "transparent_lacquer.png",
+    "semantic": "A thin, continuous, optically clear lacquer layer that allows the underlying substrate, texture, and existing value structure to remain visible, with clean coating highlights and no haze.",
+    "application": "Preserve all underlying structure, texture, and metallic response. Add only the optical response of a thin continuous clear lacquer, never an opaque plastic layer.",
+    "avoid": "frosted haze, strongly covering paint, thick jelly-like volume, droplets, or bubbles"
+  },
+  "satin_gold": {
+    "label": "亚金",
+    "thumbnail": "satin_gold.png",
+    "preview_keep_color": true,
+    "intrinsic_color_hex": "#c8a86b",
+    "semantic": "A high-metalness satin-finished gold surface with broad soft reflections, medium roughness, and a fine uniform micro-matte texture that suppresses sharp mirror images while retaining authentic metallic highlights.",
+    "application": "Maintain physically plausible metallic response and make the soft reflection follow the existing light and relief structure.",
+    "avoid": "bright mirror finish, plastic appearance, oxidation, corrosion, obvious brushing, or wrinkled metal foil"
+  },
+  "satin_silver": {
+    "label": "亚银",
+    "thumbnail": "satin_silver.png",
+    "preview_keep_color": true,
+    "intrinsic_color_hex": "#c7cbd0",
+    "semantic": "A high-metalness satin-finished silver surface with broad soft reflections, medium roughness, and a fine uniform micro-matte texture that suppresses sharp mirror images.",
+    "application": "Maintain physically plausible metallic response and make the soft reflection strictly follow the existing curvature and lighting.",
+    "avoid": "mirror finish, plastic appearance, coarse sandblasting, obvious brushing, corrosion, or oxide film"
+  },
+  "glitter": {
+    "label": "闪粉",
+    "thumbnail": "glitter.png",
+    "semantic": "A transparent or translucent resin layer with a dense, even suspension of extremely fine glitter particles at badge-appropriate scale, producing restrained multi-point reflections without covering the underlying artwork.",
+    "application": "Make every sparkle respond to the existing scene light. Do not cover text edges or alter any graphic contour.",
+    "avoid": "large sequins, confetti, coarse aggregate, star-shaped decoration, noise texture, or sparkle outside the selected region"
+  },
+  "rhinestone": {
+    "label": "水钻",
+    "thumbnail": "rhinestone.png",
+    "semantic": "A regular, securely embedded arrangement of small multi-faceted crystals with clear refraction, controlled point highlights, and tiny mounting seats. The crystals refract only the local visual information already present in the reference.",
+    "application": "Keep crystal size, count, and spacing appropriate to the selected boundary and badge scale, forming a continuous inlaid region that follows the encoded relief surface.",
+    "avoid": "loose gemstones, oversized jewelry, pearls, metal rivets, random gaps, or crystals outside the selected contour"
+  }
+}

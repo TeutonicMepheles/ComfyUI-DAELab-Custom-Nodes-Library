@@ -19,6 +19,9 @@ import {
   POLYGON_MASK_MAX_VERTICES,
   collapsePolygonPanelInputs,
 } from "./polygon_mask_panel.mjs?v=20260805-4";
+import {
+  dispatchPolygonMaskChange,
+} from "./polygon_mask_events.mjs?v=20260904-1";
 
 const MIN_VERTICES = 3;
 const MAX_VERTICES = POLYGON_MASK_MAX_VERTICES;
@@ -28,7 +31,13 @@ const PANEL_MAX_HEIGHT = 1400;
 const PANEL_NATIVE_WIDGET_NAMES = ["vertex_count", "color", "fill_opacity", "outline_width", "text"];
 const POLYGON_PANEL_SYNC_INTERVAL_MS = 100;
 const polygonPanelNodes = new Set();
+const SUPPORTED_NODE_NAMES = new Set(["PolygonMask", "DAELAB.PolygonMaskV1"]);
+const APP_HEADING_PROPERTY = "daelab_app_heading";
 let polygonPanelSyncTimer = null;
+
+function polygonAppHeading(node) {
+  return String(node?.properties?.[APP_HEADING_PROPERTY] || "多边形编辑画布");
+}
 
 function normalizeWidgetLabel(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -84,6 +93,8 @@ function runPolygonPanelSync() {
       continue;
     }
     hidePolygonAppearanceVueRows(node);
+    const panelWidget = node.widgets?.find((widget) => widget.name === "polygon_canvas");
+    if (panelWidget) panelWidget.label = polygonAppHeading(node);
     node.normalizePolygonAppModeInputs?.();
     node.syncPolygonAppearanceControls?.();
   }
@@ -484,7 +495,7 @@ app.registerExtension({
   name: "comfyui_polygon_mask.PolygonMask",
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData.name !== "PolygonMask") {
+    if (!SUPPORTED_NODE_NAMES.has(nodeData.name)) {
       return;
     }
 
@@ -695,6 +706,7 @@ app.registerExtension({
       };
 
       const domWidget = this.addDOMWidget("polygon_canvas", "polygon_canvas", container);
+      domWidget.label = polygonAppHeading(this);
       domWidget.computeSize = (width) => [width, this.getPolygonPanelHeight()];
       this.normalizePolygonAppModeInputs?.();
 
@@ -1482,15 +1494,19 @@ app.registerExtension({
       };
     };
 
-    nodeType.prototype.pushPolygonHistory = function () {
+    nodeType.prototype.pushPolygonHistory = function (notifyChange = true) {
       const state = this.getPolygonState();
       const current = this.polygonWidget.history[this.polygonWidget.historyIndex];
       if (current && JSON.stringify(current) === JSON.stringify(state)) {
-        return;
+        return false;
       }
       this.polygonWidget.history = this.polygonWidget.history.slice(0, this.polygonWidget.historyIndex + 1);
       this.polygonWidget.history.push(state);
       this.polygonWidget.historyIndex = this.polygonWidget.history.length - 1;
+      if (notifyChange) {
+        dispatchPolygonMaskChange(this);
+      }
+      return true;
     };
 
     nodeType.prototype.undoPolygon = function () {
@@ -1499,6 +1515,7 @@ app.registerExtension({
       }
       this.polygonWidget.historyIndex -= 1;
       this.restorePolygonState(this.polygonWidget.history[this.polygonWidget.historyIndex]);
+      dispatchPolygonMaskChange(this);
     };
 
     nodeType.prototype.redoPolygon = function () {
@@ -1507,6 +1524,7 @@ app.registerExtension({
       }
       this.polygonWidget.historyIndex += 1;
       this.restorePolygonState(this.polygonWidget.history[this.polygonWidget.historyIndex]);
+      dispatchPolygonMaskChange(this);
     };
 
     nodeType.prototype.clearPolygon = function () {
@@ -1758,7 +1776,7 @@ app.registerExtension({
         if (transition.geometryChanged || createdDefault) {
           this.resetPolygonHistory();
         } else if (this.polygonWidget.history.length === 0) {
-          this.pushPolygonHistory();
+          this.pushPolygonHistory(false);
         }
 
         requestAnimationFrame(() => this.redrawPolygonCanvas());

@@ -6,6 +6,7 @@ import {
     MAX_HIERARCHY_DEPTH,
     addChildItem,
     addRootItem,
+    applyConfirmationPolicy,
     applyHierarchyConstraints,
     applyParentCascade,
     applyRequirementCascade,
@@ -24,6 +25,7 @@ import {
     normalizeItems,
     outdentItem,
     reconcileOutputSlots,
+    resetConfirmationOnLoad,
     sanitizeDependencies,
     setItemRequirements,
     updateExclusiveGroup,
@@ -53,6 +55,50 @@ function item(
         requires_ids: requiresIds,
     };
 }
+
+test("badge confirmation policy clears apply on route or mode changes", () => {
+    const previous = [
+        item("route1", "Route 1", true, null, "route"),
+        item("route2", "Route 2", false, null, "route"),
+        item("local", "Local", true),
+        item("semantic", "Semantic", true, "local", "edit"),
+        item("material", "Material", false, "local", "edit"),
+        item("apply", "Apply", true, "local"),
+    ];
+    const next = previous.map((entry) => ({ ...entry }));
+    next[0].value = false;
+    next[1].value = true;
+    const result = applyConfirmationPolicy(previous, next, {
+        apply_item_id: "apply",
+        invalidating_item_ids: ["route1", "route2", "semantic", "material"],
+    });
+    assert.equal(result.invalidated, true);
+    assert.equal(result.increment_revision, false);
+    assert.equal(result.items.find((entry) => entry.id === "apply").value, false);
+});
+
+test("badge confirmation policy increments only when apply is re-enabled", () => {
+    const previous = [item("local", "Local", true), item("apply", "Apply", false, "local")];
+    const next = previous.map((entry) => ({ ...entry }));
+    next[1].value = true;
+    const result = applyConfirmationPolicy(previous, next, {
+        apply_item_id: "apply",
+        invalidating_item_ids: ["local"],
+    });
+    assert.equal(result.invalidated, false);
+    assert.equal(result.increment_revision, true);
+    assert.equal(result.items[1].value, true);
+});
+
+test("badge confirmation policy resets persisted apply on workflow load", () => {
+    const source = [item("local", "Local", true), item("apply", "Apply", true, "local")];
+    const reset = resetConfirmationOnLoad(source, {
+        apply_item_id: "apply",
+        reset_apply_on_load: true,
+    });
+    assert.equal(reset[1].value, false);
+    assert.equal(source[1].value, true);
+});
 
 test("migrates legacy level data and repairs orphan children", () => {
     const items = normalizeItems([

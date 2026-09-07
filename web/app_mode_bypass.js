@@ -6,7 +6,7 @@ import {
     getSelectedInputEntries,
     isNodeAvailableInAppMode,
     refreshGraphNodesReference,
-} from "./app_mode_bypass_model.mjs?v=20260806-2";
+} from "./app_mode_bypass_model.mjs?v=20260904-scoped-input-1";
 
 const EXTENSION_NAME = "DAELab.AppModeBypassInspector";
 const STATE_ATTRIBUTE = "data-daelab-app-bypass-state";
@@ -205,6 +205,7 @@ function syncInspector() {
     const itemsByKey = syncKeyedInspectorItems(graph);
     syncBuilderIoItems(graph);
     refreshOfficialInspectorIfNeeded(graph, activatedNodes, itemsByKey);
+    globalThis.dispatchEvent?.(new CustomEvent("daelab:app-mode-synced"));
 }
 
 function queueSync() {

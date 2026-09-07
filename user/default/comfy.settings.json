@@ -14,13 +14,13 @@
     "Comfy.Release.Version": "0.19.0",
     "Comfy.Release.Status": "what's new seen",
     "Comfy.Release.Timestamp": 1776412363965,
-    "Comfy.RightSidePanel.IsOpen": false,
+    "Comfy.RightSidePanel.IsOpen": true,
     "Comfy.Minimap.Visible": false,
     "Comfy.Templates.SelectedRunsOn": [],
     "Comfy.Templates.SelectedUseCases": [],
     "Comfy.VueNodes.Enabled": true,
     "Comfy.Toast.DisableReconnectingToast": true,
-    "Comfy.Queue.History.Expanded": true,
+    "Comfy.Queue.History.Expanded": false,
     "Comfy.CustomColorPalettes": {
         "obsidian": {
             "version": 112,
@@ -233,5 +233,6 @@
     ],
     "Comfy.LinkRenderMode": 1,
     "Comfy.DevMode": true,
-    "Comfy.Queue.QPOV2": true
+    "Comfy.Queue.QPOV2": true,
+    "Comfy.Minimap.NodeColors": false
 }

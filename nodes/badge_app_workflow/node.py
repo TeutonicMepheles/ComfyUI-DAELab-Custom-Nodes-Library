@@ -223,17 +223,65 @@ def selection_snapshot_token(
     picker_config,
     edit_mode,
     action_digest,
+    candidate_mask,
+    selection_mode,
 ):
+    mode = str(selection_mode or "").strip().lower()
+    color_mode = mode == "color"
     return _json_digest({
         "pre_edit_master_digest": image_digest(pre_edit_master),
         "selection_reference_digest": image_digest(selection_reference),
+        "candidate_mask_digest": mask_digest(candidate_mask),
+        "selection_mode": mode,
         "route_id": str(route_id),
-        "color_id_map_mode": bool(map_mode),
-        "color_id_map_cache_key": str(map_cache_key or ""),
-        "picker_config_digest": hashlib.sha256(str(picker_config or "").encode("utf-8")).hexdigest(),
+        "color_id_map_mode": bool(map_mode) if color_mode else False,
+        "color_id_map_cache_key": str(map_cache_key or "") if color_mode else "",
+        "picker_config_digest": hashlib.sha256(
+            (str(picker_config or "") if color_mode else "").encode("utf-8")
+        ).hexdigest(),
         "edit_mode": str(edit_mode),
         "action_payload_digest": str(action_digest),
     })
+
+
+def local_mask_lazy_inputs(selection_color, selection_polygon, **values):
+    """Return only the inputs needed by the selected local-mask branch."""
+    if bool(selection_color) == bool(selection_polygon):
+        return []
+    prefix = "color" if bool(selection_color) else "polygon"
+    return [
+        name
+        for name in (f"{prefix}_reference", f"{prefix}_mask")
+        if values.get(name) is None
+    ]
+
+
+def resolve_local_mask_selection(
+    selection_color,
+    selection_polygon,
+    color_reference=None,
+    color_mask=None,
+    polygon_reference=None,
+    polygon_mask=None,
+):
+    if bool(selection_color) == bool(selection_polygon):
+        raise ValueError("Select exactly one badge local mask mode.")
+    mode = "color" if bool(selection_color) else "polygon"
+    reference = color_reference if mode == "color" else polygon_reference
+    mask = color_mask if mode == "color" else polygon_mask
+    if reference is None or mask is None:
+        raise ValueError(f"The selected {mode} mask branch is unavailable.")
+    reference_value = _image_float(reference, f"{mode}_reference")
+    mask_value = _mask_float(mask, f"{mode}_mask")
+    if tuple(reference_value.shape[:3]) != tuple(mask_value.shape):
+        raise ValueError(f"The selected {mode} reference and mask must share one canvas.")
+    status = json.dumps({
+        "state": "ready",
+        "selection_mode": mode,
+        "selected_mask_digest": mask_digest(mask_value),
+        "unselected_branch_resolved": False,
+    }, ensure_ascii=False, separators=(",", ":"))
+    return reference_value, mask_value, mode, status
 
 
 def _selection_overlay(image, mask):
@@ -361,6 +409,7 @@ class BadgeLocalSelectionGuardV1:
                 "picker_config": ("STRING", {"default": "", "multiline": True}),
                 "edit_mode": ("STRING", {"forceInput": True}),
                 "action_digest": ("STRING", {"forceInput": True}),
+                "selection_mode": ("STRING", {"forceInput": True}),
                 "minimum_region_pixels": ("INT", {"default": 16, "min": 1, "max": 65536}),
             },
             "optional": {
@@ -386,6 +435,7 @@ class BadgeLocalSelectionGuardV1:
         edit_mode="",
         action_digest="",
         minimum_region_pixels=16,
+        selection_mode="color",
         unique_id=None,
         extra_pnginfo=None,
     ):
@@ -403,6 +453,7 @@ class BadgeLocalSelectionGuardV1:
             "picker_config": applied_config,
             "edit_mode": str(edit_mode),
             "action_digest": str(action_digest),
+            "selection_mode": str(selection_mode),
             "minimum_region_pixels": int(minimum_region_pixels),
             "unique_id": str(unique_id or ""),
         })
@@ -423,6 +474,7 @@ class BadgeLocalSelectionGuardV1:
         edit_mode="",
         action_digest="",
         minimum_region_pixels=16,
+        selection_mode="color",
         unique_id=None,
         extra_pnginfo=None,
     ):
@@ -442,6 +494,8 @@ class BadgeLocalSelectionGuardV1:
             applied_config,
             edit_mode,
             action_digest,
+            mask,
+            selection_mode,
         )
         validated = mask * support
         selected_pixels = int(validated.sum().item())
@@ -504,6 +558,7 @@ class BadgeLocalSelectionGuardV1:
             "snapshot_token": token,
             "confirmation_revision": revision,
             "picker_config_digest": hashlib.sha256(applied_config.encode("utf-8")).hexdigest(),
+            "selection_mode": str(selection_mode),
         }, ensure_ascii=False, separators=(",", ":"))
         return validated, _selection_overlay(reference, validated), effective, token, status
 
@@ -594,6 +649,42 @@ if comfy_io is not None:
                 "unselected_route_resolved": False,
             }, ensure_ascii=False, separators=(",", ":"))
             return comfy_io.NodeOutput(master, reference, support, route_id, status)
+
+
+    class BadgeLocalMaskRouteV1(comfy_io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return comfy_io.Schema(
+                node_id="DAELAB.BadgeLocalMaskRouteV1",
+                display_name="Badge Local Mask Route V1",
+                category="DAELab/Badge/App",
+                inputs=[
+                    comfy_io.Boolean.Input("selection_color", default=True),
+                    comfy_io.Boolean.Input("selection_polygon", default=False),
+                    comfy_io.Image.Input("color_reference", lazy=True, optional=True),
+                    comfy_io.Mask.Input("color_mask", lazy=True, optional=True),
+                    comfy_io.Image.Input("polygon_reference", lazy=True, optional=True),
+                    comfy_io.Mask.Input("polygon_mask", lazy=True, optional=True),
+                ],
+                outputs=[
+                    comfy_io.Image.Output("selection_reference"),
+                    comfy_io.Mask.Output("candidate_mask"),
+                    comfy_io.String.Output("selection_mode"),
+                    comfy_io.String.Output("status"),
+                ],
+            )
+
+        @classmethod
+        def check_lazy_status(cls, selection_color, selection_polygon, **kwargs):
+            return local_mask_lazy_inputs(selection_color, selection_polygon, **kwargs)
+
+        @classmethod
+        def execute(cls, selection_color=True, selection_polygon=False, **kwargs):
+            return comfy_io.NodeOutput(*resolve_local_mask_selection(
+                selection_color,
+                selection_polygon,
+                **kwargs,
+            ))
 
 
     class BadgeEditPromptRouteV1(comfy_io.ComfyNode):
@@ -740,6 +831,7 @@ else:
 
     BadgeLazyImageSwitchV1 = _UnavailableV3Node
     BadgeEntryRouteV1 = _UnavailableV3Node
+    BadgeLocalMaskRouteV1 = _UnavailableV3Node
     BadgeEditPromptRouteV1 = _UnavailableV3Node
     BadgeColorIdMapV1 = _UnavailableV3Node
 
@@ -747,6 +839,7 @@ else:
 NODE_CLASS_MAPPINGS = {
     "DAELAB.BadgeRoute2CanvasV1": BadgeRoute2CanvasV1,
     "DAELAB.BadgeEntryRouteV1": BadgeEntryRouteV1,
+    "DAELAB.BadgeLocalMaskRouteV1": BadgeLocalMaskRouteV1,
     "DAELAB.BadgeEditPromptRouteV1": BadgeEditPromptRouteV1,
     "DAELAB.BadgeLazyImageSwitchV1": BadgeLazyImageSwitchV1,
     "DAELAB.BadgeColorIdMapV1": BadgeColorIdMapV1,
@@ -757,6 +850,7 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "DAELAB.BadgeRoute2CanvasV1": "Badge Route 2 Canvas V1 (DAELab)",
     "DAELAB.BadgeEntryRouteV1": "Badge Entry Route V1 (DAELab)",
+    "DAELAB.BadgeLocalMaskRouteV1": "Badge Local Mask Route V1 (DAELab)",
     "DAELAB.BadgeEditPromptRouteV1": "Badge Edit Prompt Route V1 (DAELab)",
     "DAELAB.BadgeLazyImageSwitchV1": "Badge Lazy Image Switch V1 (DAELab)",
     "DAELAB.BadgeColorIdMapV1": "Badge Color ID Map V1 (DAELab)",

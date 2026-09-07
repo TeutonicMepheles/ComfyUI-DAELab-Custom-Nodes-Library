@@ -14,6 +14,8 @@ export function compactInputStyle(extra = "") {
 }
 
 export const COMPACT_THRESHOLD_DRAG_MIN_DISTANCE = 3;
+export const COMPACT_COLOR_CONTEXT_ATTRIBUTE = "data-daelab-color-control";
+export const COMPACT_COLOR_CONTEXT_EVENT = "daelab:color-control-activated";
 
 export function compactThresholdValueFromDrag(startValue, deltaX) {
     const start = Number(startValue);
@@ -34,12 +36,14 @@ export function createCompactColorControl({
 }) {
     const wrapper = document.createElement("div");
     wrapper.style.cssText = "height:26px;min-width:0;display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px";
+    wrapper.setAttribute(COMPACT_COLOR_CONTEXT_ATTRIBUTE, "1");
 
     const picker = document.createElement("input");
     picker.type = "color";
     picker.value = color;
     picker.title = `选择${label} ${color}`;
     picker.setAttribute("aria-label", `${label} ${color}`);
+    picker.dataset.daelabColorControlTrigger = "picker";
     picker.style.cssText = compactInputStyle("width:28px;padding:1px;cursor:pointer");
 
     const text = document.createElement("input");
@@ -47,7 +51,15 @@ export function createCompactColorControl({
     text.value = color.toUpperCase();
     text.spellcheck = false;
     text.setAttribute("aria-label", `${label}十六进制值`);
+    text.dataset.daelabColorControlTrigger = "hex";
     text.style.cssText = compactInputStyle("width:100%;padding:2px 6px;text-transform:uppercase");
+
+    const announceColorContext = (trigger) => {
+        if (typeof globalThis.CustomEvent !== "function") return;
+        globalThis.dispatchEvent?.(new CustomEvent(COMPACT_COLOR_CONTEXT_EVENT, {
+            detail: { element: wrapper, trigger },
+        }));
+    };
 
     const isStrictHex = (value) => /^#[0-9a-fA-F]{6}$/.test(String(value ?? ""));
     const setInvalid = (invalid, value = "") => {
@@ -86,8 +98,10 @@ export function createCompactColorControl({
     };
     picker.addEventListener("input", () => draft(picker.value));
     picker.addEventListener("change", () => flush(picker.value));
+    picker.addEventListener("click", () => announceColorContext("picker"));
     text.addEventListener("input", () => draft(text.value, { updateText: false }));
     text.addEventListener("change", () => flush(text.value));
+    text.addEventListener("click", () => announceColorContext("hex"));
     text.addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;
         event.preventDefault?.();

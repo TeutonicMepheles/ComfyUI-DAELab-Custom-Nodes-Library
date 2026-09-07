@@ -69,6 +69,18 @@ export function wrapMaterialIndex(index, count) {
     return ((numeric % length) + length) % length;
 }
 
+export function getMaterialCardSelectionState(entry, selectedId) {
+    const id = String(entry?.id ?? "");
+    const label = String(entry?.label || id);
+    const selected = Boolean(id) && id === String(selectedId ?? "");
+    return {
+        selected,
+        ariaLabel: selected ? `${label}，当前材质` : label,
+        ariaSelected: String(selected),
+        tabIndex: selected ? 0 : -1,
+    };
+}
+
 function applyNodeSize(node, size) {
     if (typeof node?.setSize === "function") node.setSize(size);
     else if (node) node.size = size;

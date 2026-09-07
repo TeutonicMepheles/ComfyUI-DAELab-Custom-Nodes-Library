@@ -69,6 +69,49 @@ class BadgeAppWorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "1024x1024"):
             MODULE._validate_canonical_route(master[:, :512, :512], reference[:, :512, :512], support[:, :512, :512], "effect")
 
+    def test_local_mask_route_is_lazy_and_resolves_only_the_selected_branch(self):
+        image = torch.zeros((1, 16, 16, 3), dtype=torch.float32)
+        color_mask = torch.zeros((1, 16, 16), dtype=torch.float32)
+        color_mask[:, 2:8, 2:8] = 1.0
+        polygon_mask = torch.zeros_like(color_mask)
+        polygon_mask[:, 8:14, 8:14] = 1.0
+
+        self.assertEqual(
+            MODULE.local_mask_lazy_inputs(
+                True,
+                False,
+                color_reference=image,
+                color_mask=None,
+                polygon_reference=None,
+                polygon_mask=None,
+            ),
+            ["color_mask"],
+        )
+        self.assertEqual(
+            MODULE.local_mask_lazy_inputs(
+                False,
+                True,
+                color_reference=None,
+                color_mask=None,
+                polygon_reference=image,
+                polygon_mask=polygon_mask,
+            ),
+            [],
+        )
+        result = MODULE.resolve_local_mask_selection(
+            False,
+            True,
+            color_reference=None,
+            color_mask=None,
+            polygon_reference=image,
+            polygon_mask=polygon_mask,
+        )
+        self.assertEqual(result[2], "polygon")
+        torch.testing.assert_close(result[1], polygon_mask)
+        self.assertFalse(json.loads(result[3])["unselected_branch_resolved"])
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            MODULE.resolve_local_mask_selection(True, True)
+
     def test_color_id_map_key_is_stable_and_revision_invalidates_it(self):
         master = torch.zeros((1, 1024, 1024, 3), dtype=torch.float32)
         first = MODULE.color_id_map_cache_key(master, "prompt", "high", 6, 0)
@@ -137,6 +180,49 @@ class BadgeAppWorkflowTests(unittest.TestCase):
         self.assertFalse(stale[2])
         self.assertEqual(json.loads(stale[4])["reason"], "snapshot_changed_confirmation_cleared")
 
+    def test_guard_invalidates_confirmation_when_polygon_geometry_changes(self):
+        master = torch.zeros((1, 24, 24, 3), dtype=torch.float32)
+        support = torch.ones((1, 24, 24), dtype=torch.float32)
+        first_mask = torch.zeros_like(support)
+        first_mask[:, 2:12, 2:12] = 1.0
+        second_mask = torch.zeros_like(support)
+        second_mask[:, 10:22, 10:22] = 1.0
+        guard = MODULE.BadgeLocalSelectionGuardV1()
+        common = dict(
+            pre_edit_master=master,
+            selection_reference=master,
+            edit_support_mask=support,
+            route_id="flat_height",
+            map_mode=False,
+            picker_config="unchanged-color-picker",
+            edit_mode="semantic",
+            action_digest="same-action",
+            selection_mode="polygon",
+            minimum_region_pixels=16,
+            unique_id="guard-polygon",
+        )
+        guard.validate(
+            candidate_mask=first_mask,
+            requested_apply=False,
+            confirmation_revision=0,
+            **common,
+        )
+        confirmed = guard.validate(
+            candidate_mask=first_mask,
+            requested_apply=True,
+            confirmation_revision=1,
+            **common,
+        )
+        self.assertTrue(confirmed[2])
+        changed = guard.validate(
+            candidate_mask=second_mask,
+            requested_apply=True,
+            confirmation_revision=1,
+            **common,
+        )
+        self.assertFalse(changed[2])
+        self.assertEqual(json.loads(changed[4])["reason"], "snapshot_changed_confirmation_cleared")
+
     def test_guard_clips_to_support_and_skips_tiny_selection(self):
         master = torch.zeros((1, 16, 16, 3), dtype=torch.float32)
         mask = torch.ones((1, 16, 16), dtype=torch.float32)
@@ -202,6 +288,7 @@ class BadgeAppWorkflowTests(unittest.TestCase):
         self.assertEqual(set(MODULE.NODE_CLASS_MAPPINGS), {
             "DAELAB.BadgeRoute2CanvasV1",
             "DAELAB.BadgeEntryRouteV1",
+            "DAELAB.BadgeLocalMaskRouteV1",
             "DAELAB.BadgeEditPromptRouteV1",
             "DAELAB.BadgeLazyImageSwitchV1",
             "DAELAB.BadgeColorIdMapV1",

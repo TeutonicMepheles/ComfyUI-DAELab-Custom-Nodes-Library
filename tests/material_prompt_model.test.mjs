@@ -7,6 +7,7 @@ import {
     getCanonicalMaterialOutputs,
     getCanonicalMaterialWidgetValues,
     getLegacyMaterialOutputIndexes,
+    getMaterialCardSelectionState,
     getMaterialCarouselLayout,
     getMaterialSelectorLayout,
     LEGACY_DEFAULT_MATERIAL_BASE_PROMPT,
@@ -78,6 +79,27 @@ test("wraps carousel selection across both ends", () => {
     assert.equal(wrapMaterialIndex(8, 8), 0);
     assert.equal(wrapMaterialIndex(17, 8), 1);
     assert.equal(wrapMaterialIndex(2, 0), -1);
+});
+
+test("distinguishes the current material from browsed material cards", () => {
+    assert.deepEqual(
+        getMaterialCardSelectionState({ id: "enamel", label: "高光珐琅" }, "enamel"),
+        {
+            selected: true,
+            ariaLabel: "高光珐琅，当前材质",
+            ariaSelected: "true",
+            tabIndex: 0,
+        }
+    );
+    assert.deepEqual(
+        getMaterialCardSelectionState({ id: "bronze", label: "深色拉丝古铜" }, "enamel"),
+        {
+            selected: false,
+            ariaLabel: "深色拉丝古铜",
+            ariaSelected: "false",
+            tabIndex: -1,
+        }
+    );
 });
 
 test("measures compact node height without restored surplus", () => {

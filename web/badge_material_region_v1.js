@@ -10,7 +10,7 @@ import {
     compactInputStyle,
     createCompactColorControl,
     createCompactThresholdControl,
-} from "./compact_color_group_controls.mjs?v=20260901-3";
+} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
 import {
     BADGE_MATERIAL_REGION_V1_PANEL_WIDGET_NAME,
     DEFAULT_COLOR_POLICY,

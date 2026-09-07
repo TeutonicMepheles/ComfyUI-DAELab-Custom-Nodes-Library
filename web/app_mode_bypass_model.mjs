@@ -20,6 +20,7 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "DAELAB.BadgeRenderSpaceMaskAlignV1",
     "DAELAB.BadgeRoute2CanvasV1",
     "DAELAB.BadgeEntryRouteV1",
+    "DAELAB.BadgeLocalMaskRouteV1",
     "DAELAB.BadgeEditPromptRouteV1",
     "DAELAB.BadgeLazyImageSwitchV1",
     "DAELAB.BadgeColorIdMapV1",
@@ -53,6 +54,7 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "AppModeLoadImage",
     "BBoxPromptReroute",
     "PolygonMask",
+    "DAELAB.PolygonMaskV1",
     "SAM3ComplexCollector",
 ]);
 

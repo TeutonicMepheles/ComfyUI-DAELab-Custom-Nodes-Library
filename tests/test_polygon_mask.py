@@ -216,6 +216,15 @@ class PolygonMaskBackendTests(unittest.TestCase):
 
         self.assertNotEqual(first, second)
 
+    def test_daelab_alias_reuses_the_polygon_contract(self):
+        schema = MODULE.DAELabPolygonMaskV1.define_schema()
+        self.assertEqual(schema.node_id, "DAELAB.PolygonMaskV1")
+        self.assertIs(
+            MODULE.NODE_CLASS_MAPPINGS["DAELAB.PolygonMaskV1"],
+            MODULE.DAELabPolygonMaskV1,
+        )
+        self.assertTrue(issubclass(MODULE.DAELabPolygonMaskV1, MODULE.PolygonMask))
+
 
 if __name__ == "__main__":
     unittest.main()

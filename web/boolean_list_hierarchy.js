@@ -30,6 +30,9 @@ import {
     validateExclusiveGroupSelection,
 } from "./boolean_list_hierarchy_model.mjs?v=badge-confirmation-policy-2";
 import {
+    createBooleanHierarchyApiController,
+} from "./boolean_list_hierarchy_api_model.mjs?v=20260904-1";
+import {
     LIST_EDITOR_ICONS as ICONS,
     createIconButton,
     stopCanvasPropagation,
@@ -183,7 +186,24 @@ function commitItems(node, nextItems, options = {}) {
         renderEditor(node);
         markDirty(node);
     });
+    node._daelabBooleanHierarchyApiController?.notify(normalized);
     return true;
+}
+
+function installStateApi(node) {
+    if (node._daelabBooleanHierarchyApiController) {
+        node.daelabBooleanHierarchyV1 = node._daelabBooleanHierarchyApiController.api;
+        return;
+    }
+    const controller = createBooleanHierarchyApiController({
+        readItems: () => node._booleanHierarchyItems || getStoredItems(node),
+        commitItems: (items, options) => commitItems(node, items, options),
+    });
+    node._daelabBooleanHierarchyApiController = controller;
+    node.daelabBooleanHierarchyV1 = controller.api;
+    globalThis.dispatchEvent?.(new CustomEvent("daelab:boolean-hierarchy-ready", {
+        detail: { nodeId: String(node.id) },
+    }));
 }
 
 function bumpConfirmationRevision(sourceNode) {
@@ -875,6 +895,7 @@ function initializeNode(node) {
     const previousItems = node._booleanHierarchyItems || loadedItems;
     const items = storeItems(node, loadedItems);
     reconcileOutputSlots(node, previousItems, items);
+    installStateApi(node);
     renderEditor(node);
     markDirty(node);
 }
@@ -916,6 +937,9 @@ app.registerExtension({
             this._booleanHierarchyDependencyEditor = null;
             this._booleanHierarchyExclusivePanelOpen = false;
             this._booleanHierarchyDependencyPanelOpen = false;
+            this._daelabBooleanHierarchyApiController?.dispose();
+            this._daelabBooleanHierarchyApiController = null;
+            this.daelabBooleanHierarchyV1 = null;
         });
 
         const originalOnResize = nodeType.prototype.onResize;

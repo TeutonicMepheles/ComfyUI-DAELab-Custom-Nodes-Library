@@ -3,6 +3,7 @@ import {
     applyMaterialWidgetLabels,
     fitMaterialPromptNodeToContent,
     getCanonicalMaterialOutputs,
+    getMaterialCardSelectionState,
     getLegacyMaterialOutputIndexes,
     getMaterialSelectorLayout,
     MATERIAL_CAROUSEL_BUTTON_SIZE,
@@ -18,7 +19,7 @@ import {
     normalizeMaterialBasePrompt,
     orderMaterialPromptWidgets,
     wrapMaterialIndex,
-} from "./material_prompt_model.mjs?v=20260903-carousel-v13";
+} from "./material_prompt_model.mjs?v=20260904-selection-v14";
 import {
     catalogEntries,
     ensureThumbnailSelectorStyles,
@@ -31,7 +32,7 @@ import {
     showMaterialHoverPreview,
 } from "./material_hover_preview.mjs?v=20260904-1";
 
-const UI_VERSION = "20260904-gpt-image2-carousel-v15";
+const UI_VERSION = "20260904-gpt-image2-carousel-v17";
 const APP_HEADING_PROPERTY = "daelab_app_heading";
 const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
@@ -199,9 +200,44 @@ function ensureMaterialStyles() {
   background: #20242b;
   cursor: pointer;
 }
-.gpt-image2-material-card[aria-selected="true"] {
+.gpt-image2-material-card:hover {
   border-color: #6aa8ff;
-  box-shadow: inset 0 0 0 2px rgba(106, 168, 255, .7);
+}
+.gpt-image2-material-card:focus {
+  outline: none;
+}
+.gpt-image2-material-card:focus-visible {
+  border-color: #6aa8ff;
+  box-shadow: 0 0 0 2px rgba(106, 168, 255, .8);
+}
+.gpt-image2-material-card[aria-selected="true"] {
+  border-color: #4ade80;
+  background: #17251d;
+  box-shadow: inset 0 0 0 2px rgba(74, 222, 128, .78);
+}
+.gpt-image2-material-check {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 0 7px 0 8px;
+  color: #052e16;
+  background: #4ade80;
+  box-shadow: -1px 1px 0 rgba(5, 46, 22, .45);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+.gpt-image2-material-card[aria-selected="true"]:focus-visible {
+  border-color: #4ade80;
+  box-shadow:
+    inset 0 0 0 2px rgba(74, 222, 128, .78),
+    0 0 0 2px rgba(106, 168, 255, .9);
 }
 .gpt-image2-material-card img {
   width: 100%;
@@ -230,6 +266,8 @@ function renderMaterialSelector(widget, node) {
     const current = document.createElement("div");
     current.className = "gpt-image2-material-current";
     current.textContent = `当前材质 · ${selectedEntry?.label || selectedId}`;
+    current.setAttribute("role", "status");
+    current.setAttribute("aria-live", "polite");
     element.appendChild(current);
 
     const carousel = document.createElement("div");
@@ -275,20 +313,28 @@ function renderMaterialSelector(widget, node) {
     });
 
     materialEntries.forEach((entry, index) => {
+        const selection = getMaterialCardSelectionState(entry, selectedId);
         const button = document.createElement("button");
         button.type = "button";
         button.className = "gpt-image2-material-card";
         button.dataset.materialId = entry.id;
         button.setAttribute("role", "option");
-        button.setAttribute("aria-label", entry.label || entry.id);
-        button.setAttribute("aria-selected", String(entry.id === selectedId));
-        button.tabIndex = entry.id === selectedId ? 0 : -1;
+        button.setAttribute("aria-label", selection.ariaLabel);
+        button.setAttribute("aria-selected", selection.ariaSelected);
+        button.tabIndex = selection.tabIndex;
         const image = document.createElement("img");
         image.alt = entry.label || entry.id;
         image.decoding = "async";
         image.draggable = false;
         image.src = makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION);
         button.appendChild(image);
+        if (selection.selected) {
+            const check = document.createElement("span");
+            check.className = "gpt-image2-material-check";
+            check.textContent = "✓";
+            check.setAttribute("aria-hidden", "true");
+            button.appendChild(check);
+        }
         button.addEventListener("click", (event) => {
             stopCanvasEvent(event);
             if (strip.__materialDragMoved) return;

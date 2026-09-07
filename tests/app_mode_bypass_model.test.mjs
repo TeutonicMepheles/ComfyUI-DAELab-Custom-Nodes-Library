@@ -50,6 +50,7 @@ test("covers every node exported by the DAELab package", () => {
         "DAELAB.BadgeRenderSpaceMaskAlignV1",
         "DAELAB.BadgeRoute2CanvasV1",
         "DAELAB.BadgeEntryRouteV1",
+        "DAELAB.BadgeLocalMaskRouteV1",
         "DAELAB.BadgeEditPromptRouteV1",
         "DAELAB.BadgeLazyImageSwitchV1",
         "DAELAB.BadgeColorIdMapV1",
@@ -83,6 +84,7 @@ test("covers every node exported by the DAELab package", () => {
         "AppModeLoadImage",
         "BBoxPromptReroute",
         "PolygonMask",
+        "DAELAB.PolygonMaskV1",
         "SAM3ComplexCollector",
     ]);
     for (const type of DAELAB_NODE_TYPES) assert.equal(isDaelabNode({ type }), true);
@@ -105,6 +107,7 @@ test("includes grouped panel nodes in app mode bypass collapsing", () => {
         "DAELAB.BadgeRenderSpaceMaskAlignV1",
         "DAELAB.BadgeRoute2CanvasV1",
         "DAELAB.BadgeEntryRouteV1",
+        "DAELAB.BadgeLocalMaskRouteV1",
         "DAELAB.BadgeEditPromptRouteV1",
         "DAELAB.BadgeLazyImageSwitchV1",
         "DAELAB.BadgeColorIdMapV1",
@@ -133,6 +136,7 @@ test("includes grouped panel nodes in app mode bypass collapsing", () => {
         "DAELAB.BadgeStudioBackgroundGPTV1",
         "DAELAB.BadgeStudioColorLockV1",
         "RMBGConfig",
+        "DAELAB.PolygonMaskV1",
     ]) {
         const node = { type, mode: 4 };
         assert.equal(isDaelabNode(node), true);

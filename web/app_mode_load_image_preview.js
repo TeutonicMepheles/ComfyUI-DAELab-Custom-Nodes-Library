@@ -12,9 +12,13 @@ import {
     normalizeImageSelection,
     resolveAppPreviewHeading,
 } from "./app_mode_load_image_preview_model.mjs?v=20260904-1";
+import {
+    BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE,
+    normalizeBadgeAppLayout,
+} from "./badge_app_layout_model.mjs?v=20260904-4";
 
 const EXTENSION_NAME = "DAELab.AppModeLoadImagePreview";
-const UI_VERSION = "20260904-app-image-preview-v3";
+const UI_VERSION = "20260904-app-image-preview-v6";
 const TOGGLE_WIDGET_NAME = "应用模式显示参考图";
 const OWNED_TOGGLE_PROPERTY = "__daelabAppImagePreviewToggle";
 const PANEL_ATTRIBUTE = "data-daelab-app-image-preview";
@@ -202,6 +206,15 @@ function syncPreviewPanels() {
     const graph = getRootGraphSafely(app);
     if (!graph) return;
 
+    const appModeRoot = document.querySelector('[data-testid="linear-widgets"]');
+    const layoutResult = normalizeBadgeAppLayout(graph);
+    const layoutHasTakenOver = layoutResult.ok
+        && appModeRoot?.hasAttribute(BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE);
+    if (layoutHasTakenOver) {
+        document.querySelectorAll(`[${PANEL_ATTRIBUTE}]`).forEach((panel) => panel.remove());
+        return;
+    }
+
     const items = new Map();
     document.querySelectorAll(ITEM_SELECTOR).forEach((element) => {
         items.set(element.getAttribute("data-widget-key"), element);
@@ -265,6 +278,7 @@ if (globalThis.__DAELAB_APP_MODE_LOAD_IMAGE_PREVIEW_VERSION !== UI_VERSION) {
             ensureStyles();
             observeAppMode();
             pollTimer ??= setInterval(queueSync, 250);
+            globalThis.addEventListener?.("daelab:app-layout-changed", queueSync);
             queueSync();
         },
         beforeRegisterNodeDef(nodeType, nodeData) {

@@ -266,59 +266,63 @@ def _draw_polygons_to_mask(width, height, polygons):
     return torch.from_numpy(mask_np)
 
 
+def _polygon_mask_schema(node_id, display_name, category):
+    return io.Schema(
+        node_id=node_id,
+        display_name=display_name,
+        description="Load an image, edit closed polygon overlays, and output the composited image, raw polygon mask, and panel text.",
+        category=category,
+        search_aliases=["load image polygon", "polygon mask", "polygon overlay"],
+        inputs=[
+            io.Image.Input("image"),
+            io.Int.Input(
+                "vertex_count",
+                default=MIN_VERTEX_COUNT,
+                min=MIN_VERTEX_COUNT,
+                max=MAX_VERTEX_COUNT,
+                step=1,
+            ),
+            io.Color.Input("color", default=DEFAULT_COLOR),
+            io.Int.Input(
+                "fill_opacity",
+                default=35,
+                min=0,
+                max=100,
+                step=1,
+            ),
+            io.Int.Input(
+                "outline_width",
+                default=3,
+                min=0,
+                max=20,
+                step=1,
+            ),
+            io.String.Input(
+                "polygon_data",
+                default="",
+                advanced=True,
+                tooltip="Internal polygon state managed by the Polygon Mask editor.",
+            ),
+            io.String.Input(
+                "text",
+                default="",
+                multiline=True,
+                tooltip="Multiline text passed through to the text output.",
+            ),
+        ],
+        outputs=[
+            io.Image.Output(display_name="masked_image"),
+            io.Mask.Output(display_name="raw_mask"),
+            io.String.Output(display_name="text"),
+        ],
+        hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
+    )
+
+
 class PolygonMask(io.ComfyNode):
     @classmethod
     def define_schema(cls):
-        return io.Schema(
-            node_id="PolygonMask",
-            display_name="Polygon Mask",
-            description="Load an image, edit closed polygon overlays, and output the composited image, raw polygon mask, and panel text.",
-            category="image/polygon",
-            search_aliases=["load image polygon", "polygon mask", "polygon overlay"],
-            inputs=[
-                io.Image.Input("image"),
-                io.Int.Input(
-                    "vertex_count",
-                    default=MIN_VERTEX_COUNT,
-                    min=MIN_VERTEX_COUNT,
-                    max=MAX_VERTEX_COUNT,
-                    step=1,
-                ),
-                io.Color.Input("color", default=DEFAULT_COLOR),
-                io.Int.Input(
-                    "fill_opacity",
-                    default=35,
-                    min=0,
-                    max=100,
-                    step=1,
-                ),
-                io.Int.Input(
-                    "outline_width",
-                    default=3,
-                    min=0,
-                    max=20,
-                    step=1,
-                ),
-                io.String.Input(
-                    "polygon_data",
-                    default="",
-                    advanced=True,
-                    tooltip="Internal polygon state managed by the Polygon Mask editor.",
-                ),
-                io.String.Input(
-                    "text",
-                    default="",
-                    multiline=True,
-                    tooltip="Multiline text passed through to the text output.",
-                ),
-            ],
-            outputs=[
-                io.Image.Output(display_name="masked_image"),
-                io.Mask.Output(display_name="raw_mask"),
-                io.String.Output(display_name="text"),
-            ],
-            hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
-        )
+        return _polygon_mask_schema("PolygonMask", "Polygon Mask", "image/polygon")
 
     @classmethod
     def execute(
@@ -404,10 +408,22 @@ class PolygonMask(io.ComfyNode):
         return digest.hexdigest()
 
 
+class DAELabPolygonMaskV1(PolygonMask):
+    @classmethod
+    def define_schema(cls):
+        return _polygon_mask_schema(
+            "DAELAB.PolygonMaskV1",
+            "Polygon Mask V1 (DAELab)",
+            "DAELab/Mask",
+        )
+
+
 NODE_CLASS_MAPPINGS = {
     "PolygonMask": PolygonMask,
+    "DAELAB.PolygonMaskV1": DAELabPolygonMaskV1,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "PolygonMask": "Polygon Mask",
+    "DAELAB.PolygonMaskV1": "Polygon Mask V1 (DAELab)",
 }

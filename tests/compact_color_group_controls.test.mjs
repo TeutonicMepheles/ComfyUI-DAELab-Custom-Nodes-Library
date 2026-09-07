@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    COMPACT_COLOR_CONTEXT_ATTRIBUTE,
+    COMPACT_COLOR_CONTEXT_EVENT,
     COMPACT_THRESHOLD_DRAG_MIN_DISTANCE,
     compactThresholdValueFromDrag,
     createCompactColorControl,
@@ -43,7 +45,20 @@ test("maps horizontal drag distance to a clamped integer threshold", () => {
 
 test("strict color draft updates immediately and invalid hex survives blur as a queue blocker", () => {
     const previousDocument = globalThis.document;
+    const previousCustomEvent = globalThis.CustomEvent;
+    const previousDispatchEvent = globalThis.dispatchEvent;
     globalThis.document = { createElement: createFakeElement };
+    let contextEvent = null;
+    globalThis.CustomEvent = class {
+        constructor(type, init) {
+            this.type = type;
+            this.detail = init?.detail;
+        }
+    };
+    globalThis.dispatchEvent = (event) => {
+        contextEvent = event;
+        return true;
+    };
     try {
         const drafts = [];
         const commits = [];
@@ -68,6 +83,13 @@ test("strict color draft updates immediately and invalid hex survives blur as a 
         });
         const picker = control.children[0];
         const text = control.children[1];
+        assert.equal(control.attributes.get(COMPACT_COLOR_CONTEXT_ATTRIBUTE), "1");
+        assert.equal(picker.dataset.daelabColorControlTrigger, "picker");
+        assert.equal(text.dataset.daelabColorControlTrigger, "hex");
+        picker.dispatch("click");
+        assert.equal(contextEvent.type, COMPACT_COLOR_CONTEXT_EVENT);
+        assert.equal(contextEvent.detail.element, control);
+        assert.equal(contextEvent.detail.trigger, "picker");
         picker.value = "#abcdef";
         picker.dispatch("input");
         assert.deepEqual(drafts, ["#abcdef"]);
@@ -89,6 +111,10 @@ test("strict color draft updates immediately and invalid hex survives blur as a 
         assert.deepEqual(commits, ["#A1B2C3"]);
     } finally {
         globalThis.document = previousDocument;
+        if (previousCustomEvent === undefined) delete globalThis.CustomEvent;
+        else globalThis.CustomEvent = previousCustomEvent;
+        if (previousDispatchEvent === undefined) delete globalThis.dispatchEvent;
+        else globalThis.dispatchEvent = previousDispatchEvent;
     }
 });
 

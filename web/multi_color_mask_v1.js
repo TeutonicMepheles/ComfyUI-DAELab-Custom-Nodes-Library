@@ -5,7 +5,7 @@ import {
     compactInputStyle,
     createCompactColorControl,
     createCompactThresholdControl,
-} from "./compact_color_group_controls.mjs?v=20260901-2";
+} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
 import {
     LIST_EDITOR_ICONS,
     createIconButton,

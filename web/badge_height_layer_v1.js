@@ -10,7 +10,7 @@ import {
     compactInputStyle,
     createCompactColorControl,
     createCompactThresholdControl,
-} from "./compact_color_group_controls.mjs?v=20260901-2";
+} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
 import {
     BADGE_HEIGHT_LAYER_V1_PANEL_WIDGET_NAME,
     HEIGHT_LAYER_PROMPT_CONFIG_WIDGET_NAME,

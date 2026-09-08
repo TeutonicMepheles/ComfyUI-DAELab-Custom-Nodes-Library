@@ -226,5 +226,39 @@ class PolygonMaskBackendTests(unittest.TestCase):
         self.assertTrue(issubclass(MODULE.DAELabPolygonMaskV1, MODULE.PolygonMask))
 
 
+class BadgeSelectionTests(unittest.TestCase):
+    def setUp(self):
+        MODULE.DAELabBadgeSelectionMaskV1.hidden = types.SimpleNamespace(unique_id=1, extra_pnginfo={})
+
+    def run_mask(self, info, size=40):
+        return MODULE.DAELabBadgeSelectionMaskV1.execute(torch.zeros((2,size,size,3)), polygon_data=json.dumps(info))
+
+    def test_selection_schema_has_no_semantic_text(self):
+        schema = MODULE.DAELabBadgeSelectionMaskV1.define_schema()
+        self.assertNotIn('text', [i['name'] for i in schema.inputs])
+        self.assertEqual(len(schema.outputs), 2)
+
+    def test_brush_and_polygon_union_and_batch(self):
+        info = {'polygons':[{'points':[{'x':1,'y':1},{'x':8,'y':1},{'x':8,'y':8}]}], 'brush_strokes':[{'diameter':.1,'points':[{'x':.5,'y':.5},{'x':.8,'y':.5}]}]}
+        preview, mask = self.run_mask(info).args
+        self.assertEqual(tuple(mask.shape), (2,40,40))
+        self.assertEqual(mask[0,4,6],1)
+        self.assertEqual(mask[0,20,25],1)
+        self.assertEqual(mask[0,35,35],0)
+        self.assertTrue(torch.equal(mask[0],mask[1]))
+        self.assertTrue(torch.equal(preview[0,35,35],torch.zeros(3)))
+
+    def test_brush_only_single_dot_and_empty(self):
+        info={'polygons':[], 'brush_strokes':[{'diameter':.2,'points':[{'x':.5,'y':.5}]}]}
+        self.assertEqual(self.run_mask(info).args[1][0,20,20],1)
+        self.assertEqual(self.run_mask({'polygons':[], 'brush_strokes':[]}).args[1].sum(),0)
+        self.assertEqual(self.run_mask(info,80).args[1][0,40,40],1)
+
+    def test_brush_changes_fingerprint(self):
+        image=torch.zeros((1,20,20,3))
+        before=MODULE.DAELabBadgeSelectionMaskV1.fingerprint_inputs(image,polygon_data='{"polygons":[]}')
+        after=MODULE.DAELabBadgeSelectionMaskV1.fingerprint_inputs(image,polygon_data='{"polygons":[],"brush_strokes":[{"diameter":0.1,"points":[{"x":0.5,"y":0.5}]}]}')
+        self.assertNotEqual(before,after)
+
 if __name__ == "__main__":
     unittest.main()

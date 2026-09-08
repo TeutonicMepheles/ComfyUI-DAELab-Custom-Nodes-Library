@@ -55,6 +55,7 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "BBoxPromptReroute",
     "PolygonMask",
     "DAELAB.PolygonMaskV1",
+    "DAELAB.BadgeSelectionMaskV1",
     "SAM3ComplexCollector",
 ]);
 

@@ -85,6 +85,7 @@ test("covers every node exported by the DAELab package", () => {
         "BBoxPromptReroute",
         "PolygonMask",
         "DAELAB.PolygonMaskV1",
+        "DAELAB.BadgeSelectionMaskV1",
         "SAM3ComplexCollector",
     ]);
     for (const type of DAELAB_NODE_TYPES) assert.equal(isDaelabNode({ type }), true);

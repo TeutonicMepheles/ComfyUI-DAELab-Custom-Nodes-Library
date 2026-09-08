@@ -198,7 +198,7 @@ export function normalizeBadgeAppLayout(graph) {
         const polygonChange = raw.polygonChange;
         const polygonNodeId = text(polygonChange?.nodeId);
         const polygonNode = resolveNode(graph, polygonNodeId);
-        if (!polygonNode || polygonNode.type !== "DAELAB.PolygonMaskV1") {
+        if (!polygonNode || !["DAELAB.PolygonMaskV1", "DAELAB.BadgeSelectionMaskV1"].includes(polygonNode.type)) {
             return fail("polygonChange references an invalid DAELab Polygon Mask node.");
         }
         const polygonSelectionItemId = validateItemId(

@@ -1,3 +1,4 @@
+import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=2';
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import {
@@ -28,13 +29,13 @@ import {
     readHierarchyState,
     resolveActiveTab,
     shouldResetApplyForPolygonChange,
-} from "./badge_app_layout_model.mjs?v=20260904-5";
+} from "./badge_app_layout_model.mjs?v=20260908-selection-1";
 import {
     POLYGON_MASK_CHANGE_EVENT,
 } from "./polygon_mask_events.mjs?v=20260904-1";
 
 const EXTENSION_NAME = "DAELab.BadgeAppLayoutV1";
-const UI_VERSION = 2026090410;
+const UI_VERSION = 2026090801;
 const GLOBAL_RUNTIME_KEY = "__DAELAB_BADGE_APP_LAYOUT_RUNTIME__";
 const GLOBAL_MODULE_KEY = "__DAELAB_BADGE_APP_LAYOUT_MODULE_VERSION__";
 const ROOT_SELECTOR = '[data-testid="linear-widgets"]';
@@ -312,6 +313,10 @@ function createRuntime() {
 
     function selectTab(tabId, focus = false) {
         if (!layout) return;
+        if (isBadgePrototype(graph) && ['build', 'local'].includes(tabId)) {
+            const id = layout.tabById.get(tabId)?.enabledItemId;
+            if (id) layout.stateNode?.daelabBooleanHierarchyV1?.setItemValue(id, true);
+        }
         const state = readHierarchyState(layout.stateNode);
         const availability = getTabAvailability(layout, state);
         if (!availability.get(tabId)) {
@@ -331,16 +336,17 @@ function createRuntime() {
     function handleTabKeydown(event) {
         const button = event.target.closest?.('[role="tab"]');
         if (!button) return;
-        const currentIndex = BADGE_APP_LAYOUT_TAB_IDS.indexOf(button.dataset.tabId);
+        const visibleTabIds = isBadgePrototype(graph) ? ['build', 'local'] : BADGE_APP_LAYOUT_TAB_IDS;
+        const currentIndex = visibleTabIds.indexOf(button.dataset.tabId);
         let nextIndex = null;
-        if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % BADGE_APP_LAYOUT_TAB_IDS.length;
-        if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + BADGE_APP_LAYOUT_TAB_IDS.length) % BADGE_APP_LAYOUT_TAB_IDS.length;
+        if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % visibleTabIds.length;
+        if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + visibleTabIds.length) % visibleTabIds.length;
         if (event.key === "Home") nextIndex = 0;
-        if (event.key === "End") nextIndex = BADGE_APP_LAYOUT_TAB_IDS.length - 1;
+        if (event.key === "End") nextIndex = visibleTabIds.length - 1;
         if (nextIndex !== null) {
             event.preventDefault();
             for (const candidate of tabButtons.values()) candidate.tabIndex = -1;
-            const next = tabButtons.get(BADGE_APP_LAYOUT_TAB_IDS[nextIndex]);
+            const next = tabButtons.get(visibleTabIds[nextIndex]);
             next.tabIndex = 0;
             next.focus();
         } else if (event.key === "Enter" || event.key === " ") {
@@ -358,7 +364,7 @@ function createRuntime() {
         const disabledDescription = document.createElement("span");
         disabledDescription.id = "daelab-app-disabled-tab-description";
         disabledDescription.className = "daelab-app-layout-sr-only";
-        disabledDescription.textContent = "需要先在控制面板开启此功能。";
+        disabledDescription.textContent = isBadgePrototype(graph) ? "" : "需要先在控制面板开启此功能。";
         tabsBar.appendChild(disabledDescription);
         tabsBar.addEventListener("keydown", handleTabKeydown);
 
@@ -610,11 +616,14 @@ function createRuntime() {
     function render(state) {
         if (!root || !layout) return;
         const previousTab = activeTab;
-        activeTab = resolveActiveTab(layout, activeTab, state);
-        if (previousTab !== activeTab) announce("当前功能已关闭，已返回控制面板。");
+        activeTab = isBadgePrototype(graph) ? (['build', 'local'].includes(activeTab) ? activeTab : 'build') : resolveActiveTab(layout, activeTab, state);
+        if (previousTab !== activeTab && !isBadgePrototype(graph)) announce("当前功能已关闭，已返回控制面板。");
         const availability = getTabAvailability(layout, state);
         for (const tab of layout.tabs) {
             const button = tabButtons.get(tab.id);
+            const prototype = isBadgePrototype(graph);
+            button.hidden = prototype && !['build', 'local'].includes(tab.id);
+            if (prototype && !button.hidden) availability.set(tab.id, true);
             const selected = tab.id === activeTab;
             button.setAttribute("aria-selected", String(selected));
             button.setAttribute("aria-disabled", String(!availability.get(tab.id)));

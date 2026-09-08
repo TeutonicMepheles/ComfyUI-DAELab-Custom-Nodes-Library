@@ -1,5 +1,7 @@
-﻿import { app } from "../../scripts/app.js";
+import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { installBadgeSelectionVariant } from './badge_selection_variant.mjs?v=1';
+import { migrateBadgeSelection } from './badge_selection_migration.mjs?v=1';
 // ComfyUI Desktop can retain old helper modules across extension updates.
 // Version all sibling imports together so their named exports stay in sync.
 import {
@@ -14,7 +16,7 @@ import {
 import {
   bindPolygonDataQueueSync,
   resolveWorkflowPolygonInfo,
-} from "./polygon_mask_state.mjs?v=20260805-4";
+} from "./polygon_mask_state.mjs?v=20260908-selection-1";
 import {
   POLYGON_MASK_MAX_VERTICES,
   collapsePolygonPanelInputs,
@@ -31,7 +33,7 @@ const PANEL_MAX_HEIGHT = 1400;
 const PANEL_NATIVE_WIDGET_NAMES = ["vertex_count", "color", "fill_opacity", "outline_width", "text"];
 const POLYGON_PANEL_SYNC_INTERVAL_MS = 100;
 const polygonPanelNodes = new Set();
-const SUPPORTED_NODE_NAMES = new Set(["PolygonMask", "DAELAB.PolygonMaskV1"]);
+const SUPPORTED_NODE_NAMES = new Set(["PolygonMask", "DAELAB.PolygonMaskV1", "DAELAB.BadgeSelectionMaskV1"]);
 const APP_HEADING_PROPERTY = "daelab_app_heading";
 let polygonPanelSyncTimer = null;
 
@@ -493,6 +495,7 @@ function rgba(color, alpha) {
 
 app.registerExtension({
   name: "comfyui_polygon_mask.PolygonMask",
+  beforeConfigureGraph(workflow) { migrateBadgeSelection(workflow); },
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
     if (!SUPPORTED_NODE_NAMES.has(nodeData.name)) {
@@ -2049,5 +2052,6 @@ app.registerExtension({
       }
       ctx.restore();
     };
+    if (nodeData.name === 'DAELAB.BadgeSelectionMaskV1') installBadgeSelectionVariant(nodeType);
   },
 });

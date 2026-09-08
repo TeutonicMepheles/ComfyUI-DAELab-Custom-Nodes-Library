@@ -418,12 +418,69 @@ class DAELabPolygonMaskV1(PolygonMask):
         )
 
 
+class DAELabBadgeSelectionMaskV1(PolygonMask):
+    """Badge selection only: polygon union plus normalized round brush strokes."""
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="DAELAB.BadgeSelectionMaskV1", display_name="徽章选区 Mask (DAELab)",
+            category="DAELab/Badge", inputs=[
+                io.Image.Input("image"),
+                io.Int.Input("vertex_count", default=4, min=3, max=50),
+                io.Color.Input("color", default="#FF1744"),
+                io.Int.Input("fill_opacity", default=35, min=0, max=100),
+                io.Int.Input("outline_width", default=3, min=0, max=20),
+                io.String.Input("polygon_data", default="", advanced=True),
+            ], outputs=[io.Image.Output(display_name="selection_preview"), io.Mask.Output(display_name="raw_mask")],
+            hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
+        )
+
+    @classmethod
+    def execute(cls, image, vertex_count=4, color="#FF1744", fill_opacity=35, outline_width=3, polygon_data=""):
+        if image is None or image.ndim != 4:
+            raise ValueError("Badge selection requires a batched IMAGE.")
+        info = _resolve_polygon_info(polygon_data, cls.hidden.unique_id, cls.hidden.extra_pnginfo)
+        height, width = int(image.shape[1]), int(image.shape[2])
+        mask = _draw_polygons_to_mask(width, height, _parse_polygons(info, width, height))
+        brush = Image.fromarray((mask.numpy() * 255).astype(np.uint8))
+        draw = ImageDraw.Draw(brush)
+        strokes = info.get("brush_strokes", [])
+        if not isinstance(strokes, list) or len(strokes) > 4096:
+            raise ValueError("Invalid brush stroke list.")
+        for stroke in strokes:
+            points = stroke.get("points", [])
+            diameter = float(stroke.get("diameter", .02)) * min(width, height)
+            if not math.isfinite(diameter) or not 0 < diameter <= min(width, height) * 2 or len(points) > 100000:
+                raise ValueError("Invalid brush stroke size.")
+            xy = []
+            for point in points:
+                x, y = float(point["x"]), float(point["y"])
+                if not math.isfinite(x) or not math.isfinite(y):
+                    raise ValueError("Invalid brush coordinate.")
+                xy.append((max(0, min(1, x)) * width, max(0, min(1, y)) * height))
+            line_width = max(1, round(diameter))
+            if len(xy) > 1:
+                draw.line(xy, fill=255, width=line_width, joint="curve")
+            radius = line_width / 2
+            for x, y in xy:
+                draw.ellipse((x-radius, y-radius, x+radius, y+radius), fill=255)
+        mask = torch.from_numpy(np.asarray(brush).copy()).float() / 255
+        masks = mask.unsqueeze(0).repeat(image.shape[0], 1, 1)
+        alpha = masks.to(device=image.device, dtype=image.dtype).unsqueeze(-1) * _clamp_int(fill_opacity, 0, 100, 35) / 100
+        tint = torch.tensor(_parse_color(color), device=image.device, dtype=image.dtype) / 255
+        preview = image[..., :3] * (1-alpha) + tint * alpha
+        return io.NodeOutput(preview, masks, ui=_ui_source_image(image))
+
+
 NODE_CLASS_MAPPINGS = {
+    "DAELAB.BadgeSelectionMaskV1": DAELabBadgeSelectionMaskV1,
     "PolygonMask": PolygonMask,
     "DAELAB.PolygonMaskV1": DAELabPolygonMaskV1,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "DAELAB.BadgeSelectionMaskV1": "徽章选区 Mask (DAELab)",
     "PolygonMask": "Polygon Mask",
     "DAELAB.PolygonMaskV1": "Polygon Mask V1 (DAELab)",
 }

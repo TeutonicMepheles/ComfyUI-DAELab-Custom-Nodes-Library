@@ -276,7 +276,7 @@ function renderMaterialSelector(widget, node) {
     previous.type = "button";
     previous.className = "gpt-image2-material-nav";
     previous.textContent = "‹";
-    previous.setAttribute("aria-label", "上一个材质");
+    previous.setAttribute("aria-label", "向左滚动材质列表");
     const strip = document.createElement("div");
     strip.className = "gpt-image2-material-strip";
     strip.setAttribute("role", "listbox");
@@ -285,7 +285,7 @@ function renderMaterialSelector(widget, node) {
     next.type = "button";
     next.className = "gpt-image2-material-nav";
     next.textContent = "›";
-    next.setAttribute("aria-label", "下一个材质");
+    next.setAttribute("aria-label", "向右滚动材质列表");
 
     const selectIndex = (rawIndex, focus = false) => {
         const index = wrapMaterialIndex(rawIndex, materialEntries.length);
@@ -305,11 +305,11 @@ function renderMaterialSelector(widget, node) {
     const selectedIndex = Math.max(0, materialEntries.findIndex((entry) => entry.id === selectedId));
     previous.addEventListener("click", (event) => {
         stopCanvasEvent(event);
-        selectIndex(selectedIndex - 1, true);
+        strip.scrollBy({ left: -Math.max(180, strip.clientWidth * .8), behavior: 'smooth' });
     });
     next.addEventListener("click", (event) => {
         stopCanvasEvent(event);
-        selectIndex(selectedIndex + 1, true);
+        strip.scrollBy({ left: Math.max(180, strip.clientWidth * .8), behavior: 'smooth' });
     });
 
     materialEntries.forEach((entry, index) => {
@@ -379,18 +379,18 @@ function renderMaterialSelector(widget, node) {
         dragStartScroll = strip.scrollLeft;
         strip.__materialDragMoved = false;
         strip.dataset.dragging = "true";
-        strip.setPointerCapture?.(event.pointerId);
+
     });
     strip.addEventListener("pointermove", (event) => {
         if (strip.dataset.dragging !== "true") return;
         const delta = event.clientX - dragStartX;
-        if (Math.abs(delta) > 4) strip.__materialDragMoved = true;
+        if (Math.abs(delta) > 4) { strip.__materialDragMoved = true; strip.setPointerCapture?.(event.pointerId); }
         strip.scrollLeft = dragStartScroll - delta;
     });
     const stopDragging = (event) => {
         if (strip.dataset.dragging !== "true") return;
         delete strip.dataset.dragging;
-        strip.releasePointerCapture?.(event.pointerId);
+        if (strip.hasPointerCapture?.(event.pointerId)) strip.releasePointerCapture?.(event.pointerId);
         setTimeout(() => { strip.__materialDragMoved = false; }, 0);
     };
     strip.addEventListener("pointerup", stopDragging);

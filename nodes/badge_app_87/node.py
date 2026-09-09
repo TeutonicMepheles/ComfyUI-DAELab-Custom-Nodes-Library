@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageOps
 
-from ..gpt_image2_material_prompt.node import load_materials, resolve_material, build_material_prompt
+from ..gpt_image2_material_prompt.node import load_materials, resolve_material, build_material_prompt, build_masked_surface_prompt
 
 _PREVIEWS = {}
 _LOCK = Lock()
@@ -116,10 +116,12 @@ def prepare(request):
     if request.get('quality', 'low') not in ('low', 'medium', 'high') or type(request.get('count', 1)) is not int or not 1 <= request.get('count', 1) <= 8:
         raise ValueError('Invalid quality or image count.')
     base_prompt = str(request.get('prompt', '')).strip()
-    if stage == 'build' and not request.get('image'):
+    if stage == 'build' and (request.get('prompt_only') is True or ('prompt_only' not in request and not request.get('image'))):
         if not base_prompt:
             raise ValueError('Enter a base prompt or upload a material image.')
         return {'base': None, 'prompt': base_prompt, 'regions': []}
+    if stage == 'build' and not request.get('image'):
+        raise ValueError('Upload a material image or enable prompt-only mode.')
     source = load_source(request.get('image'))
     rgb, alpha = source[..., :3], source[..., 3]
     if stage == 'color_map':
@@ -185,7 +187,9 @@ def prepare(request):
         if int((result['mask'] > .5).sum()) < 16:
             raise ValueError('Selected region is empty or below 16 pixels. Preview another selection.')
         if request.get('edit_mode') == 'material':
-            result['prompt'] = material_prompt(request.get('material', {}))
+            config = request.get('material', {})
+            _, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
+            result['prompt'] = build_masked_surface_prompt(material, config.get('base_prompt', ''), config.get('additional_details', ''))
         elif request.get('edit_mode') != 'semantic' or not base_prompt:
             raise ValueError('Enter an edit description or choose a material.')
         result['prompt'] += '\nEdit only the white mask region. Preserve all unselected pixels, silhouette, typography, placement and geometry.'
@@ -216,6 +220,9 @@ class BadgeApp87V1:
         stage = request['stage']
         count = request.get('count', 1)
         report = {'stage': stage, 'quality': request.get('quality', 'low'), 'count': count, 'size': dimensions(request), 'region_calls': len(prepared['regions'])*count}
+        if stage == 'local':
+            report['effective_prompt'] = prepared['prompt']
+            report['material_processing'] = 'preserve_optics' if request.get('edit_mode') == 'material' else 'composite_only'
         if stage == 'color_map':
             from ..badge_app_workflow.node import DEFAULT_MAP_PROMPT
             graph = GraphBuilder()
@@ -264,8 +271,8 @@ class BadgeApp87V1:
                 inputs['model.mask'] = mask
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
         batch = generate('generate', prepared['prompt'], prepared['base'], prepared.get('mask'), prepared.get('height'), n=count)
-        def constrain(name, base, candidate, mask, config, flat=None):
-            _, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
+        def constrain(name, base, candidate, mask, config, flat=None, preserve_optics=False):
+            material_id, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
             height = prepared.get('height') if flat is None else None
             height_mask = height[..., 0] if height is not None else torch.zeros_like(prepared['support'])
             return graph.node('BadgeMaterialConstraintV1', id=name,
@@ -275,16 +282,17 @@ class BadgeApp87V1:
                 intrinsic_color_hex=material.get('intrinsic_color_hex', '#808080'),
                 mean_chroma_limit=.02, p95_chroma_limit=.05,
                 median_low_frequency_lightness_limit=.03, high_frequency_strength=1.,
-                material_id=config.get('material_id', 'baked_enamel'),
+                material_id=material_id,
                 material_strength=float(config.get('material_strength', 1)),
                 mid_frequency_strength=1., minimum_visible_mean=0., minimum_visible_p95=0.,
-                pattern_seed=int(config.get('reroll_revision', 0)), deterministic_fallback=True).out(0)
+                pattern_seed=int(config.get('reroll_revision', 0)), deterministic_fallback=True,
+                preserve_optics=preserve_optics).out(0)
         output = None
         for variant in range(count):
             current = batch if count == 1 else graph.node('ImageFromBatch', id=f'variant_{variant}', image=batch, batch_index=variant, length=1).out(0)
             if stage == 'local':
                 if request.get('edit_mode') == 'material':
-                    current = constrain(f'local_material_constraint_{variant}', prepared['base'], current, prepared['mask'], request.get('material', {}))
+                    current = constrain(f'local_material_constraint_{variant}', prepared['base'], current, prepared['mask'], request.get('material', {}), preserve_optics=True)
                 current = graph.node('BadgeDeterministicComposite', id=f'local_composite_{variant}', previous_master=prepared['base'], edit_candidate=current, edit_mask=prepared['mask']).out(0)
             for index, (mask, prompt, config) in enumerate(prepared['regions']):
                 reroll = int(config.get('reroll_revision', 0))

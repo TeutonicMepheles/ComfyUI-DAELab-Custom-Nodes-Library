@@ -17,6 +17,49 @@ M = importlib.import_module('badge87_test_package.nodes.badge_app_87.node')
 
 
 class Badge87Tests(unittest.TestCase):
+    def test_explicit_prompt_only_ignores_all_structured_inputs(self):
+        request = self.request(stage='build', prompt_only=True, prompt='A blue planet',
+                               height_image='old.png', height_board={'bad': True}, material={'bad': True})
+        with patch.object(M, 'load_source', side_effect=AssertionError('Must not load a reference')):
+            prepared = M.prepare(request)
+        self.assertEqual(prepared, {'base': None, 'prompt': 'A blue planet', 'regions': []})
+        with self.assertRaises(ValueError):
+            M.prepare({**request, 'prompt': ' '})
+
+    def test_structured_prompt_is_prepended_and_requires_image(self):
+        request = self.request(stage='build', prompt_only=False, prompt='Soft lighting')
+        with patch.object(M, 'load_source', return_value=self.source()):
+            prepared = M.prepare(request)
+        self.assertTrue(prepared['prompt'].startswith('Soft lighting\n\nCreate a front-facing'))
+        with self.assertRaises(ValueError):
+            M.prepare({**request, 'image': None})
+
+    def test_local_material_prompt_and_graph_use_selected_surface(self):
+        graph_module = types.ModuleType('comfy_execution.graph_utils')
+        nodes = []
+        class Graph:
+            def node(self, kind, id, **inputs):
+                nodes.append((kind, inputs))
+                return types.SimpleNamespace(out=lambda index: [id, index])
+            def finalize(self): return {}
+        graph_module.GraphBuilder = Graph
+        request = self.request(edit_mode='material', material={'material_id': '亚银'}, prompt='unused semantic tab')
+        with patch.dict(sys.modules, {'comfy_execution.graph_utils': graph_module}), patch.object(M, 'load_source', return_value=self.source()):
+            preview = M.BadgeApp87V1().execute(json.dumps(request))
+            request.update(apply=True, preview_token=preview['ui']['badge87_report'][0]['preview_token'])
+            result = M.BadgeApp87V1().execute(json.dumps(request))
+        generated = next(i for k, i in nodes if k == 'OpenAIGPTImageNodeV2')
+        self.assertIn('broad soft metallic reflections', generated['prompt'])
+        self.assertIn('遮罩指定', generated['prompt'])
+        for excluded in ('unused semantic tab', '太阳能板', 'REFERENCE COLOR LOCK', 'color lock wins'):
+            self.assertNotIn(excluded, generated['prompt'])
+        self.assertGreater(int((generated['model.mask'] > .5).sum()), 16)
+        constraint = next(i for k, i in nodes if k == 'BadgeMaterialConstraintV1')
+        self.assertTrue(constraint['preserve_optics'])
+        self.assertEqual(constraint['material_id'], 'satin_silver')
+        self.assertEqual(result['ui']['badge87_report'][0]['effective_prompt'], generated['prompt'])
+        self.assertEqual(nodes[-1][0], 'BadgeDeterministicComposite')
+
     def source(self):
         image = np.full((64,64,4), 255, np.uint8)
         image[16:48,16:48,:3] = [170, 0, 0]

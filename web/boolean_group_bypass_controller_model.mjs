@@ -1,3 +1,4 @@
+import { scopedBadgeMediaMode87 } from './badge_media_scope_87.mjs';
 export const SOURCE_NODE_TYPE = "BooleanListHierarchy";
 export const GET_SOURCE_NODE_TYPE = "BooleanListHierarchyGet";
 export const CONTROLLER_NODE_TYPE = "BooleanGroupBypassController";
@@ -267,6 +268,7 @@ export function desiredMode(booleanValue, invert = false) {
 }
 
 export function setNodeMode(node, mode) {
+    mode = scopedBadgeMediaMode87(node, mode);
     if (!node || node.mode === mode) return false;
 
     const oldValue = node.mode;

@@ -13,6 +13,34 @@ function fixture() {
     const set=(key,value)=>{items.find(i=>i.id===key).value=value};
     return {g,set};
 }
+
+test('explicit prompt-only ignores retained, bypassed and malformed structured inputs',()=>{
+    const {g}=fixture(), meta=g.extra.daelabBadgePrototypeV1;
+    meta.promptOnly=true; meta.buildPrompt='A blue planet';
+    g.getNodeById(1).widgets_values_named.image='old.png';
+    for(const id of [1,2,3,47,49,55]) g.getNodeById(id).mode=4;
+    g.getNodeById(47).widgets_values_named.config_json='{invalid';
+    const {request,fingerprint}=requestForStage(g,'build');
+    assert.equal(request.prompt_only,true); assert.equal(request.prompt,'A blue planet');
+    assert.equal(request.image,null);
+    for(const key of ['material','background','height_image','height_board','regions']) assert.equal(key in request,false);
+    g.getNodeById(1).widgets_values_named.image='another.png'; meta.heightBoard={changed:true};
+    assert.equal(requestForStage(g,'build').fingerprint,fingerprint);
+    meta.buildPrompt=' '; assert.throws(()=>requestForStage(g,'build'),/基础提示词/);
+    meta.buildPrompt='A planet'; g.getNodeById(200).mode=4;
+    assert.throws(()=>requestForStage(g,'build'),/跳过/);
+});
+
+test('explicit structured mode requires image and retains supplementary prompt',()=>{
+    const {g}=fixture(), meta=g.extra.daelabBadgePrototypeV1;
+    meta.promptOnly=false; meta.buildPrompt='Soft lighting';
+    assert.throws(()=>requestForStage(g,'build'),/材质图/);
+    g.getNodeById(1).widgets_values_named.image='flat.png'; meta.heightEnabled=false;
+    const {request}=requestForStage(g,'build');
+    assert.equal(request.prompt_only,false); assert.equal(request.prompt,'Soft lighting');
+    assert.equal(request.image.filename,'flat.png'); assert.ok(request.material);
+    meta.buildPrompt=''; assert.doesNotThrow(()=>requestForStage(g,'build'));
+});
 test('8.7 preserves prototype input contracts and has a separate identity',()=>{
     const {g}=fixture();
     const p=JSON.parse(readFileSync(new URL('../user/default/workflows/%238.6-UI%20-%20Badge%20App%20Mode%20Prototype.json',import.meta.url)));

@@ -1,7 +1,8 @@
 import { app } from '/scripts/app.js';
+import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
 import { isBadge87 } from './badge_execution_87_model.mjs';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs';
-import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs';
+import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
 import { APPLY_ITEM, PROTOTYPE_PROPERTY, createPrototypeQueueHandler,
     isBadgePrototype, isSamePrototype, prototypeSnapshot, simulateRun } from './badge_app_prototype_model.mjs?v=2';
 
@@ -35,7 +36,8 @@ export function getPrototypeSession(graph, stage) {
 export async function run(graph, stage) {
     if (!isBadgePrototype(graph)) return;
     if (isBadge87(graph)) {
-        stage ||= document.querySelector('[role="tab"][aria-selected="true"]')?.dataset.tabId;
+        stage ||= document.querySelector('[role="tablist"][aria-label="徽章工作流步骤"] [role="tab"][aria-selected="true"]')?.dataset.tabId;
+        syncBadgeMediaScope87(graph, stage);
         const ids = ['build', 'local'].includes(stage) ? stageNodeIds(graph, stage) : stage === 'studio' ? [graph.extra.daelabBadgePrototypeV1.studioReferenceNodeId, 87] : [];
         for (const node of ids.map(id => graph.getNodeById(id)).filter(Boolean)) {
             for (const widget of node.widgets || []) widget.beforeQueued?.();
@@ -76,6 +78,7 @@ export async function run(graph, stage) {
 }
 function sync() {
     const graph = getRootGraphSafely(app);
+    syncBadgeMediaScope87(graph);
     const root = document.querySelector('[data-testid="linear-widgets"]');
     if (!isBadgePrototype(graph) || !root) {
         banner?.remove(); banner = null; bannerGraph = null;
@@ -131,6 +134,7 @@ let nativeQueue;
 export function getBadgeNativeQueue() { return nativeQueue; }
 app.registerExtension({
     name: 'DAELAB.BadgeAppPrototype',
+    afterConfigureGraph() { syncBadgeMediaScope87(getRootGraphSafely(app), 'build'); },
     setup() {
         if (app[INSTALL_KEY]) return;
         app[INSTALL_KEY] = true;

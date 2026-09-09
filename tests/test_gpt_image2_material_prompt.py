@@ -55,9 +55,20 @@ class GPTImage2MaterialPromptTests(unittest.TestCase):
             if material_id in {"satin_gold", "satin_silver"}:
                 expected_keys.add("preview_keep_color")
                 expected_keys.add("intrinsic_color_hex")
+                expected_keys.add("surface_semantic")
                 self.assertTrue(material["preview_keep_color"])
                 self.assertRegex(material["intrinsic_color_hex"], r"^#[0-9a-fA-F]{6}$")
             self.assertEqual(set(material), expected_keys)
+
+    def test_masked_surface_prompt_uses_each_catalog_material_without_old_color_lock(self):
+        for material in self.materials.values():
+            prompt = MODULE.build_masked_surface_prompt(material)
+            self.assertIn(material.get('surface_semantic', material['semantic']), prompt)
+            self.assertIn(material['application'], prompt)
+            self.assertIn(material['avoid'], prompt)
+            self.assertNotIn(MODULE.REFERENCE_COLOR_LOCK, prompt)
+            self.assertNotIn('太阳能板', prompt)
+            self.assertIn('允许高光', prompt)
 
     def test_prompt_is_structured_and_preserves_reference_colors(self):
         prompt, semantics = MODULE.build_material_prompt(

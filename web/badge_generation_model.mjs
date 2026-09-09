@@ -40,9 +40,16 @@ export function editDimension(config, axis, value) {
     return next;
 }
 export function isPromptOnlyBuild(graph) {
+    const saved = graph.extra.daelabBadgePrototypeV1.promptOnly;
+    if (typeof saved === 'boolean') return saved;
     const n = graph.getNodeById(1);
     const image = n?.widgets?.find(w => w.name === 'image')?.value ?? n?.widgets_values_named?.image;
     return !image && Boolean(String(graph.extra.daelabBadgePrototypeV1.buildPrompt || '').trim());
+}
+export function initializePromptOnlyBuild(graph) {
+    const meta = graph.extra.daelabBadgePrototypeV1;
+    if (typeof meta.promptOnly !== 'boolean') meta.promptOnly = isPromptOnlyBuild(graph);
+    return meta.promptOnly;
 }
 export function stageNodeIds(graph, stage) {
     const h = readHierarchyState(graph.getNodeById(graph.extra.daelabBadgePrototypeV1.stateNodeId));
@@ -66,9 +73,10 @@ export function stageSnapshot(graph, stage) {
     const value = (id, name) => node(id)?.widgets?.find(w => w.name === name)?.value ?? node(id)?.widgets_values_named?.[name];
     const config = readGenerationConfig(graph, stage), ids = stageNodeIds(graph, stage);
     let error = validateDimensions(config);
+    if (!error && stage === 'build' && isPromptOnlyBuild(graph) && !String(meta.buildPrompt || '').trim()) error = '请填写基础提示词。';
     if (!error && stage === 'build' && !isPromptOnlyBuild(graph)) {
         if (!on('badge.path.flat_height')) error = '请先启用效果图建立路线。';
-        else if (!value(1, 'image')) error = '请填写基础提示词或上传材质图。';
+        else if (!value(1, 'image')) error = '请上传材质图，或开启“是否仅使用提示词”。';
         else if (meta.heightEnabled !== false && !value(2, 'image')) error = '请上传高度图，或关闭高度建立。';
     }
     if (!error && stage === 'local') {
@@ -84,6 +92,6 @@ export function stageSnapshot(graph, stage) {
         return [id, n?.mode, n?.widgets?.filter(w => w.type !== 'button' && w.name !== 'upload').map(w => [w.name, w.value]) ?? n?.widgets_values_named ?? n?.widgets_values, n?.properties?.polygon_info];
     });
     const flags = (stage === 'build' && isPromptOnlyBuild(graph) ? [] : h).filter(i => stage === 'build' ? i.id.startsWith('badge.path.flat_height') : i.id.startsWith('badge.post.local') && i.id !== 'badge.post.local.apply').map(i => [i.id, i.value]);
-    const fingerprint = JSON.stringify([stage, inputs, flags, config, stage === 'build' ? [String(meta.buildPrompt || '').trim(), ...(isPromptOnlyBuild(graph) ? [] : [meta.heightEnabled !== false, meta.backgroundEnabled !== false, meta.heightBoard])] : null]);
+    const fingerprint = JSON.stringify([stage, inputs, flags, config, stage === 'build' ? [isPromptOnlyBuild(graph), String(meta.buildPrompt || '').trim(), ...(isPromptOnlyBuild(graph) ? [] : [meta.heightEnabled !== false, meta.backgroundEnabled !== false, meta.heightBoard])] : null]);
     return { stage, error, fingerprint, local: stage === 'local', studio: false, apply: on('badge.post.local.apply'), parameters: error ? null : { ...generationParameters(config), ...(stage === 'build' ? { prompt: String(meta.buildPrompt || '').trim() } : {}) } };
 }

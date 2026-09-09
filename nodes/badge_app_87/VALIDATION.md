@@ -104,3 +104,22 @@ Evidence: validation_gpt_map_results.json, validation_gpt_map_cache_results.json
 Removed GPT submission from tab/source activation. Automatic restoration calls the map runner with allowGenerate=false; only the visible generation button enables submission. The source tab is now 使用色彩分区图. Original target pixels remain visible while the map is absent or generating. The action becomes 重新生成色彩分区图 after success.
 
 Browser 8001: entering Local, switching sources, and leaving/re-entering Local kept history at 6 tasks, with no running/pending tasks. Explicit button then submitted exactly one task, 8c65eab6-19de-4f91-8b0f-3e15489e1bc6, which succeeded; ready map and regenerate button were visible. Generation remains Low, 1024x1024, n=1. Frontend tests: 256 passed, including read-only no-map restoration, cached restoration, and explicit submission. #8.6 workflow hashes unchanged.
+
+
+## 2026-09-09 direct local generation and media stage scope
+
+Local generation no longer depends on clicking mask preview. Both the panel button and native Run route through automatic server validation followed by apply. Empty masks and changed requests still stop before model execution. The old prototype snapshot does not invalidate #8.7 completion state.
+
+Future-stage image nodes are temporarily bypassed for native media validation, restoring original modes on stage activation and serialization. Shared group Bypass mode changes compose with this scope. Active-stage lookup is restricted to the Badge step tablist, avoiding hidden inspector tabs. #8.6 files remain unchanged.
+
+261 Node tests passed; added tests exercise automatic validate/apply, empty-region rejection, input-change rejection, native media scope, mode serialization, and shared Bypass interaction. Browser 8001: no early local-source media warning on fresh build-page load. Direct local generation without preview succeeded with Low, 1024x1024, one image: validation a2eed717-f529-441a-bc2d-20c6aa40fbe4; apply e664c69f-56fd-43ca-b421-71b5aaf76069. Evidence: validation_direct_local.json.
+
+Final native Run browser check (no manual preview): d23f04c0-27e9-46c3-819f-a6a8988c2e1a, 5c7e2e22-5570-47b0-b2cb-ca989a87eb25; both succeeded; UI showed 生成完成 with one output.
+
+### APP Mode media-warning stability (2026-09-09)
+
+- Keep the active #8.7 stage on the graph across panel teardown/rebuild; polling no longer infers `build` from temporarily absent tab DOM.
+- Release the suspension record before publishing activation events, so synchronous controller listeners cannot immediately bypass the just-activated image node.
+- Bump the controller model import version to load its media-scope integration.
+- `node --test tests/*.test.mjs`: 263 passed, including 100 repeated refresh/controller cycles with zero mode events and a synchronous-listener regression.
+- Main service port 8000: fresh browser page, local tab and graph/App Mode round trip kept the local tab selected; DOM sampling found no missing-media warning. This page had no selected target image; the user's existing warning-bearing browser session was not inspected directly. No paid generation was needed for this UI-state fix.

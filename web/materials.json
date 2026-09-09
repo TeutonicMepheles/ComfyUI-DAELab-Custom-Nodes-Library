@@ -28,6 +28,7 @@
     "avoid": "frosted haze, strongly covering paint, thick jelly-like volume, droplets, or bubbles"
   },
   "satin_gold": {
+    "surface_semantic": "A colored satin-metal finish retaining the input base colors, with broad soft metallic reflections, medium roughness and fine uniform micro-matte texture. No gold recoloring.",
     "label": "亚金",
     "thumbnail": "satin_gold.png",
     "preview_keep_color": true,
@@ -37,6 +38,7 @@
     "avoid": "bright mirror finish, plastic appearance, oxidation, corrosion, obvious brushing, or wrinkled metal foil"
   },
   "satin_silver": {
+    "surface_semantic": "A colored satin-metal finish retaining the input base colors, with broad soft metallic reflections, medium roughness and fine uniform micro-matte texture. No silver or gray recoloring.",
     "label": "亚银",
     "thumbnail": "satin_silver.png",
     "preview_keep_color": true,

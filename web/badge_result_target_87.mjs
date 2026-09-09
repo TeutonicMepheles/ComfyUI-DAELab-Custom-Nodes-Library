@@ -28,7 +28,7 @@ function applyTarget(graph, image, session) {
     syncPolygonTarget87(graph);
     graph.getNodeById(meta.stateNodeId)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
     Object.assign(session, {preview: null, serverToken: null, seed: undefined, images: null, phase: 'changed',
-        message: source ? '编辑目标已更新，请重新选择并预览编辑区域。' : '当前来源尚无图片。'});
+        message: source ? '编辑目标已更新，选择编辑区域后即可生成。' : '当前来源尚无图片。'});
     node.setDirtyCanvas?.(true, true);
     graph.setDirtyCanvas?.(true, true);
     return true;
@@ -36,11 +36,21 @@ function applyTarget(graph, image, session) {
 
 export function selectLocalSource87(graph, source, session) {
     if (!isBadge87(graph) || !['generated', 'existing'].includes(source)) return false;
+    if (source === 'generated' && !normalizeImageSelection(localTargets87(graph).generated)) return false;
     graph.beforeChange?.();
     const targets = localTargets87(graph); targets.source = source;
     const updated = applyTarget(graph, targets[source], session);
     graph.afterChange?.();
     return updated;
+}
+
+// Choose the entry default from this workflow's successful build target only.
+// Manual source changes remain in place until the user enters this stage again.
+export function enterLocalStage87(graph, session) {
+    const targets = localTargets87(graph);
+    const source = normalizeImageSelection(targets.generated) ? 'generated' : 'existing';
+    selectLocalSource87(graph, source, session);
+    return source;
 }
 
 export function setExistingTarget87(graph, image, session) {

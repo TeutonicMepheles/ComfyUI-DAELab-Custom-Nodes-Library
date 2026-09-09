@@ -43,10 +43,11 @@ test('8.7 uploads update the existing source and switching away rejects a pendin
     const f=fixture(true), upload=f.start();
     f.requests[0].complete('existing.png'); await upload;
     assert.equal(localTargets87(f.graph).existing.filename,'existing.png');
+    localTargets87(f.graph).generated={filename:'build.png',type:'output',subfolder:''};
     const pending=f.start();
     selectLocalSource87(f.graph,'generated',f.session);
     f.requests[1].complete('stale.png'); await pending;
-    assert.equal(f.widget.value,'');
+    assert.equal(f.widget.value,'build.png [output]');
     assert.equal(localTargets87(f.graph).existing.filename,'existing.png');
     await f.start();
     assert.equal(f.requests.length,2);

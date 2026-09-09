@@ -1,3 +1,4 @@
+import { getBadgeMediaStage87, syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
 import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=2';
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
@@ -326,6 +327,7 @@ function createRuntime() {
             return;
         }
         activeTab = tabId;
+        syncBadgeMediaScope87(graph, tabId);
         focusedInputKey = null;
         expandedInputKey = null;
         contextSignature = "";
@@ -359,8 +361,11 @@ function createRuntime() {
         root.setAttribute(BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE, "1");
         root.querySelectorAll(`[${OLD_PREVIEW_ATTRIBUTE}]`).forEach((element) => element.remove());
         tabsBar = makeOwned("div", "tabs");
-        tabsBar.setAttribute("role", "tablist");
-        tabsBar.setAttribute("aria-label", "徽章工作流步骤");
+        const tabList = graph.extra?.daelabBadgeExecutionV1?.version === 1
+            ? document.createElement('div') : tabsBar;
+        if (tabList !== tabsBar) { tabList.className = 'badge-stage-tabs'; tabsBar.append(tabList); }
+        tabList.setAttribute("role", "tablist");
+        tabList.setAttribute("aria-label", "徽章工作流步骤");
         const disabledDescription = document.createElement("span");
         disabledDescription.id = "daelab-app-disabled-tab-description";
         disabledDescription.className = "daelab-app-layout-sr-only";
@@ -377,7 +382,7 @@ function createRuntime() {
             button.setAttribute("aria-controls", safeElementId(`panel-${tab.id}`));
             button.textContent = tab.title;
             button.addEventListener("click", () => selectTab(tab.id, true));
-            tabsBar.appendChild(button);
+            tabList.appendChild(button);
             tabButtons.set(tab.id, button);
 
             const panel = makeOwned("section", "panel");
@@ -673,7 +678,8 @@ function createRuntime() {
         graph = nextGraph;
         root = nextRoot;
         layout = nextLayout;
-        activeTab = layout.defaultTab;
+        activeTab = graph.extra?.daelabBadgeExecutionV1?.version === 1
+            ? getBadgeMediaStage87(graph) : layout.defaultTab;
         focusedInputKey = null;
         expandedInputKey = null;
         stateSignature = "";

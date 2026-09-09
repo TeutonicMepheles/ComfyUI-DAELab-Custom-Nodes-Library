@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { updateLocalTarget87, localTargets87, selectLocalSource87, setExistingTarget87 } from '../web/badge_result_target_87.mjs';
+import { updateLocalTarget87, localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87 } from '../web/badge_result_target_87.mjs';
 import { normalizeImageSelection } from '../web/app_mode_load_image_preview_model.mjs';
 
 function fixture() {
@@ -34,13 +34,26 @@ test('missing output and the original prototype never replace the target',()=>{
     assert.equal(widget.value,'old.png');assert.equal(session.preview,'old');
 });
 
-test('source defaults to generated without substituting the existing image',()=>{
+test('unavailable generated source cannot clear an existing image',()=>{
     const {graph,widget,session}=fixture();
     assert.equal(localTargets87(graph).source,'generated');
-    selectLocalSource87(graph,'generated',session);
-    assert.equal(widget.value,'');
+    assert.equal(selectLocalSource87(graph,'generated',session),false);
+    assert.equal(widget.value,'old.png');
     selectLocalSource87(graph,'existing',session);
     assert.equal(normalizeImageSelection(widget.value).filename,'old.png');
+});
+test('stage entry falls back to upload, then defaults to a successful build on reentry',()=>{
+    const {graph,widget,session}=fixture();
+    assert.equal(enterLocalStage87(graph,session),'existing');
+    assert.equal(normalizeImageSelection(widget.value).filename,'old.png');
+    updateLocalTarget87(graph,{filename:'build.png',type:'output'},session);
+    assert.equal(localTargets87(graph).source,'existing');
+    assert.equal(enterLocalStage87(graph,session),'generated');
+    assert.equal(normalizeImageSelection(widget.value).filename,'build.png');
+    selectLocalSource87(graph,'existing',session);
+    assert.equal(normalizeImageSelection(widget.value).filename,'old.png');
+    graph.extra=JSON.parse(JSON.stringify(graph.extra));
+    assert.equal(enterLocalStage87(graph,session),'generated');
 });
 test('new generation retains the selected existing image and both sources survive serialization',()=>{
     const {graph,widget,session}=fixture();

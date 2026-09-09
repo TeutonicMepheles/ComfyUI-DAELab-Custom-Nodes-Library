@@ -13,7 +13,7 @@ import {
     resolveBooleanSource,
     resolveGroup,
     setNodeMode,
-} from "./boolean_group_bypass_controller_model.mjs?v=hierarchical-overlap-6";
+} from "./boolean_group_bypass_controller_model.mjs?v=hierarchical-overlap-7-media-scope";
 
 const EXTENSION_NAME = "DAELab.BooleanGroupBypassController";
 const WIDGET_NAME = "boolean_group_bypass_controller_ui";

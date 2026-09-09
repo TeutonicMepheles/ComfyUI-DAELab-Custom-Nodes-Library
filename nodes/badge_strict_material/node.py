@@ -686,7 +686,7 @@ class BadgeMaterialConstraintV1:
             "minimum_visible_p95": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 0.4, "step": 0.001}),
             "pattern_seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             "deterministic_fallback": ("BOOLEAN", {"default": True}),
-        }}
+        }, "optional": {"preserve_optics": ("BOOLEAN", {"default": False})}}
 
     def constrain(
         self,
@@ -708,6 +708,7 @@ class BadgeMaterialConstraintV1:
         minimum_visible_p95=0.0,
         pattern_seed=0,
         deterministic_fallback=True,
+        preserve_optics=False,
     ):
         base = _image_float(base_image, "base_image")
         candidate_invalid = not isinstance(candidate_image, torch.Tensor) or not torch.isfinite(candidate_image).all().item()
@@ -724,6 +725,40 @@ class BadgeMaterialConstraintV1:
         mask = (_broadcast(_mask_float(region_mask, "region_mask"), batch, "region_mask") > 0.5)
         if height_value.shape[1:] != (height, width) or mask.shape[1:] != (height, width):
             raise ValueError("base, flat, height, and region mask canvases must match.")
+
+        if preserve_optics:
+            if color_policy != "preserve":
+                raise ValueError("Optical material editing requires the preserve color policy.")
+            if candidate_invalid:
+                raise ValueError("Optical material candidate contains invalid pixels.")
+            # Preserve broad reflections and transmission, not only high-frequency residuals.
+            # Chroma correction is an image-space approximation, not albedo recovery.
+            base_lab = _rgb_to_oklab(base)
+            candidate_lab = _rgb_to_oklab(candidate)
+            chroma_delta = candidate_lab[..., 1:] - base_lab[..., 1:]
+            radius = torch.linalg.vector_norm(chroma_delta, dim=-1, keepdim=True).clamp_min(1e-6)
+            # Permit highlight desaturation, but limit unrelated hue shifts in the body color.
+            highlight = ((candidate_lab[..., :1] - base_lab[..., :1] - .05) / .25).clamp(0, 1)
+            limit = .035 + .065 * highlight
+            corrected_chroma = base_lab[..., 1:] + chroma_delta * (limit / radius).clamp(max=1)
+            corrected = _oklab_to_rgb(torch.cat((candidate_lab[..., :1], corrected_chroma), dim=-1))
+            output = torch.where(mask.unsqueeze(-1), corrected, base)
+            # An unchanged candidate remains unchanged; do not synthesize substitute texture.
+            output = torch.where((candidate == base).all(dim=-1, keepdim=True), base, output)
+            delta = (output - base).abs().amax(dim=-1)
+            selected = delta[mask]
+            error = torch.linalg.vector_norm((_rgb_to_oklab(output) - base_lab)[..., 1:], dim=-1)[mask]
+            mean_error = float(error.mean()) if error.numel() else 0.
+            p95_error = float(torch.quantile(error, .95)) if error.numel() else 0.
+            light_error = (candidate_lab[..., 0] - base_lab[..., 0]).abs()[mask]
+            median_light = float(light_error.median()) if light_error.numel() else 0.
+            report = {"output_source": "gpt_candidate_color_corrected", "color_policy": "preserve",
+                "processing": "preserve_optics", "material_id": material_id,
+                "outside_max_abs_diff": 0., "mean_chroma_error": mean_error,
+                "output_changed_pixel_ratio": float((selected >= 2/255).float().mean()) if selected.numel() else 0.,
+                "output_visible_mean": float(selected.mean()) if selected.numel() else 0.,
+                "accepted": True, "fallback": False}
+            return output, mask.float(), True, mean_error, p95_error, median_light, 0., json.dumps(report)
 
         # Protect the one-pixel inner mask boundary plus artwork/height jumps and text-like line edges.
         mask_channel = mask.float().unsqueeze(1)

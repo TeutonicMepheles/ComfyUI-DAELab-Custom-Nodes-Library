@@ -13,6 +13,30 @@ SPEC.loader.exec_module(MODULE)
 
 
 class BadgeStrictMaterialTests(unittest.TestCase):
+    def test_optical_edit_retains_broad_reflection_and_protects_outside(self):
+        base, mask, height = self.make_square()
+        lab = MODULE._rgb_to_oklab(base)
+        candidate_lab = lab.clone()
+        candidate_lab[..., 0] += torch.linspace(0, .18, 64)[None, None, :]
+        candidate_lab[..., 1] += .15  # unrelated tint must be limited
+        candidate = MODULE._oklab_to_rgb(candidate_lab)
+        result = MODULE.BadgeMaterialConstraintV1().constrain(base, candidate, base, height, mask, preserve_optics=True)
+        output = result[0]
+        selected = mask > .5
+        self.assertTrue(torch.equal(output[~selected], base[~selected]))
+        out_lab = MODULE._rgb_to_oklab(output)
+        self.assertGreater(float((out_lab[..., 0] - lab[..., 0])[selected].mean()), .05)
+        candidate_error = torch.linalg.vector_norm((MODULE._rgb_to_oklab(candidate) - lab)[..., 1:], dim=-1)
+        output_error = torch.linalg.vector_norm((out_lab - lab)[..., 1:], dim=-1)
+        self.assertLess(float(output_error[selected].mean()), float(candidate_error[selected].mean()))
+        self.assertEqual(json.loads(result[-1])['processing'], 'preserve_optics')
+
+    def test_optical_edit_does_not_invent_texture_for_unchanged_candidate(self):
+        base, mask, height = self.make_square()
+        result = MODULE.BadgeMaterialConstraintV1().constrain(base, base, base, height, mask, preserve_optics=True)
+        self.assertTrue(torch.equal(result[0], base))
+        self.assertEqual(json.loads(result[-1])['output_changed_pixel_ratio'], 0)
+
     def make_square(self, size=64):
         mask = torch.zeros((1, size, size), dtype=torch.float32)
         mask[:, 12:size - 12, 12:size - 12] = 1.0

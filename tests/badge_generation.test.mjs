@@ -3,6 +3,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {classifyPresets, DEFAULT_CONFIG, editDimension, validateDimensions, generationParameters, readGenerationConfig, stageSnapshot, stageNodeIds} from '../web/badge_generation_model.mjs';
 import {readHierarchyState} from '../web/badge_app_layout_model.mjs';
+import {initializePromptOnlyBuild,isPromptOnlyBuild} from '../web/badge_generation_model.mjs';
 function fixture(){
  const g=JSON.parse(readFileSync(new URL('../user/default/workflows/%238.6-UI%20-%20Badge%20App%20Mode%20Prototype.json',import.meta.url)));
  g.getNodeById=id=>g.nodes.find(n=>String(n.id)===String(id));
@@ -14,6 +15,16 @@ function fixture(){
  g.getNodeById(105).widgets_values_named.value='change region';
  return {g,set};
 }
+test('legacy mode migrates once and persists independently of image and prompt edits',()=>{
+ const {g}=fixture(), meta=g.extra.daelabBadgePrototypeV1;
+ g.getNodeById(1).widgets_values_named.image=''; meta.buildPrompt='A planet';
+ assert.equal(initializePromptOnlyBuild(g),true);
+ g.getNodeById(1).widgets_values_named.image='retained.png'; meta.buildPrompt='';
+ assert.equal(initializePromptOnlyBuild(g),true);
+ assert.equal(JSON.parse(JSON.stringify(g)).extra.daelabBadgePrototypeV1.promptOnly,true);
+ assert.match(stageSnapshot(g,'build').error,/基础提示词/);
+ meta.promptOnly=false; assert.equal(isPromptOnlyBuild(g),false);
+});
 test('only supported preset combinations in 1K and 2K',()=>{
  const p=classifyPresets(['auto','Custom','3840x2160','2160x3840','1024x1024','1024x1536','1536x1024','2048x2048','2048x1152','1152x2048']);
  assert.equal(p.length,6);assert.deepEqual([...new Set(p.map(x=>x.ratio))],['1:1','2:3','3:2','16:9','9:16']);

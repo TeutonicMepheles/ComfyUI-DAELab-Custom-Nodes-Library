@@ -1,5 +1,5 @@
 import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs';
-import { stageSnapshot, readGenerationConfig } from './badge_generation_model.mjs';
+import { stageSnapshot, readGenerationConfig, isPromptOnlyBuild } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
 import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
 import { migrateHeightBoard } from './badge_height_board_model.mjs';
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
@@ -32,7 +32,8 @@ export function requestForStage(graph, stage) {
         quality: graph.extra.daelabBadgeExecutionV1.quality || 'low', count, seed: 0 };
     if (stage === 'build') {
         request.prompt = meta.buildPrompt || '';
-        request.image = image(1);
+        request.prompt_only = isPromptOnlyBuild(graph);
+        request.image = request.prompt_only ? null : image(1);
         if (request.image) {
             request.material = material(55);
             if (meta.backgroundEnabled !== false) request.background = config(47, 'multi_color_mask_v1_panel', 'config_json');

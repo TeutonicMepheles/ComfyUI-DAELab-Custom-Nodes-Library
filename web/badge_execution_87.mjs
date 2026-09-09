@@ -1,25 +1,30 @@
-import { requestForStage, promptForRequest } from './badge_execution_87_model.mjs?v=20260909-count';
+import { requestForStage, promptForRequest } from './badge_execution_87_model.mjs?v=20260909-prompt-only-1';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs';
 import { queueBadge87 } from './badge_execution_87_queue.mjs';
 import { updateLocalTarget87 } from './badge_result_target_87.mjs';
 
 // No replacement controls or DOM listeners: the original stage runner delegates here.
-export async function execute87(graph, stage, state, app, nativeQueue, localSession) {
+export async function execute87(graph, stage, state, app, nativeQueue, localSession, validateOnly = false) {
     const { api } = await import('/scripts/api.js');
-    stage ||= document.querySelector('[role="tab"][aria-selected="true"]')?.dataset.tabId;
+    stage ||= document.querySelector('[role="tablist"][aria-label="徽章工作流步骤"] [role="tab"][aria-selected="true"]')?.dataset.tabId;
     if (!['build','local','studio'].includes(stage)) {
         state.message = '请进入需要生成的阶段。'; return;
     }
     if (state.busy) return;
+    if (stage === 'local' && !validateOnly) {
+        await execute87(graph, stage, state, app, nativeQueue, localSession, true);
+        if (state.phase !== 'preview-ready') return;
+    }
     const workflowId = graph.id;
     let fingerprint;
     state.busy = true; state.message = '正在提交生成任务…';
     try {
         const compiled = requestForStage(graph, stage);
         const request = compiled.request;
+        if (stage === 'local') request.apply = !validateOnly;
         fingerprint = compiled.fingerprint;
         if (stage === 'local' && request.apply) {
-            if (state.preview !== fingerprint || !state.serverToken) throw new Error('请先预览当前选区。');
+            if (state.preview !== fingerprint || !state.serverToken) throw new Error('选区已变化，请重新点击生成。');
             request.preview_token = state.serverToken;
         }
         request.nonce = crypto.randomUUID();

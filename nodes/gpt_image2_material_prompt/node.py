@@ -287,6 +287,28 @@ def build_material_prompt(
     return prompt, build_material_semantics(material)
 
 
+def build_masked_surface_prompt(material: dict, base_prompt="", additional_details="") -> str:
+    """Object-independent, base-color-preserving edit brief for the 8.7 local path."""
+    semantic = material_prompt_field(material, "surface_semantic") or material_prompt_field(material, "semantic")
+    sections = [
+        "编辑范围：仅编辑所提供编辑遮罩指定的区域。",
+        f"目标表面属性：{semantic}",
+        "颜色保留：以输入图像对应位置的原有底色为依据，尽量保持主要色相、配色关系和色块分布。"
+        "材质名称及预览图不作为底色来源。非高光区域应尽量保持原有底色观感。",
+        "材质变化：通过目标材质的反射、粗糙度、微观纹理，以及适用的透射和折射表现清晰可辨的变化。"
+        "替换与目标材质不符的旧表面质感；保留原有图案、文字和几何结构，不把旧材质微纹理作为必须保留的图案。",
+        "允许的光学变化：保持原有光照条件和观察视角，重新形成符合目标材质的局部高光、反射和明暗分布。"
+        "允许高光、透射及反射引起自然的局部亮度与饱和度变化。不要用整体染色、全局曝光或统一降饱和代替材质变化。",
+        f"材质应用：{material_application(material)}",
+        "保持不变：保留轮廓、结构、比例、位置、构图和文字；遮罩外内容保持不变。"
+        "透明或折射属性仅在目标材质适用时表现，不凭空添加背后物体。",
+    ]
+    for label, value in (("编辑补充", base_prompt), ("补充要求", additional_details), ("避免", material.get("avoid", ""))):
+        if clean_text(value):
+            sections.append(f"{label}：{clean_text(value)}")
+    return "\n\n".join(sections)
+
+
 def load_material_preview(material: dict) -> torch.Tensor:
     filename = Path(str(material.get("thumbnail") or "")).name
     image_path = MATERIAL_THUMB_DIR / filename

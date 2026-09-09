@@ -1,5 +1,5 @@
-import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs';
-import { bindCompactNumberDrag } from './compact_color_group_controls.mjs?v=20260909-number-drag';
+import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
+import { bindCompactNumberDrag, boundedNumberDragValue } from './compact_color_group_controls.mjs?v=20260909-number-drag';
 
 // Both stages use the same view; only their workflow-scoped saved configuration differs.
 export function createGenerationPanel(graph, stage, { onGenerate, onChange, live }) {
@@ -35,28 +35,38 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         const c = readGenerationConfig(graph, stage);
         commit({ ...c, custom: true, locked: false });
     };
-    make('p', '选择分辨率'); const tierRow = make('div', ''); tierRow.className = 'badge-generation-options';
+    make('p', '分辨率与尺寸');
+    const resolutionRow = make('div', ''); resolutionRow.className = 'badge-generation-resolution';
+    const tierRow = make('div', '', resolutionRow); tierRow.className = 'badge-generation-options badge-generation-tiers';
     for (const tier of ['1K', '2K']) {
         const b = make('button', tier, tierRow); b.type = 'button'; tiers.set(tier, b);
         b.onclick = () => select(presets.find(p => p.ratio === readGenerationConfig(graph, stage).ratio && p.tier === tier));
     }
-    make('p', '尺寸'); const dimensions = make('div', ''); dimensions.className = 'badge-generation-dimensions';
+    const dimensions = make('div', '', resolutionRow); dimensions.className = 'badge-generation-dimensions';
     const inputs = {};
     for (const [axis, label] of [['width', 'W'], ['height', 'H']]) {
         const wrap = make('label', label, dimensions), input = make('input', '', wrap);
         input.type = 'number'; input.min = '1024'; input.max = '3840'; input.step = '16';
         input.setAttribute('aria-label', axis === 'width' ? '输出宽度（像素）' : '输出高度（像素）');
-        input.oninput = () => {
+        input.title = '按住鼠标左键左右拖动调整，每步 16 像素；也可直接输入';
+        const setDimension = value => {
             const c = readGenerationConfig(graph, stage);
-            if (c.custom && !running) commit(editDimension({ ...c, locked: false }, axis, input.value === '' ? null : Number(input.value)));
+            if (live() && c.custom && !running) commit(editDimension({ ...c, locked: false }, axis, value === '' ? null : Number(value)));
         };
+        input.oninput = () => setDimension(input.value);
+        bindCompactNumberDrag(input, {
+            onCommit: setDimension,
+            valueFromDrag: (start, delta) => boundedNumberDragValue(Math.round(start / 16) * 16, delta, 1024, 3840, 16),
+        });
         inputs[axis] = input;
     }
     make('span', 'PX', dimensions);
+    const hint = make('p', ''); hint.className = 'badge-generation-hint'; hint.setAttribute('role', 'status'); hint.id = `badge-generation-hint-${stage}`;
+    for (const input of Object.values(inputs)) input.setAttribute('aria-describedby', hint.id);
+    const actionRow = make('div', ''); actionRow.className = 'badge-generation-actions';
     let countInput;
     if (graph.extra?.daelabBadgeExecutionV1?.version === 1) {
-        tierRow.classList.add('badge-generation-resolution-count');
-        const numberRow = make('label', '张数', tierRow); numberRow.className = 'badge-generation-count';
+        const numberRow = make('label', '张数', actionRow); numberRow.className = 'badge-generation-count';
         countInput = make('input', '', numberRow); countInput.type = 'number'; countInput.min = '1'; countInput.max = '8'; countInput.step = '1';
         countInput.setAttribute('aria-label', '生成个数'); countInput.title = '按住鼠标左键左右拖动调整，也可直接输入（1–8 张）';
         const setCount = value => {
@@ -68,9 +78,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         bindCompactNumberDrag(countInput, {onCommit: setCount});
         countInput.onchange = () => setCount(countInput.value);
     }
-    const hint = make('p', ''); hint.className = 'badge-generation-hint'; hint.setAttribute('role', 'status'); hint.id = `badge-generation-hint-${stage}`;
-    for (const input of Object.values(inputs)) input.setAttribute('aria-describedby', hint.id);
-    const button = make('button', '生成'); button.type = 'button'; button.className = 'badge-generation-submit'; button.setAttribute('aria-describedby', hint.id);
+    const button = make('button', '生成', actionRow); button.type = 'button'; button.className = 'badge-generation-submit'; button.setAttribute('aria-describedby', hint.id);
     button.onclick = () => { if (live() && !button.disabled) void onGenerate(); };
     const status = make('p', '仅模拟当前阶段，不生成图片。'); status.setAttribute('role', 'status');
     let running = false, problem = '';
@@ -88,7 +96,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
             b.setAttribute('aria-pressed', String(!c.custom && c.tier === tier));
         }
         for (const [axis, input] of Object.entries(inputs)) {
-            if (document.activeElement !== input) input.value = c[axis] ?? '';
+            if (input.dataset.dragging !== 'true' && document.activeElement !== input) input.value = c[axis] ?? '';
             input.disabled = running || !c.custom;
             input.parentElement.dataset.disabled = String(input.disabled); input.setAttribute('aria-invalid', String(Boolean(error)));
         }
@@ -117,9 +125,16 @@ export const GENERATION_CSS = `
 .badge-generation :focus-visible{outline:2px solid #80bfff;outline-offset:2px}
 .badge-generation-ratio-icon{display:block;border:2px solid currentColor;border-radius:3px;box-sizing:border-box}
 .badge-generation-dimensions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.badge-generation-resolution-count{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(96px,.6fr);align-items:stretch}
+.badge-generation-resolution{display:flex;align-items:center;gap:8px;min-width:0}
+.badge-generation-tiers{grid-template-columns:repeat(2,minmax(0,1fr));flex:1;min-width:96px}
+.badge-generation-resolution .badge-generation-dimensions{flex:2;min-width:0;flex-wrap:nowrap}
+.badge-generation-resolution .badge-generation-dimensions label{min-width:0}
+.badge-generation-actions{display:flex;align-items:stretch;gap:8px;margin-top:16px}
+.badge-generation-actions .badge-generation-count{flex:0 0 112px;box-sizing:border-box}
+.badge-generation-actions .badge-generation-submit{flex:1;min-width:0}
 .badge-generation-count{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;margin:0;background:#292e35;border:1px solid #4b545e;border-radius:8px;font-size:13px;white-space:nowrap}
 .badge-generation-count input{cursor:ew-resize;touch-action:none;user-select:none}
+.badge-generation-dimensions input:not(:disabled){cursor:ew-resize;touch-action:none;user-select:none}
 .badge-generation-dimensions label{flex:1;min-width:85px;display:flex;align-items:center;gap:8px;background:#292e35;padding:8px;border-radius:6px}
 .badge-generation input{width:100%;min-width:0;box-sizing:border-box;background:transparent;color:inherit;border:0;text-align:right;font-size:14px}
 .badge-generation-dimensions label[data-disabled=true]{opacity:.4}
@@ -127,4 +142,5 @@ export const GENERATION_CSS = `
 .badge-generation .badge-generation-hint[data-error=true]{color:#ffaaa0;border-left:3px solid #ef8d80;background:#482d2b;padding:8px 10px;border-radius:4px}
 .badge-generation input[aria-invalid=true]{outline:1px solid #ef8d80}
 .badge-generation .badge-generation-submit,.badge-local-options .badge-generation .badge-generation-submit{display:block;width:100%;max-width:none;min-height:44px;margin-top:16px;background:#087fc7;border-color:#249fea;color:#fff;font-weight:600}
+.badge-generation .badge-generation-actions .badge-generation-submit{margin-top:0}
 `;

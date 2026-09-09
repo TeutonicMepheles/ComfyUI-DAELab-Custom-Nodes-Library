@@ -13,6 +13,8 @@ DAELab 维护的 ComfyUI 自定义节点库。
 
 | 节点 ID | 显示名称 | 说明 |
 | --- | --- | --- |
+| `DAELAB.BadgeApp87V1` | `Badge 8.7 Stage Execution (DAELab)` | [#8.7 APP Mode 阶段执行](./nodes/badge_app_87/README.md)：复用 #8.6 原型控制面板，执行真实生成与确定性局部合成。 |
+| `DAELAB.BadgeApp87RegionAlignV1` | `Badge 8.7 Material Mask Alignment (DAELab)` | #8.7 内部材质遮罩配准，在生成图坐标系中吸附材质边界并保持源色参考。 |
 | `BooleanList` | `Boolean List` | 动态维护多组布尔输出。 |
 | `BooleanListHierarchy` | `Boolean List Hierarchy` | 维护最多 64 个带三层祖先级联、同层互斥组、跨分支 AND 依赖和稳定 ID 的布尔输出。 |
 | `BooleanListHierarchyGet` | `Boolean List Hierarchy Get` | 无连线选择 Hierarchy 的 Root 分支，并自动生成该分支的 Bool 输出。 |

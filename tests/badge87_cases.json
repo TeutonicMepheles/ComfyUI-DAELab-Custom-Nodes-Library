@@ -1,0 +1,541 @@
+[
+  {
+    "case": "build_bg0_height0_material0",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    }
+  },
+  {
+    "case": "build_bg0_height0_material1",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "regions": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "material_id": "glitter",
+          "material_strength": 1.2,
+          "color_policy": "preserve"
+        }
+      ]
+    }
+  },
+  {
+    "case": "build_bg0_height1_material0",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "height_image": "badge87-tests/height.png",
+    "height_board": {
+      "count": 6,
+      "fallback": 0,
+      "groups": [
+        {
+          "color": "#aaaaaa",
+          "threshold": 5,
+          "tier": 6
+        },
+        {
+          "color": "#0055aa",
+          "threshold": 5,
+          "tier": 1
+        },
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "tier": 3
+        },
+        {
+          "color": "#ffaa00",
+          "threshold": 5,
+          "tier": 5
+        }
+      ],
+      "alphas": {
+        "1": 26,
+        "3": 128,
+        "5": 204,
+        "6": 255
+      }
+    }
+  },
+  {
+    "case": "build_bg0_height1_material1",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "height_image": "badge87-tests/height.png",
+    "height_board": {
+      "count": 6,
+      "fallback": 0,
+      "groups": [
+        {
+          "color": "#aaaaaa",
+          "threshold": 5,
+          "tier": 6
+        },
+        {
+          "color": "#0055aa",
+          "threshold": 5,
+          "tier": 1
+        },
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "tier": 3
+        },
+        {
+          "color": "#ffaa00",
+          "threshold": 5,
+          "tier": 5
+        }
+      ],
+      "alphas": {
+        "1": 26,
+        "3": 128,
+        "5": 204,
+        "6": 255
+      }
+    },
+    "regions": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "material_id": "glitter",
+          "material_strength": 1.2,
+          "color_policy": "preserve"
+        }
+      ]
+    }
+  },
+  {
+    "case": "build_bg1_height0_material0",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "background": {
+      "groups": [
+        {
+          "color": "#ffffff",
+          "threshold": 5
+        }
+      ]
+    }
+  },
+  {
+    "case": "build_bg1_height0_material1",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "background": {
+      "groups": [
+        {
+          "color": "#ffffff",
+          "threshold": 5
+        }
+      ]
+    },
+    "regions": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "material_id": "glitter",
+          "material_strength": 1.2,
+          "color_policy": "preserve"
+        }
+      ]
+    }
+  },
+  {
+    "case": "build_bg1_height1_material0",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "background": {
+      "groups": [
+        {
+          "color": "#ffffff",
+          "threshold": 5
+        }
+      ]
+    },
+    "height_image": "badge87-tests/height.png",
+    "height_board": {
+      "count": 6,
+      "fallback": 0,
+      "groups": [
+        {
+          "color": "#aaaaaa",
+          "threshold": 5,
+          "tier": 6
+        },
+        {
+          "color": "#0055aa",
+          "threshold": 5,
+          "tier": 1
+        },
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "tier": 3
+        },
+        {
+          "color": "#ffaa00",
+          "threshold": 5,
+          "tier": 5
+        }
+      ],
+      "alphas": {
+        "1": 26,
+        "3": 128,
+        "5": 204,
+        "6": 255
+      }
+    }
+  },
+  {
+    "case": "build_bg1_height1_material1",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create an enamel mountain badge. Preserve the red mountain, blue field, golden sun and exact shapes.",
+    "material": {
+      "material_id": "baked_enamel"
+    },
+    "background": {
+      "groups": [
+        {
+          "color": "#ffffff",
+          "threshold": 5
+        }
+      ]
+    },
+    "height_image": "badge87-tests/height.png",
+    "height_board": {
+      "count": 6,
+      "fallback": 0,
+      "groups": [
+        {
+          "color": "#aaaaaa",
+          "threshold": 5,
+          "tier": 6
+        },
+        {
+          "color": "#0055aa",
+          "threshold": 5,
+          "tier": 1
+        },
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "tier": 3
+        },
+        {
+          "color": "#ffaa00",
+          "threshold": 5,
+          "tier": 5
+        }
+      ],
+      "alphas": {
+        "1": 26,
+        "3": 128,
+        "5": 204,
+        "6": 255
+      }
+    },
+    "regions": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "material_id": "glitter",
+          "material_strength": 1.2,
+          "color_policy": "preserve"
+        }
+      ]
+    }
+  },
+  {
+    "case": "local_color_map0_semantic",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "use_map": false,
+    "edit_mode": "semantic",
+    "prompt": "Change only the selected red mountain to a polished glossy red enamel material.",
+    "material": {
+      "material_id": "glitter"
+    },
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5
+        }
+      ]
+    }
+  },
+  {
+    "case": "local_color_map1_semantic",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "use_map": true,
+    "edit_mode": "semantic",
+    "prompt": "Change only the selected red mountain to a polished glossy red enamel material.",
+    "material": {
+      "material_id": "glitter"
+    },
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5
+        }
+      ]
+    }
+  },
+  {
+    "case": "local_color_map0_material",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "use_map": false,
+    "edit_mode": "material",
+    "prompt": "Change only the selected red mountain to a polished glossy red enamel material.",
+    "material": {
+      "material_id": "glitter"
+    },
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5
+        }
+      ]
+    }
+  },
+  {
+    "case": "local_color_map1_material",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "use_map": true,
+    "edit_mode": "material",
+    "prompt": "Change only the selected red mountain to a polished glossy red enamel material.",
+    "material": {
+      "material_id": "glitter"
+    },
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5
+        }
+      ]
+    }
+  },
+  {
+    "case": "local_polygon_map0_semantic",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "polygon",
+    "use_map": false,
+    "edit_mode": "semantic",
+    "prompt": "Change only the selected red mountain to a polished glossy red enamel material.",
+    "material": {
+      "material_id": "glitter"
+    },
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5
+        }
+      ]
+    },
+    "polygon": {
+      "polygons": [
+        {
+          "points": [
+            {
+              "x": 380,
+              "y": 560
+            },
+            {
+              "x": 510,
+              "y": 380
+            },
+            {
+              "x": 640,
+              "y": 560
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "case": "local_brush_map0_material",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "polygon",
+    "use_map": false,
+    "edit_mode": "material",
+    "prompt": "Change only the selected red mountain to a polished glossy red enamel material.",
+    "material": {
+      "material_id": "glitter"
+    },
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5
+        }
+      ]
+    },
+    "polygon": {
+      "polygons": [],
+      "brush_strokes": [
+        {
+          "diameter": 0.08,
+          "points": [
+            {
+              "x": 0.45,
+              "y": 0.55
+            },
+            {
+              "x": 0.55,
+              "y": 0.55
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "case": "studio",
+    "stage": "studio",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create a premium jewelry product studio photograph of this exact badge on a pure white seamless background, soft contact shadow, preserving its colors, shape and text."
+  },
+  {
+    "case": "missing_image",
+    "stage": "local",
+    "expected_error": "Upload a valid image"
+  },
+  {
+    "case": "empty_mask",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "colors": {
+      "groups": []
+    },
+    "edit_mode": "semantic",
+    "prompt": "Polish",
+    "expected_error": "Selected region is empty"
+  },
+  {
+    "case": "apply_without_preview",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 0
+        }
+      ]
+    },
+    "edit_mode": "semantic",
+    "prompt": "Polish",
+    "apply": true,
+    "expected_error": "Preview again before applying"
+  },
+  {
+    "case": "prompt_only",
+    "stage": "build",
+    "prompt": "A circular enamel badge with a mountain and sun, front facing, white background, no text."
+  },
+  {
+    "case": "local_wide_alpha_color_map",
+    "stage": "local",
+    "image": "badge87-tests/wide-alpha.png",
+    "selection": "color",
+    "use_map": true,
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 0
+        }
+      ]
+    },
+    "edit_mode": "semantic",
+    "prompt": "Add subtle fine horizontal grooves to the selected red surface. Preserve its red color."
+  },
+  {
+    "case": "material_intrinsic_gold",
+    "stage": "build",
+    "image": "badge87-tests/flat.png",
+    "prompt": "Create a polished enamel badge, preserve composition.",
+    "regions": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 5,
+          "material_id": "satin_gold",
+          "material_strength": 0.5,
+          "color_policy": "material_intrinsic",
+          "reroll_revision": 2
+        }
+      ]
+    }
+  },
+  {
+    "case": "changed_selection_after_preview",
+    "stage": "local",
+    "image": "badge87-tests/flat.png",
+    "selection": "color",
+    "colors": {
+      "groups": [
+        {
+          "color": "#aa0000",
+          "threshold": 0
+        }
+      ]
+    },
+    "edit_mode": "semantic",
+    "prompt": "Polish",
+    "after_preview": {
+      "prompt": "Change to blue enamel"
+    },
+    "expected_error": "Preview again before applying"
+  }
+]

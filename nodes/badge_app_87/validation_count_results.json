@@ -1,0 +1,112 @@
+{
+  "cases": [
+    {
+      "case": "build_count2",
+      "prompt_id": "9c7376e7-90d5-4bc8-af8c-5dba38be0e4d",
+      "passed": true,
+      "report": {
+        "stage": "build",
+        "quality": "low",
+        "count": 2,
+        "size": [
+          1024,
+          1024
+        ],
+        "region_calls": 0
+      },
+      "images": [
+        {
+          "filename": "build_count2_00001_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        },
+        {
+          "filename": "build_count2_00002_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        }
+      ]
+    },
+    {
+      "case": "local_count2",
+      "prompt_id": "94bed984-819a-42a9-95f3-569a5d911721",
+      "passed": true,
+      "report": {
+        "stage": "local",
+        "quality": "low",
+        "count": 2,
+        "size": [
+          1024,
+          1024
+        ],
+        "region_calls": 0,
+        "preview_token": "aa17437c2c43bef19eff2c6474fbbbed3737cff17177295e465f56fa2181f322",
+        "selected_pixels": 100601
+      },
+      "images": [
+        {
+          "filename": "local_count2_00002_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        },
+        {
+          "filename": "local_count2_00003_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        }
+      ]
+    }
+  ],
+  "pixel_checks": [
+    {
+      "case": "build_count2",
+      "task_passed": true,
+      "variant": 1,
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 2
+    },
+    {
+      "case": "build_count2",
+      "task_passed": true,
+      "variant": 2,
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 2
+    },
+    {
+      "case": "local_count2",
+      "task_passed": true,
+      "variant": 1,
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 2,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 100601,
+      "selected_pixels": 100601
+    },
+    {
+      "case": "local_count2",
+      "task_passed": true,
+      "variant": 2,
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 2,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 100601,
+      "selected_pixels": 100601
+    }
+  ]
+}

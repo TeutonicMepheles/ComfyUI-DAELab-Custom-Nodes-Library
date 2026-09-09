@@ -1,0 +1,17 @@
+[
+  {
+    "case": "gpt_map_local_semantic",
+    "task_passed": true,
+    "variant": 1,
+    "image": "C:\\Users\\Golajah\\Documents\\ComfyUI\\output\\Badge87\\e2e\\gpt_map_local_semantic_00002_.png",
+    "size": [
+      1024,
+      1024
+    ],
+    "quality": "low",
+    "count": 1,
+    "outside_max_error": 0,
+    "inside_changed_pixels": 276661,
+    "selected_pixels": 276661
+  }
+]

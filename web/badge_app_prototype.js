@@ -1,4 +1,5 @@
 import { app } from '/scripts/app.js';
+import { isBadge87 } from './badge_execution_87_model.mjs';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs';
 import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs';
 import { APPLY_ITEM, PROTOTYPE_PROPERTY, createPrototypeQueueHandler,
@@ -29,10 +30,19 @@ export function getPrototypeSession(graph, stage) {
     const state = session(graph);
     if (!stage) return state;
     state.stages ??= {};
-    return state.stages[stage] ??= { phase: 'idle', preview: null, busy: false, message: '' };
+    return state.stages[stage] ??= { phase: 'idle', preview: null, busy: false, message: isBadge87(graph) ? '就绪，点击生成。' : '' };
 }
 export async function run(graph, stage) {
     if (!isBadgePrototype(graph)) return;
+    if (isBadge87(graph)) {
+        stage ||= document.querySelector('[role="tab"][aria-selected="true"]')?.dataset.tabId;
+        const ids = ['build', 'local'].includes(stage) ? stageNodeIds(graph, stage) : stage === 'studio' ? [graph.extra.daelabBadgePrototypeV1.studioReferenceNodeId, 87] : [];
+        for (const node of ids.map(id => graph.getNodeById(id)).filter(Boolean)) {
+            for (const widget of node.widgets || []) widget.beforeQueued?.();
+        }
+        const { execute87 } = await import('./badge_execution_87.mjs?v=20260909-count');
+        return execute87(graph, stage, getPrototypeSession(graph, stage), app, nativeQueue, getPrototypeSession(graph, 'local'));
+    }
     const workflowId = graph.id;
     const state = getPrototypeSession(graph, stage);
     if (state.busy) return;
@@ -117,11 +127,14 @@ function sync() {
     setText(banner.querySelector('[data-prototype-status]'), state.message);
     banner.querySelector('button').disabled = state.busy;
 }
+let nativeQueue;
+export function getBadgeNativeQueue() { return nativeQueue; }
 app.registerExtension({
     name: 'DAELAB.BadgeAppPrototype',
     setup() {
         if (app[INSTALL_KEY]) return;
         app[INSTALL_KEY] = true;
+        nativeQueue = app.queuePrompt;
         app.queuePrompt = createPrototypeQueueHandler(app.queuePrompt, () => getRootGraphSafely(app), run);
         setInterval(sync, 300);
     },

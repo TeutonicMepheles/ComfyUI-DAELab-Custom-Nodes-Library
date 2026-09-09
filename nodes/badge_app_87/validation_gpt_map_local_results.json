@@ -1,0 +1,97 @@
+[
+  {
+    "case": "gpt_map_local_semantic",
+    "request": {
+      "version": 1,
+      "width": 1024,
+      "height": 1024,
+      "quality": "low",
+      "count": 1,
+      "seed": 87,
+      "session": "7e2d80e8-bf64-47ed-b0d7-fda19ee75aad",
+      "nonce": "94ec9d18-0869-4476-ad1d-419c71830957",
+      "case": "gpt_map_local_semantic",
+      "stage": "local",
+      "image": {
+        "filename": "flat.png",
+        "subfolder": "badge87-tests",
+        "type": "input"
+      },
+      "use_map": true,
+      "color_map": {
+        "filename": "gpt_color_map_00001_.png",
+        "subfolder": "Badge87\\e2e",
+        "type": "output"
+      },
+      "color_map_source": {
+        "filename": "flat.png",
+        "subfolder": "badge87-tests",
+        "type": "input"
+      },
+      "selection": "color",
+      "colors": {
+        "groups": [
+          {
+            "color": "#0475f9",
+            "threshold": 24
+          }
+        ]
+      },
+      "edit_mode": "semantic",
+      "prompt": "Polish only the selected region into glossy enamel. Preserve the original geometry.",
+      "apply": true,
+      "preview_token": "eb0d9e5955391832ed8b463faf42cab0717922b7738e80e0b05ad2f4a0bc5569"
+    },
+    "preview": {
+      "prompt_id": "e314a3d3-1837-4330-b34f-b27e8c2b0ce1",
+      "status": "success",
+      "seconds": 2.03,
+      "images": [
+        {
+          "filename": "gpt_map_local_semantic_00001_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        }
+      ],
+      "report": {
+        "stage": "local",
+        "quality": "low",
+        "count": 1,
+        "size": [
+          1024,
+          1024
+        ],
+        "region_calls": 0,
+        "preview_token": "eb0d9e5955391832ed8b463faf42cab0717922b7738e80e0b05ad2f4a0bc5569",
+        "selected_pixels": 276661
+      },
+      "error": null
+    },
+    "result": {
+      "prompt_id": "a17bed11-21e0-47a2-a6f3-5df06a5ec853",
+      "status": "success",
+      "seconds": 18.1,
+      "images": [
+        {
+          "filename": "gpt_map_local_semantic_00002_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        }
+      ],
+      "report": {
+        "stage": "local",
+        "quality": "low",
+        "count": 1,
+        "size": [
+          1024,
+          1024
+        ],
+        "region_calls": 0,
+        "preview_token": "eb0d9e5955391832ed8b463faf42cab0717922b7738e80e0b05ad2f4a0bc5569",
+        "selected_pixels": 276661
+      },
+      "error": null
+    },
+    "passed": true
+  }
+]

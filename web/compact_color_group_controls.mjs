@@ -138,10 +138,23 @@ export function createCompactThresholdControl({ threshold, onCommit }) {
     };
     input.addEventListener("change", () => commit(input.value));
 
+    bindCompactNumberDrag(input, {onCommit: commit, valueFromDrag: compactThresholdValueFromDrag});
+    wrapper.append(label, input);
+    return wrapper;
+}
+
+export function boundedNumberDragValue(start, delta, min, max, step = 1, pixelsPerStep = 12) {
+    return Math.min(max, Math.max(min, Number(start) + Math.round(delta / pixelsPerStep) * step));
+}
+
+export function bindCompactNumberDrag(input, {onCommit, valueFromDrag = (start, delta) => boundedNumberDragValue(start, delta,
+    Number(input.min || 0), Number(input.max || Number.MAX_SAFE_INTEGER), Number(input.step || 1))} = {}) {
+    const commit = value => onCommit?.(value);
     let dragState = null;
     let suppressClick = false;
 
     input.addEventListener("pointerdown", (event) => {
+        if (input.disabled || input.readOnly) return;
         if (event.button != null && event.button !== 0) return;
         const clientX = Number(event.clientX);
         if (!Number.isFinite(clientX)) return;
@@ -165,7 +178,7 @@ export function createCompactThresholdControl({ threshold, onCommit }) {
         if (!dragState.dragged && Math.abs(deltaX) < COMPACT_THRESHOLD_DRAG_MIN_DISTANCE) return;
         dragState.dragged = true;
         input.dataset.dragging = "true";
-        input.value = String(compactThresholdValueFromDrag(dragState.startValue, deltaX));
+        input.value = String(valueFromDrag(dragState.startValue, deltaX));
         event.preventDefault?.();
     });
 
@@ -180,7 +193,7 @@ export function createCompactThresholdControl({ threshold, onCommit }) {
         setTimeout(() => {
             suppressClick = false;
         }, 0);
-        if (cancelled) input.value = String(compactThresholdValueFromDrag(startValue, 0));
+        if (cancelled || input.disabled || input.readOnly) input.value = String(valueFromDrag(startValue, 0));
         else commit(input.value);
     };
 
@@ -193,8 +206,6 @@ export function createCompactThresholdControl({ threshold, onCommit }) {
         event.preventDefault?.();
     });
 
-    wrapper.append(label, input);
-    return wrapper;
 }
 
 export function bindCompactGroupSelection(card, onSelect) {

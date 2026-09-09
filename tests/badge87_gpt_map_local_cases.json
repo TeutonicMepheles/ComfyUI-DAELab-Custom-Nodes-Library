@@ -1,0 +1,33 @@
+[
+  {
+    "case": "gpt_map_local_semantic",
+    "stage": "local",
+    "image": {
+      "filename": "flat.png",
+      "subfolder": "badge87-tests",
+      "type": "input"
+    },
+    "use_map": true,
+    "color_map": {
+      "filename": "gpt_color_map_00001_.png",
+      "subfolder": "Badge87\\e2e",
+      "type": "output"
+    },
+    "color_map_source": {
+      "filename": "flat.png",
+      "subfolder": "badge87-tests",
+      "type": "input"
+    },
+    "selection": "color",
+    "colors": {
+      "groups": [
+        {
+          "color": "#0475f9",
+          "threshold": 24
+        }
+      ]
+    },
+    "edit_mode": "semantic",
+    "prompt": "Polish only the selected region into glossy enamel. Preserve the original geometry."
+  }
+]

@@ -1,0 +1,389 @@
+{
+  "date": "2026-09-08",
+  "python_tests": 244,
+  "node_tests": 242,
+  "cases": [
+    {
+      "case": "build_bg0_height0_material0",
+      "passed": true,
+      "prompt_id": "ff2579c3-914e-4280-8611-ee4ae6664362",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg0_height0_material0_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg0_height0_material1",
+      "passed": true,
+      "prompt_id": "d9c77d88-051e-4aed-aac0-2f63c7bd84a5",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg0_height0_material1_00004_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg0_height1_material0",
+      "passed": true,
+      "prompt_id": "7f9d6477-11c2-4a46-890d-e80d998667b3",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg0_height1_material0_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg0_height1_material1",
+      "passed": true,
+      "prompt_id": "707c39d4-d76e-48e7-b305-24defe4ab195",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg0_height1_material1_00004_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg1_height0_material0",
+      "passed": true,
+      "prompt_id": "6fc46663-7b2d-4f9c-a163-7718b727347d",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg1_height0_material0_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg1_height0_material1",
+      "passed": true,
+      "prompt_id": "2e451de9-e47f-4815-83bd-20c09f486b24",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg1_height0_material1_00004_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg1_height1_material0",
+      "passed": true,
+      "prompt_id": "d0f3d26f-b399-4725-86cf-b33a96430361",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg1_height1_material0_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "build_bg1_height1_material1",
+      "passed": true,
+      "prompt_id": "9cf31e8c-1370-4e7e-b35c-a08956473b99",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/build_bg1_height1_material1_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "local_color_map0_semantic",
+      "passed": true,
+      "prompt_id": "b0a9beaa-e863-4cab-bf2d-bc9ba77a1a2f",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "ed8f919e-cb05-4409-be73-969278efa553",
+      "output": "output/Badge87/e2e/local_color_map0_semantic_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 99704,
+      "selected_pixels": 100601
+    },
+    {
+      "case": "local_color_map1_semantic",
+      "passed": true,
+      "prompt_id": "bf2eb4af-9679-46ad-b63d-2eb21dd008df",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "b7d12793-2697-4bf7-ae07-96053443e117",
+      "output": "output/Badge87/e2e/local_color_map1_semantic_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 100567,
+      "selected_pixels": 100601
+    },
+    {
+      "case": "local_color_map0_material",
+      "passed": true,
+      "prompt_id": "681aae86-b4e7-4dfe-a2fc-cbb152bd6f3b",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "012a4fad-ff7e-4807-abcb-17d0498a71f0",
+      "output": "output/Badge87/e2e/local_color_map0_material_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 96815,
+      "selected_pixels": 100601
+    },
+    {
+      "case": "local_color_map1_material",
+      "passed": true,
+      "prompt_id": "d5db146d-2773-42d2-815d-8f3fb3ba0434",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "cfafa7c4-95c2-47bb-9127-5ce31b0c7c3b",
+      "output": "output/Badge87/e2e/local_color_map1_material_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 97134,
+      "selected_pixels": 100601
+    },
+    {
+      "case": "local_polygon_map0_semantic",
+      "passed": true,
+      "prompt_id": "d99bfe07-b7d9-40ed-ae3e-bdeb0905e3a6",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "f7b91d9c-3051-4553-a240-798e64a964d9",
+      "output": "output/Badge87/e2e/local_polygon_map0_semantic_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 23701,
+      "selected_pixels": 23701
+    },
+    {
+      "case": "local_brush_map0_material",
+      "passed": true,
+      "prompt_id": "ea97c0fd-1c1b-4035-abda-504fccf6d5c5",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "8c02b247-03df-46e4-8008-84ed2f8c114c",
+      "output": "output/Badge87/e2e/local_brush_map0_material_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 13241,
+      "selected_pixels": 13860
+    },
+    {
+      "case": "studio",
+      "passed": true,
+      "prompt_id": "208ccb9a-de3d-4387-9e7d-c191ca378fe1",
+      "status": "success",
+      "stage": "studio",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/studio_00001_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "missing_image",
+      "passed": true,
+      "prompt_id": "28a7202b-8639-4d49-a865-a4c95f5967ec",
+      "status": "error",
+      "stage": "local",
+      "expected_error": "Upload a valid image"
+    },
+    {
+      "case": "empty_mask",
+      "passed": true,
+      "prompt_id": "be855e3c-bb3a-4464-970a-23624ba01814",
+      "status": "error",
+      "stage": "local",
+      "expected_error": "Selected region is empty"
+    },
+    {
+      "case": "apply_without_preview",
+      "passed": true,
+      "prompt_id": "fcba05f9-fd8c-4ef5-9fc2-b7074a9febb9",
+      "status": "error",
+      "stage": "local",
+      "expected_error": "Preview again before applying"
+    },
+    {
+      "case": "prompt_only",
+      "passed": true,
+      "prompt_id": "f4523b89-8dec-459a-9d7c-23fa3cf6d555",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/prompt_only_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "local_wide_alpha_color_map",
+      "passed": true,
+      "prompt_id": "8d8ddbff-d213-4fed-bbe0-7c47e15f3b37",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "preview_prompt_id": "fea122be-68ca-4ae9-82a3-ef76ec5c3668",
+      "output": "output/Badge87/e2e/local_wide_alpha_color_map_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 187025,
+      "selected_pixels": 187025
+    },
+    {
+      "case": "material_intrinsic_gold",
+      "passed": true,
+      "prompt_id": "f8dc68fe-5c7b-4fdb-84aa-982b3fee8476",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/e2e/material_intrinsic_gold_00003_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "changed_selection_after_preview",
+      "passed": true,
+      "prompt_id": "b9080260-be11-4c7c-a653-868ae1168c9a",
+      "status": "error",
+      "stage": "local",
+      "expected_error": "Preview again before applying",
+      "preview_prompt_id": "5238a8be-4e3a-454a-b882-a2614c316c43"
+    },
+    {
+      "case": "browser_build",
+      "passed": true,
+      "prompt_id": "5714a1f6-7127-41c6-8085-14346d0fe9f7",
+      "status": "success",
+      "stage": "build",
+      "expected_error": null,
+      "output": "output/Badge87/build_00003_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1
+    },
+    {
+      "case": "browser_local",
+      "passed": true,
+      "prompt_id": "431ebfcb-f9ab-4e35-8f98-0788dbc4fba2",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "output": "output/Badge87/local_00002_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 100601,
+      "selected_pixels": 100601
+    },
+    {
+      "case": "browser_brush",
+      "passed": true,
+      "prompt_id": "7368d389-4ebe-4ffa-922e-30a5b1f57875",
+      "status": "success",
+      "stage": "local",
+      "expected_error": null,
+      "output": "output/Badge87/local_00004_.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "quality": "low",
+      "count": 1,
+      "outside_max_error": 0,
+      "inside_changed_pixels": 5155,
+      "selected_pixels": 5155
+    }
+  ]
+}

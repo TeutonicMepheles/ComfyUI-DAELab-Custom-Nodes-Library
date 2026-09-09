@@ -31,6 +31,8 @@ function makeGraph(nodes, linearData = {}) {
 
 test("covers every node exported by the DAELab package", () => {
     assert.deepEqual(DAELAB_NODE_TYPES, [
+  "DAELAB.BadgeApp87V1",
+  "DAELAB.BadgeApp87RegionAlignV1",
         "BooleanList",
         "BooleanListHierarchy",
         "BooleanListHierarchyGet",

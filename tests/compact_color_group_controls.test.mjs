@@ -8,6 +8,7 @@ import {
     compactThresholdValueFromDrag,
     createCompactColorControl,
     createCompactThresholdControl,
+    bindCompactNumberDrag,
 } from "../web/compact_color_group_controls.mjs";
 
 function createFakeElement(tagName) {
@@ -36,6 +37,21 @@ function createFakeElement(tagName) {
         },
     };
 }
+
+test('quantity dragging clamps to 1–8 and cancellation or disabled inputs do not commit',()=>{
+    const input=createFakeElement('input'); Object.assign(input,{min:'1',max:'8',step:'1',value:'2'});
+    const commits=[]; bindCompactNumberDrag(input,{onCommit:v=>commits.push(Number(v))});
+    const drag=(end,cancel=false)=>{
+        input.dispatch('pointerdown',{pointerId:1,button:0,clientX:100});
+        input.dispatch('pointermove',{pointerId:1,clientX:end});
+        input.dispatch(cancel?'pointercancel':'pointerup',{pointerId:1});
+    };
+    drag(136); assert.deepEqual(commits,[5]);
+    drag(1000); assert.deepEqual(commits,[5,8]);
+    drag(-1000,true); assert.equal(input.value,'8');assert.equal(commits.length,2);
+    input.disabled=true;drag(-1000);assert.equal(commits.length,2);
+    input.disabled=false;drag(-1000);assert.equal(commits.at(-1),1);
+});
 
 test("maps horizontal drag distance to a clamped integer threshold", () => {
     assert.equal(compactThresholdValueFromDrag(30, 12.4), 42);

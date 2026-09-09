@@ -1,0 +1,11 @@
+[
+  {
+    "case": "gpt_color_map_wide",
+    "stage": "color_map",
+    "image": {
+      "filename": "wide-alpha.png",
+      "subfolder": "badge87-tests",
+      "type": "input"
+    }
+  }
+]

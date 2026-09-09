@@ -1,0 +1,4 @@
+[
+  {"case":"build_count2","stage":"build","count":2,"prompt":"A blue enamel mountain badge with a golden sun on a white background, no text."},
+  {"case":"local_count2","stage":"local","count":2,"image":"badge87-tests/flat.png","selection":"color","colors":{"groups":[{"color":"#aa0000","threshold":5}]},"edit_mode":"semantic","prompt":"Add fine diagonal grooves inside the selected red region. Preserve the rest."}
+]

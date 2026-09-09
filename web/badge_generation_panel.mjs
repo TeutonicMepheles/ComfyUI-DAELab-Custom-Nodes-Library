@@ -1,4 +1,5 @@
 import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs';
+import { bindCompactNumberDrag } from './compact_color_group_controls.mjs?v=20260909-number-drag';
 
 // Both stages use the same view; only their workflow-scoped saved configuration differs.
 export function createGenerationPanel(graph, stage, { onGenerate, onChange, live }) {
@@ -52,6 +53,21 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         inputs[axis] = input;
     }
     make('span', 'PX', dimensions);
+    let countInput;
+    if (graph.extra?.daelabBadgeExecutionV1?.version === 1) {
+        tierRow.classList.add('badge-generation-resolution-count');
+        const numberRow = make('label', '张数', tierRow); numberRow.className = 'badge-generation-count';
+        countInput = make('input', '', numberRow); countInput.type = 'number'; countInput.min = '1'; countInput.max = '8'; countInput.step = '1';
+        countInput.setAttribute('aria-label', '生成个数'); countInput.title = '按住鼠标左键左右拖动调整，也可直接输入（1–8 张）';
+        const setCount = value => {
+            if (!live() || running) return;
+            const n = Number(value);
+            const count = Number.isFinite(n) ? Math.min(8, Math.max(1, Math.round(n))) : 1;
+            commit({...readGenerationConfig(graph, stage), count}); countInput.value = String(count);
+        };
+        bindCompactNumberDrag(countInput, {onCommit: setCount});
+        countInput.onchange = () => setCount(countInput.value);
+    }
     const hint = make('p', ''); hint.className = 'badge-generation-hint'; hint.setAttribute('role', 'status'); hint.id = `badge-generation-hint-${stage}`;
     for (const input of Object.values(inputs)) input.setAttribute('aria-describedby', hint.id);
     const button = make('button', '生成'); button.type = 'button'; button.className = 'badge-generation-submit'; button.setAttribute('aria-describedby', hint.id);
@@ -60,6 +76,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     let running = false, problem = '';
     function render() {
         const c = readGenerationConfig(graph, stage), error = validateDimensions(c);
+        if (countInput) { if (countInput.dataset.dragging !== 'true' && document.activeElement !== countInput) countInput.value = c.count ?? 1; countInput.disabled = running; }
         for (const [ratio, b] of ratios) {
             b.hidden = !presets.some(p => p.ratio === ratio);
             b.setAttribute('aria-pressed', String(!c.custom && c.ratio === ratio)); b.disabled = running;
@@ -84,7 +101,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         setPresets(sizes) { presets = classifyPresets(sizes); render(); },
         update({ busy = false, error = '', message = '' } = {}) {
             running = busy; problem = error; render();
-            status.textContent = busy ? '正在模拟当前阶段…' : error || message || '仅模拟当前阶段，不生成图片。';
+            status.textContent = busy ? (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? '正在生成当前阶段…' : '正在模拟当前阶段…') : error || message || '仅模拟当前阶段，不生成图片。';
         }, dispose() { element.remove(); } };
 }
 
@@ -100,6 +117,9 @@ export const GENERATION_CSS = `
 .badge-generation :focus-visible{outline:2px solid #80bfff;outline-offset:2px}
 .badge-generation-ratio-icon{display:block;border:2px solid currentColor;border-radius:3px;box-sizing:border-box}
 .badge-generation-dimensions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge-generation-resolution-count{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(96px,.6fr);align-items:stretch}
+.badge-generation-count{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;margin:0;background:#292e35;border:1px solid #4b545e;border-radius:8px;font-size:13px;white-space:nowrap}
+.badge-generation-count input{cursor:ew-resize;touch-action:none;user-select:none}
 .badge-generation-dimensions label{flex:1;min-width:85px;display:flex;align-items:center;gap:8px;background:#292e35;padding:8px;border-radius:6px}
 .badge-generation input{width:100%;min-width:0;box-sizing:border-box;background:transparent;color:inherit;border:0;text-align:right;font-size:14px}
 .badge-generation-dimensions label[data-disabled=true]{opacity:.4}

@@ -207,6 +207,37 @@ class Badge87Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'image count'):
                     M.prepare(self.request(count=count))
 
+    def test_build_passes_prepared_masks_unchanged_to_every_variant(self):
+        graph_module = types.ModuleType('comfy_execution.graph_utils')
+        nodes = []
+        class Graph:
+            def node(self, kind, id, **inputs):
+                nodes.append((kind, id, inputs))
+                return types.SimpleNamespace(out=lambda index: [id, index])
+            def finalize(self): return {}
+        graph_module.GraphBuilder = Graph
+        base = torch.ones((1, 1024, 1024, 3))
+        masks = [torch.zeros((1, 1024, 1024)) for _ in range(2)]
+        masks[0][:, 30:130, 30:130] = 1
+        masks[0][:, 200:204, 200:204] = 1  # Disconnected small island.
+        masks[0][:, 60:70, 60:70] = 0  # Hole.
+        masks[1][:, 300:400, 300:302] = 1  # Thin region.
+        originals = [mask.clone() for mask in masks]
+        prepared = {'base': base, 'support': torch.ones((1, 1024, 1024)), 'prompt': 'Build',
+                    'regions': [(mask, 'Material', {'material_id': 'glitter'}) for mask in masks]}
+        with patch.dict(sys.modules, {'comfy_execution.graph_utils': graph_module}), patch.object(M, 'prepare', return_value=prepared):
+            M.BadgeApp87V1().execute(json.dumps(self.request(stage='build', count=2)))
+        self.assertFalse(any(kind == 'DAELAB.BadgeApp87RegionAlignV1' for kind, _, _ in nodes))
+        for variant in range(2):
+            for index, mask in enumerate(masks):
+                key = f'{variant}_{index}'
+                by_id = {id: inputs for _, id, inputs in nodes}
+                self.assertIs(by_id[f'material_{key}']['model.mask'], mask)
+                self.assertIs(by_id[f'material_constraint_{key}']['region_mask'], mask)
+                self.assertIs(by_id[f'material_constraint_{key}']['flat_image'], base)
+                self.assertIs(by_id[f'material_composite_{key}']['edit_mask'], mask)
+                self.assertTrue(torch.equal(mask, originals[index]))
+
     def test_round_badge_does_not_rotate_region_and_snaps_inner_boundary(self):
         import cv2
         source = np.ones((256,256,3),np.float32)

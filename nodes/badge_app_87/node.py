@@ -297,11 +297,10 @@ class BadgeApp87V1:
             for index, (mask, prompt, config) in enumerate(prepared['regions']):
                 reroll = int(config.get('reroll_revision', 0))
                 key = f'{variant}_{index}'
-                aligned = graph.node('DAELAB.BadgeApp87RegionAlignV1', id=f'material_align_{key}',
-                    source_image=prepared['base'], target_image=current, source_mask=mask)
-                mask = aligned.out(0)
+                # Use the prepared color mask unchanged for GPT and compositing.
+                # Source image and mask already share the same contain transform.
                 candidate = generate(f'material_{key}', prompt, current, mask, seed_offset=variant*1000+index+1+reroll)
-                candidate = constrain(f'material_constraint_{key}', current, candidate, mask, config, aligned.out(1))
+                candidate = constrain(f'material_constraint_{key}', current, candidate, mask, config, prepared['base'])
                 current = graph.node('BadgeDeterministicComposite', id=f'material_composite_{key}', previous_master=current, edit_candidate=candidate, edit_mask=mask).out(0)
             output = current if output is None else graph.node('ImageBatch', id=f'collect_{variant}', image1=output, image2=current).out(0)
         return {'result': (output, json.dumps(report)), 'expand': graph.finalize(), 'ui': {'badge87_report': [report]}}

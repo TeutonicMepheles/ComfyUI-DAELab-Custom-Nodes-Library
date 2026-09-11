@@ -17,12 +17,60 @@ M = importlib.import_module('badge87_test_package.nodes.badge_app_87.node')
 
 
 class Badge87Tests(unittest.TestCase):
+    def test_color_reference_prefers_background_removed_flat_with_raw_fallback(self):
+        original = np.full((1024, 1024, 4), [212, 1, 117, 255], dtype=np.uint8)
+        original[100:200, 100:200] = [20, 130, 100, 255]
+        background = {'groups': [{'color': '#d40175', 'threshold': 0}]}
+        def source(ref): return original if ref == 'original.png' else self.source()
+        with patch.object(M, 'load_source', side_effect=source):
+            build = M.prepare(self.request(stage='build', image='original.png', background=background))
+            for stage in ('local', 'studio'):
+                request = self.request(stage=stage, original_image='original.png', original_background=background)
+                cleaned = M.prepare(request)['original']
+                self.assertTrue(torch.equal(cleaned, build['base']))
+                self.assertTrue(torch.equal(cleaned[0, 0, 0], torch.ones(3)))
+                self.assertTrue(torch.allclose(cleaned[0, 150, 150], torch.tensor([20, 130, 100])/255))
+                request.pop('original_background')
+                fallback = M.prepare(request)['original']
+                self.assertTrue(torch.allclose(fallback[0, 0, 0], torch.tensor([212, 1, 117])/255))
+
+    def test_material_prompts_follow_existing_color_policy_without_swatch_instructions(self):
+        from badge87_test_package.nodes.badge_app_87.prompts import SURFACES
+        for material_id in SURFACES:
+            with self.subTest(material=material_id), patch.object(M, 'load_source', return_value=self.source()):
+                local = M.prepare(self.request(edit_mode='material', material={'material_id': material_id}))
+                prompt = local['prompt']
+                self.assertIn('保留输入图对应位置的底色', prompt)
+                self.assertNotIn('摄影表现', prompt)
+                for excluded in ('中央', '18', '图2', 'softbox', 'REFERENCE', 'COLOR POLICY'):
+                    self.assertNotIn(excluded, prompt)
+        preserve = M.material_prompt({'material_id': 'satin_gold'})
+        intrinsic = M.material_prompt({'material_id': 'satin_gold', 'color_policy': 'material_intrinsic'})
+        self.assertNotIn('#c8a86b', preserve)
+        self.assertIn('#c8a86b', intrinsic)
+        self.assertNotIn('保留输入图对应位置的底色', intrinsic)
+
+    def test_clear_lacquer_and_semantic_edits_do_not_receive_conflicting_invariants(self):
+        with patch.object(M, 'load_source', return_value=self.source()):
+            lacquer = M.prepare(self.request(edit_mode='material', material={'material_id': 'transparent_lacquer'}))
+            semantic = M.prepare(self.request(prompt='将选区浮雕降低，保留文字。'))
+        self.assertIn('保留底层图案、纹理', lacquer['prompt'])
+        self.assertNotIn('替换旧材质微纹理', lacquer['prompt'])
+        self.assertIn('将选区浮雕降低，保留文字。', semantic['prompt'])
+        self.assertIn('本次未要求改变', semantic['prompt'])
+        self.assertNotIn('材质：', semantic['prompt'])
+
     def test_explicit_prompt_only_ignores_all_structured_inputs(self):
         request = self.request(stage='build', prompt_only=True, prompt='A blue planet',
                                height_image='old.png', height_board={'bad': True}, material={'bad': True})
         with patch.object(M, 'load_source', side_effect=AssertionError('Must not load a reference')):
             prepared = M.prepare(request)
-        self.assertEqual(prepared, {'base': None, 'prompt': 'A blue planet', 'regions': []})
+        self.assertIsNone(prepared['base'])
+        self.assertEqual(prepared['regions'], [])
+        self.assertIn('A blue planet', prepared['prompt'])
+        self.assertIn('纯白', prepared['prompt'])
+        self.assertNotIn('图1', prepared['prompt'])
+        self.assertNotIn('图2', prepared['prompt'])
         with self.assertRaises(ValueError):
             M.prepare({**request, 'prompt': ' '})
 
@@ -30,7 +78,9 @@ class Badge87Tests(unittest.TestCase):
         request = self.request(stage='build', prompt_only=False, prompt='Soft lighting')
         with patch.object(M, 'load_source', return_value=self.source()):
             prepared = M.prepare(request)
-        self.assertTrue(prepared['prompt'].startswith('Soft lighting\n\nCreate a front-facing'))
+        self.assertIn('用户要求：Soft lighting', prepared['prompt'])
+        self.assertIn('图1', prepared['prompt'])
+        self.assertNotIn('图2', prepared['prompt'])
         with self.assertRaises(ValueError):
             M.prepare({**request, 'image': None})
 
@@ -49,7 +99,7 @@ class Badge87Tests(unittest.TestCase):
             request.update(apply=True, preview_token=preview['ui']['badge87_report'][0]['preview_token'])
             result = M.BadgeApp87V1().execute(json.dumps(request))
         generated = next(i for k, i in nodes if k == 'OpenAIGPTImageNodeV2')
-        self.assertIn('broad soft metallic reflections', generated['prompt'])
+        self.assertIn('柔和的金属反射', generated['prompt'])
         self.assertIn('遮罩指定', generated['prompt'])
         for excluded in ('unused semantic tab', '太阳能板', 'REFERENCE COLOR LOCK', 'color lock wins'):
             self.assertNotIn(excluded, generated['prompt'])
@@ -175,7 +225,9 @@ class Badge87Tests(unittest.TestCase):
         constraint = next(inputs for kind,inputs in nodes if kind=='BadgeMaterialConstraintV1')
         self.assertEqual(constraint['color_policy'],'preserve')
         self.assertEqual(constraint['material_strength'],1.2)
-        self.assertEqual(nodes[-1][0],'BadgeDeterministicComposite')
+        self.assertEqual(nodes[-2][0],'BadgeDeterministicComposite')
+        self.assertEqual(nodes[-1][0],'OpenAIGPTImageNodeV2')
+        self.assertNotIn('model.mask',nodes[-1][1])
         for kind,inputs in nodes:
             if kind=='OpenAIGPTImageNodeV2':
                 self.assertEqual((inputs['model.quality'],inputs['model.size'],inputs['n']),('low','1024x1024',1))
@@ -233,10 +285,43 @@ class Badge87Tests(unittest.TestCase):
                 key = f'{variant}_{index}'
                 by_id = {id: inputs for _, id, inputs in nodes}
                 self.assertIs(by_id[f'material_{key}']['model.mask'], mask)
+                self.assertNotIn('model.images.image_2', by_id[f'material_{key}'])
+                self.assertIs(by_id[f'color_finish_{variant}']['model.images.image_2'], base)
+                self.assertNotIn('model.mask', by_id[f'color_finish_{variant}'])
+                self.assertIn('原平面稿', by_id[f'color_finish_{variant}']['prompt'])
                 self.assertIs(by_id[f'material_constraint_{key}']['region_mask'], mask)
                 self.assertIs(by_id[f'material_constraint_{key}']['flat_image'], base)
                 self.assertIs(by_id[f'material_composite_{key}']['edit_mask'], mask)
                 self.assertTrue(torch.equal(mask, originals[index]))
+
+    def test_original_reference_reaches_local_and_studio_and_invalidates_preview(self):
+        graph_module = types.ModuleType('comfy_execution.graph_utils')
+        nodes = {}
+        class Graph:
+            def node(self, kind, id, **inputs):
+                nodes[id] = inputs
+                return types.SimpleNamespace(out=lambda index: [id, index])
+            def finalize(self): return {}
+        graph_module.GraphBuilder = Graph
+        original = self.source().copy()
+        def source(ref): return original if ref == 'original.png' else self.source()
+        with patch.dict(sys.modules, {'comfy_execution.graph_utils': graph_module}), patch.object(M, 'load_source', side_effect=source):
+            request = self.request(original_image='original.png')
+            preview = M.BadgeApp87V1().execute(json.dumps(request))
+            request.update(apply=True, preview_token=preview['ui']['badge87_report'][0]['preview_token'])
+            M.BadgeApp87V1().execute(json.dumps(request))
+            self.assertNotIn('model.images.image_2', nodes['generate'])
+            self.assertIn('model.mask', nodes['generate'])
+            self.assertIn('model.images.image_2', nodes['color_finish_0'])
+            self.assertNotIn('model.mask', nodes['color_finish_0'])
+            self.assertEqual(nodes['color_finish_composite_0']['edit_candidate'], ['color_finish_0', 0])
+            self.assertTrue(torch.equal(nodes['color_finish_composite_0']['edit_mask'], nodes['generate']['model.mask']))
+            original[..., 0] = 25
+            with self.assertRaisesRegex(ValueError, 'Preview again'):
+                M.BadgeApp87V1().execute(json.dumps(request))
+            M.BadgeApp87V1().execute(json.dumps(self.request(stage='studio', original_image='original.png')))
+            self.assertIn('model.images.image_2', nodes['generate'])
+            self.assertIn('斜立', nodes['generate']['prompt'])
 
     def test_round_badge_does_not_rotate_region_and_snaps_inner_boundary(self):
         import cv2

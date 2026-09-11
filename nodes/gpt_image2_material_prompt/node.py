@@ -56,37 +56,6 @@ _REGION_DIAGNOSTIC_COLORS = (
 )
 
 FALLBACK_MATERIALS = {
-    "dark_brushed_bronze": {
-        "label": "深色拉丝古铜",
-        "thumbnail": "dark_brushed_bronze.png",
-        "semantic": (
-            "金属基材具有细密纵向拉丝和轻微不规则的各向异性纹理，"
-            "中高金属反射与中等偏低粗糙度；只改变表面反射和微观纹理，"
-            "保留参考图已有的局部明暗层次"
-        ),
-        "application": (
-            "拉丝方向应顺应目标区域的局部曲面和结构走向，反射、高光与阴影必须继承"
-            "原徽章的光源方向、曲率、浮雕起伏和环境照明"
-        ),
-        "avoid": "不要生成锈蚀、明显刮伤、过度镜面反射或材质球形状",
-    },
-    "light_speckled_enamel": {
-        "label": "浅灰细砂珐琅",
-        "thumbnail": "glossy_enamel.png",
-        "semantic": (
-            "玻璃质珐琅釉面中均匀分布极细密的矿物状微颗粒，表面平整圆润并具有"
-            "连续釉层，高光清晰柔和、反射强度中高、整体低粗糙度，同时保留"
-            "细颗粒带来的轻微视觉砂感；颗粒只改变微观起伏与反射分布"
-        ),
-        "application": (
-            "颗粒尺寸必须细小并与徽章尺度协调，均匀嵌入珐琅釉层而不是浮在表面；"
-            "高光、反射和明暗渐变必须服从原徽章的局部曲率、浮雕结构和环境照明"
-        ),
-        "avoid": (
-            "不要生成石材孔洞、粗颗粒水磨石、金属拉丝、橘皮纹、裂纹、气泡、"
-            "材质球轮廓或预览图中的棚拍窗格高光"
-        ),
-    },
     "baked_enamel": {
         "label": "烤漆",
         "thumbnail": "baked_enamel.png",
@@ -190,7 +159,7 @@ def material_labels(materials: dict[str, dict]) -> list[str]:
             label = material_id
         labels.append(label)
         used.add(label)
-    return labels or ["深色拉丝古铜"]
+    return labels or ["烤漆"]
 
 
 def resolve_material(
@@ -204,7 +173,7 @@ def resolve_material(
             return material_id, material
     return next(
         iter(materials.items()),
-        ("dark_brushed_bronze", FALLBACK_MATERIALS["dark_brushed_bronze"]),
+        ("baked_enamel", FALLBACK_MATERIALS["baked_enamel"]),
     )
 
 

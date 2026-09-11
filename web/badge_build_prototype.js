@@ -2,8 +2,9 @@ import { generateColorSelectionSource } from './badge_color_source.mjs';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
 import { generateGptColorMap87 } from './badge_color_map_87.mjs';
 import { decorateExclusivePair } from './badge_exclusive_pair.mjs';
-import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs';
-import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87 } from './badge_result_target_87.mjs?v=20260909-navigation';
+import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
+import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87 } from './badge_result_target_87.mjs?v=20260911-media-restore';
+import { createResultPicker87 } from './badge_result_picker_87.mjs?v=20260911-media-restore';
 import { drawSelectionMask } from './badge_selection_render.mjs';
 import { app } from '/scripts/app.js';
 import { api } from '/scripts/api.js';
@@ -98,6 +99,11 @@ function mount(graph, root, tabId = 'build') {
     }
     const bar = make('div'); bar.className = 'badge-build-bar badge-build-upload-bar';
     if (local) make('strong', '待编辑目标图', bar);
+    const resultPicker = local && segmented ? createResultPicker87(graph, {
+        session: getPrototypeSession(graph, 'local'), live, imageURL: path => api.apiURL(path),
+        onChange: () => { colorPicker.close(); gallery.close(); update(); },
+    }) : null;
+    if (resultPicker) bar.after(resultPicker.element);
     let targetSourceButtons = [];
     let targetSources = null;
     if (local && segmented) {
@@ -108,7 +114,7 @@ function mount(graph, root, tabId = 'build') {
         sources.setAttribute('role', 'radiogroup'); sources.setAttribute('aria-label', '编辑对象来源');
         targetSourceButtons = [['generated', '生成结果'], ['existing', '上传图片']].map(([source, label], i) => {
             const control = button(label, sources, () => {
-                if (!live()) return;
+                if (!live() || getPrototypeSession(graph, 'local').busy) return;
                 imageSelections.set(imageWidget(), Symbol('source selection'));
                 latestUpload = null; file.value = '';
                 selectLocalSource87(graph, source, getPrototypeSession(graph, 'local')); update();
@@ -203,6 +209,7 @@ function mount(graph, root, tabId = 'build') {
     }
     async function upload(blob) {
         if (!live()) return;
+        if (local && segmented && getPrototypeSession(graph, 'local').busy) return;
         if (local && segmented && localTargets87(graph).source !== 'existing') { status.textContent = '请先在“局部修改”中选择“上传图片”。'; return; }
         if (!blob || !blob.type.startsWith('image/')) { status.textContent = '请选择图片文件。'; return; }
         const target = sourceNode(), w = imageWidget();
@@ -545,11 +552,15 @@ function mount(graph, root, tabId = 'build') {
     function updateLocal() {
         if (segmented) {
             const source = localTargets87(graph).source;
+            const busy = Boolean(getPrototypeSession(graph, 'local').busy);
+            resultPicker.update();
             targetSourceButtons.forEach((control, i) => { const selected = (i === 0 ? 'generated' : 'existing') === source; control.setAttribute('aria-checked', String(selected)); control.tabIndex = selected ? 0 : -1; });
-            targetSourceButtons[0].disabled = !normalizeImageSelection(localTargets87(graph).generated);
-            targetSourceButtons[0].title = targetSourceButtons[0].disabled ? '请先在“效果图生成”中生成一张图片' : '编辑当前工作流的生成结果';
+            targetSourceButtons[0].disabled = busy || !normalizeImageSelection(localTargets87(graph).generated);
+            targetSourceButtons[1].disabled = busy;
+            targetSourceButtons[0].title = busy ? '正在编辑，暂不可切换目标' : targetSourceButtons[0].disabled ? '请先在“效果图生成”中生成一张图片' : '编辑当前工作流的生成结果';
             uploadButton.hidden = existing.hidden = source !== 'existing';
-            uploadButton.disabled = Boolean(latestUpload);
+            uploadButton.disabled = busy || Boolean(latestUpload);
+            existing.disabled = busy;
         }
         sections.hidden = true;
         const h = hierarchy(), enabled = itemValue(h, 'badge.post.local');
@@ -924,6 +935,16 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-build-image-card img {width:100%;height:130px;object-fit:contain;background:repeating-conic-gradient(#282d32 0% 25%,#343b42 0% 50%) 50% / 16px 16px;border-radius:4px;}
     .badge-build-image-card span {overflow-wrap:anywhere;font-size:12px;}
     .badge-build-image-card[aria-pressed="true"] {border-color:#39c8b1;background:#254a43;}
+    .badge-result-picker {flex:none;min-width:0;width:100%;box-sizing:border-box;}
+    .badge-result-picker[hidden] {display:none;}
+    .badge-result-picker p {margin:4px 0 8px;}
+    .badge-result-grid {display:flex;gap:6px;overflow-x:auto;padding-bottom:3px;}
+    .badge-result-grid .badge-build-image-card {flex:0 0 64px;width:64px;box-sizing:border-box;padding:4px;border:1px solid #52606b;border-radius:6px;}
+    .badge-result-grid .badge-build-image-card[aria-pressed="true"] {border:2px solid #39c8b1;}
+    .badge-result-grid img {height:48px;object-fit:contain;}
+    .badge-result-grid .badge-build-image-card span {font-size:11px;white-space:nowrap;}
+    .badge-result-grid button:focus-visible {outline:2px solid #80bfff;outline-offset:2px;}
+    .badge-result-picker button:disabled {opacity:.6;cursor:wait;}
     [data-badge-build-list] {flex:0 0 auto!important;min-height:0!important;overflow:visible!important;}
     `;
     document.head.append(style);

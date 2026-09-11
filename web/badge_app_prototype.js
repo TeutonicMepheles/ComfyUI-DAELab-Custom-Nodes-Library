@@ -42,7 +42,7 @@ export async function run(graph, stage) {
         for (const node of ids.map(id => graph.getNodeById(id)).filter(Boolean)) {
             for (const widget of node.widgets || []) widget.beforeQueued?.();
         }
-        const { execute87 } = await import('./badge_execution_87.mjs?v=20260909-count');
+        const { execute87 } = await import('./badge_execution_87.mjs?v=20260911-media-restore');
         return execute87(graph, stage, getPrototypeSession(graph, stage), app, nativeQueue, getPrototypeSession(graph, 'local'));
     }
     const workflowId = graph.id;

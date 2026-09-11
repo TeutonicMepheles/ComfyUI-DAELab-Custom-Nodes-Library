@@ -32,7 +32,7 @@ import {
     showMaterialHoverPreview,
 } from "./material_hover_preview.mjs?v=20260904-1";
 
-const UI_VERSION = "20260904-gpt-image2-carousel-v17";
+const UI_VERSION = "20260910-six-materials-v18";
 const APP_HEADING_PROPERTY = "daelab_app_heading";
 const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
@@ -43,8 +43,6 @@ const LEGACY_COLOR_WIDGET_NAMES = new Set([
     LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME,
 ]);
 const DEFAULT_MATERIALS = {
-    dark_brushed_bronze: { label: "深色拉丝古铜", thumbnail: "dark_brushed_bronze.png" },
-    light_speckled_enamel: { label: "浅灰细砂珐琅", thumbnail: "glossy_enamel.png" },
     baked_enamel: { label: "烤漆", thumbnail: "baked_enamel.png" },
     transparent_lacquer: { label: "透明漆", thumbnail: "transparent_lacquer.png" },
     satin_gold: { label: "亚金", thumbnail: "satin_gold.png" },
@@ -87,7 +85,7 @@ function entries() {
 }
 
 function defaultMaterialId() {
-    return entries()[0]?.id || "dark_brushed_bronze";
+    return entries()[0]?.id || "baked_enamel";
 }
 
 function widgetValueForId(materialId) {

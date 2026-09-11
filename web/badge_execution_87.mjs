@@ -1,7 +1,7 @@
 import { requestForStage, promptForRequest } from './badge_execution_87_model.mjs?v=20260909-prompt-only-1';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs';
 import { queueBadge87 } from './badge_execution_87_queue.mjs';
-import { updateLocalTarget87 } from './badge_result_target_87.mjs';
+import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260911-media-restore';
 
 // No replacement controls or DOM listeners: the original stage runner delegates here.
 export async function execute87(graph, stage, state, app, nativeQueue, localSession, validateOnly = false) {
@@ -68,8 +68,9 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
             graph.getNodeById(113)?.onExecuted?.({images});
             state.images = images;
             state.seed = undefined;
-            if (stage === 'build' && updateLocalTarget87(graph, images[0], localSession)) {
-                state.message = '生成完成，已更新局部编辑目标图。';
+            if (stage === 'build') {
+                const updated = updateLocalTarget87(graph, images, localSession);
+                state.message = updated ? `生成完成，共 ${images.length} 张；局部编辑默认选中第 1 张。` : `生成完成，共 ${images.length} 张；可在局部修改中查看并选择，当前目标保持不变。`;
             }
         }
     } catch (error) {

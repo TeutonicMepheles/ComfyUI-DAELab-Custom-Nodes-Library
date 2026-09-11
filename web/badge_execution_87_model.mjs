@@ -78,8 +78,15 @@ export function requestForStage(graph, stage) {
             if (!request.prompt.trim()) throw new Error('请填写棚拍提示词。');
         }
     } else throw new Error('Unsupported stage.');
+    if (stage === 'local' || stage === 'studio') {
+        request.original_image = image(1);
+        // Rebuild the reference from the current source and its existing removal config.
+        if (request.original_image && meta.backgroundEnabled !== false && isNodeAvailableInAppMode(node(47))) {
+            request.original_background = config(47, 'multi_color_mask_v1_panel', 'config_json');
+        }
+    }
     enabled(graph.extra.daelabBadgeExecutionV1.executorNodeId);
-    return { request, fingerprint: request.use_map ? JSON.stringify([snapshot?.fingerprint, request.color_map]) : snapshot?.fingerprint ?? JSON.stringify(request) };
+    return { request, fingerprint: request.original_image ? JSON.stringify([snapshot?.fingerprint, request]) : request.use_map ? JSON.stringify([snapshot?.fingerprint, request.color_map]) : snapshot?.fingerprint ?? JSON.stringify(request) };
 }
 
 export function promptForRequest(request, executorId = 200) {

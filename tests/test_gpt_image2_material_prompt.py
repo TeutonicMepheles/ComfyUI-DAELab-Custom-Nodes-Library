@@ -24,9 +24,9 @@ class GPTImage2MaterialPromptTests(unittest.TestCase):
             self.materials, "深色拉丝古铜"
         )
 
-    def test_catalog_resolves_stable_ids_and_contains_eight_materials(self):
-        self.assertEqual(len(self.materials), 8)
-        self.assertEqual(self.material_id, "dark_brushed_bronze")
+    def test_catalog_resolves_stable_ids_and_contains_six_materials(self):
+        self.assertEqual(len(self.materials), 6)
+        self.assertEqual(self.material_id, "baked_enamel")
         expected = {
             "baked_enamel": "烤漆",
             "transparent_lacquer": "透明漆",
@@ -35,6 +35,8 @@ class GPTImage2MaterialPromptTests(unittest.TestCase):
             "glitter": "闪粉",
             "rhinestone": "水钻",
         }
+        self.assertEqual(set(self.materials), set(expected))
+        self.assertEqual(set(MODULE.FALLBACK_MATERIALS), set(expected))
         for material_id, label in expected.items():
             resolved_id, material = MODULE.resolve_material(self.materials, label)
             self.assertEqual(resolved_id, material_id)
@@ -171,23 +173,23 @@ class GPTImage2MaterialPromptTests(unittest.TestCase):
         )
 
         prompt, semantics, preview = MODULE.GPTImage2MaterialPrompt().execute(
-            "深色拉丝古铜",
+            "烤漆",
             MODULE.DEFAULT_BASE_PROMPT,
             "",
         )
-        self.assertIn("anisotropic microtexture", prompt)
-        self.assertIn("anisotropic microtexture", semantics)
+        self.assertIn("opaque heat-cured enamel", prompt)
+        self.assertIn("opaque heat-cured enamel", semantics)
         self.assertEqual(preview.shape[-1], 3)
 
     def test_change_hash_uses_only_current_inputs_and_assets(self):
         first = MODULE.GPTImage2MaterialPrompt.IS_CHANGED(
-            "深色拉丝古铜", "", ""
+            "烤漆", "", ""
         )
         second = MODULE.GPTImage2MaterialPrompt.IS_CHANGED(
-            "深色拉丝古铜", "", ""
+            "烤漆", "", ""
         )
         changed = MODULE.GPTImage2MaterialPrompt.IS_CHANGED(
-            "深色拉丝古铜", "", "更细的纹理"
+            "烤漆", "", "更细的纹理"
         )
         self.assertEqual(first, second)
         self.assertNotEqual(first, changed)
@@ -294,7 +296,7 @@ class GPTImage2MaterialPromptTests(unittest.TestCase):
         self.assertIn("crisp visual material boundary on one continuous nominal support surface", semantics)
         self.assertIn("Do not add a macro ridge, groove, gap, bevel, or height step", semantics)
         self.assertIn("existing baked-enamel continuity outside the selected regions", semantics)
-        self.assertNotIn("深色拉丝古铜", semantics)
+        self.assertNotIn("烤漆", semantics)
         self.assertIn("Configured pixels: 2", report)
 
     def test_material_region_node_schema_connects_directly_to_badge_prompt_builder(self):

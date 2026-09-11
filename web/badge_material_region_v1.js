@@ -61,8 +61,6 @@ const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./material_thumbs/", import.meta.url);
 const DEFAULT_MATERIALS = {
-    dark_brushed_bronze: { label: "深色拉丝古铜", thumbnail: "dark_brushed_bronze.png" },
-    light_speckled_enamel: { label: "浅灰细砂珐琅", thumbnail: "glossy_enamel.png" },
     baked_enamel: { label: "烤漆", thumbnail: "baked_enamel.png" },
     transparent_lacquer: { label: "透明漆", thumbnail: "transparent_lacquer.png" },
     satin_gold: { label: "亚金", thumbnail: "satin_gold.png", intrinsic_color_hex: "#c8a86b" },

@@ -14,6 +14,22 @@ function fixture() {
     return {g,set};
 }
 
+test('local color reference uses removal config and invalidates preview on changes',()=>{
+    const {g,set}=fixture();
+    for(const [key,val] of [['badge.post.local',true],['badge.post.local.selection.color',true],['badge.post.local.selection.polygon',false],['badge.post.local.semantic',true],['badge.post.local.material',false]])set(key,val);
+    g.getNodeById(146).widgets_values_named.image='target.png';
+    g.getNodeById(1).widgets_values_named.image='flat.png';
+    const meta=g.extra.daelabBadgePrototypeV1;meta.backgroundEnabled=true;
+    const first=requestForStage(g,'local');
+    assert.ok(first.request.original_background);
+    assert.equal(first.request.original_image.filename,'flat.png');
+    meta.backgroundEnabled=false;
+    const fallback=requestForStage(g,'local');
+    assert.equal(fallback.request.original_background,undefined);
+    assert.equal(fallback.request.original_image.filename,'flat.png');
+    assert.notEqual(first.fingerprint,fallback.fingerprint);
+});
+
 test('explicit prompt-only ignores retained, bypassed and malformed structured inputs',()=>{
     const {g}=fixture(), meta=g.extra.daelabBadgePrototypeV1;
     meta.promptOnly=true; meta.buildPrompt='A blue planet';

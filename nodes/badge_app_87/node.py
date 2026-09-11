@@ -13,7 +13,8 @@ import numpy as np
 import torch
 from PIL import Image, ImageOps
 
-from ..gpt_image2_material_prompt.node import load_materials, resolve_material, build_material_prompt, build_masked_surface_prompt
+from ..gpt_image2_material_prompt.node import load_materials, resolve_material
+from .prompts import build_prompt, material_details, masked_prompt, semantic_prompt, studio_prompt
 
 _PREVIEWS = {}
 _LOCK = Lock()
@@ -104,8 +105,8 @@ def height_config(board):
 
 
 def material_prompt(config):
-    _, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
-    return build_material_prompt(material, config.get('base_prompt', ''), config.get('additional_details', ''))[0]
+    material_id, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
+    return material_details(material_id, material, config)
 
 
 def prepare(request):
@@ -119,7 +120,7 @@ def prepare(request):
     if stage == 'build' and (request.get('prompt_only') is True or ('prompt_only' not in request and not request.get('image'))):
         if not base_prompt:
             raise ValueError('Enter a base prompt or upload a material image.')
-        return {'base': None, 'prompt': base_prompt, 'regions': []}
+        return {'base': None, 'prompt': build_prompt(base_prompt, text_only=True), 'regions': []}
     if stage == 'build' and not request.get('image'):
         raise ValueError('Upload a material image or enable prompt-only mode.')
     source = load_source(request.get('image'))
@@ -136,13 +137,13 @@ def prepare(request):
     working = np.floor(rgb.astype(float)*(support[..., None]/255) + 255*(1-support[..., None]/255)+.5).astype(np.uint8)
     result = {'base': tensor(contain(working, size)), 'support': tensor(contain(support, size, True, 0)), 'regions': [], 'prompt': base_prompt}
     if stage == 'build':
-        result['prompt'] = '\n\n'.join([base_prompt, 'Create a front-facing manufactured badge. Preserve all source colors, exact text, geometry and composition. Keep the background white. Apply surface appearance without inventing graphic regions.', material_prompt(request.get('material', {}))])
+        result['prompt'] = build_prompt(base_prompt, material_prompt(request.get('material', {})))
         if request.get('height_board') is not None:
             height_source = load_source(request.get('height_image'))
             config = height_config(request['height_board'])
             height = matches(height_source[..., :3], config, True)
             result['height'] = tensor(np.repeat(contain(height, size, True, 0)[..., None], 3, -1))
-            result['prompt'] += '\nImage 2 is the exact relief height guide. Black is cutout/no solid; each gray value is a physical height. Use only its configured heights, preserve boundaries; do not interpret its colors as albedo. Heights: '+json.dumps(config, separators=(',', ':'))
+            result['prompt'] = build_prompt(base_prompt, material_prompt(request.get('material', {})), height=json.dumps(config, separators=(',', ':')))
         region_config = request.get('regions')
         if region_config:
             # Assign overlaps once, with the same nearest-color policy as the material node.
@@ -159,10 +160,8 @@ def prepare(request):
                 mask = tensor(contain((assigned == i).astype(np.uint8)*255, size, True, 0))
                 if int((mask > .5).sum()) < 16:
                     continue
-                prompt = material_prompt(group)
-                prompt += f"\nMaterial intensity: {float(group.get('material_strength', 1))*100:.0f}%."
-                if group.get('color_policy') == 'material_intrinsic':
-                    prompt += '\nFor the selected area only, use the catalog material intrinsic color instead of the source color lock.'
+                prompt = masked_prompt(material_prompt(group))
+                prompt += f"\n材质表现强度：{float(group.get('material_strength', 1))*100:.0f}%."
                 result['regions'].append((mask, prompt, group))
     elif stage == 'local':
         if request.get('selection') == 'color':
@@ -188,13 +187,24 @@ def prepare(request):
             raise ValueError('Selected region is empty or below 16 pixels. Preview another selection.')
         if request.get('edit_mode') == 'material':
             config = request.get('material', {})
-            _, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
-            result['prompt'] = build_masked_surface_prompt(material, config.get('base_prompt', ''), config.get('additional_details', ''))
+            result['prompt'] = masked_prompt(material_prompt({**config, 'color_policy': 'preserve'}))
         elif request.get('edit_mode') != 'semantic' or not base_prompt:
             raise ValueError('Enter an edit description or choose a material.')
-        result['prompt'] += '\nEdit only the white mask region. Preserve all unselected pixels, silhouette, typography, placement and geometry.'
-    elif stage == 'studio' and not base_prompt:
-        raise ValueError('Enter the studio prompt.')
+        else:
+            result['prompt'] = semantic_prompt(base_prompt)
+    elif stage == 'studio':
+        if not base_prompt:
+            raise ValueError('Enter the studio prompt.')
+        result['prompt'] = studio_prompt(base_prompt)
+    if stage in ('local', 'studio') and request.get('original_image'):
+        original = load_source(request['original_image'])
+        original_support = original[..., 3].copy()
+        original_background = request.get('original_background')
+        if original_background is not None:
+            original_support = np.minimum(original_support, 255-matches(original[..., :3], original_background))
+        original_alpha = original_support[..., None]/255
+        original_rgb = np.floor(original[..., :3].astype(float)*original_alpha+255*(1-original_alpha)+.5).astype(np.uint8)
+        result['original'] = tensor(contain(original_rgb, size))
     return result
 
 
@@ -237,8 +247,9 @@ class BadgeApp87V1:
         if stage == 'local':
             digest_request = {k: v for k, v in request.items() if k not in ('apply', 'nonce', 'preview_token')}
             digest = hashlib.sha256(json.dumps(digest_request, sort_keys=True).encode())
-            for key in ('base', 'mask'):
-                digest.update(prepared[key].numpy().tobytes())
+            for key in ('base', 'mask', 'original'):
+                if key in prepared:
+                    digest.update(prepared[key].numpy().tobytes())
             token = digest.hexdigest()
             session = str(request.get('session', ''))
             if not session:
@@ -258,19 +269,29 @@ class BadgeApp87V1:
                 return {'result': (overlay, json.dumps(report)), 'ui': {'badge87_report': [report]}}
         if stage == 'effect':
             return {'result': (prepared['base'], json.dumps(report)), 'ui': {'badge87_report': [report]}}
+        from .prompts import original_color_prompt
         graph = GraphBuilder()
         w, h = dimensions(request)
-        def generate(name, prompt, base=None, mask=None, height=None, seed_offset=0, n=1):
+        def generate(name, prompt, base=None, mask=None, height=None, seed_offset=0, n=1, original=None):
             inputs = {'prompt': prompt, 'model': 'gpt-image-2', 'model.size': f'{w}x{h}' if (w,h) in ((1024,1024),(1024,1536),(1536,1024),(2048,2048),(2048,1152),(1152,2048)) else 'Custom', 'model.custom_width': w, 'model.custom_height': h, 'model.background': 'opaque', 'model.quality': request.get('quality', 'low'), 'n': 1, 'seed': (int(request.get('seed', 0))+seed_offset) % 2147483647}
             inputs['n'] = n
             if base is not None:
                 inputs['model.images.image_1'] = base
             if height is not None:
                 inputs['model.images.image_2'] = height
+            if original is not None:
+                index = 3 if height is not None else 2
+                inputs[f'model.images.image_{index}'] = original
+                inputs['prompt'] += '\n\n'+original_color_prompt(index)
             if mask is not None:
                 inputs['model.mask'] = mask
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
-        batch = generate('generate', prepared['prompt'], prepared['base'], prepared.get('mask'), prepared.get('height'), n=count)
+        from .prompts import color_finish_prompt
+        # Masked calls use one image. Color references belong to the unmasked finish.
+        initial_prompt = prepared['prompt']
+        if stage == 'studio' and prepared.get('original') is not None:
+            initial_prompt = color_finish_prompt(request.get('prompt', ''))
+        batch = generate('generate', initial_prompt, prepared['base'], prepared.get('mask'), prepared.get('height'), n=count, original=prepared.get('original') if stage == 'studio' else None)
         def constrain(name, base, candidate, mask, config, flat=None, preserve_optics=False):
             material_id, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
             height = prepared.get('height') if flat is None else None
@@ -302,6 +323,19 @@ class BadgeApp87V1:
                 candidate = generate(f'material_{key}', prompt, current, mask, seed_offset=variant*1000+index+1+reroll)
                 candidate = constrain(f'material_constraint_{key}', current, candidate, mask, config, prepared['base'])
                 current = graph.node('BadgeDeterministicComposite', id=f'material_composite_{key}', previous_master=current, edit_candidate=candidate, edit_mask=mask).out(0)
+            reference = prepared.get('original') if stage == 'local' else prepared.get('base') if stage == 'build' and not request.get('prompt_only') else None
+            if reference is not None:
+                exceptions = []
+                configs = [request.get('material', {})] + [config for _, _, config in prepared['regions']]
+                for config in configs:
+                    if config.get('color_policy') == 'material_intrinsic':
+                        _, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
+                        exceptions.append(f"原稿颜色{config.get('color', '对应材质')}区域保留{material.get('label', '')}本色{material.get('intrinsic_color_hex', '')}")
+                finish = color_finish_prompt(request.get('prompt', '') if stage != 'local' or request.get('edit_mode') == 'semantic' else '', local=stage == 'local', exceptions='；'.join(exceptions))
+                current = generate(f'color_finish_{variant}', finish, current, original=reference, seed_offset=100000+variant)
+                report['color_finish_prompt'] = finish+'\n\n'+original_color_prompt(2)
+                if stage == 'local':
+                    current = graph.node('BadgeDeterministicComposite', id=f'color_finish_composite_{variant}', previous_master=prepared['base'], edit_candidate=current, edit_mask=prepared['mask']).out(0)
             output = current if output is None else graph.node('ImageBatch', id=f'collect_{variant}', image1=output, image2=current).out(0)
         return {'result': (output, json.dumps(report)), 'expand': graph.finalize(), 'ui': {'badge87_report': [report]}}
 

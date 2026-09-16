@@ -2,6 +2,7 @@ export const MODE_ALWAYS = 0;
 
 export const DAELAB_NODE_TYPES = Object.freeze([
   "DAELAB.BadgeApp87V1",
+  "DAELAB.BadgeApp88V1",
   "DAELAB.BadgeApp87RegionAlignV1",
     "BooleanList",
     "BooleanListHierarchy",

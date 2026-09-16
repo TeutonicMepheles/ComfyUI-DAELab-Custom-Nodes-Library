@@ -1,3 +1,5 @@
+import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-height-1';
+import { createPaletteReferencePanel } from './badge_palette_reference.mjs';
 import { getBadgeMediaStage87, syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
 import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=2';
 import { app } from "/scripts/app.js";
@@ -6,7 +8,7 @@ import {
     getRootGraphSafely,
     getSelectedInputEntries,
     resolveNode,
-} from "./app_mode_bypass_model.mjs?v=20260904-scoped-input-2";
+} from "./app_mode_bypass_model.mjs?v=20260911-88-1";
 import {
     buildImageViewPath,
     normalizeImageSelection,
@@ -30,13 +32,13 @@ import {
     readHierarchyState,
     resolveActiveTab,
     shouldResetApplyForPolygonChange,
-} from "./badge_app_layout_model.mjs?v=20260908-selection-1";
+} from "./badge_app_layout_model.mjs?v=20260916-height-1";
 import {
     POLYGON_MASK_CHANGE_EVENT,
 } from "./polygon_mask_events.mjs?v=20260904-1";
 
 const EXTENSION_NAME = "DAELab.BadgeAppLayoutV1";
-const UI_VERSION = 2026090801;
+const UI_VERSION = 2026091601;
 const GLOBAL_RUNTIME_KEY = "__DAELAB_BADGE_APP_LAYOUT_RUNTIME__";
 const GLOBAL_MODULE_KEY = "__DAELAB_BADGE_APP_LAYOUT_MODULE_VERSION__";
 const ROOT_SELECTOR = '[data-testid="linear-widgets"]';
@@ -54,6 +56,7 @@ function ensureStyles() {
     style.id = STYLE_ID;
     style.dataset.uiVersion = String(UI_VERSION);
     style.textContent = `
+[data-badge87-refined-app] div:has(> button > [data-testid="linear-run-button-icon"]) { display: none !important; }
 [${BADGE_APP_LAYOUT_HIDDEN_ATTRIBUTE}] { display: none !important; }
 [${BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE}] {
     --daelab-app-tabs-height: 48px;
@@ -83,6 +86,14 @@ function ensureStyles() {
     background: color-mix(in srgb, var(--comfy-menu-bg, #181818) 96%, transparent);
 }
 [${OWNED_ATTRIBUTE}="panel"][data-compact="true"] { padding-block: 5px; }
+[${OWNED_ATTRIBUTE}="panel"][data-tab-id="palette"] {
+    position: relative; top: auto; height: auto; max-height: none; overflow: visible; flex: none;
+}
+[${OWNED_ATTRIBUTE}="panel"][data-tab-id="palette"] p { margin: 0; line-height: 1.6; }
+[${OWNED_ATTRIBUTE}="panel"][data-tab-id="palette"] button {
+    border: 1px solid #52616c; border-radius: 7px; padding: 8px 12px; background: #263944; color: #edf3f6; cursor: pointer;
+}
+[${OWNED_ATTRIBUTE}="panel"][data-tab-id="palette"] button:disabled { opacity: .45; cursor: default; }
 [${OWNED_ATTRIBUTE}="panel"][data-expanded-reference="true"] {
     display: flex; flex-direction: column;
     height: var(--daelab-app-expanded-dock-height); max-height: var(--daelab-app-expanded-dock-height);
@@ -160,6 +171,8 @@ function createRuntime() {
     let graph = null;
     let root = null;
     let layout = null;
+    let palettePanel = null;
+    const prototypeTabs = () => graph?.extra?.daelabBadgeExecutionV1?.version === 1 ? (refinedBadge87(graph) ? ['build','local'] : ['palette', 'build', 'local']) : ['build', 'local'];
     let activeTab = "control";
     let focusedInputKey = null;
     let expandedInputKey = null;
@@ -273,6 +286,8 @@ function createRuntime() {
     }
 
     function teardownLayout() {
+        document.documentElement.removeAttribute('data-badge87-refined-app');
+        palettePanel?.dispose(); palettePanel = null;
         unsubscribeState?.();
         unsubscribeState = null;
         subscribedNode = null;
@@ -338,7 +353,7 @@ function createRuntime() {
     function handleTabKeydown(event) {
         const button = event.target.closest?.('[role="tab"]');
         if (!button) return;
-        const visibleTabIds = isBadgePrototype(graph) ? ['build', 'local'] : BADGE_APP_LAYOUT_TAB_IDS;
+        const visibleTabIds = isBadgePrototype(graph) ? prototypeTabs() : BADGE_APP_LAYOUT_TAB_IDS;
         const currentIndex = visibleTabIds.indexOf(button.dataset.tabId);
         let nextIndex = null;
         if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % visibleTabIds.length;
@@ -525,8 +540,15 @@ function createRuntime() {
     }
 
     function renderContextPanel(panel, state, pending) {
+        palettePanel?.dispose(); palettePanel = null;
         panel.replaceChildren();
         referenceCards = new Map();
+        if (activeTab === 'palette') {
+            const owner = graph, workflowId = graph.id;
+            palettePanel = createPaletteReferencePanel(owner, api, () => graph === owner && owner.id === workflowId && getRootGraphSafely(app) === owner && activeTab === 'palette');
+            panel.append(palettePanel.element);
+            return;
+        }
         makeQuickControls(panel, state);
         const pendingStatus = document.createElement("div");
         pendingStatus.className = "daelab-app-layout-pending";
@@ -621,13 +643,13 @@ function createRuntime() {
     function render(state) {
         if (!root || !layout) return;
         const previousTab = activeTab;
-        activeTab = isBadgePrototype(graph) ? (['build', 'local'].includes(activeTab) ? activeTab : 'build') : resolveActiveTab(layout, activeTab, state);
+        activeTab = isBadgePrototype(graph) ? (prototypeTabs().includes(activeTab) ? activeTab : 'build') : resolveActiveTab(layout, activeTab, state);
         if (previousTab !== activeTab && !isBadgePrototype(graph)) announce("当前功能已关闭，已返回控制面板。");
         const availability = getTabAvailability(layout, state);
         for (const tab of layout.tabs) {
             const button = tabButtons.get(tab.id);
             const prototype = isBadgePrototype(graph);
-            button.hidden = prototype && !['build', 'local'].includes(tab.id);
+            button.hidden = prototype && !prototypeTabs().includes(tab.id);
             if (prototype && !button.hidden) availability.set(tab.id, true);
             const selected = tab.id === activeTab;
             button.setAttribute("aria-selected", String(selected));
@@ -670,6 +692,7 @@ function createRuntime() {
             contextSignature = nextContextSignature;
             renderContextPanel(activePanel, state, pending);
         }
+        palettePanel?.refresh();
         updateReferenceCards();
         updateDockSize();
     }
@@ -709,6 +732,8 @@ function createRuntime() {
             layout = normalized.layout;
             bindStateApi();
         }
+
+        document.documentElement.toggleAttribute('data-badge87-refined-app', refinedBadge87(graph));
 
         const state = readHierarchyState(layout.stateNode);
         const nextStateSignature = getHierarchyStateSignature(state);

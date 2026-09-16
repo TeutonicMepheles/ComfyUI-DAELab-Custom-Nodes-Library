@@ -6,7 +6,7 @@ import {
     getSelectedInputEntries,
     isNodeAvailableInAppMode,
     refreshGraphNodesReference,
-} from "./app_mode_bypass_model.mjs?v=20260904-scoped-input-1";
+} from "./app_mode_bypass_model.mjs?v=20260911-88-1";
 
 const EXTENSION_NAME = "DAELab.AppModeBypassInspector";
 const STATE_ATTRIBUTE = "data-daelab-app-bypass-state";

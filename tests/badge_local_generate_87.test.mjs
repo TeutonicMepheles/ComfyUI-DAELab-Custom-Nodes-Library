@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../web/badge_execution_87.mjs',import.meta.url),'utf8')
     .replace(/^import .*;\r?\n/gm,'').replace('export async function','async function')
     .replace("    const { api } = await import('/scripts/api.js');",'');
-const factory=new Function('api','requestForStage','promptForRequest','getRootGraphSafely','queueBadge87','updateLocalTarget87',source+'\nreturn execute87;');
+const factory=new Function('api','request87','prompt87','getRootGraphSafely','queueBadge87','updateLocalTarget87','const isBadge88 = graph => graph.extra?.daelabBadgeLocalMaterialsV1?.version === 1; const request88 = request87, prompt88 = prompt87;\n'+source+'\nreturn execute87;');
 async function run(fail=false,change=false) {
     const graph={id:'test',extra:{daelabBadgeExecutionV1:{executorNodeId:200}},serialize:()=>({nodes:[]}),getNodeById:()=>({})};
     const app={rootGraph:graph}, state={}, submitted=[];

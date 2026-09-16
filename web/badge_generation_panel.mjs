@@ -1,4 +1,5 @@
-import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
+import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-height-1';
+import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260916-height-1';
 import { bindCompactNumberDrag, boundedNumberDragValue } from './compact_color_group_controls.mjs?v=20260909-number-drag';
 
 // Both stages use the same view; only their workflow-scoped saved configuration differs.
@@ -6,11 +7,15 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     const element = document.createElement('section');
     element.className = 'badge-generation'; element.dataset.generationStage = stage;
     const make = (tag, text, parent = element) => { const e = document.createElement(tag); e.textContent = text; parent.append(e); return e; };
-    const heading = make('strong', '模型输出配置');
+    const refined = refinedBadge87(graph), inherit = refined && stage === 'local';
+    const header = make('div', ''); header.className = 'badge-generation-heading';
+    const heading = make('strong', '模型输出配置', header);
+    const model = refined ? make('select', '', header) : null;
+    if (model) { model.setAttribute('aria-label', '生成模型'); for (const [id, label] of BADGE_MODELS) { const o = make('option', label, model); o.value = id; } }
     heading.id = `badge-generation-${stage}`; element.setAttribute('aria-labelledby', heading.id);
     let presets = classifyPresets();
     const ratios = new Map(), tiers = new Map();
-    make('p', '选择比例'); const ratioRow = make('div', ''); ratioRow.className = 'badge-generation-options';
+    const ratioLabel = make('p', '选择比例'); const ratioRow = make('div', ''); ratioRow.className = 'badge-generation-options';
     const commit = config => {
         if (!live()) return;
         graph.beforeChange?.();
@@ -19,6 +24,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         graph.afterChange?.(); graph.setDirtyCanvas?.(true, true);
         onChange?.(); render();
     };
+    if (model) model.onchange = () => { if (!running) commit({...readGenerationConfig(graph, stage), model: model.value}); };
     const select = preset => { if (preset) commit({ ...readGenerationConfig(graph, stage), ...preset, custom: false }); };
     for (const ratio of RATIOS) {
         const b = make('button', '', ratioRow); b.type = 'button';
@@ -35,7 +41,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         const c = readGenerationConfig(graph, stage);
         commit({ ...c, custom: true, locked: false });
     };
-    make('p', '分辨率与尺寸');
+    const resolutionLabel = make('p', '分辨率与尺寸');
     const resolutionRow = make('div', ''); resolutionRow.className = 'badge-generation-resolution';
     const tierRow = make('div', '', resolutionRow); tierRow.className = 'badge-generation-options badge-generation-tiers';
     for (const tier of ['1K', '2K']) {
@@ -63,6 +69,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     make('span', 'PX', dimensions);
     const hint = make('p', ''); hint.className = 'badge-generation-hint'; hint.setAttribute('role', 'status'); hint.id = `badge-generation-hint-${stage}`;
     for (const input of Object.values(inputs)) input.setAttribute('aria-describedby', hint.id);
+    if (inherit) for (const row of [ratioLabel, ratioRow, resolutionLabel, resolutionRow]) row.hidden = true;
     const actionRow = make('div', ''); actionRow.className = 'badge-generation-actions';
     let countInput;
     if (graph.extra?.daelabBadgeExecutionV1?.version === 1) {
@@ -84,6 +91,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     let running = false, problem = '';
     function render() {
         const c = readGenerationConfig(graph, stage), error = validateDimensions(c);
+        if (model) { model.value = c.model; model.disabled = running; }
         if (countInput) { if (countInput.dataset.dragging !== 'true' && document.activeElement !== countInput) countInput.value = c.count ?? 1; countInput.disabled = running; }
         for (const [ratio, b] of ratios) {
             b.hidden = !presets.some(p => p.ratio === ratio);
@@ -101,7 +109,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
             input.parentElement.dataset.disabled = String(input.disabled); input.setAttribute('aria-invalid', String(Boolean(error)));
         }
         hint.dataset.error = String(Boolean(error));
-        hint.textContent = (error ? `无法生成：${error}` : '') || (c.custom ? `自定义 · ${c.width} × ${c.height} PX · 宽高按 16 像素步长调整` : `${c.tier} · ${c.ratio} · ${c.width} × ${c.height} PX · 选择“自定义”可编辑尺寸`);
+        hint.textContent = inherit ? (c.width ? `沿用目标图：${c.width} × ${c.height} PX${error ? ' · '+error : ''}` : '正在读取目标图尺寸…') : (error ? `无法生成：${error}` : '') || (c.custom ? `自定义 · ${c.width} × ${c.height} PX · 宽高按 16 像素步长调整` : `${c.tier} · ${c.ratio} · ${c.width} × ${c.height} PX · 选择“自定义”可编辑尺寸`);
         button.disabled = running || Boolean(error || problem); button.textContent = running ? '生成中…' : '生成';
     }
     render();
@@ -115,6 +123,9 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
 
 export const GENERATION_CSS = `
 .badge-generation{box-sizing:border-box;flex:0 0 auto;min-width:0;margin:16px 8px 8px;padding:16px;border:1px solid #46535d;border-radius:12px;background:#20252b;color:#e4eaee}
+.badge-generation [hidden]{display:none!important}
+.badge-generation-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.badge-generation-heading select{min-width:0;max-width:100%;padding:5px 8px;border:1px solid #4b545e;border-radius:6px;background:#2c3138;color:#e4eaee;font-size:12px}
 .badge-generation[hidden]{display:none!important}
 .badge-generation p{font-size:12px;margin:12px 0 7px;color:#acb7c1;overflow-wrap:anywhere}
 .badge-generation-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(62px,1fr));gap:6px}

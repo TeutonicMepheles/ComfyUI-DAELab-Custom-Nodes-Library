@@ -1,5 +1,7 @@
+import { isBadge88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260911-88-1';
+import { normalizeMaterialRegionConfig } from './badge_material_region_v1_model.mjs?v=20260904-material-menu-v6';
 import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
-import { isBadge87 } from './badge_execution_87_model.mjs';
+import { isBadge87 } from './badge_execution_87_model.mjs?v=20260916-height-1';
 import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
 import { normalizeMaskV1Config } from './multi_color_mask_v1_model.mjs';
 
@@ -29,6 +31,7 @@ function saveDraft(graph, image) {
         polygon: drawing && {polygons: drawing.polygons, brushStrokes: drawing.brushStrokes,
             cleared: drawing.cleared, selectedIndex: drawing.selectedIndex, stateImageSize: drawing.stateImageSize},
         color: color?.value, map: meta.gptColorMap,
+        ...(isBadge88(graph) ? {localMaterials: graph.getNodeById(localMaterialNodeId88(graph))?.widgets?.find(w => w.name === 'badge_material_region_v1_panel')?.value} : {}),
     });
 }
 
@@ -63,6 +66,10 @@ function applyTarget(graph, image, session) {
     syncPolygonTarget87(graph, draft?.polygon || {polygons: [], brushStrokes: [], cleared: true, selectedIndex: -1, stateImageSize: null});
     const color = graph.getNodeById(104)?.widgets?.find(w => w.name === 'multi_color_mask_v1_panel');
     if (color) color.value = draft?.color || JSON.stringify(normalizeMaskV1Config({}));
+    if (isBadge88(graph)) {
+        const regions = graph.getNodeById(localMaterialNodeId88(graph))?.widgets?.find(w => w.name === 'badge_material_region_v1_panel');
+        if (regions) regions.value = draft?.localMaterials || JSON.stringify(normalizeMaterialRegionConfig({}));
+    }
     meta.gptColorMap = draft?.map?.sourceKey === targetKey87(source) ? draft.map : null;
     graph.getNodeById(meta.stateNodeId)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
     Object.assign(session, {preview: null, serverToken: null, seed: undefined, images: null, phase: 'changed',

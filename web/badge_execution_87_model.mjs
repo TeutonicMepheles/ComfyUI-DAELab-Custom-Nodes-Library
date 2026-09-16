@@ -1,10 +1,12 @@
-import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs';
-import { stageSnapshot, readGenerationConfig, isPromptOnlyBuild } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
+import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-height-1';
+import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-height-1';
+import { stageSnapshot, readGenerationConfig, isPromptOnlyBuild } from './badge_generation_model.mjs?v=20260916-height-1';
 import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
-import { migrateHeightBoard } from './badge_height_board_model.mjs';
-import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
+import { migrateHeightBoard, fixedHeightBoard87 } from './badge_height_board_model.mjs?v=20260916-height-1';
+import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { getConnectedLoadImageInfo, getConnectedLoadImageKey } from './polygon_mask_connection.mjs';
 
+export const BADGE87_IMAGE_MODEL = 'gpt-image-2.5-sunburst';
 export const isBadge87 = graph => graph?.extra?.daelabBadgeExecutionV1?.version === 1;
 export function requestForStage(graph, stage) {
     if (!isBadge87(graph)) throw new Error('Not a Badge 8.7 workflow.');
@@ -28,7 +30,7 @@ export function requestForStage(graph, stage) {
     const size = readGenerationConfig(graph, stage);
     const count = size.count ?? 1;
     if (!Number.isInteger(count) || count < 1 || count > 8) throw new Error('生成个数必须为 1–8 张。');
-    const request = { version: 1, stage, session: graph.id, width: size.width, height: size.height,
+    const request = { version: 1, model: refinedBadge87(graph) ? selectedBadgeModel(graph, stage) : BADGE87_IMAGE_MODEL, ...(refinedBadge87(graph) ? {interaction_revision: 2} : {}), stage, session: graph.id, width: size.width, height: size.height,
         quality: graph.extra.daelabBadgeExecutionV1.quality || 'low', count, seed: 0 };
     if (stage === 'build') {
         request.prompt = meta.buildPrompt || '';
@@ -40,8 +42,9 @@ export function requestForStage(graph, stage) {
             if (meta.heightEnabled !== false) {
                 request.height_image = image(2);
                 request.height_board = meta.heightBoard || migrateHeightBoard(config(3, 'badge_height_layer_v1_panel', 'height_layer_config'));
+                if (refinedBadge87(graph)) request.height_board = fixedHeightBoard87(request.height_board);
             }
-            if (on('badge.path.flat_height.special_material')) request.regions = config(49, 'badge_material_region_v1_panel', 'material_region_config');
+            if (!refinedBadge87(graph) && on('badge.path.flat_height.special_material')) request.regions = config(49, 'badge_material_region_v1_panel', 'material_region_config');
         }
     } else if (stage === 'local') {
         request.image = image(meta.localReferenceNodeId);
@@ -49,7 +52,7 @@ export function requestForStage(graph, stage) {
         request.use_map = request.selection === 'color' && on('badge.post.local.color_id_map');
         if (request.use_map) {
             const map = meta.gptColorMap;
-            if (!map?.image || map.sourceKey !== JSON.stringify(request.image)) throw new Error('请先为当前目标图生成 GPT 色彩分区图。');
+            if (!map?.image || map.model !== (refinedBadge87(graph) ? selectedBadgeModel(graph, 'local') : BADGE87_IMAGE_MODEL) || map.sourceKey !== JSON.stringify(request.image)) throw new Error('请先为当前目标图生成 GPT 色彩分区图。');
             request.color_map = map.image;
             request.color_map_source = map.source;
         }
@@ -78,18 +81,27 @@ export function requestForStage(graph, stage) {
             if (!request.prompt.trim()) throw new Error('请填写棚拍提示词。');
         }
     } else throw new Error('Unsupported stage.');
-    if (stage === 'local' || stage === 'studio') {
+    if ((stage === 'local' || stage === 'studio') && (refinedBadge87(graph) || !normalizeImageSelection(meta.paletteReference))) {
         request.original_image = image(1);
         // Rebuild the reference from the current source and its existing removal config.
         if (request.original_image && meta.backgroundEnabled !== false && isNodeAvailableInAppMode(node(47))) {
             request.original_background = config(47, 'multi_color_mask_v1_panel', 'config_json');
         }
     }
+    const palette = refinedBadge87(graph) ? null : normalizeImageSelection(meta.paletteReference);
+    if (palette) {
+        request.color_reference = palette;
+        delete request.original_image;
+        delete request.original_background;
+    }
     enabled(graph.extra.daelabBadgeExecutionV1.executorNodeId);
-    return { request, fingerprint: request.original_image ? JSON.stringify([snapshot?.fingerprint, request]) : request.use_map ? JSON.stringify([snapshot?.fingerprint, request.color_map]) : snapshot?.fingerprint ?? JSON.stringify(request) };
+    return { request, fingerprint: JSON.stringify([snapshot?.fingerprint, request]) };
 }
 
 export function promptForRequest(request, executorId = 200) {
+    if (request.interaction_revision === 2 && request.stage === 'local' && !request.apply) return {
+        [executorId]: {class_type: 'DAELAB.BadgeApp87V1', inputs: {request_json: JSON.stringify(request)}}
+    };
     return {
         [executorId]: { class_type: 'DAELAB.BadgeApp87V1', _meta: { title: '#8.7 阶段执行' }, inputs: { request_json: JSON.stringify(request) } },
         '113': { class_type: 'SaveImage', _meta: { title: '#8.7 生成结果' }, inputs: { images: [String(executorId), 0], filename_prefix: `Badge87/${request.stage}` } },

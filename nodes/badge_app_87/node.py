@@ -17,7 +17,16 @@ from ..gpt_image2_material_prompt.node import load_materials, resolve_material
 from .prompts import build_prompt, material_details, masked_prompt, semantic_prompt, studio_prompt
 
 _PREVIEWS = {}
+IMAGE_MODEL = 'gpt-image-2.5-sunburst'
+IMAGE_MODELS = ('gpt-image-2.5-sunburst', 'gpt-image-2.5-flare', 'gpt-image-2')
 _LOCK = Lock()
+
+def selected_model(request):
+    model = request.get('model', IMAGE_MODEL)
+    if model not in IMAGE_MODELS:
+        raise ValueError('Unsupported badge image model.')
+    return model
+
 
 
 def dimensions(request):
@@ -90,15 +99,19 @@ def matches(rgb, config, height=False):
     return result
 
 
-def height_config(board):
+def height_config(board, fixed_endpoints=False):
     count = board.get('count', 6)
-    if type(count) is not int or not 2 <= count <= 6:
+    if type(count) is not int or not (1 if fixed_endpoints else 2) <= count <= (5 if fixed_endpoints else 6):
+        if fixed_endpoints:
+            raise ValueError('高度须为二至六层（含顶层和 0 层）。')
         raise ValueError('Height board requires 2–6 solid layers.')
     def gray(tier):
         if type(tier) is not int or not 0 <= tier <= count:
             raise ValueError('Invalid height tier.')
         if not tier:
             return 0
+        if fixed_endpoints and tier == count:
+            return 255
         value = board.get('alphas', {}).get(str(tier), tier*255/count)
         return math.floor(min(10, max(1, math.floor(float(value)*10/255+.5)))*255/10+.5)
     return {'fallbackGray': gray(board.get('fallback', 1)), 'groups': [{**g, 'gray': gray(g.get('tier', 0))} for g in board.get('groups', [])]}
@@ -110,6 +123,13 @@ def material_prompt(config):
 
 
 def prepare(request):
+    selected_model(request)
+    refined = request.get('interaction_revision') == 2
+    if refined:
+        request.pop('color_reference', None)
+    if refined and request.get('stage') == 'local':
+        source = load_source(request.get('image'))
+        request.update(width=source.shape[1], height=source.shape[0])
     size = dimensions(request)
     stage = request.get('stage')
     if stage not in ('build', 'local', 'studio', 'effect', 'color_map'):
@@ -117,10 +137,16 @@ def prepare(request):
     if request.get('quality', 'low') not in ('low', 'medium', 'high') or type(request.get('count', 1)) is not int or not 1 <= request.get('count', 1) <= 8:
         raise ValueError('Invalid quality or image count.')
     base_prompt = str(request.get('prompt', '')).strip()
+    color_reference = None
+    if not refined and request.get('color_reference'):
+        palette = load_source(request['color_reference'])
+        opacity = palette[..., 3:4].astype(float)/255
+        palette_rgb = np.floor(palette[..., :3]*opacity+255*(1-opacity)+.5).astype(np.uint8)
+        color_reference = tensor(contain(palette_rgb, size))
     if stage == 'build' and (request.get('prompt_only') is True or ('prompt_only' not in request and not request.get('image'))):
         if not base_prompt:
             raise ValueError('Enter a base prompt or upload a material image.')
-        return {'base': None, 'prompt': build_prompt(base_prompt, text_only=True), 'regions': []}
+        return {'base': None, 'prompt': build_prompt(base_prompt, text_only=True), 'regions': [], 'color_reference': color_reference}
     if stage == 'build' and not request.get('image'):
         raise ValueError('Upload a material image or enable prompt-only mode.')
     source = load_source(request.get('image'))
@@ -140,11 +166,13 @@ def prepare(request):
         result['prompt'] = build_prompt(base_prompt, material_prompt(request.get('material', {})))
         if request.get('height_board') is not None:
             height_source = load_source(request.get('height_image'))
-            config = height_config(request['height_board'])
+            if refined and request['height_board'].get('count', 6) > 5:
+                raise ValueError('高度最多六层（含顶层和 0 层），请先整理已有层级。')
+            config = height_config(request['height_board'], fixed_endpoints=refined)
             height = matches(height_source[..., :3], config, True)
             result['height'] = tensor(np.repeat(contain(height, size, True, 0)[..., None], 3, -1))
             result['prompt'] = build_prompt(base_prompt, material_prompt(request.get('material', {})), height=json.dumps(config, separators=(',', ':')))
-        region_config = request.get('regions')
+        region_config = None if refined else request.get('regions')
         if region_config:
             # Assign overlaps once, with the same nearest-color policy as the material node.
             assigned = np.full(rgb.shape[:2], -1)
@@ -196,7 +224,9 @@ def prepare(request):
         if not base_prompt:
             raise ValueError('Enter the studio prompt.')
         result['prompt'] = studio_prompt(base_prompt)
-    if stage in ('local', 'studio') and request.get('original_image'):
+    if color_reference is not None:
+        result['color_reference'] = color_reference
+    if color_reference is None and stage in ('local', 'studio') and request.get('original_image'):
         original = load_source(request['original_image'])
         original_support = original[..., 3].copy()
         original_background = request.get('original_background')
@@ -213,6 +243,7 @@ class BadgeApp87V1:
     def INPUT_TYPES(cls):
         return {'required': {'request_json': ('STRING', {'default': '{}', 'multiline': True})}}
 
+    OUTPUT_NODE = True
     RETURN_TYPES = ('IMAGE', 'STRING')
     RETURN_NAMES = ('image', 'report')
     FUNCTION = 'execute'
@@ -229,7 +260,8 @@ class BadgeApp87V1:
         prepared = prepare(request)
         stage = request['stage']
         count = request.get('count', 1)
-        report = {'stage': stage, 'quality': request.get('quality', 'low'), 'count': count, 'size': dimensions(request), 'region_calls': len(prepared['regions'])*count}
+        model = selected_model(request)
+        report = {'stage': stage, 'model': model, 'quality': request.get('quality', 'low'), 'count': count, 'size': dimensions(request), 'region_calls': len(prepared['regions'])*count}
         if stage == 'local':
             report['effective_prompt'] = prepared['prompt']
             report['material_processing'] = 'preserve_optics' if request.get('edit_mode') == 'material' else 'composite_only'
@@ -238,7 +270,7 @@ class BadgeApp87V1:
             graph = GraphBuilder()
             mapped = graph.node('DAELAB.BadgeColorIdMapV1', enabled=True,
                 master_image=prepared['base'], map_prompt=DEFAULT_MAP_PROMPT,
-                quality=request.get('quality', 'low'), seed=6, map_revision=int(request.get('map_revision', 0)))
+                quality=request.get('quality', 'low'), seed=6, map_revision=int(request.get('map_revision', 0)), model=model)
             w, h = prepared['fitted']
             crop = graph.node('ImageCrop', image=mapped.out(0), width=w, height=h, x=(1024-w)//2, y=(1024-h)//2)
             sw, sh = prepared['source_size']
@@ -247,8 +279,8 @@ class BadgeApp87V1:
         if stage == 'local':
             digest_request = {k: v for k, v in request.items() if k not in ('apply', 'nonce', 'preview_token')}
             digest = hashlib.sha256(json.dumps(digest_request, sort_keys=True).encode())
-            for key in ('base', 'mask', 'original'):
-                if key in prepared:
+            for key in ('base', 'mask', 'original', 'color_reference'):
+                if prepared.get(key) is not None:
                     digest.update(prepared[key].numpy().tobytes())
             token = digest.hexdigest()
             session = str(request.get('session', ''))
@@ -273,25 +305,29 @@ class BadgeApp87V1:
         graph = GraphBuilder()
         w, h = dimensions(request)
         def generate(name, prompt, base=None, mask=None, height=None, seed_offset=0, n=1, original=None):
-            inputs = {'prompt': prompt, 'model': 'gpt-image-2', 'model.size': f'{w}x{h}' if (w,h) in ((1024,1024),(1024,1536),(1536,1024),(2048,2048),(2048,1152),(1152,2048)) else 'Custom', 'model.custom_width': w, 'model.custom_height': h, 'model.background': 'opaque', 'model.quality': request.get('quality', 'low'), 'n': 1, 'seed': (int(request.get('seed', 0))+seed_offset) % 2147483647}
+            inputs = {'prompt': prompt, 'model': model, 'model.size': f'{w}x{h}' if (w,h) in ((1024,1024),(1024,1536),(1536,1024),(2048,2048),(2048,1152),(1152,2048)) else 'Custom', 'model.custom_width': w, 'model.custom_height': h, 'model.background': 'opaque', 'model.quality': request.get('quality', 'low'), 'n': 1, 'seed': (int(request.get('seed', 0))+seed_offset) % 2147483647}
             inputs['n'] = n
             if base is not None:
                 inputs['model.images.image_1'] = base
             if height is not None:
                 inputs['model.images.image_2'] = height
             if original is not None:
-                index = 3 if height is not None else 2
+                if request.get('color_reference'):
+                    inputs['prompt'] = inputs['prompt'].replace('原平面稿', '配色参考图').replace('原稿底色', '配色参考图底色').replace('原稿背景', '配色参考图背景').replace('偏离原稿', '偏离配色参考图')
+                index = 3 if height is not None else 2 if base is not None else 1
                 inputs[f'model.images.image_{index}'] = original
-                inputs['prompt'] += '\n\n'+original_color_prompt(index)
+                inputs['prompt'] += '\n\n'+original_color_prompt(index, custom=request.get('color_reference') is not None, reference_only=base is None)
             if mask is not None:
                 inputs['model.mask'] = mask
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
         from .prompts import color_finish_prompt
         # Masked calls use one image. Color references belong to the unmasked finish.
         initial_prompt = prepared['prompt']
-        if stage == 'studio' and prepared.get('original') is not None:
+        palette = prepared.get('color_reference')
+        studio_reference = palette if palette is not None else prepared.get('original')
+        if stage == 'studio' and studio_reference is not None:
             initial_prompt = color_finish_prompt(request.get('prompt', ''))
-        batch = generate('generate', initial_prompt, prepared['base'], prepared.get('mask'), prepared.get('height'), n=count, original=prepared.get('original') if stage == 'studio' else None)
+        batch = generate('generate', initial_prompt, prepared['base'], prepared.get('mask'), prepared.get('height'), n=count, original=studio_reference if stage == 'studio' else palette if stage == 'build' else None)
         def constrain(name, base, candidate, mask, config, flat=None, preserve_optics=False):
             material_id, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
             height = prepared.get('height') if flat is None else None
@@ -324,6 +360,8 @@ class BadgeApp87V1:
                 candidate = constrain(f'material_constraint_{key}', current, candidate, mask, config, prepared['base'])
                 current = graph.node('BadgeDeterministicComposite', id=f'material_composite_{key}', previous_master=current, edit_candidate=candidate, edit_mask=mask).out(0)
             reference = prepared.get('original') if stage == 'local' else prepared.get('base') if stage == 'build' and not request.get('prompt_only') else None
+            if palette is not None and stage in ('build', 'local'):
+                reference = palette
             if reference is not None:
                 exceptions = []
                 configs = [request.get('material', {})] + [config for _, _, config in prepared['regions']]
@@ -333,7 +371,7 @@ class BadgeApp87V1:
                         exceptions.append(f"原稿颜色{config.get('color', '对应材质')}区域保留{material.get('label', '')}本色{material.get('intrinsic_color_hex', '')}")
                 finish = color_finish_prompt(request.get('prompt', '') if stage != 'local' or request.get('edit_mode') == 'semantic' else '', local=stage == 'local', exceptions='；'.join(exceptions))
                 current = generate(f'color_finish_{variant}', finish, current, original=reference, seed_offset=100000+variant)
-                report['color_finish_prompt'] = finish+'\n\n'+original_color_prompt(2)
+                report['color_finish_prompt'] = finish+'\n\n'+original_color_prompt(2, custom=palette is not None)
                 if stage == 'local':
                     current = graph.node('BadgeDeterministicComposite', id=f'color_finish_composite_{variant}', previous_master=prepared['base'], edit_candidate=current, edit_mask=prepared['mask']).out(0)
             output = current if output is None else graph.node('ImageBatch', id=f'collect_{variant}', image1=output, image2=current).out(0)
@@ -389,5 +427,8 @@ class BadgeApp87RegionAlignV1:
         return torch.stack(masks), torch.stack(references), json.dumps(reports)
 
 
-NODE_CLASS_MAPPINGS = {'DAELAB.BadgeApp87V1': BadgeApp87V1, 'DAELAB.BadgeApp87RegionAlignV1': BadgeApp87RegionAlignV1}
+NODE_CLASS_MAPPINGS = {
+    'DAELAB.BadgeApp87V1': BadgeApp87V1,
+    'DAELAB.BadgeApp87RegionAlignV1': BadgeApp87RegionAlignV1,
+}
 NODE_DISPLAY_NAME_MAPPINGS = {'DAELAB.BadgeApp87V1': 'Badge 8.7 Stage Execution (DAELab)', 'DAELAB.BadgeApp87RegionAlignV1': 'Badge 8.7 Material Mask Alignment (DAELab)'}

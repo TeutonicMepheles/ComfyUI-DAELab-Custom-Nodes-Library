@@ -1,8 +1,8 @@
 import { app } from '/scripts/app.js';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { isBadge87 } from './badge_execution_87_model.mjs';
-import { getRootGraphSafely } from './app_mode_bypass_model.mjs';
-import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
+import { isBadge87 } from './badge_execution_87_model.mjs?v=20260916-height-1';
+import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
+import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs?v=20260916-height-1';
 import { APPLY_ITEM, PROTOTYPE_PROPERTY, createPrototypeQueueHandler,
     isBadgePrototype, isSamePrototype, prototypeSnapshot, simulateRun } from './badge_app_prototype_model.mjs?v=2';
 
@@ -42,7 +42,7 @@ export async function run(graph, stage) {
         for (const node of ids.map(id => graph.getNodeById(id)).filter(Boolean)) {
             for (const widget of node.widgets || []) widget.beforeQueued?.();
         }
-        const { execute87 } = await import('./badge_execution_87.mjs?v=20260911-media-restore');
+        const { execute87 } = await import('./badge_execution_87.mjs?v=20260916-height-1');
         return execute87(graph, stage, getPrototypeSession(graph, stage), app, nativeQueue, getPrototypeSession(graph, 'local'));
     }
     const workflowId = graph.id;
@@ -94,6 +94,10 @@ function sync() {
             const widget = node.widgets?.find(w => w.name === names[id]);
             if (widget) widget.label = heading;
         }
+    }
+    if (isBadge87(graph)) {
+        banner?.remove(); banner = null; bannerGraph = null;
+        return;
     }
     const state = session(graph);
     const snapshot = prototypeSnapshot(graph);

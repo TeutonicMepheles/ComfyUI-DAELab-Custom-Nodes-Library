@@ -3,6 +3,33 @@ import assert from 'node:assert/strict';
 import { migrateHeightBoard, resizeHeightBoard, heightBoardPreview } from '../web/badge_height_board_model.mjs';
 import { previewPixels } from '../web/badge_build_preview_model.mjs';
 import { moveHeightColors, insertHeightTier, deleteHeightTier } from '../web/badge_height_board_model.mjs';
+import { fixedHeightBoard87, heightAlpha } from '../web/badge_height_board_model.mjs';
+
+test('8.7 defaults, endpoint locks, six-total cap and deletions preserve color assignments',()=>{
+    let b=fixedHeightBoard87();
+    assert.deepEqual([3,2,1,0].map(t=>heightAlpha(b,t)),[255,153,77,0]);
+    b.groups=[{id:'top',tier:3},{id:'middle',tier:2},{id:'void',tier:0}];
+    b=insertHeightTier(b,3);b=insertHeightTier(b,4);
+    assert.equal(b.count,5);assert.equal(insertHeightTier(b,5),b);
+    assert.deepEqual(b.groups.map(g=>g.tier),[5,2,0]);
+    assert.equal(deleteHeightTier(b,5),b);
+    while(b.count>1)b=deleteHeightTier(b,1);
+    assert.deepEqual(b.groups.map(g=>g.tier),[1,1,0]);
+    assert.equal(deleteHeightTier(b,1),b);
+    b=insertHeightTier(b,1);
+    assert.equal(b.count,2);assert.deepEqual(b.groups.map(g=>g.tier),[2,2,0]);
+    assert.equal(heightAlpha(b,1),128);assert.equal(heightAlpha(b,2),255);
+});
+
+test('8.7 locks stale endpoint values without rewriting custom middle heights or legacy board',()=>{
+    const old={count:5,fallback:2,groups:[],alphas:{0:100,1:51,2:102,3:153,4:204,5:128}};
+    const snapshot=JSON.stringify(old), b=fixedHeightBoard87(old);
+    assert.equal(JSON.stringify(old),snapshot);
+    assert.equal(heightAlpha(b,0),0);assert.equal(heightAlpha(b,5),255);
+    assert.equal(heightAlpha(b,2),102);
+    assert.deepEqual(fixedHeightBoard87(JSON.parse(JSON.stringify(b))),b);
+    assert.equal(heightAlpha(old,5),128);
+});
 test('whole group drag swaps only source and target colors, preserving other layers and alpha',()=>{
     const b={count:4,fallback:1,alphas:{1:51,2:102,3:179,4:255},groups:[{id:'a',tier:4},{id:'b',tier:3},{id:'c',tier:2},{id:'d',tier:0}]};
     const r=moveHeightColors(b,4,2);

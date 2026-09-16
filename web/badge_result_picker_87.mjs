@@ -1,4 +1,4 @@
-import { localTargets87, targetKey87, selectGeneratedTarget87 } from './badge_result_target_87.mjs?v=20260911-media-restore';
+import { localTargets87, targetKey87, selectGeneratedTarget87 } from './badge_result_target_87.mjs?v=20260911-88-1';
 import { buildImageViewPath } from './app_mode_load_image_preview_model.mjs';
 
 // Reuse the existing gallery card styles and LoadImage selection contract.

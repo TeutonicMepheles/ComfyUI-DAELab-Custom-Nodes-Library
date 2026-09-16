@@ -1,6 +1,6 @@
 import { drawBrushStrokes, drawSelectionMask } from './badge_selection_render.mjs';
 import { resolveWorkflowPolygonInfo } from './polygon_mask_state.mjs?v=20260908-selection-1';
-import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
+import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 
 const clone = value => JSON.parse(JSON.stringify(value || []));
 export function installBadgeSelectionVariant(nodeType) {

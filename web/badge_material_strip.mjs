@@ -44,21 +44,26 @@ export function attachMaterialStrip(root, graph, live) {
         if (opened?.trigger === trigger) { close(true); return; }
         close();
         const card = trigger.closest('[data-material-region-id]');
-        const node = graph.getNodeById(49);
+        const ownerId = Number(card?.closest('[data-testid="app-mode-widget-item"]')?.dataset.widgetKey?.split(':').at(-2));
+        const node = graph.getNodeById(ownerId || 49);
         const widget = node?.widgets?.find(w => w.name === 'badge_material_region_v1_panel');
         if (!card || !widget || !live()) return;
+        const targetValue = () => graph.extra?.daelabBadgeLocalMaterialsV1?.nodeId === node.id
+            ? graph.getNodeById(graph.extra.daelabBadgePrototypeV1.localReferenceNodeId)?.widgets?.find(w => w.name === 'image')?.value : null;
+        const source = targetValue();
+        const contextCurrent = () => targetValue() === source;
         const groupId = card.dataset.materialRegionId;
         const strip = document.createElement('div'); strip.className = 'badge-material-strip';
         strip.setAttribute('role', 'group'); strip.setAttribute('aria-label', '选择目标材质');
         card.dataset.badgeMaterialOpen = 'true'; card.append(strip);
         trigger.setAttribute('aria-expanded', 'true');
-        opened = {trigger, card, strip};
+        opened = {trigger, card, strip, contextCurrent};
         const request = token;
         strip.textContent = '正在加载材质…';
         try {
             catalogPromise ??= fetch(new URL('./materials.json', import.meta.url)).then(r => {if (!r.ok) throw new Error(); return r.json();}).catch(e => {catalogPromise = null; throw e;});
             const entries = catalogEntries(await catalogPromise);
-            if (request !== token || !live() || !strip.isConnected) return;
+            if (request !== token || !live() || !strip.isConnected || !contextCurrent()) return;
             const config = JSON.parse(widget.value), group = config.groups.find(g => g.id === groupId);
             if (!group) {close(); return;}
             strip.replaceChildren();
@@ -80,7 +85,7 @@ export function attachMaterialStrip(root, graph, live) {
                 if (entry.id === group.material_id) { const mark = document.createElement('span'); mark.textContent = '✓'; mark.className = 'badge-material-strip-check'; mark.setAttribute('aria-hidden', 'true'); b.append(mark); }
                 b.onclick = event => {
                     event.stopPropagation();
-                    if (!live() || !strip.isConnected) return;
+                    if (!live() || !strip.isConnected || !contextCurrent()) return;
                     const current = JSON.parse(widget.value), row = current.groups.find(g => g.id === groupId);
                     if (!row) { close(); return; }
                     row.material_id = entry.id;
@@ -116,7 +121,7 @@ export function attachMaterialStrip(root, graph, live) {
     document.addEventListener('pointerdown', outside, true);
     return {update(){
         compactCards();
-        if (opened && (!live() || !opened.trigger.isConnected || !opened.trigger.getClientRects().length)) close();
+        if (opened && (!live() || !opened.contextCurrent() || !opened.trigger.isConnected || !opened.trigger.getClientRects().length)) close();
         for (const [trigger] of labels) if (!trigger.isConnected) labels.delete(trigger);
         root.querySelectorAll('.daelab-badge-material-trigger').forEach(trigger => {
             if (labels.has(trigger)) return;

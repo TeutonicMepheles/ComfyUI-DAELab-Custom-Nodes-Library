@@ -1,4 +1,4 @@
-import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs';
+import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-height-1';
 
 export const PROTOTYPE_PROPERTY = 'daelabBadgePrototypeV1';
 export const APPLY_ITEM = 'badge.post.local.apply';

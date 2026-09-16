@@ -1,3 +1,9 @@
+// count counts solid tiers; tier 0 is an additional, fixed void tier.
+export const MAX_HEIGHT_SOLID_TIERS_87 = 5;
+export function fixedHeightBoard87(board) {
+    const value = board ?? { count: 3, fallback: 1, groups: [], alphas: { 1: 77, 2: 153, 3: 255 } };
+    return { ...value, fixedEndpoints: true, alphas: { ...value.alphas, 0: 0, [value.count]: 255 } };
+}
 export function migrateHeightBoard(config = {}) {
     return { count: 6, fallback: 1, groups: (config.groups || []).map((g, i) => ({
         ...g, id: String(g.id ?? `height-${i}`), tier: g.layer ? Math.max(1, Math.round(g.layer * 6 / 5)) : 0,
@@ -14,6 +20,7 @@ export function resizeHeightBoard(board, count) {
 }
 export function heightAlpha(board, tier) {
     if (tier === 0) return 0;
+    if (board.fixedEndpoints && tier === board.count) return 255;
     const value = board.alphas?.[tier] ?? tier * 255 / board.count;
     return Math.round(Math.max(1,Math.min(10,Math.round(value*10/255)))*255/10);
 }
@@ -27,16 +34,17 @@ export function moveHeightColors(board, from, to) {
     const map = tier => tier === from ? to : tier === to ? from : tier;
     return {...board, groups:board.groups.map(g=>({...g,tier:map(g.tier)}))};
 }
-export function insertHeightTier(board, tier) {
-    if(board.count>=6 || tier<1 || tier>board.count) return board;
-    const at = tier === 1 ? 2 : tier;
+export function insertHeightTier(board, tier, maximum = 6) {
+    if (board.fixedEndpoints) maximum = Math.min(maximum, MAX_HEIGHT_SOLID_TIERS_87);
+    if(board.count>=maximum || tier<1 || tier>board.count) return board;
+    const at = board.fixedEndpoints && board.count === 1 ? 1 : tier === 1 ? 2 : tier;
     const map = t=>t>=at?t+1:t;
     const alphas = Object.fromEntries(Array.from({length:board.count},(_,i)=>[map(i+1),heightAlpha(board,i+1)]));
     alphas[at] = Math.round((heightAlpha(board,at-1)+heightAlpha(board,at))/2);
     return {...board,count:board.count+1,alphas,fallback:map(board.fallback),groups:board.groups.map(g=>({...g,tier:map(g.tier)}))};
 }
 export function deleteHeightTier(board, tier) {
-    if(board.count<=2 || tier<1 || tier>board.count) return board;
+    if(board.count<=(board.fixedEndpoints ? 1 : 2) || tier<1 || tier>board.count || (board.fixedEndpoints && tier===board.count)) return board;
     const map = t=>t===tier?(tier===1?1:tier-1):t>tier?t-1:t;
     const alphas = Object.fromEntries(Array.from({length:board.count},(_,i)=>i+1).filter(t=>t!==tier).map(t=>[map(t),heightAlpha(board,t)]));
     return {...board,count:board.count-1,alphas,fallback:map(board.fallback),groups:board.groups.map(g=>({...g,tier:map(g.tier)}))};

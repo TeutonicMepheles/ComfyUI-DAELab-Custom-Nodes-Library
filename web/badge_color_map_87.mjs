@@ -1,5 +1,6 @@
+import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-height-1';
 import { queueBadge87 } from './badge_execution_87_queue.mjs';
-import { promptForRequest } from './badge_execution_87_model.mjs';
+import { promptForRequest, BADGE87_IMAGE_MODEL } from './badge_execution_87_model.mjs?v=20260916-height-1';
 import { normalizeImageSelection, buildImageViewPath } from './app_mode_load_image_preview_model.mjs';
 
 export async function generateGptColorMap87(graph, pixels, {cancelled, regenerate=false, allowGenerate=false}) {
@@ -10,11 +11,12 @@ export async function generateGptColorMap87(graph, pixels, {cancelled, regenerat
     const source = normalizeImageSelection(graph.getNodeById(meta.localReferenceNodeId)?.widgets?.find(w=>w.name==='image')?.value);
     if (!source) throw new Error('请先选择目标图。');
     const sourceKey = JSON.stringify(source);
+    const model = refinedBadge87(graph) ? selectedBadgeModel(graph, 'local') : BADGE87_IMAGE_MODEL;
     const quality = graph.extra.daelabBadgeExecutionV1.quality || 'low';
     let record = meta.gptColorMap;
-    if (regenerate || record?.sourceKey !== sourceKey || record?.quality !== quality) {
+    if (regenerate || record?.model !== model || record?.sourceKey !== sourceKey || record?.quality !== quality) {
         if (!allowGenerate || cancelled()) return null;
-        const request = {stage:'color_map',image:source,width:1024,height:1024,count:1,quality,
+        const request = {stage:'color_map',model,image:source,width:1024,height:1024,count:1,quality,
             map_revision:regenerate ? (record?.revision || 0)+1 : 0};
         const executor = graph.extra.daelabBadgeExecutionV1.executorNodeId;
         const queued = await queueBadge87(app, api, getBadgeNativeQueue(), graph,
@@ -34,7 +36,7 @@ export async function generateGptColorMap87(graph, pixels, {cancelled, regenerat
         const image = history.outputs?.['113']?.images?.[0];
         if(!image) throw new Error('GPT 分区图未返回图片。');
         if(cancelled()) return null;
-        record = {sourceKey,source,image:normalizeImageSelection(image),quality,revision:request.map_revision};
+        record = {model,sourceKey,source,image:normalizeImageSelection(image),quality,revision:request.map_revision};
     }
     const image = new Image();
     image.src = api.apiURL(buildImageViewPath(record.image));

@@ -17,6 +17,135 @@ M = importlib.import_module('badge87_test_package.nodes.badge_app_87.node')
 
 
 class Badge87Tests(unittest.TestCase):
+    def test_refined_build_ignores_stale_palette_and_regions(self):
+        request = self.request(stage='build', interaction_revision=2,
+                               color_reference='missing.png', regions={'groups': [{'bad': True}]})
+        with patch.object(M, 'load_source', return_value=self.source()) as load:
+            prepared = M.prepare(request)
+        self.assertEqual(prepared['regions'], [])
+        self.assertNotIn('color_reference', request)
+        self.assertNotIn('color_reference', prepared)
+        self.assertEqual(load.call_count, 1)
+
+    def test_refined_local_inherits_actual_target_dimensions(self):
+        request = self.request(stage='local', interaction_revision=2, width=2048, height=2048)
+        image = np.full((1024, 1536, 4), [100, 100, 100, 255], np.uint8)
+        request['colors'] = {'groups': [{'color': '#646464', 'threshold': 2}]}
+        with patch.object(M, 'load_source', return_value=image):
+            prepared = M.prepare(request)
+        self.assertEqual(M.dimensions(request), (1536, 1024))
+        self.assertEqual(tuple(prepared['mask'].shape), (1, 1024, 1536))
+
+    def test_refined_height_rejects_more_than_six_total_layers(self):
+        request = self.request(stage='build', interaction_revision=2,
+                               height_image='height.png', height_board={'count': 6, 'groups': []})
+        with patch.object(M, 'load_source', return_value=self.source()), self.assertRaisesRegex(ValueError, '六层'):
+            M.prepare(request)
+
+    def test_refined_height_six_layers_and_endpoint_enforcement(self):
+        board = {'count': 5, 'fallback': 5, 'alphas': {'0': 100, '2': 102, '5': 128},
+                 'groups': [{'tier': 0}, {'tier': 2}, {'tier': 5}]}
+        result = M.height_config(board, fixed_endpoints=True)
+        self.assertEqual([g['gray'] for g in result['groups']], [0, 102, 255])
+        self.assertEqual(result['fallbackGray'], 255)
+        self.assertEqual(M.height_config(board)['fallbackGray'], 128)
+        self.assertEqual(M.height_config({'count': 1, 'groups': []}, fixed_endpoints=True)['fallbackGray'], 255)
+
+    def test_refined_prepare_accepts_six_total_and_ignores_stale_top(self):
+        request = self.request(stage='build', interaction_revision=2, height_image='height.png',
+                               height_board={'count': 5, 'fallback': 5, 'alphas': {'5': 128}, 'groups': []})
+        with patch.object(M, 'load_source', return_value=self.source()):
+            prepared = M.prepare(request)
+        self.assertEqual(float(prepared['height'].min()), 1.)
+
+    def test_selected_model_reaches_every_expanded_generator(self):
+        module = types.ModuleType('comfy_execution.graph_utils')
+        calls = []
+        class Graph:
+            def node(self, kind, **inputs):
+                calls.append((kind, inputs))
+                return types.SimpleNamespace(out=lambda index: [kind, index])
+            def finalize(self): return {}
+        module.GraphBuilder = Graph
+        for model in M.IMAGE_MODELS:
+            calls.clear()
+            request = self.request(stage='build', interaction_revision=2, model=model)
+            with patch.dict(sys.modules, {'comfy_execution.graph_utils': module}), patch.object(M, 'load_source', return_value=self.source()):
+                result = M.BadgeApp87V1().execute(json.dumps(request))
+            generators = [p for k, p in calls if k == 'OpenAIGPTImageNodeV2']
+            self.assertTrue(generators)
+            self.assertTrue(all(p['model'] == model for p in generators))
+            self.assertEqual(result['ui']['badge87_report'][0]['model'], model)
+        with self.assertRaises(ValueError):
+            M.prepare(self.request(model='unknown'))
+
+    def test_color_map_expansion_passes_sunburst_to_shared_node(self):
+        module = types.ModuleType('comfy_execution.graph_utils')
+        calls = []
+        class Graph:
+            def node(self, kind, **inputs):
+                calls.append((kind, inputs))
+                return types.SimpleNamespace(out=lambda index: [kind, index])
+            def finalize(self): return {}
+        module.GraphBuilder = Graph
+        with patch.dict(sys.modules, {'comfy_execution.graph_utils': module}), patch.object(M, 'load_source', return_value=self.source()):
+            result = M.BadgeApp87V1().execute(json.dumps(self.request(stage='color_map')))
+        self.assertEqual(calls[0][0], 'DAELAB.BadgeColorIdMapV1')
+        self.assertEqual(calls[0][1]['model'], 'gpt-image-2.5-sunburst')
+        self.assertEqual(result['ui']['badge87_report'][0]['model'], 'gpt-image-2.5-sunburst')
+
+    def test_expanded_generators_use_uploaded_palette_and_keep_masked_calls_single_image(self):
+        module = types.ModuleType('comfy_execution.graph_utils')
+        nodes = []
+        class Graph:
+            def node(self, kind, id=None, **inputs):
+                nodes.append((kind, id, inputs))
+                return types.SimpleNamespace(out=lambda index: [id or kind, index])
+            def finalize(self): return {}
+        module.GraphBuilder = Graph
+        palette = np.full((64,64,4), [10,200,70,255], dtype=np.uint8)
+        with patch.dict(sys.modules, {'comfy_execution.graph_utils': module}), patch.object(M, 'load_source', side_effect=lambda ref: palette if ref == 'palette.png' else self.source()):
+            for stage, prompt_only in [('build',False), ('build',True), ('local',False), ('studio',False)]:
+                nodes.clear()
+                request = self.request(stage=stage, prompt_only=prompt_only, color_reference='palette.png')
+                if stage == 'local':
+                    preview = M.BadgeApp87V1().execute(json.dumps(request))
+                    request.update(apply=True, preview_token=preview['ui']['badge87_report'][0]['preview_token'])
+                M.BadgeApp87V1().execute(json.dumps(request))
+                calls = [inputs for kind, _, inputs in nodes if kind == 'OpenAIGPTImageNodeV2']
+                self.assertTrue(calls)
+                self.assertTrue(all(call['model'] == 'gpt-image-2.5-sunburst' for call in calls))
+                reference = calls[-1]['model.images.image_2']
+                self.assertTrue(torch.allclose(reference[0,512,512], torch.tensor([10,200,70])/255))
+                self.assertIn('用户上传的配色参考图', calls[-1]['prompt'])
+                if stage == 'local': self.assertNotIn('model.images.image_2', calls[0])
+                if prompt_only:
+                    self.assertIn('model.images.image_1', calls[0])
+                    self.assertNotIn('model.images.image_2', calls[0])
+
+    def test_uploaded_palette_overrides_default_for_all_generation_stages(self):
+        palette = np.full((64, 64, 4), [10, 200, 70, 255], dtype=np.uint8)
+        with patch.object(M, 'load_source', side_effect=lambda ref: palette if ref == 'palette.png' else self.source()):
+            for stage in ('build', 'local', 'studio'):
+                prepared = M.prepare(self.request(stage=stage, color_reference='palette.png', original_image='old.png'))
+                self.assertTrue(torch.allclose(prepared['color_reference'][0, 512, 512], torch.tensor([10, 200, 70])/255))
+                self.assertNotIn('original', prepared)
+            prepared = M.prepare(self.request(stage='build', prompt_only=True, color_reference='palette.png'))
+            self.assertIsNone(prepared['base'])
+            self.assertIsNotNone(prepared['color_reference'])
+
+    def test_palette_bytes_invalidate_local_preview(self):
+        module = types.ModuleType('comfy_execution.graph_utils')
+        module.GraphBuilder = lambda: None
+        request = self.request(color_reference='palette.png')
+        with patch.dict(sys.modules, {'comfy_execution.graph_utils': module}), patch.object(M, 'load_source', return_value=self.source()):
+            preview = M.BadgeApp87V1().execute(json.dumps(request))
+            request.update(apply=True, preview_token=preview['ui']['badge87_report'][0]['preview_token'])
+            changed = self.source().copy(); changed[..., 1] = 120
+            with patch.object(M, 'load_source', side_effect=lambda ref: changed if ref == 'palette.png' else self.source()):
+                with self.assertRaisesRegex(ValueError, 'Preview again'):
+                    M.BadgeApp87V1().execute(json.dumps(request))
+
     def test_color_reference_prefers_background_removed_flat_with_raw_fallback(self):
         original = np.full((1024, 1024, 4), [212, 1, 117, 255], dtype=np.uint8)
         original[100:200, 100:200] = [20, 130, 100, 255]

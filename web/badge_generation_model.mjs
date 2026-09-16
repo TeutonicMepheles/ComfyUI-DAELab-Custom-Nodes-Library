@@ -1,5 +1,7 @@
-import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs';
-import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
+import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-height-1';
+import { usesLocalMaterials88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260911-88-1';
+import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-height-1';
+import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 
 export const RATIOS = ['1:1', '2:3', '3:2', '16:9', '9:16'];
 export const SIZE_PRESETS = ['1024x1024', '1024x1536', '1536x1024', '2048x2048', '2048x1152', '1152x2048'];
@@ -16,7 +18,7 @@ export function classifyPresets(sizes = SIZE_PRESETS) {
 }
 export function readGenerationConfig(graph, stage) {
     const { prompt: _removedPrompt, ...saved } = graph.extra?.daelabBadgePrototypeV1?.generation?.[stage] || {};
-    return { ...DEFAULT_CONFIG, ...saved };
+    return { ...DEFAULT_CONFIG, ...saved, ...(refinedBadge87(graph) ? { model: selectedBadgeModel(graph, stage), ...(stage === 'local' ? localTargetSize87(graph) : {}) } : {}) };
 }
 export function validateDimensions({ width, height }) {
     if (![width, height].every(v => Number.isInteger(v) && v >= 1024 && v <= 3840)) return '宽、高必须为 1024–3840 的整数。';
@@ -28,7 +30,7 @@ export function validateDimensions({ width, height }) {
 export function generationParameters(config) {
     const error = validateDimensions(config);
     if (error) throw new Error(error);
-    return { model: 'gpt-image-2', 'model.size': config.custom ? 'Custom' : `${config.width}x${config.height}`,
+    return { model: config.model || 'gpt-image-2', 'model.size': config.custom ? 'Custom' : `${config.width}x${config.height}`,
         'model.custom_width': config.width, 'model.custom_height': config.height };
 }
 export function editDimension(config, axis, value) {
@@ -57,8 +59,9 @@ export function stageNodeIds(graph, stage) {
     if (stage === 'build' && isPromptOnlyBuild(graph)) return [];
     if (stage === 'build') return [1, 55,
         ...(graph.extra.daelabBadgePrototypeV1.backgroundEnabled !== false ? [47] : []),
-        ...(on('badge.path.flat_height.special_material') ? [49] : []),
+        ...(!refinedBadge87(graph) && on('badge.path.flat_height.special_material') ? [49] : []),
         ...(graph.extra.daelabBadgePrototypeV1.heightEnabled !== false ? [2, 3] : [])];
+    if (stage === 'local' && usesLocalMaterials88(graph, on)) return [graph.extra.daelabBadgePrototypeV1.localReferenceNodeId, localMaterialNodeId88(graph)];
     if (stage === 'local') return [graph.extra.daelabBadgePrototypeV1.localReferenceNodeId,
         ...(on('badge.post.local.selection.color') ? [104] : []),
         ...(on('badge.post.local.selection.polygon') ? [142] : []),
@@ -73,6 +76,9 @@ export function stageSnapshot(graph, stage) {
     const value = (id, name) => node(id)?.widgets?.find(w => w.name === name)?.value ?? node(id)?.widgets_values_named?.[name];
     const config = readGenerationConfig(graph, stage), ids = stageNodeIds(graph, stage);
     let error = validateDimensions(config);
+    if (refinedBadge87(graph) && !BADGE_MODELS.some(([id]) => id === config.model)) error = '请选择支持的图像模型。';
+    if (refinedBadge87(graph) && stage === 'local' && !config.width) error = '正在读取目标图尺寸，请等待图片加载完成。';
+    if (refinedBadge87(graph) && stage === 'build' && !isPromptOnlyBuild(graph) && meta.heightEnabled !== false && (meta.heightBoard?.count ?? 6) > 5) error = '高度最多六层（含顶层和 0 层），请先整理已有层级。';
     if (!error && stage === 'build' && isPromptOnlyBuild(graph) && !String(meta.buildPrompt || '').trim()) error = '请填写基础提示词。';
     if (!error && stage === 'build' && !isPromptOnlyBuild(graph)) {
         if (!on('badge.path.flat_height')) error = '请先启用效果图建立路线。';
@@ -91,7 +97,7 @@ export function stageSnapshot(graph, stage) {
         const n = node(id);
         return [id, n?.mode, n?.widgets?.filter(w => w.type !== 'button' && w.name !== 'upload').map(w => [w.name, w.value]) ?? n?.widgets_values_named ?? n?.widgets_values, n?.properties?.polygon_info];
     });
-    const flags = (stage === 'build' && isPromptOnlyBuild(graph) ? [] : h).filter(i => stage === 'build' ? i.id.startsWith('badge.path.flat_height') : i.id.startsWith('badge.post.local') && i.id !== 'badge.post.local.apply').map(i => [i.id, i.value]);
+    const flags = (stage === 'build' && isPromptOnlyBuild(graph) ? [] : h).filter(i => stage === 'build' ? i.id.startsWith('badge.path.flat_height') && (!refinedBadge87(graph) || !i.id.startsWith('badge.path.flat_height.special_material')) : i.id.startsWith('badge.post.local') && i.id !== 'badge.post.local.apply').map(i => [i.id, i.value]);
     const fingerprint = JSON.stringify([stage, inputs, flags, config, stage === 'build' ? [isPromptOnlyBuild(graph), String(meta.buildPrompt || '').trim(), ...(isPromptOnlyBuild(graph) ? [] : [meta.heightEnabled !== false, meta.backgroundEnabled !== false, meta.heightBoard])] : null]);
     return { stage, error, fingerprint, local: stage === 'local', studio: false, apply: on('badge.post.local.apply'), parameters: error ? null : { ...generationParameters(config), ...(stage === 'build' ? { prompt: String(meta.buildPrompt || '').trim() } : {}) } };
 }

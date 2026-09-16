@@ -1,25 +1,28 @@
+import { refinedBadge87, setLocalTargetSize87, selectedBadgeModel } from './badge_refinement_87.mjs?v=20260916-height-1';
+import { isBadge88, usesLocalMaterials88, localMaterialNodeId88, previewLocalMaterials88 } from './badge_local_material_88_model.mjs?v=20260911-88-1';
+import { uploadBadgeImage } from './badge_image_upload.mjs';
 import { generateColorSelectionSource } from './badge_color_source.mjs';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { generateGptColorMap87 } from './badge_color_map_87.mjs';
+import { generateGptColorMap87 } from './badge_color_map_87.mjs?v=20260916-height-1';
 import { decorateExclusivePair } from './badge_exclusive_pair.mjs';
 import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
-import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87 } from './badge_result_target_87.mjs?v=20260911-media-restore';
+import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87 } from './badge_result_target_87.mjs?v=20260911-88-1';
 import { createResultPicker87 } from './badge_result_picker_87.mjs?v=20260911-media-restore';
 import { drawSelectionMask } from './badge_selection_render.mjs';
 import { app } from '/scripts/app.js';
 import { api } from '/scripts/api.js';
-import { getRootGraphSafely, isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
+import { getRootGraphSafely, isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=2';
-import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs';
+import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-height-1';
 import { normalizeImageSelection, buildImageViewPath } from './app_mode_load_image_preview_model.mjs';
 import { previewPixels } from './badge_build_preview_model.mjs';
-import { attachMaterialStrip } from './badge_material_strip.mjs';
+import { attachMaterialStrip } from './badge_material_strip.mjs?v=20260911-88-1';
 import { attachBadgeColorPicker } from './badge_color_picker.mjs';
 import { attachReferenceResize } from './badge_reference_resize.mjs';
-import { createHeightBoard } from './badge_height_board.mjs?v=20260908-mask-toggle';
+import { createHeightBoard } from './badge_height_board.mjs?v=20260916-height-1';
 import { run as runPrototype, getPrototypeSession } from './badge_app_prototype.js';
-import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20260909-prompt-only-1';
-import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260909-prompt-only-1';
+import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20260916-height-1';
+import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260916-height-1';
 
 const CONFIGS = {
     background: [47, 'multi_color_mask_v1_panel', '_multiColorMaskV1SelectedId'],
@@ -34,7 +37,8 @@ function mount(graph, root, tabId = 'build') {
     const local = tabId === 'local';
     const segmented = graph.extra?.daelabBadgeExecutionV1?.version === 1;
     if (segmented) root.dataset.badgeUi = '87';
-    const configs = local ? { color: [104, 'multi_color_mask_v1_panel'] } : CONFIGS;
+    if (isBadge88(graph)) root.dataset.badgeVersion = '88';
+    const configs = local ? { get color() { return localMulti() ? [localMaterialNodeId88(graph), 'badge_material_region_v1_panel'] : [104, 'multi_color_mask_v1_panel']; } } : CONFIGS;
     const workflowId = graph.id;
     const state = { imageTab: 'flat', section: local ? 'color' : null, last: { flat: null, height: null },
         background: graph.extra.daelabBadgePrototypeV1.backgroundEnabled !== false,
@@ -46,6 +50,8 @@ function mount(graph, root, tabId = 'build') {
     const invertSwitches = new Map();
     const node = id => graph.getNodeById(id);
     const hierarchy = () => readHierarchyState(node(95));
+    const localMulti = () => local && usesLocalMaterials88(graph, key => itemValue(hierarchy(), key));
+    let regionPreviewScope = null;
     const routeEffect = () => !local && itemValue(hierarchy(), 'badge.path.effect');
     const sourceNode = () => node(local ? graph.extra.daelabBadgePrototypeV1.localReferenceNodeId : routeEffect() ? 96 : state.imageTab === 'height' ? 2 : 1);
     const imageWidget = () => sourceNode()?.widgets?.find(w => w.name === 'image');
@@ -221,12 +227,8 @@ function mount(graph, root, tabId = 'build') {
             && selectionKey(w.value) === request.value;
         uploadButton.disabled = true; status.textContent = '正在上传…';
         try {
-            const form = new FormData(); form.append('image', blob); form.append('type', 'input');
-            const response = await api.fetchApi('/upload/image', { method: 'POST', body: form });
-            if (!response.ok) throw new Error('上传失败，请重试。');
-            const data = await response.json();
+            const value = await uploadBadgeImage(api, blob);
             if (!current()) return;
-            const value = data.subfolder ? `${data.subfolder}/${data.name}` : data.name;
             if (local && segmented) { setExistingTarget87(graph, value, getPrototypeSession(graph, 'local')); update(); return; }
             graph.beforeChange?.(); w.value = value;
             if (Array.isArray(w.options?.values) && !w.options.values.includes(value)) w.options.values.push(value);
@@ -250,6 +252,7 @@ function mount(graph, root, tabId = 'build') {
     const toolbar = make('div'); toolbar.className = 'badge-build-bar';
     const view = make('select', '', toolbar); view.setAttribute('aria-label', '大图显示方式');
     view.innerHTML = '<option value="original">原图</option><option value="overlay">遮罩叠加</option><option value="mask">黑白遮罩 / 高度图</option><option value="cutout">透明剔除预览</option>';
+    if (refinedBadge87(graph)) view.hidden = true;
     if (local) { view.options[2].textContent = '黑白遮罩'; view.options[3].hidden = true; }
     view.onchange = () => { state.view = view.value; update(); };
     function maskActive() { return Boolean(state.preview && state.view === 'mask' && state.signature === JSON.stringify(config())); }
@@ -300,7 +303,7 @@ function mount(graph, root, tabId = 'build') {
         const i=(y*canvas.width+x)*4;return '#'+[...selectionPixels().data.slice(i,i+3)].map(v=>v.toString(16).padStart(2,'0')).join('');
     },live);
     const sectionButtons = {};
-    for (const [key, title] of local ? [] : [['background', '背景 / 镂空剔除'], ['material', '材质分区'], ['height', '高度建立']]) {
+    for (const [key, title] of local ? [] : [['background', '背景 / 镂空剔除'], ...(!refinedBadge87(graph) ? [['material', '材质分区']] : []), ['height', '高度建立']]) {
         const group = make('div', '', sections); group.className = 'badge-build-capsule';
         const b = button(title, group, () => {
             colorPicker.close();
@@ -332,7 +335,8 @@ function mount(graph, root, tabId = 'build') {
         const source = usesMap() && ((!mapShown || (segmented && !selectionPixels())) && state.view === 'original') ? state.pixels : selectionPixels();
         canvas.hidden = !source; empty.hidden = Boolean(source);
         if (!source) { empty.textContent = mapError || (mapBusy ? segmented ? 'GPT 色彩分区图生成中…' : `正在生成色彩分区图 ${mapProgress}%` : '色彩分区图尚未就绪'); return; }
-        const key = [source, state.preview, state.view, state.section];
+        const selectedRegion = localMulti() && regionPreviewScope?.value === 'selected' ? node(localMaterialNodeId88(graph))?._badgeMaterialRegionV1SelectedId : null;
+        const key = [source, state.preview, state.view, state.section, selectedRegion];
         if (state.drawn?.every((v, i) => v === key[i])) return;
         state.drawn = key;
         let data;
@@ -347,6 +351,7 @@ function mount(graph, root, tabId = 'build') {
                 }
             }
         } else data = state.view === 'original' || !state.preview ? source.data
+            : localMulti() ? previewLocalMaterials88(source.data, state.pixels.data, state.preview, state.view, selectedRegion)
             : previewPixels(source.data, state.preview, state.section, state.view);
         canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data), canvas.width, canvas.height), 0, 0);
     }
@@ -361,6 +366,7 @@ function mount(graph, root, tabId = 'build') {
         try {
             await image.decode();
             if (!live() || token !== state.loadToken) return;
+            if (local && refinedBadge87(graph)) setLocalTargetSize87(graph, selection, image.naturalWidth, image.naturalHeight);
             canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
             const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(image, 0, 0);
             state.pixels = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -396,7 +402,7 @@ function mount(graph, root, tabId = 'build') {
         promptToggle.checked = promptOnly;
         promptToggle.disabled = Boolean(getPrototypeSession(graph, 'build').busy);
         promptInput.placeholder = promptOnly
-            ? '描述你想生成的图片，直接发送给 GPT-Image-2；不会附加徽章、白底等预设要求。'
+            ? `描述你想生成的图片，直接发送给 ${graph.extra?.daelabBadgeExecutionV1?.version === 1 ? selectedBadgeModel(graph, 'build') : 'GPT-Image-2'}；不会附加徽章、白底等预设要求。`
             : '补充描述生成要求，将置于结构化提示词之前；参考图及下方配置仍会生效。';
         promptHelp.textContent = promptOnly
             ? '仅使用基础提示词和模型输出配置；参考图与结构化配置已保留，不参与本次生成。'
@@ -471,6 +477,7 @@ function mount(graph, root, tabId = 'build') {
         colorPicker.close();
         node(95)?.daelabBooleanHierarchyV1?.setItemValue(`badge.post.local.${suffix}`, true);
         node(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
+        if (suffix === 'material' && localMulti()) expandedBlock = 'selection';
         if (suffix.startsWith('selection.')) { state.preview = null; state.view = 'original'; confirmedSelection = null; }
         update();
     }
@@ -490,7 +497,7 @@ function mount(graph, root, tabId = 'build') {
     }
     if (local) {
         selectionRow = choiceRow('1. 定义修改区域', [['selection.color', '按颜色选遮罩'], ['selection.polygon', '画笔 / Polygon 选区']], 'selection');
-        editRow = choiceRow('2. 描述修改内容', [['semantic', '语义描述'], ['material', '预设材质 Prompt']], 'edit');
+        editRow = choiceRow('2. 描述修改内容', [['semantic', '语义描述'], ['material', isBadge88(graph) ? '设置区域材质' : '预设材质 Prompt']], 'edit');
         selectionRow.classList.add('badge-local-block-start'); editRow.classList.add('badge-local-block-start');
         advanced = document.createElement('div'); advanced.className = 'badge-color-source';
         const sourceRow = make('div', '', advanced); sourceRow.className = 'badge-color-source-row';
@@ -522,8 +529,20 @@ function mount(graph, root, tabId = 'build') {
         make('p', segmented ? '色彩分区图将相近颜色分开，方便选择区域；不会替换待编辑图片。' : '色彩分区图为本地色彩简化预览（原型），用于演示取色与遮罩匹配。', advanced);
         localParts.push(advanced);
         selectionActions = document.createElement('section'); selectionActions.className = 'badge-local-options badge-local-block-end';
+        if (isBadge88(graph)) {
+            const label = make('label', '遮罩预览范围 ', selectionActions);
+            regionPreviewScope = make('select', '', label);
+            regionPreviewScope.setAttribute('aria-label', '材质区域预览范围');
+            regionPreviewScope.innerHTML = '<option value="all">全部材质区域</option><option value="selected">当前选中区域</option>';
+            regionPreviewScope.onchange = () => { state.view = 'original'; toggleMaskPreview(); };
+        }
         localParts.push(selectionActions);
         editEnd = document.createElement('div'); editEnd.className = 'badge-local-options badge-local-block-end badge-local-edit-end';
+        if (isBadge88(graph)) {
+            const note = make('p', '按颜色编辑时，请在第 1 块的材质列表中逐行设置；画笔选区使用下方单一目标材质。', editEnd);
+            note.className = 'badge-local-material-help';
+            button('返回区域材质列表', editEnd, () => { expandedBlock = 'selection'; update(); });
+        }
         localParts.push(editEnd);
         localActions = document.createElement('section'); localActions.className = 'badge-local-options badge-local-page-actions';
         localPreview = button('预览遮罩', selectionRow, toggleMaskPreview);
@@ -564,6 +583,9 @@ function mount(graph, root, tabId = 'build') {
         }
         sections.hidden = true;
         const h = hierarchy(), enabled = itemValue(h, 'badge.post.local');
+        const multi = localMulti();
+        const colorNodeId = multi ? localMaterialNodeId88(graph) : 104;
+        if (regionPreviewScope) regionPreviewScope.parentElement.hidden = !multi;
         const color = itemValue(h, 'badge.post.local.selection.color');
         const polygon = itemValue(h, 'badge.post.local.selection.polygon');
         const mapMode = itemValue(h, 'badge.post.local.color_id_map');
@@ -604,6 +626,7 @@ function mount(graph, root, tabId = 'build') {
         advanced.hidden = !enabled || !color || expandedBlock !== 'selection';
         selectionActions.hidden = !enabled || expandedBlock !== 'selection';
         editEnd.hidden = !enabled || expandedBlock !== 'edit';
+        if (isBadge88(graph)) for (const child of editEnd.children) child.hidden = !multi;
         for (const row of [selectionRow, editRow]) {
             const expanded = row.dataset.block === expandedBlock;
             row.dataset.expanded = String(expanded);
@@ -626,7 +649,7 @@ function mount(graph, root, tabId = 'build') {
         const items = [...root.querySelectorAll(':scope > [data-testid="app-mode-widget-item"]')];
         for (const item of items) {
             const id = Number(item.dataset.widgetKey?.split(':').at(-2));
-            const show = enabled && ((expandedBlock === 'selection' && ((id === 104 && color) || (id === 142 && polygon))) || (expandedBlock === 'edit' && ((id === 105 && itemValue(h, 'badge.post.local.semantic')) || (id === 106 && itemValue(h, 'badge.post.local.material'))))) && isNodeAvailableInAppMode(node(id));
+            const show = enabled && ((expandedBlock === 'selection' && ((id === colorNodeId && color) || (id === 142 && polygon))) || (expandedBlock === 'edit' && ((id === 105 && itemValue(h, 'badge.post.local.semantic')) || (id === 106 && !multi && itemValue(h, 'badge.post.local.material'))))) && isNodeAvailableInAppMode(node(id));
             item.toggleAttribute(HIDDEN, !show); item.toggleAttribute('data-badge-build-list', show);
             item.toggleAttribute('data-badge-local-body', show);
         }
@@ -636,11 +659,11 @@ function mount(graph, root, tabId = 'build') {
         place(editEnd, localActions);
         place(editRow, findItem([105, 106]) || editEnd);
         place(selectionActions, editRow);
-        place(selectionRow, findItem([104, 142]) || selectionActions);
-        const maskNode = node(color ? 104 : 142);
-        const colorPanel = items.find(item => Number(item.dataset.widgetKey?.split(':').at(-2)) === 104)?.querySelector('.daelab-multi-color-mask-v1-panel');
+        place(selectionRow, findItem([colorNodeId, 142]) || selectionActions);
+        const maskNode = node(color ? colorNodeId : 142);
+        const colorPanel = items.find(item => Number(item.dataset.widgetKey?.split(':').at(-2)) === colorNodeId)?.querySelector('.daelab-multi-color-mask-v1-panel, .daelab-badge-material-region-v1-panel');
         if (segmented) {
-            const colorItem = findItem([104]);
+            const colorItem = findItem([colorNodeId]);
             if (colorItem) place(advanced, colorItem);
         } else if (colorPanel && advanced.parentElement !== colorPanel) colorPanel.insertBefore(advanced, colorPanel.firstElementChild?.nextSibling || null);
         const maskHeader = color ? colorPanel?.firstElementChild : node(142)?.polygonWidget?.container?.querySelector('.badge-selection-tools');
@@ -671,6 +694,14 @@ function mount(graph, root, tabId = 'build') {
         localStatus.textContent = graph.extra?.daelabBadgeExecutionV1?.version === 1
             ? session.busy ? '正在校验选区并应用修改…' : snapshot.error ? `无法生成：${snapshot.error}` : session.message || '点击生成将自动校验当前选区。'
             : session.busy ? '正在模拟应用…' : snapshot.error ? `无法生成：${snapshot.error}` : !selectionReady ? '请先在第 1 块点击“预览遮罩”确认选区。' : (session.phase === 'applied' && session.preview === snapshot.fingerprint ? '已模拟应用修改，目标图保持原样。' : '设置好修改内容后应用。当前为交互模拟，不生成图片。');
+        if (multi && !session.busy && !snapshot.error && session.phase !== 'error') {
+            const rows = config().groups?.length || 0;
+            const count = graph.extra.daelabBadgePrototypeV1.generation?.local?.count || 1;
+            const hasPalette = !refinedBadge87(graph) && normalizeImageSelection(graph.extra.daelabBadgePrototypeV1.paletteReference)
+                || normalizeImageSelection(node(1)?.widgets?.find(w => w.name === 'image')?.value);
+            localStatus.textContent += ` 共 ${rows} 个区域、${count} 张结果，预计 ${(rows + Number(Boolean(hasPalette))) * count} 次图像生成调用（不含分区图）。`;
+            selectionStatus.textContent = '每行分别设置颜色与材质；未匹配区域保持不变。重叠像素归属最接近的颜色，同距离按列表顺序。';
+        }
         draw();
     }
     if (!local) {
@@ -682,7 +713,7 @@ function mount(graph, root, tabId = 'build') {
         if (!r.ok) throw new Error('Node schema unavailable');
         return r.json();
     }).then(data => {
-        const model = data.OpenAIGPTImageNodeV2?.input?.required?.model?.[1]?.options?.find(o => o.key === 'gpt-image-2');
+        const model = data.OpenAIGPTImageNodeV2?.input?.required?.model?.[1]?.options?.find(o => o.key === (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? 'gpt-image-2.5-sunburst' : 'gpt-image-2'));
         const sizes = model?.inputs?.required?.size?.[1]?.options;
         if (live() && Array.isArray(sizes)) generation.setPresets(sizes);
     }).catch(() => { /* Retain the verified bundled preset list when discovery is unavailable. */ });
@@ -719,6 +750,7 @@ function mount(graph, root, tabId = 'build') {
         for (const part of localParts) part.remove();
         delete root.dataset.badgeLocal;
         delete root.dataset.badgeUi;
+        delete root.dataset.badgeVersion;
         root.querySelectorAll('[data-badge-local-body]').forEach(e => e.removeAttribute('data-badge-local-body'));
         root.querySelectorAll(`[${HIDDEN}],[data-badge-build-list]`).forEach(e => { e.removeAttribute(HIDDEN); e.removeAttribute('data-badge-build-list'); });
     } };
@@ -895,6 +927,12 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-material-compact-extra[hidden] {display:none;}
     .badge-material-compact-extra select {max-width:150px;}
     @container (max-width:570px) {.badge-material-compact-line {grid-template-columns:32px 108px 74px minmax(95px,1fr);gap:6px;}.badge-material-compact-strength {grid-column:2 / 4;}.badge-material-compact-more {grid-column:4;justify-self:end;width:26px;}}
+    @container (max-width:360px) {
+      [data-badge-version="88"][data-badge-local] .badge-material-compact-line {grid-template-columns:32px minmax(0,1fr) 74px;}
+      [data-badge-version="88"][data-badge-local] .badge-material-compact-target {grid-column:1 / 4;}
+      [data-badge-version="88"][data-badge-local] .badge-material-compact-strength {grid-column:1 / 3;}
+      [data-badge-version="88"][data-badge-local] .badge-material-compact-more {grid-column:3;}
+    }
     .badge-material-strip {display:flex;align-items:center;gap:6px;min-width:0;padding:10px 0;}
     .badge-material-strip-rail {display:flex;gap:8px;overflow-x:auto;min-width:0;flex:1;padding:4px;}
     .badge-material-strip button {color:#e4eaee;background:#2b3239;border:1px solid #57626d;border-radius:8px;cursor:pointer;}

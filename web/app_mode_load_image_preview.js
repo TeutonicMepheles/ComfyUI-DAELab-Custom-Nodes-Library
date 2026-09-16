@@ -3,7 +3,7 @@ import { api } from "/scripts/api.js";
 import {
     getRootGraphSafely,
     getSelectedInputEntries,
-} from "./app_mode_bypass_model.mjs?v=20260904-scoped-input-2";
+} from "./app_mode_bypass_model.mjs?v=20260911-88-1";
 import {
     APP_PREVIEW_HEADING_PROPERTY,
     APP_PREVIEW_PROPERTY,
@@ -15,7 +15,7 @@ import {
 import {
     BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE,
     normalizeBadgeAppLayout,
-} from "./badge_app_layout_model.mjs?v=20260904-4";
+} from "./badge_app_layout_model.mjs?v=20260916-height-1";
 
 const EXTENSION_NAME = "DAELab.AppModeLoadImagePreview";
 const UI_VERSION = "20260904-app-image-preview-v6";

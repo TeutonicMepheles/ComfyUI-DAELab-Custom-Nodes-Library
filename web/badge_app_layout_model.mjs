@@ -1,7 +1,8 @@
+import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-height-1';
 import {
     getSelectedInputEntries,
     resolveNode,
-} from "./app_mode_bypass_model.mjs";
+} from "./app_mode_bypass_model.mjs?v=20260911-88-1";
 import {
     normalizeImageSelection,
 } from "./app_mode_load_image_preview_model.mjs";
@@ -221,6 +222,12 @@ export function normalizeBadgeAppLayout(graph) {
             return fail("Reference source IDs must be unique.");
         }
 
+        // Runtime-only tab keeps legacy four-tab workflow serialization compatible.
+        if (graph.extra?.daelabBadgeExecutionV1?.version === 1 && !refinedBadge87(graph)) {
+            const palette = { id: 'palette', title: '配色参考图', inputKeys: [], enabledItemId: null };
+            tabs.unshift(palette);
+            tabById.set(palette.id, palette);
+        }
         return {
             ok: true,
             layout: {

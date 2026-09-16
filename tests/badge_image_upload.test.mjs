@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { uploadBadgeImage } from '../web/badge_image_upload.mjs';
 import { localTargets87, setExistingTarget87, selectLocalSource87 } from '../web/badge_result_target_87.mjs';
 
 // Exercise the adapter's actual handlers with controlled network completion order.
@@ -11,7 +12,7 @@ function fixture(badge87 = false) {
     const target = { id: 1, widgets: [widget] };
     const requests = [], uploadButton = {}, status = {}, file = { value: 'pending' };
     let live = true, currentNode = target, changes = 0;
-    const create = new Function('imageWidget', 'sourceNode', 'node', 'live', 'selectionKey',
+    const create = new Function('uploadBadgeImage', 'imageWidget', 'sourceNode', 'node', 'live', 'selectionKey',
         'uploadButton', 'status', 'file', 'state', 'update', 'graph', 'api', 'local', 'segmented', 'localTargets87', 'setExistingTarget87', 'getPrototypeSession',
         `${handlers}; return { upload, setImage };`);
     const api = { fetchApi: () => new Promise((resolve, reject) => requests.push({
@@ -21,7 +22,7 @@ function fixture(badge87 = false) {
         extra:{daelabBadgeExecutionV1:{version:1},daelabBadgePrototypeV1:{localReferenceNodeId:1,stateNodeId:95}}};
     const session = {};
     if (badge87) localTargets87(graph).source='existing';
-    const actions = create(() => widget, () => target, () => currentNode, () => live, JSON.stringify,
+    const actions = create(uploadBadgeImage, () => widget, () => target, () => currentNode, () => live, JSON.stringify,
         uploadButton, status, file, {}, () => {}, graph, api, badge87, badge87, localTargets87, setExistingTarget87, () => session);
     return { ...actions, widget, target, requests, uploadButton, status, file, graph, session,
         changes: () => changes, dispose: () => { live = false; },

@@ -115,6 +115,8 @@ class BadgeAppWorkflowTests(unittest.TestCase):
     def test_color_id_map_key_is_stable_and_revision_invalidates_it(self):
         master = torch.zeros((1, 1024, 1024, 3), dtype=torch.float32)
         first = MODULE.color_id_map_cache_key(master, "prompt", "high", 6, 0)
+        self.assertEqual(first, MODULE.color_id_map_cache_key(master, "prompt", "high", 6, 0, "gpt-image-2"))
+        self.assertNotEqual(first, MODULE.color_id_map_cache_key(master, "prompt", "high", 6, 0, "gpt-image-2.5-sunburst"))
         second = MODULE.color_id_map_cache_key(master.clone(), "prompt", "high", 6, 0)
         rerolled = MODULE.color_id_map_cache_key(master, "prompt", "high", 6, 1)
         changed = master.clone()

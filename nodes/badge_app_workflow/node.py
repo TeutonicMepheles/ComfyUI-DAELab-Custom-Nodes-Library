@@ -304,13 +304,13 @@ def _cache_root():
     return path
 
 
-def color_id_map_cache_key(master_image, prompt, quality, seed, map_revision):
+def color_id_map_cache_key(master_image, prompt, quality, seed, map_revision, model="gpt-image-2"):
     normalized_prompt = str(prompt or DEFAULT_MAP_PROMPT).strip()
     return _json_digest({
         "master_digest": image_digest(master_image),
         "prompt_version": MAP_PROMPT_VERSION,
         "prompt": normalized_prompt,
-        "model": "gpt-image-2",
+        "model": str(model),
         "size": f"{CANVAS_SIZE}x{CANVAS_SIZE}",
         "background": "opaque",
         "quality": str(quality),
@@ -752,6 +752,7 @@ if comfy_io is not None:
                     comfy_io.Combo.Input("quality", options=["low", "medium", "high"], default="high"),
                     comfy_io.Int.Input("seed", default=6, min=0, max=2147483647),
                     comfy_io.Int.Input("map_revision", default=0, min=0, max=2147483647),
+                    comfy_io.Combo.Input("model", options=["gpt-image-2", "gpt-image-2.5-sunburst"], default="gpt-image-2", optional=True),
                 ],
                 outputs=[
                     comfy_io.Image.Output("color_id_map"),
@@ -766,7 +767,7 @@ if comfy_io is not None:
             return ["master_image"] if bool(enabled) and master_image is None else []
 
         @classmethod
-        def execute(cls, enabled=False, master_image=None, map_prompt=DEFAULT_MAP_PROMPT, quality="high", seed=6, map_revision=0):
+        def execute(cls, enabled=False, master_image=None, map_prompt=DEFAULT_MAP_PROMPT, quality="high", seed=6, map_revision=0, model="gpt-image-2"):
             if not bool(enabled):
                 placeholder = torch.zeros((1, 1, 1, 3), dtype=torch.float32)
                 return comfy_io.NodeOutput(
@@ -777,7 +778,7 @@ if comfy_io is not None:
             master = _image_float(master_image, "master_image")
             if tuple(master.shape) != (1, CANVAS_SIZE, CANVAS_SIZE, 3):
                 raise ValueError(f"Color ID Map input must be one {CANVAS_SIZE}x{CANVAS_SIZE} RGB image.")
-            key = color_id_map_cache_key(master, map_prompt, quality, seed, map_revision)
+            key = color_id_map_cache_key(master, map_prompt, quality, seed, map_revision, model)
             cached = load_cached_map(key)
             if cached is not None:
                 status = json.dumps({
@@ -792,7 +793,7 @@ if comfy_io is not None:
                 "OpenAIGPTImageNodeV2",
                 id="badge_color_id_map_gpt",
                 prompt=str(map_prompt or DEFAULT_MAP_PROMPT),
-                model="gpt-image-2",
+                model=model,
                 **{
                     "model.size": f"{CANVAS_SIZE}x{CANVAS_SIZE}",
                     "model.custom_width": CANVAS_SIZE,

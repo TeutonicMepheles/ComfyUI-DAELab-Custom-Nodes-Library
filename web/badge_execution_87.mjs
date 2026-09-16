@@ -1,10 +1,14 @@
-import { requestForStage, promptForRequest } from './badge_execution_87_model.mjs?v=20260909-prompt-only-1';
-import { getRootGraphSafely } from './app_mode_bypass_model.mjs';
+import { isBadge88 } from './badge_local_material_88_model.mjs?v=20260911-88-1';
+import { requestForStage as request88, promptForRequest as prompt88 } from './badge_execution_88_model.mjs?v=20260911-88-1';
+import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260916-height-1';
+import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { queueBadge87 } from './badge_execution_87_queue.mjs';
-import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260911-media-restore';
+import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260911-88-1';
 
 // No replacement controls or DOM listeners: the original stage runner delegates here.
 export async function execute87(graph, stage, state, app, nativeQueue, localSession, validateOnly = false) {
+    const requestForStage = isBadge88(graph) ? request88 : request87;
+    const promptForRequest = isBadge88(graph) ? prompt88 : prompt87;
     const { api } = await import('/scripts/api.js');
     stage ||= document.querySelector('[role="tablist"][aria-label="徽章工作流步骤"] [role="tab"][aria-selected="true"]')?.dataset.tabId;
     if (!['build','local','studio'].includes(stage)) {
@@ -58,7 +62,7 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
         }
         const report = history.outputs?.[String(executorId)]?.badge87_report?.[0];
         const images = history.outputs?.['113']?.images;
-        if (!images?.length) throw new Error('生成任务未返回图片。');
+        if (!(request.interaction_revision === 2 && stage === 'local' && !request.apply) && !images?.length) throw new Error('生成任务未返回图片。');
         state.preview = fingerprint;
         state.serverToken = report?.preview_token;
         state.phase = stage === 'local' ? request.apply ? 'applied' : 'preview-ready' : 'complete';

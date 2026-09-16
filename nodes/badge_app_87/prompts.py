@@ -52,12 +52,15 @@ def studio_prompt(user_prompt):
                 '保持项：保留产品轮廓、比例、文字、图案、底色、材质分区和宏观浮雕；按摄影要求调整光照与背景，不替换产品材质或新增装饰。')
 
 
-def original_color_prompt(index):
+def original_color_prompt(index, custom=False, reference_only=False):
+    if custom:
+        role = '按用户提示词建立结构和图案。' if reference_only else '图1决定当前结构、图案和材质。'
+        return f'参考分工：{role}图{index}为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。'
     return f'参考分工：图1为当前待处理图，决定结构、图案和现有材质；图{index}为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。'
 
 
 def color_finish_prompt(user_prompt='', local=False, exceptions=''):
-    return join('任务：对图1完成最终底色校正，图2仅提供原平面稿的配色参考。',
+    return join('任务：对图1完成最终底色校正，图2仅提供配色参考。',
                 '校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。',
                 '保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。',
                 '颜色例外：'+exceptions if exceptions else '',

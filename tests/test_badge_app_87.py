@@ -17,6 +17,43 @@ M = importlib.import_module('badge87_test_package.nodes.badge_app_87.node')
 
 
 class Badge87Tests(unittest.TestCase):
+    def test_official_dimension_limits(self):
+        for w, h in [(1536, 864), (864, 1536), (1280, 512), (512, 1280),
+                     (1536, 512), (3840, 2160), (2160, 3840)]:
+            with self.subTest(size=(w, h)):
+                self.assertEqual(M.dimensions({'width': w, 'height': h}), (w, h))
+        for w, h in [(1024, 576), (1264, 512), (1536, 496), (3856, 1280),
+                     (0, 1024), (-16, 1024), (True, 1024), (864.5, 1536), (3840, 2176)]:
+            with self.subTest(size=(w, h)), self.assertRaises(ValueError):
+                M.dimensions({'width': w, 'height': h})
+
+    def test_short_edges_reach_model_through_validated_integer_links(self):
+        graph_module = types.ModuleType('comfy_execution.graph_utils')
+        nodes = {}
+        class Graph:
+            def node(self, kind, id, **inputs):
+                nodes[id] = (kind, inputs)
+                return types.SimpleNamespace(out=lambda index: [id, index])
+            def finalize(self): return {}
+        graph_module.GraphBuilder = Graph
+        for width, height in [(1536, 864), (864, 1536), (1280, 512), (512, 1280)]:
+            nodes.clear()
+            request = self.request(stage='build', prompt_only=True, width=width, height=height)
+            with patch.dict(sys.modules, {'comfy_execution.graph_utils': graph_module}):
+                M.BadgeApp87V1().execute(json.dumps(request))
+            calls = [inputs for kind, inputs in nodes.values() if kind == 'OpenAIGPTImageNodeV2']
+            self.assertTrue(calls)
+            for inputs in calls:
+                self.assertEqual(inputs['model.size'], 'Custom')
+                for axis, expected in [('width', width), ('height', height)]:
+                    value = inputs[f'model.custom_{axis}']
+                    if expected < 1024:
+                        self.assertIsInstance(value, list)
+                        kind, primitive = nodes[value[0]]
+                        self.assertEqual(kind, 'PrimitiveInt')
+                        value = primitive['value']
+                    self.assertEqual(value, expected)
+
     def test_refined_build_ignores_stale_palette_and_regions(self):
         request = self.request(stage='build', interaction_revision=2,
                                color_reference='missing.png', regions={'groups': [{'bad': True}]})

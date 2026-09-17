@@ -109,3 +109,13 @@ test('base prompt supports image-free build without unrelated node dependencies'
  g.extra.daelabBadgePrototypeV1.buildPrompt='   ';
  assert.ok(stageSnapshot(g,'build').error);
 });
+
+
+test('custom dimensions follow official pixel, alignment and aspect limits', () => {
+ for (const [width,height] of [[1536,864],[864,1536],[1280,512],[512,1280],[1536,512],[3840,2160],[2160,3840]]) {
+  assert.equal(validateDimensions({width,height}), '', `${width}x${height}`);
+ }
+ for (const [width,height] of [[1024,576],[1264,512],[1536,496],[3856,1280],[0,1024],[-16,1024],[864.5,1536],[3840,2176]]) {
+  assert.ok(validateDimensions({width,height}), `${width}x${height}`);
+ }
+});

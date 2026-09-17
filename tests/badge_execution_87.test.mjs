@@ -204,3 +204,25 @@ test('legacy excessive height remains intact and blocks generation',()=>{
  m.heightBoard={count:6,fallback:1,groups:[]};const saved=JSON.stringify(m.heightBoard);
  assert.throws(()=>compileRequest(g,'build'),/六层/);assert.equal(JSON.stringify(m.heightBoard),saved);
 });
+
+
+test('all five 8.7 ratios support both tiers after catalog refresh and serialization', async () => {
+    const { generationPresets87, classifyPresets, SIZE_PRESETS, RATIOS, validateDimensions, generationParameters } = await import('../web/badge_generation_model.mjs');
+    const presets = generationPresets87([...SIZE_PRESETS, 'Custom', 'auto']);
+    assert.equal(classifyPresets().some(p => p.ratio === '2:3' && p.tier === '2K'), false);
+    for (const ratio of RATIOS) for (const tier of ['1K', '2K']) {
+        const preset = presets.find(p => p.ratio === ratio && p.tier === tier);
+        assert.ok(preset, ratio);
+        assert.equal(validateDimensions(preset), '');
+        const [w, h] = ratio.split(':').map(Number);
+        assert.equal(preset.width * h, preset.height * w);
+        const {g} = fixture();
+        g.extra.daelabBadgePrototypeV1.promptOnly = true;
+        g.extra.daelabBadgePrototypeV1.buildPrompt = 'A badge';
+        g.extra.daelabBadgePrototypeV1.generation = {build: {...preset, custom: false}};
+        g.extra = JSON.parse(JSON.stringify(g.extra));
+        const {request} = requestForStage(g, 'build');
+        assert.deepEqual([request.width, request.height], [preset.width, preset.height]);
+        if (preset.size === 'Custom') assert.equal(generationParameters(preset)['model.size'], 'Custom');
+    }
+});

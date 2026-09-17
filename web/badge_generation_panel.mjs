@@ -1,6 +1,6 @@
-import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-dimensions-2';
 import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
-import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260917-target87-1';
+import { RATIOS, classifyPresets, generationPresets87, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260917-dimensions-2';
 import { bindCompactNumberDrag, boundedNumberDragValue } from './compact_color_group_controls.mjs?v=20260916-content-1';
 
 // Both stages use the same view; only their workflow-scoped saved configuration differs.
@@ -17,7 +17,8 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     if (inherit) { heading.hidden = true; element.dataset.inheritedOutput = ''; }
     heading.id = `badge-generation-${stage}`; element.setAttribute('aria-labelledby', heading.id);
     if (inherit) { element.removeAttribute('aria-labelledby'); element.setAttribute('aria-label', badgeText('generation_panel.text_024')); }
-    let presets = classifyPresets();
+    const getPresets = refined ? generationPresets87 : classifyPresets;
+    let presets = getPresets();
     const ratios = new Map(), tiers = new Map();
     const ratioLabel = make('p', badgeText("generation_panel.text_003")); const ratioRow = make('div', ''); ratioRow.className = 'badge-generation-options';
     const commit = config => {
@@ -56,7 +57,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     const inputs = {};
     for (const [axis, label] of [['width', 'W'], ['height', 'H']]) {
         const wrap = make('label', label, dimensions), input = make('input', '', wrap);
-        input.type = 'number'; input.min = '1024'; input.max = '3840'; input.step = '16';
+        input.type = 'number'; input.min = '16'; input.max = '3840'; input.step = '16';
         input.setAttribute('aria-label', axis === 'width' ? badgeText("generation_panel.text_007") : badgeText("generation_panel.text_008"));
         input.title = badgeText("generation_panel.text_009");
         const setDimension = value => {
@@ -66,7 +67,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         input.oninput = () => setDimension(input.value);
         bindCompactNumberDrag(input, {
             onCommit: setDimension,
-            valueFromDrag: (start, delta) => boundedNumberDragValue(Math.round(start / 16) * 16, delta, 1024, 3840, 16),
+            valueFromDrag: (start, delta) => boundedNumberDragValue(Math.round(start / 16) * 16, delta, 16, 3840, 16),
         });
         inputs[axis] = input;
     }
@@ -118,7 +119,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     }
     render();
     return { element, button, status, modelControl: inherit ? header : null,
-        setPresets(sizes) { presets = classifyPresets(sizes); render(); },
+        setPresets(sizes) { presets = getPresets(sizes); render(); },
         update({ busy = false, error = '', message = '' } = {}) {
             running = busy; problem = error; render();
             status.textContent = busy ? (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? badgeText("generation_panel.text_025") : badgeText("generation_panel.text_026")) : error || message || badgeText("generation_panel.text_027");

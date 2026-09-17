@@ -1,4 +1,4 @@
-import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-dimensions-2';
 import { usesLocalRegions87, readLocalRegions87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
 import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87, removedMaterial87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
 import { usesLocalMaterials88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
@@ -18,12 +18,22 @@ export function classifyPresets(sizes = SIZE_PRESETS) {
         return [{ size, width, height, ratio, tier: edge <= 1536 ? '1K' : '2K' }];
     });
 }
+// Badge 8.7 can send custom dimensions beyond the model's fixed size enum.
+export function generationPresets87(sizes = SIZE_PRESETS) {
+    const presets = classifyPresets(sizes);
+    for (const [ratio, tier, width, height] of [['2:3', '2K', 2048, 3072], ['3:2', '2K', 3072, 2048], ['16:9', '1K', 1536, 864], ['9:16', '1K', 864, 1536]]) {
+        if (!presets.some(p => p.ratio === ratio && p.tier === tier)) {
+            presets.push({ size: 'Custom', width, height, ratio, tier });
+        }
+    }
+    return presets;
+}
 export function readGenerationConfig(graph, stage) {
     const { prompt: _removedPrompt, ...saved } = graph.extra?.daelabBadgePrototypeV1?.generation?.[stage] || {};
     return { ...DEFAULT_CONFIG, ...saved, ...(refinedBadge87(graph) ? { model: selectedBadgeModel(graph, stage), ...(stage === 'local' ? {...localTargetSize87(graph), count: 1} : {}) } : {}) };
 }
 export function validateDimensions({ width, height }) {
-    if (![width, height].every(v => Number.isInteger(v) && v >= 1024 && v <= 3840)) return badgeText("generation_model.text_001");
+    if (![width, height].every(v => Number.isInteger(v) && v > 0 && v <= 3840)) return badgeText("generation_model.text_001");
     if (width % 16 || height % 16) return badgeText("generation_model.text_002");
     if (Math.max(width, height) / Math.min(width, height) > 3) return badgeText("generation_model.text_003");
     const pixels = width * height;
@@ -32,7 +42,7 @@ export function validateDimensions({ width, height }) {
 export function generationParameters(config) {
     const error = validateDimensions(config);
     if (error) throw new Error(error);
-    return { model: config.model || 'gpt-image-2', 'model.size': config.custom ? 'Custom' : `${config.width}x${config.height}`,
+    return { model: config.model || 'gpt-image-2', 'model.size': config.custom || config.size === 'Custom' ? 'Custom' : `${config.width}x${config.height}`,
         'model.custom_width': config.width, 'model.custom_height': config.height };
 }
 export function editDimension(config, axis, value) {

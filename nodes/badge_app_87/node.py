@@ -32,7 +32,7 @@ def selected_model(request):
 
 def dimensions(request):
     w, h = request.get('width', 1024), request.get('height', 1024)
-    if any(type(x) is not int or not 1024 <= x <= 3840 or x % 16 for x in (w, h)):
+    if any(type(x) is not int or not 0 < x <= 3840 or x % 16 for x in (w, h)):
         raise ValueError(ui_text('backend.error_002'))
     if max(w, h) / min(w, h) > 3 or not 655360 <= w*h <= 8294400:
         raise ValueError(ui_text('backend.error_003'))
@@ -313,8 +313,16 @@ class BadgeApp87V1:
         from .prompts import original_color_prompt
         graph = GraphBuilder()
         w, h = dimensions(request)
+        # The upstream widgets impose min=1024, although execution accepts
+        # official custom sizes with shorter edges. Feed validated INT links
+        # through the existing primitive node without changing upstream schema.
+        model_dimensions = {
+            axis: graph.node('PrimitiveInt', id=f'output_{axis}', value=value).out(0)
+            if value < 1024 else value
+            for axis, value in (('width', w), ('height', h))
+        }
         def generate(name, prompt, base=None, mask=None, height=None, seed_offset=0, n=1, original=None):
-            inputs = {'prompt': prompt, 'model': model, 'model.size': f'{w}x{h}' if (w,h) in ((1024,1024),(1024,1536),(1536,1024),(2048,2048),(2048,1152),(1152,2048)) else 'Custom', 'model.custom_width': w, 'model.custom_height': h, 'model.background': 'opaque', 'model.quality': request.get('quality', 'low'), 'n': 1, 'seed': (int(request.get('seed', 0))+seed_offset) % 2147483647}
+            inputs = {'prompt': prompt, 'model': model, 'model.size': f'{w}x{h}' if (w,h) in ((1024,1024),(1024,1536),(1536,1024),(2048,2048),(2048,1152),(1152,2048)) else 'Custom', 'model.custom_width': model_dimensions['width'], 'model.custom_height': model_dimensions['height'], 'model.background': 'opaque', 'model.quality': request.get('quality', 'low'), 'n': 1, 'seed': (int(request.get('seed', 0))+seed_offset) % 2147483647}
             inputs['n'] = n
             if base is not None:
                 inputs['model.images.image_1'] = base

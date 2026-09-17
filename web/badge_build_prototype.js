@@ -24,8 +24,8 @@ import { attachBadgeColorPicker } from './badge_color_picker.mjs?v=20260916-cont
 import { attachReferenceResize } from './badge_reference_resize.mjs?v=20260916-ui-2';
 import { createHeightBoard } from './badge_height_board.mjs?v=20260917-threshold-drag-1';
 import { run as runPrototype, getPrototypeSession } from './badge_app_prototype.js';
-import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20260917-target87-1';
-import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260916-ui-2';
+import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20260917-dimensions-2';
+import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260917-dimensions-2';
 
 const CONFIGS = {
     background: [47, 'multi_color_mask_v1_panel', '_multiColorMaskV1SelectedId'],

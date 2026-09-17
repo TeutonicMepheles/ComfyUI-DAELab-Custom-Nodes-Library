@@ -50,7 +50,7 @@ test('local lists replace inactive single controls and invalidate on material ch
     assert.throws(() => requestForStage(graph, 'local'), /跳过/);
 });
 
-test('semantic and brush modes retain old inputs; 8.7 never gains multi materials', () => {
+test('8.8 semantic and brush modes retain old inputs; 8.7 uses its own regional storage', () => {
     const {graph, set} = fixture();
     const original = graph.getNodeById(201).widgets_values_named.material_region_config;
     set('badge.post.local.material', false); set('badge.post.local.semantic', true);
@@ -61,7 +61,9 @@ test('semantic and brush modes retain old inputs; 8.7 never gains multi material
     assert.deepEqual(stageNodeIds(graph, 'local'), [146, 142, 106]);
     assert.equal(requestForStage(graph, 'local').request.edit_mode, 'material');
     assert.equal(graph.getNodeById(201).widgets_values_named.material_region_config, original);
-    assert.equal(request87(fixture('8.7').graph, 'local').request.edit_mode, 'material');
+    const old = fixture('8.7').graph;
+    assert.equal(request87(old, 'local').request.edit_mode, 'region_materials');
+    assert.equal(old.getNodeById(201), undefined);
 });
 
 test('8.8 queues exactly one executor and uses its own output directory', () => {

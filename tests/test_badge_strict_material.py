@@ -13,6 +13,23 @@ SPEC.loader.exec_module(MODULE)
 
 
 class BadgeStrictMaterialTests(unittest.TestCase):
+    def test_black_metal_candidate_is_rejected_before_compositing(self):
+        base, mask, height = self.make_square()
+        with self.assertRaisesRegex(ValueError, '停止合成'):
+            MODULE.BadgeMaterialConstraintV1().constrain(base, torch.zeros_like(base), base, height, mask,
+                color_policy='material_intrinsic', preserve_optics=True)
+    def test_optical_metals_replace_green_chroma_and_protect_outside(self):
+        base, mask, height = self.make_square()
+        base[:] = torch.tensor([.12, .55, .45])
+        for color in ('#c8a86b', '#c7cbd0'):
+            candidate = MODULE._parse_hex(color, device=base.device).view(1,1,1,3).expand_as(base).clone()
+            candidate *= torch.linspace(.7, 1., base.shape[2])[None,None,:,None]
+            output = MODULE.BadgeMaterialConstraintV1().constrain(base, candidate, base, height, mask,
+                color_policy='material_intrinsic', intrinsic_color_hex=color, preserve_optics=True,
+                preserve_base_lightness=True)[0]
+            torch.testing.assert_close(output[mask <= .5], base[mask <= .5])
+            torch.testing.assert_close(output[mask > .5], candidate[mask > .5], atol=1e-5, rtol=1e-5)
+
     def test_optical_edit_retains_broad_reflection_and_protects_outside(self):
         base, mask, height = self.make_square()
         lab = MODULE._rgb_to_oklab(base)
@@ -36,6 +53,20 @@ class BadgeStrictMaterialTests(unittest.TestCase):
         result = MODULE.BadgeMaterialConstraintV1().constrain(base, base, base, height, mask, preserve_optics=True)
         self.assertTrue(torch.equal(result[0], base))
         self.assertEqual(json.loads(result[-1])['output_changed_pixel_ratio'], 0)
+
+    def test_local_exposure_correction_keeps_texture_and_outside_exact(self):
+        base, mask, height = self.make_square()
+        lab = MODULE._rgb_to_oklab(base)
+        edited = lab.clone()
+        edited[..., 0] += torch.linspace(-.20, -.08, 64)[None,None,:]
+        candidate = MODULE._oklab_to_rgb(edited)
+        output = MODULE.BadgeMaterialConstraintV1().constrain(base, candidate, base, height, mask,
+            preserve_optics=True, preserve_base_lightness=True)[0]
+        selected = mask > .5
+        delta = (MODULE._rgb_to_oklab(output) - lab)[..., 0][selected]
+        self.assertLess(abs(float(delta.median())), .002)
+        self.assertGreater(float(delta.std()), .01)
+        self.assertTrue(torch.equal(output[~selected], base[~selected]))
 
     def make_square(self, size=64):
         mask = torch.zeros((1, size, size), dtype=torch.float32)

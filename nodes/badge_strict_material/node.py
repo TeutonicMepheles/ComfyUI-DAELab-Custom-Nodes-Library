@@ -686,7 +686,7 @@ class BadgeMaterialConstraintV1:
             "minimum_visible_p95": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 0.4, "step": 0.001}),
             "pattern_seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             "deterministic_fallback": ("BOOLEAN", {"default": True}),
-        }, "optional": {"preserve_optics": ("BOOLEAN", {"default": False})}}
+        }, "optional": {"preserve_optics": ("BOOLEAN", {"default": False}), "preserve_base_lightness": ("BOOLEAN", {"default": False})}}
 
     def constrain(
         self,
@@ -709,6 +709,7 @@ class BadgeMaterialConstraintV1:
         pattern_seed=0,
         deterministic_fallback=True,
         preserve_optics=False,
+        preserve_base_lightness=False,
     ):
         base = _image_float(base_image, "base_image")
         candidate_invalid = not isinstance(candidate_image, torch.Tensor) or not torch.isfinite(candidate_image).all().item()
@@ -727,14 +728,33 @@ class BadgeMaterialConstraintV1:
             raise ValueError("base, flat, height, and region mask canvases must match.")
 
         if preserve_optics:
-            if color_policy != "preserve":
-                raise ValueError("Optical material editing requires the preserve color policy.")
+            if color_policy not in ("preserve", "material_intrinsic"):
+                raise ValueError("Unsupported optical material color policy.")
             if candidate_invalid:
                 raise ValueError("Optical material candidate contains invalid pixels.")
+            if color_policy == 'material_intrinsic' and mask.any():
+                selected_black = (candidate.amax(dim=-1)[mask] < .03).float().mean()
+                if selected_black > .5:
+                    raise ValueError('金银材质生成异常：大部分选区变成黑色，已停止合成，请重新生成。')
             # Preserve broad reflections and transmission, not only high-frequency residuals.
             # Chroma correction is an image-space approximation, not albedo recovery.
             base_lab = _rgb_to_oklab(base)
+            if color_policy == "material_intrinsic":
+                # Use the metal's body color as the chroma anchor, never the old
+                # painted color. Keep the model's lighting and spatial texture.
+                base_lab = base_lab.clone()
+                intrinsic_lab = _rgb_to_oklab(_parse_hex(intrinsic_color_hex, device=base.device).view(1, 1, 1, 3))
+                base_lab[..., 1:] = intrinsic_lab[..., 1:]
             candidate_lab = _rgb_to_oklab(candidate)
+            if preserve_base_lightness and color_policy == "preserve":
+                # Remove only the common exposure shift inside each mask. Retain
+                # local highlight/shadow variation and the model's actual texture.
+                candidate_lab = candidate_lab.clone()
+                for batch_index in range(batch):
+                    selected_mask = mask[batch_index]
+                    if selected_mask.any():
+                        shift = (candidate_lab[batch_index, ..., 0] - base_lab[batch_index, ..., 0])[selected_mask].median()
+                        candidate_lab[batch_index, ..., 0] -= shift
             chroma_delta = candidate_lab[..., 1:] - base_lab[..., 1:]
             radius = torch.linalg.vector_norm(chroma_delta, dim=-1, keepdim=True).clamp_min(1e-6)
             # Permit highlight desaturation, but limit unrelated hue shifts in the body color.
@@ -744,7 +764,8 @@ class BadgeMaterialConstraintV1:
             corrected = _oklab_to_rgb(torch.cat((candidate_lab[..., :1], corrected_chroma), dim=-1))
             output = torch.where(mask.unsqueeze(-1), corrected, base)
             # An unchanged candidate remains unchanged; do not synthesize substitute texture.
-            output = torch.where((candidate == base).all(dim=-1, keepdim=True), base, output)
+            if color_policy == "preserve":
+                output = torch.where((candidate == base).all(dim=-1, keepdim=True), base, output)
             delta = (output - base).abs().amax(dim=-1)
             selected = delta[mask]
             error = torch.linalg.vector_norm((_rgb_to_oklab(output) - base_lab)[..., 1:], dim=-1)[mask]

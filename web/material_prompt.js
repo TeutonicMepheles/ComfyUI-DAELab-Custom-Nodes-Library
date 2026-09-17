@@ -1,4 +1,6 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from "/scripts/app.js";
+import { refinedBadge87, removedMaterial87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
 import {
     applyMaterialWidgetLabels,
     fitMaterialPromptNodeToContent,
@@ -19,7 +21,7 @@ import {
     normalizeMaterialBasePrompt,
     orderMaterialPromptWidgets,
     wrapMaterialIndex,
-} from "./material_prompt_model.mjs?v=20260904-selection-v14";
+} from "./material_prompt_model.mjs?v=20260916-content-1";
 import {
     catalogEntries,
     ensureThumbnailSelectorStyles,
@@ -43,12 +45,12 @@ const LEGACY_COLOR_WIDGET_NAMES = new Set([
     LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME,
 ]);
 const DEFAULT_MATERIALS = {
-    baked_enamel: { label: "烤漆", thumbnail: "baked_enamel.png" },
-    transparent_lacquer: { label: "透明漆", thumbnail: "transparent_lacquer.png" },
-    satin_gold: { label: "亚金", thumbnail: "satin_gold.png" },
-    satin_silver: { label: "亚银", thumbnail: "satin_silver.png" },
-    glitter: { label: "闪粉", thumbnail: "glitter.png" },
-    rhinestone: { label: "水钻", thumbnail: "rhinestone.png" },
+    baked_enamel: { label: badgeText("material_prompt.text_001"), thumbnail: "baked_enamel.png" },
+    transparent_lacquer: { label: badgeText("material_prompt.text_002"), thumbnail: "transparent_lacquer.png" },
+    satin_gold: { label: badgeText("material_prompt.text_003"), thumbnail: "satin_gold.png" },
+    satin_silver: { label: badgeText("material_prompt.text_004"), thumbnail: "satin_silver.png" },
+    glitter: { label: badgeText("material_prompt.text_005"), thumbnail: "glitter.png" },
+    rhinestone: { label: badgeText("material_prompt.text_006"), thumbnail: "rhinestone.png" },
 };
 
 let materialData = DEFAULT_MATERIALS;
@@ -117,7 +119,7 @@ function syncProperties(node) {
     delete node.properties.gpt_image2_material_use_color;
     const selector = node.widgets?.find((candidate) => candidate.__gptImage2MaterialSelector);
     if (selector) {
-        selector.label = String(node.properties?.[APP_HEADING_PROPERTY] || "材质选择");
+        selector.label = String(node.properties?.[APP_HEADING_PROPERTY] || badgeText("material_prompt.text_007"));
     }
 }
 
@@ -256,14 +258,16 @@ function renderMaterialSelector(widget, node) {
     if (!element) return;
     hideMaterialHoverPreview(node);
     const selectedId = selectedMaterialId(node);
-    const materialEntries = entries();
+    const refined = refinedBadge87(node.graph);
+    const materialEntries = entries().filter(entry => !refined || !removedMaterial87(entry.id));
     const selectedEntry = materialEntries.find((entry) => entry.id === selectedId);
     widget.__gptImage2MaterialValue = selectedId;
     element.replaceChildren();
 
     const current = document.createElement("div");
     current.className = "gpt-image2-material-current";
-    current.textContent = `当前材质 · ${selectedEntry?.label || selectedId}`;
+    current.textContent = badgeText("material_prompt.text_008", {p0: (selectedEntry?.label || selectedId)});
+    if (refined && removedMaterial87(selectedId)) current.textContent = badgeText('refinement.removed_material');
     current.setAttribute("role", "status");
     current.setAttribute("aria-live", "polite");
     element.appendChild(current);
@@ -273,17 +277,17 @@ function renderMaterialSelector(widget, node) {
     const previous = document.createElement("button");
     previous.type = "button";
     previous.className = "gpt-image2-material-nav";
-    previous.textContent = "‹";
-    previous.setAttribute("aria-label", "向左滚动材质列表");
+    previous.textContent = badgeText("material_prompt.text_009");
+    previous.setAttribute("aria-label", badgeText("material_prompt.text_010"));
     const strip = document.createElement("div");
     strip.className = "gpt-image2-material-strip";
     strip.setAttribute("role", "listbox");
-    strip.setAttribute("aria-label", "材质选择");
+    strip.setAttribute("aria-label", badgeText("material_prompt.text_011"));
     const next = document.createElement("button");
     next.type = "button";
     next.className = "gpt-image2-material-nav";
-    next.textContent = "›";
-    next.setAttribute("aria-label", "向右滚动材质列表");
+    next.textContent = badgeText("material_prompt.text_012");
+    next.setAttribute("aria-label", badgeText("material_prompt.text_013"));
 
     const selectIndex = (rawIndex, focus = false) => {
         const index = wrapMaterialIndex(rawIndex, materialEntries.length);
@@ -329,7 +333,7 @@ function renderMaterialSelector(widget, node) {
         if (selection.selected) {
             const check = document.createElement("span");
             check.className = "gpt-image2-material-check";
-            check.textContent = "✓";
+            check.textContent = badgeText("material_prompt.text_014");
             check.setAttribute("aria-hidden", "true");
             button.appendChild(check);
         }
@@ -458,7 +462,7 @@ function makeMaterialSelector(node) {
         },
     });
     widget.serialize = false;
-    widget.label = String(node.properties?.[APP_HEADING_PROPERTY] || "材质选择");
+    widget.label = String(node.properties?.[APP_HEADING_PROPERTY] || badgeText("material_prompt.text_015"));
     widget.inputEl = element;
     widget.__gptImage2MaterialSelector = true;
     widget.__gptImage2MaterialValue = selectedMaterialId(node);

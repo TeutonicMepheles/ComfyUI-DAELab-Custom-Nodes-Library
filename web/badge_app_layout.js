@@ -1,7 +1,8 @@
-import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-height-1';
-import { createPaletteReferencePanel } from './badge_palette_reference.mjs';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
+import { createPaletteReferencePanel } from './badge_palette_reference.mjs?v=20260916-content-1';
 import { getBadgeMediaStage87, syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=2';
+import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=20260916-content-1';
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import {
@@ -16,7 +17,7 @@ import {
 import {
     COMPACT_COLOR_CONTEXT_ATTRIBUTE,
     COMPACT_COLOR_CONTEXT_EVENT,
-} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
+} from "./compact_color_group_controls.mjs?v=20260916-content-1";
 import {
     BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE,
     BADGE_APP_LAYOUT_HIDDEN_ATTRIBUTE,
@@ -32,7 +33,7 @@ import {
     readHierarchyState,
     resolveActiveTab,
     shouldResetApplyForPolygonChange,
-} from "./badge_app_layout_model.mjs?v=20260916-height-1";
+} from "./badge_app_layout_model.mjs?v=20260916-content-1";
 import {
     POLYGON_MASK_CHANGE_EVENT,
 } from "./polygon_mask_events.mjs?v=20260904-1";
@@ -215,7 +216,7 @@ function createRuntime() {
         if (!source || !dialog || !dialogImage) return;
         dialogTrigger = trigger;
         dialogImage.src = source;
-        dialogImage.alt = trigger.querySelector(".daelab-app-layout-reference-title")?.textContent || "参考图大图";
+        dialogImage.alt = trigger.querySelector(".daelab-app-layout-reference-title")?.textContent || badgeText("app_layout.text_001");
         if (typeof dialog.showModal === "function") dialog.showModal();
         else dialog.setAttribute("open", "");
         dialogClose?.focus();
@@ -225,11 +226,11 @@ function createRuntime() {
         destroyDialog();
         dialog = document.createElement("dialog");
         dialog.className = "daelab-app-layout-dialog";
-        dialog.setAttribute("aria-label", "参考图大图查看");
+        dialog.setAttribute("aria-label", badgeText("app_layout.text_002"));
         dialogImage = document.createElement("img");
         dialogClose = document.createElement("button");
         dialogClose.type = "button";
-        dialogClose.textContent = "关闭大图";
+        dialogClose.textContent = badgeText("app_layout.text_003");
         dialogClose.addEventListener("click", closeDialog);
         dialog.addEventListener("cancel", (event) => {
             event.preventDefault();
@@ -337,7 +338,7 @@ function createRuntime() {
         const availability = getTabAvailability(layout, state);
         if (!availability.get(tabId)) {
             const tab = layout.tabById.get(tabId);
-            announce(`需要先在控制面板开启“${tab?.title || tabId}”。`);
+            announce(badgeText("app_layout.text_004", {p0: (tab?.title || tabId)}));
             if (focus) tabButtons.get(tabId)?.focus();
             return;
         }
@@ -380,11 +381,11 @@ function createRuntime() {
             ? document.createElement('div') : tabsBar;
         if (tabList !== tabsBar) { tabList.className = 'badge-stage-tabs'; tabsBar.append(tabList); }
         tabList.setAttribute("role", "tablist");
-        tabList.setAttribute("aria-label", "徽章工作流步骤");
+        tabList.setAttribute("aria-label", badgeText("app_layout.text_005"));
         const disabledDescription = document.createElement("span");
         disabledDescription.id = "daelab-app-disabled-tab-description";
         disabledDescription.className = "daelab-app-layout-sr-only";
-        disabledDescription.textContent = isBadgePrototype(graph) ? "" : "需要先在控制面板开启此功能。";
+        disabledDescription.textContent = isBadgePrototype(graph) ? "" : badgeText("app_layout.text_006");
         tabsBar.appendChild(disabledDescription);
         tabsBar.addEventListener("keydown", handleTabKeydown);
 
@@ -502,7 +503,7 @@ function createRuntime() {
                 button.addEventListener("click", () => {
                     const requestedValue = control.kind === "choice" ? true : !selected;
                     const changed = stateApi?.setItemValue(choice.itemId, requestedValue);
-                    if (!changed && !stateApi) announce("控制状态正在同步，请稍候。");
+                    if (!changed && !stateApi) announce(badgeText("app_layout.text_007"));
                 });
                 group.appendChild(button);
             }
@@ -531,7 +532,7 @@ function createRuntime() {
         title.textContent = source.title;
         const status = document.createElement("span");
         status.className = "daelab-app-layout-reference-status";
-        status.textContent = source.kind === "executionOutput" ? "尚未生成本次参考图" : "请先选择或上传图片";
+        status.textContent = source.kind === "executionOutput" ? badgeText("app_layout.text_008") : badgeText("app_layout.text_009");
         copy.append(title, status);
         card.append(frame, copy);
         card.addEventListener("click", () => openDialog(card.dataset.imageUrl, card));
@@ -616,23 +617,23 @@ function createRuntime() {
             image.removeAttribute("src");
             if (!selection) {
                 status.textContent = source.kind === "executionOutput"
-                    ? "尚未生成本次参考图"
-                    : "请先选择或上传图片";
+                    ? badgeText("app_layout.text_010")
+                    : badgeText("app_layout.text_011");
                 continue;
             }
-            status.textContent = "正在加载参考图…";
+            status.textContent = badgeText("app_layout.text_012");
             const url = api.apiURL(buildImageViewPath(selection, sourceKey));
             image.onload = () => {
                 card.dataset.ready = "true";
                 card.disabled = false;
                 status.textContent = card.dataset.expanded === "true"
-                    ? "已展开用于取色 · 点击查看无损大图"
-                    : "点击查看无损大图";
+                    ? badgeText("app_layout.text_013")
+                    : badgeText("app_layout.text_014");
             };
             image.onerror = () => {
                 card.dataset.ready = "false";
                 card.disabled = true;
-                status.textContent = "参考图加载失败";
+                status.textContent = badgeText("app_layout.text_015");
             };
             card.dataset.imageUrl = url;
             image.src = url;
@@ -644,7 +645,7 @@ function createRuntime() {
         if (!root || !layout) return;
         const previousTab = activeTab;
         activeTab = isBadgePrototype(graph) ? (prototypeTabs().includes(activeTab) ? activeTab : 'build') : resolveActiveTab(layout, activeTab, state);
-        if (previousTab !== activeTab && !isBadgePrototype(graph)) announce("当前功能已关闭，已返回控制面板。");
+        if (previousTab !== activeTab && !isBadgePrototype(graph)) announce(badgeText("app_layout.text_016"));
         const availability = getTabAvailability(layout, state);
         for (const tab of layout.tabs) {
             const button = tabButtons.get(tab.id);
@@ -683,9 +684,9 @@ function createRuntime() {
             return entry?.node && Number(entry.node.mode ?? 0) === 0 && !itemByKey.has(key);
         });
         const pending = missingActiveKeys.length
-            ? "正在切换工作流分支…"
+            ? badgeText("app_layout.text_017")
             : !layout.stateNode?.daelabBooleanHierarchyV1
-                ? "控制状态正在同步…"
+                ? badgeText("app_layout.text_018")
                 : "";
         const nextContextSignature = `${activeTab}|${getHierarchyStateSignature(state)}|${focusedInputKey || ""}|${expandedInputKey || ""}|${pending}`;
         if (activeTab !== "control" && nextContextSignature !== contextSignature) {

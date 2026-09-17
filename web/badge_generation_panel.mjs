@@ -1,21 +1,25 @@
-import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-height-1';
-import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260916-height-1';
-import { bindCompactNumberDrag, boundedNumberDragValue } from './compact_color_group_controls.mjs?v=20260909-number-drag';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
+import { RATIOS, classifyPresets, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20260917-target87-1';
+import { bindCompactNumberDrag, boundedNumberDragValue } from './compact_color_group_controls.mjs?v=20260916-content-1';
 
 // Both stages use the same view; only their workflow-scoped saved configuration differs.
 export function createGenerationPanel(graph, stage, { onGenerate, onChange, live }) {
-    const element = document.createElement('section');
+    const refined = refinedBadge87(graph), inherit = refined && stage === 'local';
+    const element = document.createElement(refined && !inherit ? 'details' : 'section');
     element.className = 'badge-generation'; element.dataset.generationStage = stage;
     const make = (tag, text, parent = element) => { const e = document.createElement(tag); e.textContent = text; parent.append(e); return e; };
-    const refined = refinedBadge87(graph), inherit = refined && stage === 'local';
-    const header = make('div', ''); header.className = 'badge-generation-heading';
-    const heading = make('strong', '模型输出配置', header);
+    const header = make(refined && !inherit ? 'summary' : 'div', ''); header.className = 'badge-generation-heading';
+    const heading = make('strong', badgeText("generation_panel.text_001"), header);
     const model = refined ? make('select', '', header) : null;
-    if (model) { model.setAttribute('aria-label', '生成模型'); for (const [id, label] of BADGE_MODELS) { const o = make('option', label, model); o.value = id; } }
+    if (model) { model.setAttribute('aria-label', badgeText("generation_panel.text_002")); for (const [id, label] of BADGE_MODELS) { const o = make('option', label, model); o.value = id; } }
+    if (model) { model.onclick = event => event.stopPropagation(); model.onkeydown = event => event.stopPropagation(); }
+    if (inherit) { heading.hidden = true; element.dataset.inheritedOutput = ''; }
     heading.id = `badge-generation-${stage}`; element.setAttribute('aria-labelledby', heading.id);
+    if (inherit) { element.removeAttribute('aria-labelledby'); element.setAttribute('aria-label', badgeText('generation_panel.text_024')); }
     let presets = classifyPresets();
     const ratios = new Map(), tiers = new Map();
-    const ratioLabel = make('p', '选择比例'); const ratioRow = make('div', ''); ratioRow.className = 'badge-generation-options';
+    const ratioLabel = make('p', badgeText("generation_panel.text_003")); const ratioRow = make('div', ''); ratioRow.className = 'badge-generation-options';
     const commit = config => {
         if (!live()) return;
         graph.beforeChange?.();
@@ -35,13 +39,13 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         b.onclick = () => { const c = readGenerationConfig(graph, stage); select(presets.find(p => p.ratio === ratio && p.tier === c.tier) || presets.find(p => p.ratio === ratio)); };
     }
     const custom = make('button', '', ratioRow); custom.type = 'button';
-    const customIcon = make('span', '↔', custom); customIcon.setAttribute('aria-hidden', 'true');
-    customIcon.style.height = '20px'; make('span', '自定义', custom);
+    const customIcon = make('span', badgeText("generation_panel.text_004"), custom); customIcon.setAttribute('aria-hidden', 'true');
+    customIcon.style.height = '20px'; make('span', badgeText("generation_panel.text_005"), custom);
     custom.onclick = () => {
         const c = readGenerationConfig(graph, stage);
         commit({ ...c, custom: true, locked: false });
     };
-    const resolutionLabel = make('p', '分辨率与尺寸');
+    const resolutionLabel = make('p', badgeText("generation_panel.text_006"));
     const resolutionRow = make('div', ''); resolutionRow.className = 'badge-generation-resolution';
     const tierRow = make('div', '', resolutionRow); tierRow.className = 'badge-generation-options badge-generation-tiers';
     for (const tier of ['1K', '2K']) {
@@ -53,8 +57,8 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     for (const [axis, label] of [['width', 'W'], ['height', 'H']]) {
         const wrap = make('label', label, dimensions), input = make('input', '', wrap);
         input.type = 'number'; input.min = '1024'; input.max = '3840'; input.step = '16';
-        input.setAttribute('aria-label', axis === 'width' ? '输出宽度（像素）' : '输出高度（像素）');
-        input.title = '按住鼠标左键左右拖动调整，每步 16 像素；也可直接输入';
+        input.setAttribute('aria-label', axis === 'width' ? badgeText("generation_panel.text_007") : badgeText("generation_panel.text_008"));
+        input.title = badgeText("generation_panel.text_009");
         const setDimension = value => {
             const c = readGenerationConfig(graph, stage);
             if (live() && c.custom && !running) commit(editDimension({ ...c, locked: false }, axis, value === '' ? null : Number(value)));
@@ -66,16 +70,16 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         });
         inputs[axis] = input;
     }
-    make('span', 'PX', dimensions);
+    make('span', badgeText("generation_panel.text_010"), dimensions);
     const hint = make('p', ''); hint.className = 'badge-generation-hint'; hint.setAttribute('role', 'status'); hint.id = `badge-generation-hint-${stage}`;
     for (const input of Object.values(inputs)) input.setAttribute('aria-describedby', hint.id);
     if (inherit) for (const row of [ratioLabel, ratioRow, resolutionLabel, resolutionRow]) row.hidden = true;
     const actionRow = make('div', ''); actionRow.className = 'badge-generation-actions';
     let countInput;
-    if (graph.extra?.daelabBadgeExecutionV1?.version === 1) {
-        const numberRow = make('label', '张数', actionRow); numberRow.className = 'badge-generation-count';
+    if (graph.extra?.daelabBadgeExecutionV1?.version === 1 && !inherit) {
+        const numberRow = make('label', badgeText("generation_panel.text_011"), actionRow); numberRow.className = 'badge-generation-count';
         countInput = make('input', '', numberRow); countInput.type = 'number'; countInput.min = '1'; countInput.max = '8'; countInput.step = '1';
-        countInput.setAttribute('aria-label', '生成个数'); countInput.title = '按住鼠标左键左右拖动调整，也可直接输入（1–8 张）';
+        countInput.setAttribute('aria-label', badgeText("generation_panel.text_012")); countInput.title = badgeText("generation_panel.text_013");
         const setCount = value => {
             if (!live() || running) return;
             const n = Number(value);
@@ -85,9 +89,9 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         bindCompactNumberDrag(countInput, {onCommit: setCount});
         countInput.onchange = () => setCount(countInput.value);
     }
-    const button = make('button', '生成', actionRow); button.type = 'button'; button.className = 'badge-generation-submit'; button.setAttribute('aria-describedby', hint.id);
+    const button = make('button', badgeText("generation_panel.text_014"), actionRow); button.type = 'button'; button.className = 'badge-generation-submit'; button.setAttribute('aria-describedby', hint.id);
     button.onclick = () => { if (live() && !button.disabled) void onGenerate(); };
-    const status = make('p', '仅模拟当前阶段，不生成图片。'); status.setAttribute('role', 'status');
+    const status = make('p', badgeText("generation_panel.text_015")); status.setAttribute('role', 'status');
     let running = false, problem = '';
     function render() {
         const c = readGenerationConfig(graph, stage), error = validateDimensions(c);
@@ -100,7 +104,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         custom.setAttribute('aria-pressed', String(c.custom)); custom.disabled = running;
         for (const [tier, b] of tiers) {
             const supported = presets.some(p => p.ratio === c.ratio && p.tier === tier);
-            b.disabled = running || c.custom || !supported; b.title = c.custom ? '自定义模式直接设置宽高；选择固定比例后可切换分辨率' : supported ? '' : '当前比例没有此分辨率预设';
+            b.disabled = running || c.custom || !supported; b.title = c.custom ? badgeText("generation_panel.text_016") : supported ? '' : badgeText("generation_panel.text_017");
             b.setAttribute('aria-pressed', String(!c.custom && c.tier === tier));
         }
         for (const [axis, input] of Object.entries(inputs)) {
@@ -109,15 +113,15 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
             input.parentElement.dataset.disabled = String(input.disabled); input.setAttribute('aria-invalid', String(Boolean(error)));
         }
         hint.dataset.error = String(Boolean(error));
-        hint.textContent = inherit ? (c.width ? `沿用目标图：${c.width} × ${c.height} PX${error ? ' · '+error : ''}` : '正在读取目标图尺寸…') : (error ? `无法生成：${error}` : '') || (c.custom ? `自定义 · ${c.width} × ${c.height} PX · 宽高按 16 像素步长调整` : `${c.tier} · ${c.ratio} · ${c.width} × ${c.height} PX · 选择“自定义”可编辑尺寸`);
-        button.disabled = running || Boolean(error || problem); button.textContent = running ? '生成中…' : '生成';
+        hint.textContent = inherit ? (c.width ? badgeText("generation_panel.text_018", {p0: (c.width), p1: (c.height), p2: (error ? ' · '+error : '')}) : badgeText("generation_panel.text_019")) : (error ? badgeText("generation_panel.text_020", {p0: (error)}) : '') || (c.custom ? badgeText("generation_panel.text_021", {p0: (c.width), p1: (c.height)}) : badgeText("generation_panel.text_022", {p0: (c.tier), p1: (c.ratio), p2: (c.width), p3: (c.height)}));
+        button.disabled = running || Boolean(error || problem); button.textContent = running ? badgeText("generation_panel.text_023") : badgeText("generation_panel.text_024");
     }
     render();
-    return { element, button, status,
+    return { element, button, status, modelControl: inherit ? header : null,
         setPresets(sizes) { presets = classifyPresets(sizes); render(); },
         update({ busy = false, error = '', message = '' } = {}) {
             running = busy; problem = error; render();
-            status.textContent = busy ? (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? '正在生成当前阶段…' : '正在模拟当前阶段…') : error || message || '仅模拟当前阶段，不生成图片。';
+            status.textContent = busy ? (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? badgeText("generation_panel.text_025") : badgeText("generation_panel.text_026")) : error || message || badgeText("generation_panel.text_027");
         }, dispose() { element.remove(); } };
 }
 

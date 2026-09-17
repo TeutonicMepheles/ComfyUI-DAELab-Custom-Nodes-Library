@@ -1,4 +1,5 @@
-import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-height-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-content-1';
 
 export const PROTOTYPE_PROPERTY = 'daelabBadgePrototypeV1';
 export const APPLY_ITEM = 'badge.post.local.apply';
@@ -32,15 +33,15 @@ export function prototypeSnapshot(graph) {
     const semantic = enabled('badge.post.local.semantic');
     const studio = enabled('badge.post.studio');
     let error = '';
-    if (flat === effect) error = '请选择一条制作路线。';
-    else if (flat && !image(1)) error = '请上传材质图。';
-    else if (flat && config.heightEnabled !== false && !image(2)) error = '高度建立已开启，请上传高度图。';
-    else if (effect && !image(96)) error = '请上传现有效果图。';
-    else if (local && !image(config.localReferenceNodeId)) error = '请上传局部选区参考图。';
-    else if (local && color === polygon) error = '请选择按颜色或自绘遮罩选区。';
-    else if (local && semantic === material) error = '请选择纯语义或目标材质修改。';
-    else if (local && semantic && !String(widgetValue(node(105), 'value') || '').trim()) error = '请填写局部修改描述。';
-    else if (studio && !image(config.studioReferenceNodeId)) error = '请上传棚拍前主图。';
+    if (flat === effect) error = badgeText("app_prototype_model.text_001");
+    else if (flat && !image(1)) error = badgeText("app_prototype_model.text_002");
+    else if (flat && config.heightEnabled !== false && !image(2)) error = badgeText("app_prototype_model.text_003");
+    else if (effect && !image(96)) error = badgeText("app_prototype_model.text_004");
+    else if (local && !image(config.localReferenceNodeId)) error = badgeText("app_prototype_model.text_005");
+    else if (local && color === polygon) error = badgeText("app_prototype_model.text_006");
+    else if (local && semantic === material) error = badgeText("app_prototype_model.text_007");
+    else if (local && semantic && !String(widgetValue(node(105), 'value') || '').trim()) error = badgeText("app_prototype_model.text_008");
+    else if (studio && !image(config.studioReferenceNodeId)) error = badgeText("app_prototype_model.text_009");
     // Values, not canvas geometry or transient widget objects, define the draft.
     const inputs = (graph.extra.linearData?.inputs || []).filter(([key]) => !key.includes(':95:'))
         .map(([key]) => {
@@ -60,15 +61,15 @@ export function simulateRun(previous, snapshot) {
     if (snapshot.local && snapshot.apply) {
         if (previous.preview !== snapshot.fingerprint) {
             return { preview: null, phase: 'needs-preview', resetApply: true,
-                message: '请先关闭应用并模拟预览，再确认当前选区。' };
+                message: badgeText("app_prototype_model.text_010") };
         }
         return { preview: snapshot.fingerprint, phase: 'applied', resetApply: false,
-            message: `已模拟应用局部修改${snapshot.studio ? '及棚拍流程' : ''}。参考图保持原样。` };
+            message: badgeText("app_prototype_model.text_011", {p0: (snapshot.studio ? badgeText("app_prototype_model.text_012") : '')}) };
     }
     if (snapshot.local) return { preview: snapshot.fingerprint, phase: 'preview-ready', resetApply: false,
-        message: '预览步骤已模拟完成。确认选区后开启“应用局部修改”，再点模拟运行。未计算像素遮罩。' };
+        message: badgeText("app_prototype_model.text_013") };
     return { preview: null, phase: 'complete', resetApply: false,
-        message: `已模拟完成效果图建立${snapshot.studio ? '及棚拍流程' : ''}。未生成图片。` };
+        message: badgeText("app_prototype_model.text_014", {p0: (snapshot.studio ? badgeText("app_prototype_model.text_015") : '')}) };
 }
 
 export function createPrototypeQueueHandler(original, getGraph, simulate) {

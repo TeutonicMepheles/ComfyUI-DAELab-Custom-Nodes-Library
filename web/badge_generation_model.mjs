@@ -1,6 +1,8 @@
-import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-height-1';
-import { usesLocalMaterials88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260911-88-1';
-import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-height-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { usesLocalRegions87, readLocalRegions87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
+import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87, removedMaterial87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
+import { usesLocalMaterials88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
+import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-content-1';
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 
 export const RATIOS = ['1:1', '2:3', '3:2', '16:9', '9:16'];
@@ -18,14 +20,14 @@ export function classifyPresets(sizes = SIZE_PRESETS) {
 }
 export function readGenerationConfig(graph, stage) {
     const { prompt: _removedPrompt, ...saved } = graph.extra?.daelabBadgePrototypeV1?.generation?.[stage] || {};
-    return { ...DEFAULT_CONFIG, ...saved, ...(refinedBadge87(graph) ? { model: selectedBadgeModel(graph, stage), ...(stage === 'local' ? localTargetSize87(graph) : {}) } : {}) };
+    return { ...DEFAULT_CONFIG, ...saved, ...(refinedBadge87(graph) ? { model: selectedBadgeModel(graph, stage), ...(stage === 'local' ? {...localTargetSize87(graph), count: 1} : {}) } : {}) };
 }
 export function validateDimensions({ width, height }) {
-    if (![width, height].every(v => Number.isInteger(v) && v >= 1024 && v <= 3840)) return '宽、高必须为 1024–3840 的整数。';
-    if (width % 16 || height % 16) return '宽、高必须为 16 的倍数。';
-    if (Math.max(width, height) / Math.min(width, height) > 3) return '长宽比不能超过 3:1。';
+    if (![width, height].every(v => Number.isInteger(v) && v >= 1024 && v <= 3840)) return badgeText("generation_model.text_001");
+    if (width % 16 || height % 16) return badgeText("generation_model.text_002");
+    if (Math.max(width, height) / Math.min(width, height) > 3) return badgeText("generation_model.text_003");
     const pixels = width * height;
-    return pixels < 655360 || pixels > 8294400 ? '总像素必须在 655,360–8,294,400 之间。' : '';
+    return pixels < 655360 || pixels > 8294400 ? badgeText("generation_model.text_004") : '';
 }
 export function generationParameters(config) {
     const error = validateDimensions(config);
@@ -67,7 +69,7 @@ export function stageNodeIds(graph, stage) {
         ...(on('badge.post.local.selection.polygon') ? [142] : []),
         ...(on('badge.post.local.semantic') ? [105] : []),
         ...(on('badge.post.local.material') ? [106] : [])];
-    throw new Error('Unsupported generation stage');
+    throw new Error(badgeText("generation_model.text_005"));
 }
 export function stageSnapshot(graph, stage) {
     const meta = graph.extra.daelabBadgePrototypeV1, node = id => graph.getNodeById(id);
@@ -76,27 +78,36 @@ export function stageSnapshot(graph, stage) {
     const value = (id, name) => node(id)?.widgets?.find(w => w.name === name)?.value ?? node(id)?.widgets_values_named?.[name];
     const config = readGenerationConfig(graph, stage), ids = stageNodeIds(graph, stage);
     let error = validateDimensions(config);
-    if (refinedBadge87(graph) && !BADGE_MODELS.some(([id]) => id === config.model)) error = '请选择支持的图像模型。';
-    if (refinedBadge87(graph) && stage === 'local' && !config.width) error = '正在读取目标图尺寸，请等待图片加载完成。';
-    if (refinedBadge87(graph) && stage === 'build' && !isPromptOnlyBuild(graph) && meta.heightEnabled !== false && (meta.heightBoard?.count ?? 6) > 5) error = '高度最多六层（含顶层和 0 层），请先整理已有层级。';
-    if (!error && stage === 'build' && isPromptOnlyBuild(graph) && !String(meta.buildPrompt || '').trim()) error = '请填写基础提示词。';
+    if (refinedBadge87(graph) && !BADGE_MODELS.some(([id]) => id === config.model)) error = badgeText("generation_model.text_006");
+    if (refinedBadge87(graph) && stage === 'local' && !config.width) error = badgeText("generation_model.text_007");
+    if (refinedBadge87(graph) && stage === 'build' && !isPromptOnlyBuild(graph) && meta.heightEnabled !== false && (meta.heightBoard?.count ?? 6) > 5) error = badgeText("generation_model.text_008");
+    if (!error && stage === 'build' && isPromptOnlyBuild(graph) && !String(meta.buildPrompt || '').trim()) error = badgeText("generation_model.text_009");
     if (!error && stage === 'build' && !isPromptOnlyBuild(graph)) {
-        if (!on('badge.path.flat_height')) error = '请先启用效果图建立路线。';
-        else if (!value(1, 'image')) error = '请上传材质图，或开启“是否仅使用提示词”。';
-        else if (meta.heightEnabled !== false && !value(2, 'image')) error = '请上传高度图，或关闭高度建立。';
+        if (!on('badge.path.flat_height')) error = badgeText("generation_model.text_010");
+        else if (!value(1, 'image')) error = badgeText("generation_model.text_011");
+        else if (meta.heightEnabled !== false && !value(2, 'image')) error = badgeText("generation_model.text_012");
     }
     if (!error && stage === 'local') {
-        if (!on('badge.post.local')) error = '请先启用局部编辑。';
-        else if (!value(meta.localReferenceNodeId, 'image')) error = '请上传局部编辑目标图。';
-        else if (on('badge.post.local.selection.color') === on('badge.post.local.selection.polygon')) error = '请选择一种选区方式。';
-        else if (on('badge.post.local.semantic') === on('badge.post.local.material')) error = '请选择一种修改方式。';
-        else if (on('badge.post.local.semantic') && !String(value(105, 'value') || '').trim()) error = '请填写局部修改描述。';
+        if (!on('badge.post.local')) error = badgeText("generation_model.text_013");
+        else if (!value(meta.localReferenceNodeId, 'image')) error = badgeText("generation_model.text_014");
+        else if (on('badge.post.local.selection.color') === on('badge.post.local.selection.polygon')) error = badgeText("generation_model.text_015");
+        else if (on('badge.post.local.semantic') === on('badge.post.local.material')) error = badgeText("generation_model.text_016");
+        else if (on('badge.post.local.semantic') && !String(value(105, 'value') || '').trim()) error = badgeText("generation_model.text_017");
+        else if (refinedBadge87(graph) && on('badge.post.local.material') && !usesLocalRegions87(graph,on) && removedMaterial87(value(106, 'material_id'))) error = badgeText('refinement.removed_material');
     }
-    if (!error && ids.some(id => !isNodeAvailableInAppMode(node(id)))) error = '当前阶段的必要输入已被静音或跳过，请先恢复启用。';
+    if (!error && ids.some(id => !isNodeAvailableInAppMode(node(id)))) error = badgeText("generation_model.text_018");
+    if (!error && stage === 'local' && usesLocalRegions87(graph, on)) {
+        try {
+            const regions = readLocalRegions87(graph);
+            if (!regions?.groups?.some(g => !g.material_pending)) error = !meta.localRegions && removedMaterial87(value(106,'material_id')) ? badgeText('refinement.removed_material') : badgeText('regions.empty');
+            else if (regions.groups.some(g => !g.material_pending && removedMaterial87(g.material_id))) error = badgeText('refinement.removed_material');
+        } catch { error = badgeText('regions.empty'); }
+    }
     const inputs = ids.map(id => {
         const n = node(id);
         return [id, n?.mode, n?.widgets?.filter(w => w.type !== 'button' && w.name !== 'upload').map(w => [w.name, w.value]) ?? n?.widgets_values_named ?? n?.widgets_values, n?.properties?.polygon_info];
     });
+    if (stage === 'local' && usesLocalRegions87(graph,on)) inputs.push(['local_regions', meta.localRegions]);
     const flags = (stage === 'build' && isPromptOnlyBuild(graph) ? [] : h).filter(i => stage === 'build' ? i.id.startsWith('badge.path.flat_height') && (!refinedBadge87(graph) || !i.id.startsWith('badge.path.flat_height.special_material')) : i.id.startsWith('badge.post.local') && i.id !== 'badge.post.local.apply').map(i => [i.id, i.value]);
     const fingerprint = JSON.stringify([stage, inputs, flags, config, stage === 'build' ? [isPromptOnlyBuild(graph), String(meta.buildPrompt || '').trim(), ...(isPromptOnlyBuild(graph) ? [] : [meta.heightEnabled !== false, meta.backgroundEnabled !== false, meta.heightBoard])] : null]);
     return { stage, error, fingerprint, local: stage === 'local', studio: false, apply: on('badge.post.local.apply'), parameters: error ? null : { ...generationParameters(config), ...(stage === 'build' ? { prompt: String(meta.buildPrompt || '').trim() } : {}) } };

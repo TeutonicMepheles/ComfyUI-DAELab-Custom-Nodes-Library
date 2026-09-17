@@ -1,18 +1,19 @@
-import { isBadge88 } from './badge_local_material_88_model.mjs?v=20260911-88-1';
-import { requestForStage as request88, promptForRequest as prompt88 } from './badge_execution_88_model.mjs?v=20260911-88-1';
-import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260916-height-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { isBadge88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
+import { requestForStage as request88, promptForRequest as prompt88 } from './badge_execution_88_model.mjs?v=20260917-target87-1';
+import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
-import { queueBadge87 } from './badge_execution_87_queue.mjs';
-import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260911-88-1';
+import { queueBadge87 } from './badge_execution_87_queue.mjs?v=20260916-content-1';
+import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260917-target87-1';
 
 // No replacement controls or DOM listeners: the original stage runner delegates here.
 export async function execute87(graph, stage, state, app, nativeQueue, localSession, validateOnly = false) {
     const requestForStage = isBadge88(graph) ? request88 : request87;
     const promptForRequest = isBadge88(graph) ? prompt88 : prompt87;
     const { api } = await import('/scripts/api.js');
-    stage ||= document.querySelector('[role="tablist"][aria-label="徽章工作流步骤"] [role="tab"][aria-selected="true"]')?.dataset.tabId;
+    stage ||= document.querySelector(`[role="tablist"][aria-label=${JSON.stringify(badgeText("app_layout.text_005"))}] [role="tab"][aria-selected="true"]`)?.dataset.tabId;
     if (!['build','local','studio'].includes(stage)) {
-        state.message = '请进入需要生成的阶段。'; return;
+        state.message = badgeText("execution_87.text_002"); return;
     }
     if (state.busy) return;
     if (stage === 'local' && !validateOnly) {
@@ -21,14 +22,14 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
     }
     const workflowId = graph.id;
     let fingerprint;
-    state.busy = true; state.message = '正在提交生成任务…';
+    state.busy = true; state.message = badgeText("execution_87.text_003");
     try {
         const compiled = requestForStage(graph, stage);
         const request = compiled.request;
         if (stage === 'local') request.apply = !validateOnly;
         fingerprint = compiled.fingerprint;
         if (stage === 'local' && request.apply) {
-            if (state.preview !== fingerprint || !state.serverToken) throw new Error('选区已变化，请重新点击生成。');
+            if (state.preview !== fingerprint || !state.serverToken) throw new Error(badgeText("execution_87.text_004"));
             request.preview_token = state.serverToken;
         }
         request.nonce = crypto.randomUUID();
@@ -39,34 +40,34 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
         if (executor) { executor.widgets_values = [JSON.stringify(request)]; executor.widgets_values_named = {request_json: JSON.stringify(request)}; }
         const queued = await queueBadge87(app, api, nativeQueue, graph, {output: promptForRequest(request, executorId), workflow});
         state.promptId = queued.prompt_id;
-        state.message = '生成中…';
+        state.message = badgeText("execution_87.text_005");
         const deadline = Date.now()+20*60*1000;
         let history;
         while (Date.now() < deadline) {
             const response = await api.fetchApi(`/history/${encodeURIComponent(queued.prompt_id)}`);
-            if (!response.ok) throw new Error(`读取生成状态失败 (${response.status})`);
+            if (!response.ok) throw new Error(badgeText("execution_87.text_006", {p0: (response.status)}));
             const records = await response.json();
             history = records[queued.prompt_id];
             if (history) break;
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        if (!history) throw new Error('等待生成超时，请查看任务队列；任务可能仍在运行。');
+        if (!history) throw new Error(badgeText("execution_87.text_007"));
         if (history.status?.status_str === 'error') {
             const failure = history.status.messages?.find(([type]) => type === 'execution_error')?.[1];
-            throw new Error(failure?.exception_message || '生成任务失败，请查看任务记录。');
+            throw new Error(failure?.exception_message || badgeText("execution_87.text_008"));
         }
         const current = getRootGraphSafely(app) === graph && graph.id === workflowId;
         if (!current || requestForStage(graph, stage).fingerprint !== fingerprint) {
             state.preview = null; state.serverToken = null; state.phase = 'changed';
-            state.message = '配置已变化，结果保存在任务记录中，请重新生成。'; return;
+            state.message = badgeText("execution_87.text_009"); return;
         }
         const report = history.outputs?.[String(executorId)]?.badge87_report?.[0];
         const images = history.outputs?.['113']?.images;
-        if (!(request.interaction_revision === 2 && stage === 'local' && !request.apply) && !images?.length) throw new Error('生成任务未返回图片。');
+        if (!(request.interaction_revision === 2 && stage === 'local' && !request.apply) && !images?.length) throw new Error(badgeText("execution_87.text_010"));
         state.preview = fingerprint;
         state.serverToken = report?.preview_token;
         state.phase = stage === 'local' ? request.apply ? 'applied' : 'preview-ready' : 'complete';
-        state.message = state.phase === 'preview-ready' ? '选区已验证，正在应用修改…' : '生成完成。';
+        state.message = state.phase === 'preview-ready' ? badgeText("execution_87.text_011") : badgeText("execution_87.text_012");
         if (state.phase !== 'preview-ready') {
             app.nodeOutputs = {...app.nodeOutputs, '113': {images}};
             graph.getNodeById(113)?.onExecuted?.({images});
@@ -74,7 +75,7 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
             state.seed = undefined;
             if (stage === 'build') {
                 const updated = updateLocalTarget87(graph, images, localSession);
-                state.message = updated ? `生成完成，共 ${images.length} 张；局部编辑默认选中第 1 张。` : `生成完成，共 ${images.length} 张；可在局部修改中查看并选择，当前目标保持不变。`;
+                state.message = updated ? badgeText("execution_87.text_013", {p0: (images.length)}) : badgeText("execution_87.text_014", {p0: (images.length)});
             }
         }
     } catch (error) {

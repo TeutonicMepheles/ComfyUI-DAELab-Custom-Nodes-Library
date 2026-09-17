@@ -1,4 +1,5 @@
-import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-height-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
 import {
     getSelectedInputEntries,
     resolveNode,
@@ -224,7 +225,7 @@ export function normalizeBadgeAppLayout(graph) {
 
         // Runtime-only tab keeps legacy four-tab workflow serialization compatible.
         if (graph.extra?.daelabBadgeExecutionV1?.version === 1 && !refinedBadge87(graph)) {
-            const palette = { id: 'palette', title: '配色参考图', inputKeys: [], enabledItemId: null };
+            const palette = { id: 'palette', title: badgeText("app_layout_model.text_001"), inputKeys: [], enabledItemId: null };
             tabs.unshift(palette);
             tabById.set(palette.id, palette);
         }
@@ -287,7 +288,7 @@ export function isItemInteractive(state, itemId) {
 export function getQuickControlState(control, state) {
     const choices = control.kind === "choice"
         ? control.items
-        : [{ itemId: control.itemId, label: itemValue(state, control.itemId) ? "已开启" : "已关闭" }];
+        : [{ itemId: control.itemId, label: itemValue(state, control.itemId) ? badgeText("app_layout_model.text_002") : badgeText("app_layout_model.text_003") }];
     return {
         ...control,
         choices: choices.map((choice) => ({

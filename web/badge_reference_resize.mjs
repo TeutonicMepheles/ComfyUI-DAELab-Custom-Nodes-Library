@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 // Resize only the reference image; toolbars and configuration retain their own layout.
 export function attachReferenceResize(root, workspace, frame, graph, live) {
     const bar = document.createElement('div');
@@ -5,8 +6,8 @@ export function attachReferenceResize(root, workspace, frame, graph, live) {
     bar.tabIndex = 0;
     bar.setAttribute('role', 'separator');
     bar.setAttribute('aria-orientation', 'horizontal');
-    bar.setAttribute('aria-label', '调整置顶参考区高度');
-    bar.title = '拖动调整参考区高度 · 方向键微调 · 双击恢复默认';
+    bar.setAttribute('aria-label', badgeText("reference_resize.text_001"));
+    bar.title = badgeText("reference_resize.text_002");
     workspace.append(bar);
     let desired = Number(graph.extra.daelabBadgePrototypeV1.referenceImageHeight) || null;
     let drag = null;
@@ -22,10 +23,11 @@ export function attachReferenceResize(root, workspace, frame, graph, live) {
         const {min, max} = limits();
         const value = Math.round(Math.max(min, Math.min(max, desired ?? innerHeight * .27)));
         frame.style.height = `${value}px`;
+        if (root.dataset.badgeRefinedUi) root.style.setProperty('--badge-reference-height', `${workspace.getBoundingClientRect().height}px`);
         bar.setAttribute('aria-valuemin', String(Math.round(min)));
         bar.setAttribute('aria-valuemax', String(Math.round(max)));
         bar.setAttribute('aria-valuenow', String(value));
-        bar.setAttribute('aria-valuetext', `图片高度 ${value} 像素`);
+        bar.setAttribute('aria-valuetext', badgeText("reference_resize.text_003", {p0: (value)}));
     }
     function save() {
         if (!live()) return;
@@ -62,5 +64,5 @@ export function attachReferenceResize(root, workspace, frame, graph, live) {
     };
     const observer=new ResizeObserver(render);
     observer.observe(root);observer.observe(workspace);render();
-    return {dispose(){observer.disconnect();drag=null;bar.remove();frame.style.removeProperty('height');}};
+    return {dispose(){observer.disconnect();drag=null;bar.remove();frame.style.removeProperty('height');root.style.removeProperty('--badge-reference-height');}};
 }

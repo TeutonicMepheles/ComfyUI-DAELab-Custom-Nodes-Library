@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { imagePoint } from './badge_build_preview_model.mjs';
 // In-page picker avoids depending on the embedded browser's native color popup.
 export function attachBadgeColorPicker(root, canvas, prepareSource, sample, live) {
@@ -24,13 +25,20 @@ export function attachBadgeColorPicker(root, canvas, prepareSource, sample, live
     }
     const leave = () => { loupe.hidden = true; };
     canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerleave', leave);
-    const panel=document.createElement('div');panel.className='badge-color-popup';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','选择区域颜色');
-    panel.innerHTML='<strong>选择颜色</strong><canvas width="240" height="130" aria-label="颜色面板"></canvas><label>色相 <input type="range" min="0" max="360" value="180"></label><label>色号 <input type="text" maxlength="7" aria-label="选色色号"></label><div><button type="button" data-pick>从参考图吸色</button><button type="button" data-apply>应用</button><button type="button" data-close>取消</button></div>';
+    const panel=document.createElement('div');panel.className='badge-color-popup';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',badgeText("color_picker.text_001"));
+    panel.innerHTML='<strong></strong><canvas width="240" height="130"></canvas><label><input type="range" min="0" max="360" value="180"></label><label><input type="text" maxlength="7"></label><div><button type="button" data-pick></button><button type="button" data-apply></button><button type="button" data-close></button></div>';
+    panel.querySelector('strong').textContent = badgeText('color_picker.heading');
+    panel.querySelector('canvas').setAttribute('aria-label', badgeText('color_picker.palette'));
+    const labels = panel.querySelectorAll('label');
+    labels[0].prepend(document.createTextNode(badgeText('color_picker.hue')));
+    labels[1].prepend(document.createTextNode(badgeText('color_picker.hex_label')));
+    panel.querySelector('input[type=text]').setAttribute('aria-label', badgeText('color_picker.hex_aria'));
+    for (const key of ['pick', 'apply', 'close']) panel.querySelector(`[data-${key}]`).textContent = badgeText(`color_picker.${key}`);
     document.body.append(panel);
     const palette=panel.querySelector('canvas'),hue=panel.querySelector('input[type=range]'),hex=panel.querySelector('input[type=text]');
     function paint(){const c=palette.getContext('2d');c.fillStyle=`hsl(${hue.value} 100% 50%)`;c.fillRect(0,0,240,130);let g=c.createLinearGradient(0,0,240,0);g.addColorStop(0,'white');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,240,130);g=c.createLinearGradient(0,0,0,130);g.addColorStop(0,'transparent');g.addColorStop(1,'black');c.fillStyle=g;c.fillRect(0,0,240,130);}
     function close(){loupe.hidden=true;panel.hidden=true;sampling=false;canvas.style.cursor='';target=null;}
-    function apply(value){if(!/^#[0-9a-f]{6}$/i.test(value)){hex.setCustomValidity('请输入六位色号');hex.reportValidity();return;}if(target?.isConnected&&live()){target.value=value;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}close();}
+    function apply(value){if(!/^#[0-9a-f]{6}$/i.test(value)){hex.setCustomValidity(badgeText("color_picker.text_003"));hex.reportValidity();return;}if(target?.isConnected&&live()){target.value=value;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}close();}
     function open(e){const input=e.target.closest?.('input[type=color]');if(!input||!root.contains(input)||input.disabled)return;e.preventDefault();e.stopImmediatePropagation();prepareSource();target=input;hex.value=input.value;hex.setCustomValidity('');panel.hidden=false;loupe.hidden=true;sampling=false;canvas.style.cursor='';const r=input.getBoundingClientRect();panel.style.left=`${Math.max(8,Math.min(r.left,innerWidth-280))}px`;panel.style.top=`${Math.max(8,Math.min(r.bottom+6,innerHeight-275))}px`;paint();}
     root.addEventListener('click',open,true);
     hue.oninput=paint;hex.oninput=()=>hex.setCustomValidity('');

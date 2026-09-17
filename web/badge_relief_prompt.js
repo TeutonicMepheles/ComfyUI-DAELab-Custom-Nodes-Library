@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from "/scripts/app.js";
 import {
   BADGE_RELIEF_LEVELS,
@@ -6,7 +7,7 @@ import {
   collapseBadgeReliefPanelInputs,
   getReliefLevelSpec,
   normalizeReliefLevel,
-} from "./badge_relief_prompt_panel.mjs?v=20260812-1";
+} from "./badge_relief_prompt_panel.mjs?v=20260916-content-1";
 
 const UI_VERSION = "20260812-1";
 const PANEL_HEIGHT = 112;
@@ -174,7 +175,7 @@ function createPanelElement(node) {
   header.style.cssText = "display:flex;justify-content:space-between;gap:10px;align-items:center";
 
   const title = document.createElement("span");
-  title.textContent = "浮雕立体程度";
+  title.textContent = badgeText("relief_prompt.text_001");
   title.style.cssText = "font-weight:600;color:#d9dce2";
 
   const valueLabel = document.createElement("span");
@@ -186,7 +187,7 @@ function createPanelElement(node) {
   range.min = "0";
   range.max = "5";
   range.step = "1";
-  range.setAttribute("aria-label", "浮雕立体程度");
+  range.setAttribute("aria-label", badgeText("relief_prompt.text_002"));
   range.style.cssText = "width:100%;height:18px;margin:0;accent-color:#6f8cff;cursor:pointer";
   range.addEventListener("input", (event) => {
     setReliefLevel(node, event.currentTarget.value, event);
@@ -258,7 +259,7 @@ function installReliefPanel(node) {
   );
 
   widget.serialize = false;
-  widget.label = "徽章浮雕强度";
+  widget.label = badgeText("relief_prompt.text_003");
   widget.inputEl = panel.element;
   widget.__badgeReliefPanel = true;
   widget.computeSize = (width) => [width || 330, PANEL_HEIGHT];

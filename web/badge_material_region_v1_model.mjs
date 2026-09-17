@@ -184,6 +184,10 @@ export function normalizeMaterialRegionConfig(value) {
             color_policy: normalizeColorPolicy(group.color_policy, materialId),
             material_strength: normalizeMaterialStrength(group.material_strength),
             reroll_revision: normalizeRevision(group.reroll_revision),
+            ...(Object.hasOwn(group, 'name') ? {name: String(group.name).slice(0, 80)} : {}),
+            ...(Array.isArray(group.samples) ? {samples: [...new Set(group.samples.map(c => normalizeColor(c, fallback.color)))].slice(0, 15)} : {}),
+            ...(Object.hasOwn(group, 'material_pending') ? {material_pending: Boolean(group.material_pending)} : {}),
+            ...(Object.hasOwn(group, 'invert') ? {invert: Boolean(group.invert)} : {}),
         });
     });
     if (!groups.length) groups.push(createDefaultMaterialRegionGroup());
@@ -191,6 +195,7 @@ export function normalizeMaterialRegionConfig(value) {
         version: 2,
         revision: normalizeRevision(source.revision),
         default_material_id: defaultMaterialId,
+        ...(source.overlap_policy === 'error' ? {overlap_policy: 'error'} : {}),
         groups,
     };
 }
@@ -398,6 +403,7 @@ export function updateMaterialRegion(value, groupId, patch) {
     const next = patch && typeof patch === "object" ? patch : {};
     config.groups[index] = {
         ...config.groups[index],
+        ...(Object.hasOwn(next, 'material_pending') ? {material_pending: Boolean(next.material_pending)} : {}),
         ...(Object.hasOwn(next, "color")
             ? { color: normalizeColor(next.color, config.groups[index].color) }
             : {}),

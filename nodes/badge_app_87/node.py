@@ -14,7 +14,8 @@ import torch
 from PIL import Image, ImageOps
 
 from ..gpt_image2_material_prompt.node import load_materials, resolve_material
-from .prompts import build_prompt, material_details, masked_prompt, semantic_prompt, studio_prompt
+from .prompts import build_prompt, material_details, masked_prompt, semantic_prompt, studio_prompt, material_strength_prompt, color_exception
+from .prompt_assembler import describe, join, render, ui_text, legacy_uploaded_reference
 
 _PREVIEWS = {}
 IMAGE_MODEL = 'gpt-image-2.5-sunburst'
@@ -24,7 +25,7 @@ _LOCK = Lock()
 def selected_model(request):
     model = request.get('model', IMAGE_MODEL)
     if model not in IMAGE_MODELS:
-        raise ValueError('Unsupported badge image model.')
+        raise ValueError(ui_text('backend.error_001'))
     return model
 
 
@@ -32,9 +33,9 @@ def selected_model(request):
 def dimensions(request):
     w, h = request.get('width', 1024), request.get('height', 1024)
     if any(type(x) is not int or not 1024 <= x <= 3840 or x % 16 for x in (w, h)):
-        raise ValueError('Output dimensions must be multiples of 16 within 1024–3840.')
+        raise ValueError(ui_text('backend.error_002'))
     if max(w, h) / min(w, h) > 3 or not 655360 <= w*h <= 8294400:
-        raise ValueError('Unsupported output aspect ratio or pixel count.')
+        raise ValueError(ui_text('backend.error_003'))
     return w, h
 
 
@@ -46,7 +47,7 @@ def load_source(selection):
         folder = str(selection.get('subfolder', ''))
         base = {'input': folder_paths.get_input_directory(), 'output': folder_paths.get_output_directory(), 'temp': folder_paths.get_temp_directory()}.get(kind)
         if base is None:
-            raise ValueError('Invalid image source type.')
+            raise ValueError(ui_text('backend.error_010'))
         path = Path(base) / folder / name
     else:
         name = str(selection or '')
@@ -54,11 +55,11 @@ def load_source(selection):
     roots = [Path(p).resolve() for p in (folder_paths.get_input_directory(), folder_paths.get_output_directory(), folder_paths.get_temp_directory())]
     resolved = path.resolve()
     if not selection or not any(resolved.is_relative_to(p) for p in roots) or not resolved.is_file():
-        raise ValueError('Upload a valid image for this stage.')
+        raise ValueError(ui_text('backend.error_004'))
     with Image.open(resolved) as image:
         image = ImageOps.exif_transpose(image).convert('RGBA')
         if image.width * image.height > 40000000:
-            raise ValueError('Input image exceeds 40 megapixels.')
+            raise ValueError(ui_text('backend.error_011'))
         return np.asarray(image).copy()
 
 
@@ -78,7 +79,7 @@ def matches(rgb, config, height=False):
     """Mirror previewPixels: inclusive RGB distance, nearest match, stable ties."""
     groups = config.get('groups', [])
     if not isinstance(groups, list) or len(groups) > 256:
-        raise ValueError('Invalid color groups.')
+        raise ValueError(ui_text('backend.error_005'))
     selected = str(config.get('output', ''))
     if selected.startswith('mask_') and selected[5:].isdigit():
         i = int(selected[5:])-1
@@ -88,7 +89,7 @@ def matches(rgb, config, height=False):
     for group in groups:
         color = str(group['color']).lstrip('#')
         if len(color) != 6:
-            raise ValueError('Invalid region color.')
+            raise ValueError(ui_text('backend.error_012'))
         channels = np.array([int(color[i:i+2], 16) for i in (0, 2, 4)])
         distance = np.sum((rgb.astype(np.float64)-channels)**2, axis=-1)
         threshold = max(0, float(group.get('threshold', 0)))**2
@@ -103,11 +104,11 @@ def height_config(board, fixed_endpoints=False):
     count = board.get('count', 6)
     if type(count) is not int or not (1 if fixed_endpoints else 2) <= count <= (5 if fixed_endpoints else 6):
         if fixed_endpoints:
-            raise ValueError('高度须为二至六层（含顶层和 0 层）。')
-        raise ValueError('Height board requires 2–6 solid layers.')
+            raise ValueError(ui_text('backend.error_013'))
+        raise ValueError(ui_text('backend.error_006'))
     def gray(tier):
         if type(tier) is not int or not 0 <= tier <= count:
-            raise ValueError('Invalid height tier.')
+            raise ValueError(ui_text('backend.error_014'))
         if not tier:
             return 0
         if fixed_endpoints and tier == count:
@@ -123,6 +124,10 @@ def material_prompt(config):
 
 
 def prepare(request):
+    from .material_policy import material_config
+    request['material'] = material_config(request.get('material'))
+    if request.get('regions'):
+        request['regions'] = {**request['regions'], 'groups': [material_config(g) for g in request['regions'].get('groups', [])]}
     selected_model(request)
     refined = request.get('interaction_revision') == 2
     if refined:
@@ -133,9 +138,9 @@ def prepare(request):
     size = dimensions(request)
     stage = request.get('stage')
     if stage not in ('build', 'local', 'studio', 'effect', 'color_map'):
-        raise ValueError('Unsupported badge stage.')
+        raise ValueError(ui_text('backend.error_007'))
     if request.get('quality', 'low') not in ('low', 'medium', 'high') or type(request.get('count', 1)) is not int or not 1 <= request.get('count', 1) <= 8:
-        raise ValueError('Invalid quality or image count.')
+        raise ValueError(ui_text('backend.error_008'))
     base_prompt = str(request.get('prompt', '')).strip()
     color_reference = None
     if not refined and request.get('color_reference'):
@@ -145,10 +150,10 @@ def prepare(request):
         color_reference = tensor(contain(palette_rgb, size))
     if stage == 'build' and (request.get('prompt_only') is True or ('prompt_only' not in request and not request.get('image'))):
         if not base_prompt:
-            raise ValueError('Enter a base prompt or upload a material image.')
+            raise ValueError(ui_text('backend.error_015'))
         return {'base': None, 'prompt': build_prompt(base_prompt, text_only=True), 'regions': [], 'color_reference': color_reference}
     if stage == 'build' and not request.get('image'):
-        raise ValueError('Upload a material image or enable prompt-only mode.')
+        raise ValueError(ui_text('backend.error_009'))
     source = load_source(request.get('image'))
     rgb, alpha = source[..., :3], source[..., 3]
     if stage == 'color_map':
@@ -167,7 +172,7 @@ def prepare(request):
         if request.get('height_board') is not None:
             height_source = load_source(request.get('height_image'))
             if refined and request['height_board'].get('count', 6) > 5:
-                raise ValueError('高度最多六层（含顶层和 0 层），请先整理已有层级。')
+                raise ValueError(ui_text('backend.error_017'))
             config = height_config(request['height_board'], fixed_endpoints=refined)
             height = matches(height_source[..., :3], config, True)
             result['height'] = tensor(np.repeat(contain(height, size, True, 0)[..., None], 3, -1))
@@ -189,17 +194,17 @@ def prepare(request):
                 if int((mask > .5).sum()) < 16:
                     continue
                 prompt = masked_prompt(material_prompt(group))
-                prompt += f"\n材质表现强度：{float(group.get('material_strength', 1))*100:.0f}%."
+                prompt = material_strength_prompt(prompt, group.get('material_strength', 1))
                 result['regions'].append((mask, prompt, group))
     elif stage == 'local':
         if request.get('selection') == 'color':
             selection_rgb = rgb
             if request.get('use_map'):
                 if request.get('color_map_source') != request.get('image') or not request.get('color_map'):
-                    raise ValueError('Generate a GPT Color ID Map for the current target first.')
+                    raise ValueError(ui_text('backend.error_026'))
                 selection_rgb = load_source(request['color_map'])[..., :3]
                 if selection_rgb.shape != rgb.shape:
-                    raise ValueError('Color ID Map dimensions do not match the target.')
+                    raise ValueError(ui_text('backend.error_027'))
             mask = matches(selection_rgb, request.get('colors', {}))
         elif request.get('selection') == 'polygon':
             # Reuse the production polygon + brush node, including normalized strokes.
@@ -208,21 +213,21 @@ def prepare(request):
             value = selection_node.execute(tensor(rgb), polygon_data=json.dumps(request.get('polygon', {})))
             mask = np.floor(value.result[1][0].numpy()*255+.5).astype(np.uint8)
         else:
-            raise ValueError('Select exactly one region selection mode.')
+            raise ValueError(ui_text('backend.error_023'))
         mask = ((mask > 127) & (alpha > 127)).astype(np.uint8)*255
         result['mask'] = tensor(contain(mask, size, True, 0))
         if int((result['mask'] > .5).sum()) < 16:
-            raise ValueError('Selected region is empty or below 16 pixels. Preview another selection.')
+            raise ValueError(ui_text('backend.error_018'))
         if request.get('edit_mode') == 'material':
             config = request.get('material', {})
-            result['prompt'] = masked_prompt(material_prompt({**config, 'color_policy': 'preserve'}))
+            result['prompt'] = masked_prompt(material_prompt(config))
         elif request.get('edit_mode') != 'semantic' or not base_prompt:
-            raise ValueError('Enter an edit description or choose a material.')
+            raise ValueError(ui_text('backend.error_024'))
         else:
             result['prompt'] = semantic_prompt(base_prompt)
     elif stage == 'studio':
         if not base_prompt:
-            raise ValueError('Enter the studio prompt.')
+            raise ValueError(ui_text('backend.error_025'))
         result['prompt'] = studio_prompt(base_prompt)
     if color_reference is not None:
         result['color_reference'] = color_reference
@@ -255,8 +260,11 @@ class BadgeApp87V1:
         return float('nan')
 
     def execute(self, request_json):
-        from comfy_execution.graph_utils import GraphBuilder
         request = json.loads(request_json)
+        if request.get('edit_mode') == 'region_materials':
+            from .region_materials import Badge87RegionExecutor
+            return Badge87RegionExecutor().execute(request_json)
+        from comfy_execution.graph_utils import GraphBuilder
         prepared = prepare(request)
         stage = request['stage']
         count = request.get('count', 1)
@@ -266,7 +274,8 @@ class BadgeApp87V1:
             report['effective_prompt'] = prepared['prompt']
             report['material_processing'] = 'preserve_optics' if request.get('edit_mode') == 'material' else 'composite_only'
         if stage == 'color_map':
-            from ..badge_app_workflow.node import DEFAULT_MAP_PROMPT
+            DEFAULT_MAP_PROMPT = render('tasks/color_map')
+            report['prompt_calls'] = [{'call': 'color_map', **describe(DEFAULT_MAP_PROMPT)}]
             graph = GraphBuilder()
             mapped = graph.node('DAELAB.BadgeColorIdMapV1', enabled=True,
                 master_image=prepared['base'], map_prompt=DEFAULT_MAP_PROMPT,
@@ -285,14 +294,14 @@ class BadgeApp87V1:
             token = digest.hexdigest()
             session = str(request.get('session', ''))
             if not session:
-                raise ValueError('Missing selection session.')
+                raise ValueError(ui_text('backend.error_019'))
             with _LOCK:
                 if not request.get('apply'):
                     if len(_PREVIEWS) > 512:
                         _PREVIEWS.clear()
                     _PREVIEWS[session] = token
                 elif _PREVIEWS.get(session) != token or request.get('preview_token') != token:
-                    raise ValueError('Selection changed or server restarted. Preview again before applying.')
+                    raise ValueError(ui_text('backend.error_028'))
             report.update(preview_token=token, selected_pixels=int((prepared['mask'] > .5).sum()))
             if not request.get('apply'):
                 overlay = prepared['base'].clone()
@@ -313,12 +322,14 @@ class BadgeApp87V1:
                 inputs['model.images.image_2'] = height
             if original is not None:
                 if request.get('color_reference'):
-                    inputs['prompt'] = inputs['prompt'].replace('原平面稿', '配色参考图').replace('原稿底色', '配色参考图底色').replace('原稿背景', '配色参考图背景').replace('偏离原稿', '偏离配色参考图')
+                    inputs['prompt'] = legacy_uploaded_reference(inputs['prompt'])
                 index = 3 if height is not None else 2 if base is not None else 1
                 inputs[f'model.images.image_{index}'] = original
-                inputs['prompt'] += '\n\n'+original_color_prompt(index, custom=request.get('color_reference') is not None, reference_only=base is None)
+                inputs['prompt'] = join(inputs['prompt'], original_color_prompt(index, custom=request.get('color_reference') is not None, reference_only=base is None))
             if mask is not None:
                 inputs['model.mask'] = mask
+            report.setdefault('prompt_calls', []).append({'call': name, **describe(inputs['prompt'])})
+            inputs['prompt'] = str(inputs['prompt'])
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
         from .prompts import color_finish_prompt
         # Masked calls use one image. Color references belong to the unmasked finish.
@@ -326,7 +337,7 @@ class BadgeApp87V1:
         palette = prepared.get('color_reference')
         studio_reference = palette if palette is not None else prepared.get('original')
         if stage == 'studio' and studio_reference is not None:
-            initial_prompt = color_finish_prompt(request.get('prompt', ''))
+            initial_prompt = color_finish_prompt(request.get('prompt', ''), custom=palette is not None)
         batch = generate('generate', initial_prompt, prepared['base'], prepared.get('mask'), prepared.get('height'), n=count, original=studio_reference if stage == 'studio' else palette if stage == 'build' else None)
         def constrain(name, base, candidate, mask, config, flat=None, preserve_optics=False):
             material_id, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
@@ -368,8 +379,8 @@ class BadgeApp87V1:
                 for config in configs:
                     if config.get('color_policy') == 'material_intrinsic':
                         _, material = resolve_material(load_materials(), config.get('material_id', 'baked_enamel'))
-                        exceptions.append(f"原稿颜色{config.get('color', '对应材质')}区域保留{material.get('label', '')}本色{material.get('intrinsic_color_hex', '')}")
-                finish = color_finish_prompt(request.get('prompt', '') if stage != 'local' or request.get('edit_mode') == 'semantic' else '', local=stage == 'local', exceptions='；'.join(exceptions))
+                        exceptions.append(color_exception(config, material))
+                finish = color_finish_prompt(request.get('prompt', '') if stage != 'local' or request.get('edit_mode') == 'semantic' else '', local=stage == 'local', exceptions='；'.join(exceptions), custom=palette is not None)
                 current = generate(f'color_finish_{variant}', finish, current, original=reference, seed_offset=100000+variant)
                 report['color_finish_prompt'] = finish+'\n\n'+original_color_prompt(2, custom=palette is not None)
                 if stage == 'local':
@@ -394,7 +405,7 @@ class BadgeApp87RegionAlignV1:
         from ..badge_render_space_mask.node import _extract_border_foreground, _similarity_matrix, _warp, _snap_color_labels
         source_image, target_image = source_image[..., :3], target_image[..., :3]
         if source_image.shape != target_image.shape or source_mask.shape != source_image.shape[:3]:
-            raise ValueError('Material alignment requires matching source and target canvases.')
+            raise ValueError(ui_text('backend.error_016'))
         masks, references, reports = [], [], []
         for source, target, mask in zip(source_image, target_image, source_mask):
             src, dst = source.detach().cpu().numpy(), target.detach().cpu().numpy()
@@ -403,12 +414,12 @@ class BadgeApp87RegionAlignV1:
             source_fg, _ = _extract_border_foreground(src, 24)
             target_fg, _ = _extract_border_foreground(dst, 24)
             if not source_fg.any() or not target_fg.any():
-                raise ValueError('Cannot locate badge foreground for material alignment.')
+                raise ValueError(ui_text('backend.error_020'))
             # A round silhouette cannot identify rotation; fitting it can rotate
             # inner regions arbitrarily. Preserve the supplied upright layout.
             matrix, iou = _similarity_matrix(source_fg, target_fg, 0, .35)
             if iou < .65:
-                raise ValueError('Generated badge geometry changed too much. Regenerate before applying material regions.')
+                raise ValueError(ui_text('backend.error_021'))
             aligned = _warp(selected.astype(np.uint8), matrix, width, height, cv2.INTER_NEAREST) > 0
             aligned &= target_fg > 0
             labels = target_fg.astype(np.int32)
@@ -417,7 +428,7 @@ class BadgeApp87RegionAlignV1:
             # otherwise misplaced edge pixels become immutable watershed seeds.
             snapped = _snap_color_labels(labels, dst, target_fg, 32, 32) == 2
             if int(snapped.sum()) < 16:
-                raise ValueError('Aligned material region is empty.')
+                raise ValueError(ui_text('backend.error_022'))
             reference = dst.copy()
             # The selected source color remains authoritative for preserve-color.
             reference[snapped] = np.median(src[selected], axis=0)

@@ -19,6 +19,31 @@ function fixture() {
     return {g,set};
 }
 
+test('refined local output inherits size and runs once without overwriting saved batch count', () => {
+    const {g,set}=fixture();
+    for (const [key,value] of [['badge.post.local',true],['badge.post.local.selection.color',true],['badge.post.local.selection.polygon',false],['badge.post.local.semantic',true],['badge.post.local.material',false]]) set(key,value);
+    g.getNodeById(146).widgets_values_named.image='target.png';
+    g.extra.daelabBadgePrototypeV1.generation={local:{count:8,width:2048,height:2048}};
+    const {request}=requestForStage(g,'local');
+    assert.equal(request.count,1);
+    assert.deepEqual([request.width,request.height],[1024,1024]);
+    assert.equal(g.extra.daelabBadgePrototypeV1.generation.local.count,8);
+});
+
+test('saved rhinestone material remains intact but requires an explicit replacement in refined 8.7', () => {
+    const {g,set}=fixture();
+    for (const [key,value] of [['badge.post.local',true],['badge.post.local.selection.color',true],['badge.post.local.selection.polygon',false],['badge.post.local.semantic',false],['badge.post.local.material',true]]) set(key,value);
+    g.getNodeById(146).widgets_values_named.image='target.png';
+    const material=g.getNodeById(106).widgets_values_named;
+    for (const id of ['rhinestone','水钻']) {
+        material.material_id=id;
+        assert.throws(()=>requestForStage(g,'local'),/水钻已移除/);
+        assert.equal(material.material_id,id);
+    }
+    material.material_id='glitter';
+    assert.equal(requestForStage(g,'local').request.local_regions.groups[0].material_id,'glitter');
+});
+
 test('palette tab is removed without rewriting legacy layout', () => {
     const {g} = fixture();
     const raw = JSON.stringify(g.extra.daelabAppLayoutV1);

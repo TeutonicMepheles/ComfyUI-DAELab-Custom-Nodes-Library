@@ -1,7 +1,8 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { installBadgeSelectionVariant } from './badge_selection_variant.mjs?v=1';
-import { migrateBadgeSelection } from './badge_selection_migration.mjs?v=1';
+import { installBadgeSelectionVariant } from './badge_selection_variant.mjs?v=20260916-content-1';
+import { migrateBadgeSelection } from './badge_selection_migration.mjs?v=20260916-content-1';
 // ComfyUI Desktop can retain old helper modules across extension updates.
 // Version all sibling imports together so their named exports stay in sync.
 import {
@@ -38,7 +39,7 @@ const APP_HEADING_PROPERTY = "daelab_app_heading";
 let polygonPanelSyncTimer = null;
 
 function polygonAppHeading(node) {
-  return String(node?.properties?.[APP_HEADING_PROPERTY] || "多边形编辑画布");
+  return String(node?.properties?.[APP_HEADING_PROPERTY] || badgeText("polygon_mask.text_001"));
 }
 
 function normalizeWidgetLabel(value) {
@@ -252,7 +253,7 @@ function createAppearanceControls() {
   vertexCount.min = String(MIN_VERTICES);
   vertexCount.max = String(MAX_VERTICES);
   vertexCount.step = "1";
-  vertexCount.title = "Polygon vertex count";
+  vertexCount.title = badgeText("polygon_mask.text_002");
   styleAppearanceInput(vertexCount, "58px");
 
   const colorControl = document.createElement("div");
@@ -260,7 +261,7 @@ function createAppearanceControls() {
 
   const colorPicker = document.createElement("input");
   colorPicker.type = "color";
-  colorPicker.title = "Polygon color";
+  colorPicker.title = badgeText("polygon_mask.text_003");
   colorPicker.style.cssText = [
     "width:30px",
     "height:24px",
@@ -275,7 +276,7 @@ function createAppearanceControls() {
 
   const colorText = document.createElement("input");
   colorText.type = "text";
-  colorText.title = "Hex or RGB polygon color";
+  colorText.title = badgeText("polygon_mask.text_004");
   colorText.spellcheck = false;
   styleAppearanceInput(colorText, "92px");
   colorText.style.flex = "1 1 72px";
@@ -286,7 +287,7 @@ function createAppearanceControls() {
   fillOpacity.min = "0";
   fillOpacity.max = "100";
   fillOpacity.step = "1";
-  fillOpacity.title = "Polygon fill opacity";
+  fillOpacity.title = badgeText("polygon_mask.text_005");
   styleAppearanceInput(fillOpacity, "58px");
 
   const outlineWidth = document.createElement("input");
@@ -294,13 +295,13 @@ function createAppearanceControls() {
   outlineWidth.min = "0";
   outlineWidth.max = "20";
   outlineWidth.step = "1";
-  outlineWidth.title = "Polygon outline width";
+  outlineWidth.title = badgeText("polygon_mask.text_006");
   styleAppearanceInput(outlineWidth, "58px");
 
   const text = document.createElement("textarea");
   text.rows = 2;
-  text.title = "Polygon text output";
-  text.placeholder = "\u8f93\u5165\u5e0c\u671b\u5728\u906e\u7f69\u5904\u751f\u6210\u7684\u5185\u5bb9\uff0c\u82e5\u65e0\u5219\u7559\u7a7a";
+  text.title = badgeText("polygon_mask.text_007");
+  text.placeholder = badgeText("polygon_mask.text_008");
   text.spellcheck = false;
   text.style.cssText = [
     "width:100%",
@@ -320,15 +321,15 @@ function createAppearanceControls() {
     "resize:vertical",
   ].join(";");
 
-  const vertexField = createAppearanceField("\u9876\u70b9\u6570\u91cf", vertexCount);
+  const vertexField = createAppearanceField(badgeText("polygon_mask.text_009"), vertexCount);
   vertexField.style.flex = "0 1 120px";
-  const colorField = createAppearanceField("\u989c\u8272", colorControl);
+  const colorField = createAppearanceField(badgeText("polygon_mask.text_010"), colorControl);
   colorField.style.flex = "1 1 165px";
-  const opacityField = createAppearanceField("\u586b\u5145\u900f\u660e\u5ea6", fillOpacity, "%");
+  const opacityField = createAppearanceField(badgeText("polygon_mask.text_011"), fillOpacity, "%");
   opacityField.style.flex = "0 1 145px";
-  const outlineField = createAppearanceField("\u8f6e\u5ed3\u5bbd\u5ea6", outlineWidth, "px");
+  const outlineField = createAppearanceField(badgeText("polygon_mask.text_012"), outlineWidth, "px");
   outlineField.style.flex = "0 1 135px";
-  const textField = createAppearanceField("\u6587\u672c", text);
+  const textField = createAppearanceField(badgeText("polygon_mask.text_013"), text);
   textField.style.flex = "1 1 100%";
   textField.style.alignItems = "flex-start";
   element.append(vertexField, colorField, opacityField, outlineField, textField);
@@ -523,7 +524,7 @@ app.registerExtension({
         "box-sizing:border-box",
       ].join(";");
 
-      const canvasTitle = createSectionTitle("\u591a\u8fb9\u5f62\u7f16\u8f91\u753b\u5e03");
+      const canvasTitle = createSectionTitle(badgeText("polygon_mask.text_014"));
       const appearanceControls = createAppearanceControls();
 
       const toolbar = document.createElement("div");
@@ -547,7 +548,7 @@ app.registerExtension({
       rightGroup.style.cssText = "display:flex;align-items:center;gap:4px";
 
       const helpNote = createHelpNote(
-        "\u5de6\u952e\u70b9\u8fb9 / \u53f3\u952e\u70b9\u9876\u70b9\uff1a\u589e / \u5220\u9876\u70b9 | Shift+\u5de6 / \u53f3\u952e\uff1a\u589e / \u5220 Polygon",
+        badgeText("polygon_mask.text_015"),
       );
 
       const canvasWrapper = document.createElement("div");
@@ -672,21 +673,21 @@ app.registerExtension({
         }
       };
 
-      const loadImageButton = createButton("Load Image", "Load the connected IMAGE socket into the polygon canvas", () =>
+      const loadImageButton = createButton(badgeText("polygon_mask.extra_001"), badgeText("polygon_mask.extra_002"), () =>
         this.loadSocketImage(),
       );
       loadImageButton.style.minWidth = "auto";
       loadImageButton.style.padding = "0 8px";
       loadImageButton.style.background = "#315f8f";
       loadImageButton.style.borderColor = "#5088c0";
-      const undoButton = createButton("Undo", "Undo last polygon edit", () => this.undoPolygon());
-      const redoButton = createButton("Redo", "Redo polygon edit", () => this.redoPolygon());
-      const refreshButton = createButton("Refresh", "Refresh socket image and redraw canvas", () => {
+      const undoButton = createButton(badgeText("polygon_mask.extra_003"), badgeText("polygon_mask.extra_004"), () => this.undoPolygon());
+      const redoButton = createButton(badgeText("polygon_mask.extra_005"), badgeText("polygon_mask.extra_006"), () => this.redoPolygon());
+      const refreshButton = createButton(badgeText("polygon_mask.extra_007"), badgeText("polygon_mask.extra_008"), () => {
         this.loadPolygonImage(true);
         this.redrawPolygonCanvas();
       });
-      const clearButton = createButton("Clear", "Delete selected polygon", () => this.clearPolygon());
-      const resetButton = createButton("Reset", "Reset selected polygon using current vertex count", () =>
+      const clearButton = createButton(badgeText("polygon_mask.extra_009"), badgeText("polygon_mask.extra_010"), () => this.clearPolygon());
+      const resetButton = createButton(badgeText("polygon_mask.extra_011"), badgeText("polygon_mask.extra_012"), () =>
         this.resetPolygon(),
       );
 
@@ -1973,7 +1974,7 @@ app.registerExtension({
       this.polygonWidget.isLoadingImage = false;
       const previewPending = Boolean(this.polygonWidget.pendingSourceImageData);
       buttons.loadImage.disabled = false;
-      buttons.loadImage.textContent = previewPending ? "Apply Preview" : "Load Image";
+      buttons.loadImage.textContent = previewPending ? badgeText("polygon_mask.extra_013") : badgeText("polygon_mask.extra_014");
       buttons.undo.disabled = previewPending || this.polygonWidget.historyIndex <= 0;
       buttons.redo.disabled = previewPending || this.polygonWidget.historyIndex >= this.polygonWidget.history.length - 1;
       buttons.clear.disabled = previewPending || this.polygonWidget.selectedIndex < 0;
@@ -1997,9 +1998,9 @@ app.registerExtension({
         ctx.fillStyle = "#c8c8c8";
         ctx.font = "22px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("Connect an IMAGE input and click Load Image", canvas.width / 2, canvas.height / 2 - 12);
+        ctx.fillText(badgeText("polygon_mask.extra_015"), canvas.width / 2, canvas.height / 2 - 12);
         ctx.font = "14px sans-serif";
-        ctx.fillText("Left-click an edge to add; right-click a vertex to delete", canvas.width / 2, canvas.height / 2 + 18);
+        ctx.fillText(badgeText("polygon_mask.extra_016"), canvas.width / 2, canvas.height / 2 + 18);
         return;
       }
 

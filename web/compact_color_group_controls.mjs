@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 export function compactInputStyle(extra = "") {
     return [
         "height:26px",
@@ -32,7 +33,7 @@ export function createCompactColorControl({
     onInvalid = null,
     onFlush = null,
     getCurrentColor = null,
-    label = "颜色",
+    label = badgeText("compact_color_group_controls.text_001"),
 }) {
     const wrapper = document.createElement("div");
     wrapper.style.cssText = "height:26px;min-width:0;display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px";
@@ -41,7 +42,7 @@ export function createCompactColorControl({
     const picker = document.createElement("input");
     picker.type = "color";
     picker.value = color;
-    picker.title = `选择${label} ${color}`;
+    picker.title = badgeText("compact_color_group_controls.text_002", {p0: (label), p1: (color)});
     picker.setAttribute("aria-label", `${label} ${color}`);
     picker.dataset.daelabColorControlTrigger = "picker";
     picker.style.cssText = compactInputStyle("width:28px;padding:1px;cursor:pointer");
@@ -50,7 +51,7 @@ export function createCompactColorControl({
     text.type = "text";
     text.value = color.toUpperCase();
     text.spellcheck = false;
-    text.setAttribute("aria-label", `${label}十六进制值`);
+    text.setAttribute("aria-label", badgeText("compact_color_group_controls.text_003", {p0: (label)}));
     text.dataset.daelabColorControlTrigger = "hex";
     text.style.cssText = compactInputStyle("width:100%;padding:2px 6px;text-transform:uppercase");
 
@@ -65,7 +66,7 @@ export function createCompactColorControl({
     const setInvalid = (invalid, value = "") => {
         text.setAttribute("aria-invalid", String(invalid));
         text.style.borderColor = invalid ? "#d65a5a" : "#45484e";
-        if (invalid) text.title = `请输入完整的 #RRGGBB 颜色值；当前值：${value}`;
+        if (invalid) text.title = badgeText("compact_color_group_controls.text_004", {p0: (value)});
         else text.removeAttribute("title");
         onInvalid?.(invalid ? String(value) : null);
     };
@@ -117,8 +118,8 @@ export function createCompactThresholdControl({ threshold, onCommit }) {
     const wrapper = document.createElement("label");
     wrapper.style.cssText = "height:26px;min-width:0;display:grid;grid-template-columns:auto minmax(42px,1fr);align-items:center;gap:4px";
     const label = document.createElement("span");
-    label.textContent = "阈值";
-    label.title = "悬浮数值后左右拖动调整。0 为严格颜色匹配；数值越大，允许的色差越大。";
+    label.textContent = badgeText("compact_color_group_controls.text_005");
+    label.title = badgeText("compact_color_group_controls.text_006");
     label.style.cssText = "font:11px sans-serif;color:#aeb4bc;white-space:nowrap";
     const input = document.createElement("input");
     input.type = "number";
@@ -126,9 +127,9 @@ export function createCompactThresholdControl({ threshold, onCommit }) {
     input.max = "255";
     input.step = "1";
     input.value = String(threshold);
-    input.setAttribute("aria-label", "颜色匹配阈值");
-    input.setAttribute("aria-description", "悬浮后左右拖动调整，也可以单击输入数值");
-    input.title = "左右拖动调整；单击后可直接输入（0–255）";
+    input.setAttribute("aria-label", badgeText("compact_color_group_controls.text_007"));
+    input.setAttribute("aria-description", badgeText("compact_color_group_controls.text_008"));
+    input.title = badgeText("compact_color_group_controls.text_009");
     input.style.cssText = compactInputStyle("width:100%;padding:2px 4px;text-align:center;cursor:ew-resize;user-select:none");
 
     const commit = (value) => {

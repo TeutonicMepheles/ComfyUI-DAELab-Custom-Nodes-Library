@@ -1,13 +1,14 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 export const BADGE_RELIEF_PANEL_WIDGET_NAME = "badge_relief_prompt_panel";
 export const BADGE_RELIEF_NATIVE_WIDGET_NAME = "relief_level";
 
 export const BADGE_RELIEF_LEVELS = Object.freeze([
-  Object.freeze({ value: 0, label: "平面", title: "完全平面" }),
-  Object.freeze({ value: 1, label: "微", title: "微浮雕" }),
-  Object.freeze({ value: 2, label: "浅", title: "浅浮雕" }),
-  Object.freeze({ value: 3, label: "中", title: "中浮雕" }),
-  Object.freeze({ value: 4, label: "深", title: "深浮雕" }),
-  Object.freeze({ value: 5, label: "高", title: "高浮雕" }),
+  Object.freeze({ value: 0, label: badgeText("relief_prompt_panel.text_001"), title: badgeText("relief_prompt_panel.text_002") }),
+  Object.freeze({ value: 1, label: badgeText("relief_prompt_panel.text_003"), title: badgeText("relief_prompt_panel.text_004") }),
+  Object.freeze({ value: 2, label: badgeText("relief_prompt_panel.text_005"), title: badgeText("relief_prompt_panel.text_006") }),
+  Object.freeze({ value: 3, label: badgeText("relief_prompt_panel.text_007"), title: badgeText("relief_prompt_panel.text_008") }),
+  Object.freeze({ value: 4, label: badgeText("relief_prompt_panel.text_009"), title: badgeText("relief_prompt_panel.text_010") }),
+  Object.freeze({ value: 5, label: badgeText("relief_prompt_panel.text_011"), title: badgeText("relief_prompt_panel.text_012") }),
 ]);
 
 export const BADGE_RELIEF_MEMBER_WIDGET_NAMES = Object.freeze([

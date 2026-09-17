@@ -77,24 +77,47 @@ def prepare(request):
 
 
 class BadgeApp88V1(legacy.BadgeApp87V1):
+    workflow_version = '8.8'
+
+    def prepare_regions(self, request):
+        return prepare(request)
+
+    def generation_model(self, request):
+        return 'gpt-image-2'
+
+    def constraint_options(self):
+        return {}
+
+    def bind_region_mask(self, inputs, mask, config):
+        inputs['model.mask'] = mask
+
+    def mask_transport(self, config):
+        return 'alpha_mask'
+
+    def finish_reference(self, prepared):
+        reference = prepared.get('color_reference')
+        return reference if reference is not None else prepared.get('original')
+
     def execute(self, request_json):
         request = json.loads(request_json)
-        if request.get('workflow_version') != '8.8':
+        if request.get('workflow_version') != self.workflow_version:
             raise ValueError('Badge 8.8 execution requires its workflow marker.')
         if request.get('edit_mode') != 'region_materials':
             return super().execute(request_json)
-        prepared = prepare(request)
+        prepared = self.prepare_regions(request)
         count = request.get('count', 1)
-        reference = prepared.get('color_reference')
-        if reference is None:
-            reference = prepared.get('original')
-        report = {'stage': 'local', 'workflow_version': '8.8', 'count': count,
+        reference = self.finish_reference(prepared)
+        report = {'stage': 'local', 'workflow_version': self.workflow_version, 'count': count,
                   'quality': request.get('quality', 'low'), 'size': legacy.dimensions(request),
                   'region_calls': len(prepared['regions']) * count,
                   'model_calls': (len(prepared['regions']) + int(reference is not None)) * count,
                   'material_processing': 'preserve_optics',
+                  'model': self.generation_model(request), 'color_finish_applied': reference is not None,
                   'regions': [{'id': config['id'], 'selected_pixels': int((mask > .5).sum()),
-                               'effective_prompt': prompt, 'material_id': config['material_id']}
+                               'effective_prompt': prompt, 'material_id': config['material_id'],
+                               'material_strength': config.get('material_strength', 1),
+                               'mask_connected': self.mask_transport(config) == 'alpha_mask',
+                               'selection_transport': self.mask_transport(config)}
                               for mask, prompt, config in prepared['regions']]}
         digest = hashlib.sha256(json.dumps({k: v for k, v in request.items() if k not in ('apply', 'nonce', 'preview_token')}, sort_keys=True).encode())
         for key in ('base', 'mask', 'original', 'color_reference'):
@@ -125,15 +148,15 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
         graph = GraphBuilder()
         w, h = legacy.dimensions(request)
 
-        def generate(name, prompt, base, seed_offset, mask=None, palette=None):
-            inputs = {'prompt': prompt, 'model': 'gpt-image-2',
+        def generate(name, prompt, base, seed_offset, mask=None, palette=None, config=None):
+            inputs = {'prompt': prompt, 'model': self.generation_model(request),
                       'model.size': f'{w}x{h}' if (w, h) in ((1024, 1024), (1024, 1536), (1536, 1024), (2048, 2048), (2048, 1152), (1152, 2048)) else 'Custom',
                       'model.custom_width': w, 'model.custom_height': h, 'model.background': 'opaque',
                       'model.quality': request.get('quality', 'low'), 'n': 1,
                       'seed': (int(request.get('seed', 0)) + seed_offset) % 2147483647,
                       'model.images.image_1': base}
             if mask is not None:
-                inputs['model.mask'] = mask
+                self.bind_region_mask(inputs, mask, config or {})
             if palette is not None:
                 inputs['model.images.image_2'] = palette
                 inputs['prompt'] += '\n\n' + original_color_prompt(2, custom=request.get('color_reference') is not None)
@@ -144,7 +167,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
             current = prepared['base']
             for index, (mask, prompt, config) in enumerate(prepared['regions']):
                 key = f'{variant}_{config["id"]}'
-                candidate = generate(f'material_{key}', prompt, current, variant*1000 + index + 1 + config.get('reroll_revision', 0), mask=mask)
+                candidate = generate(f'material_{key}', prompt, current, variant*1000 + index + 1 + config.get('reroll_revision', 0), mask=mask, config=config)
                 material_id, material = legacy.resolve_material(legacy.load_materials(), config['material_id'])
                 candidate = graph.node('BadgeMaterialConstraintV1', id=f'constraint_{key}',
                     base_image=current, candidate_image=candidate, flat_image=prepared['base'],
@@ -153,7 +176,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
                     mean_chroma_limit=.02, p95_chroma_limit=.05, median_low_frequency_lightness_limit=.03,
                     high_frequency_strength=1., material_id=material_id, material_strength=config.get('material_strength', 1),
                     mid_frequency_strength=1., minimum_visible_mean=0., minimum_visible_p95=0.,
-                    pattern_seed=config.get('reroll_revision', 0), deterministic_fallback=True, preserve_optics=True).out(0)
+                    pattern_seed=config.get('reroll_revision', 0), deterministic_fallback=True, preserve_optics=True, **self.constraint_options()).out(0)
                 current = graph.node('BadgeDeterministicComposite', id=f'composite_{key}',
                     previous_master=current, edit_candidate=candidate, edit_mask=mask).out(0)
             if reference is not None:

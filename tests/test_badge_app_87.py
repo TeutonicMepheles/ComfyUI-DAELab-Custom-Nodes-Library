@@ -169,7 +169,11 @@ class Badge87Tests(unittest.TestCase):
             with self.subTest(material=material_id), patch.object(M, 'load_source', return_value=self.source()):
                 local = M.prepare(self.request(edit_mode='material', material={'material_id': material_id}))
                 prompt = local['prompt']
-                self.assertIn('保留输入图对应位置的底色', prompt)
+                if material_id in ('satin_gold', 'satin_silver'):
+                    self.assertIn('本色', prompt)
+                    self.assertNotIn('保留输入图对应位置的底色', prompt)
+                else:
+                    self.assertIn('保留输入图对应位置的底色', prompt)
                 self.assertNotIn('摄影表现', prompt)
                 for excluded in ('中央', '18', '图2', 'softbox', 'REFERENCE', 'COLOR POLICY'):
                     self.assertNotIn(excluded, prompt)

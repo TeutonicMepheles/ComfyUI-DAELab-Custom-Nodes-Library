@@ -1,5 +1,15 @@
 // count counts solid tiers; tier 0 is an additional, fixed void tier.
 export const MAX_HEIGHT_SOLID_TIERS_87 = 5;
+// Insert the lowest solid tier, immediately above the fixed void tier.
+// Existing colors and custom heights move together; the top stays locked.
+export function appendLowestHeightTier87(board) {
+    if (board.count >= MAX_HEIGHT_SOLID_TIERS_87) return board;
+    const shift = tier => tier > 0 ? tier + 1 : 0;
+    return {...board, count: board.count + 1, fallback: shift(board.fallback),
+        groups: board.groups.map(group => ({...group, tier: shift(group.tier)})),
+        alphas: {...Object.fromEntries(Array.from({length: board.count}, (_, i) => [i + 2, heightAlpha(board, i + 1)])),
+            0: 0, 1: Math.max(26, Math.round(heightAlpha(board, 1) / 2))}};
+}
 export function fixedHeightBoard87(board) {
     const value = board ?? { count: 3, fallback: 1, groups: [], alphas: { 1: 77, 2: 153, 3: 255 } };
     return { ...value, fixedEndpoints: true, alphas: { ...value.alphas, 0: 0, [value.count]: 255 } };

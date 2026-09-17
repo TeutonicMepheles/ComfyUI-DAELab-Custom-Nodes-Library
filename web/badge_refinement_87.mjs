@@ -1,12 +1,14 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
 
 // Shared controls keep their established behavior outside Badge 8.7.
 export const refinedBadge87 = graph => graph?.extra?.daelabBadgeExecutionV1?.version === 1
     && graph?.extra?.daelabBadgeLocalMaterialsV1?.version !== 1;
+export const removedMaterial87 = value => ['rhinestone', '水钻'].includes(String(value).trim());
 export const BADGE_MODELS = [
-    ['gpt-image-2.5-sunburst', 'GPT-Image-2.5 Sunburst'],
-    ['gpt-image-2.5-flare', 'GPT-Image-2.5 Flare'],
-    ['gpt-image-2', 'GPT-Image-2'],
+    ['gpt-image-2.5-sunburst', badgeText("badge_refinement_87.extra_001")],
+    ['gpt-image-2.5-flare', badgeText("badge_refinement_87.extra_002")],
+    ['gpt-image-2', badgeText("badge_refinement_87.extra_003")],
 ];
 export const selectedBadgeModel = (graph, stage = 'build') =>
     graph.extra?.daelabBadgePrototypeV1?.generation?.[stage]?.model || BADGE_MODELS[0][0];

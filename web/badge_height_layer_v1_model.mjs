@@ -1,17 +1,18 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { normalizeColor } from "./multi_color_mask_model.mjs?v=20260827-1";
-import { sha256Text } from "./badge_material_region_v1_model.mjs?v=20260901-1";
+import { sha256Text } from "./badge_material_region_v1_model.mjs?v=20260917-target87-1";
 
 export const MAX_HEIGHT_GROUPS = 16;
 export const BADGE_HEIGHT_LAYER_V1_PANEL_WIDGET_NAME = "badge_height_layer_v1_panel";
 export const HEIGHT_LAYER_PROMPT_CONFIG_WIDGET_NAME = "height_layer_config";
 export const DEFAULT_HEIGHT_COLORS = Object.freeze(["#d0ad7d", "#d4e3e2", "#055652", "#26877f"]);
 export const HEIGHT_LAYER_OPTIONS = Object.freeze([
-    Object.freeze({ value: 0, label: "镂空（无实体）", height: 0.0, gray: 0 }),
-    Object.freeze({ value: 1, label: "最低层", height: 0.2, gray: 51 }),
-    Object.freeze({ value: 2, label: "次低层", height: 0.4, gray: 102 }),
-    Object.freeze({ value: 3, label: "中间层", height: 0.6, gray: 153 }),
-    Object.freeze({ value: 4, label: "次高层", height: 0.8, gray: 204 }),
-    Object.freeze({ value: 5, label: "最高层", height: 1.0, gray: 255 }),
+    Object.freeze({ value: 0, label: badgeText("height_layer_v1_model.text_001"), height: 0.0, gray: 0 }),
+    Object.freeze({ value: 1, label: badgeText("height_layer_v1_model.text_002"), height: 0.2, gray: 51 }),
+    Object.freeze({ value: 2, label: badgeText("height_layer_v1_model.text_003"), height: 0.4, gray: 102 }),
+    Object.freeze({ value: 3, label: badgeText("height_layer_v1_model.text_004"), height: 0.6, gray: 153 }),
+    Object.freeze({ value: 4, label: badgeText("height_layer_v1_model.text_005"), height: 0.8, gray: 204 }),
+    Object.freeze({ value: 5, label: badgeText("height_layer_v1_model.text_006"), height: 1.0, gray: 255 }),
 ]);
 
 export const V1_TOOLBAR_HEIGHT = 34;

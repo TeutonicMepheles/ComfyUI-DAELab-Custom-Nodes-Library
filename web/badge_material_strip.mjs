@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { catalogEntries, makeCatalogThumbnailUrl } from './thumbnail_selector.mjs';
 
 let catalogPromise;
@@ -20,9 +21,9 @@ export function attachMaterialStrip(root, graph, live) {
             const strengthBox = document.createElement('label'); strengthBox.className = 'badge-material-compact-strength';
             strengthBox.append(strengthLabel, strength, value);
             const more = document.createElement('button'); more.type = 'button'; more.className = 'badge-material-compact-more';
-            more.textContent = '⋯'; more.setAttribute('aria-label', '区域更多设置'); more.setAttribute('aria-expanded', 'false');
+            more.textContent = badgeText("material_strip.text_001"); more.setAttribute('aria-label', badgeText("material_strip.text_002")); more.setAttribute('aria-expanded', 'false');
             const extra = document.createElement('div'); extra.className = 'badge-material-compact-extra'; extra.hidden = true;
-            const policyLabel = document.createElement('label'); policyLabel.textContent = '颜色策略 '; policyLabel.append(policy); extra.append(policyLabel);
+            const policyLabel = document.createElement('label'); policyLabel.textContent = badgeText("material_strip.text_003"); policyLabel.append(policy); extra.append(policyLabel);
             more.onclick = () => {extra.hidden = !extra.hidden;more.setAttribute('aria-expanded',String(!extra.hidden));};
             line.append(region, color, threshold, material, strengthBox, more);
             card.replaceChildren(line, extra); card.dataset.badgeMaterialCompact = 'true';
@@ -54,12 +55,12 @@ export function attachMaterialStrip(root, graph, live) {
         const contextCurrent = () => targetValue() === source;
         const groupId = card.dataset.materialRegionId;
         const strip = document.createElement('div'); strip.className = 'badge-material-strip';
-        strip.setAttribute('role', 'group'); strip.setAttribute('aria-label', '选择目标材质');
+        strip.setAttribute('role', 'group'); strip.setAttribute('aria-label', badgeText("material_strip.text_004"));
         card.dataset.badgeMaterialOpen = 'true'; card.append(strip);
         trigger.setAttribute('aria-expanded', 'true');
         opened = {trigger, card, strip, contextCurrent};
         const request = token;
-        strip.textContent = '正在加载材质…';
+        strip.textContent = badgeText("material_strip.text_005");
         try {
             catalogPromise ??= fetch(new URL('./materials.json', import.meta.url)).then(r => {if (!r.ok) throw new Error(); return r.json();}).catch(e => {catalogPromise = null; throw e;});
             const entries = catalogEntries(await catalogPromise);
@@ -68,10 +69,10 @@ export function attachMaterialStrip(root, graph, live) {
             if (!group) {close(); return;}
             strip.replaceChildren();
             const rail = document.createElement('div'); rail.className = 'badge-material-strip-rail';
-            rail.setAttribute('role', 'listbox'); rail.setAttribute('aria-label', '目标材质缩略图');
+            rail.setAttribute('role', 'listbox'); rail.setAttribute('aria-label', badgeText("material_strip.text_006"));
             const nav = (text, delta) => {
                 const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
-                b.setAttribute('aria-label', delta < 0 ? '向左浏览材质' : '向右浏览材质');
+                b.setAttribute('aria-label', delta < 0 ? badgeText("material_strip.text_007") : badgeText("material_strip.text_008"));
                 b.onclick = () => rail.scrollBy({left:delta, behavior:'smooth'}); return b;
             };
             strip.append(nav('‹', -220), rail, nav('›', 220));
@@ -82,7 +83,7 @@ export function attachMaterialStrip(root, graph, live) {
                 const img = document.createElement('img'); img.alt = ''; img.src = makeCatalogThumbnailUrl(entry, new URL('./material_thumbs/', import.meta.url), 'strip-1');
                 const name = document.createElement('span'); name.textContent = entry.label || entry.id;
                 b.append(img, name);
-                if (entry.id === group.material_id) { const mark = document.createElement('span'); mark.textContent = '✓'; mark.className = 'badge-material-strip-check'; mark.setAttribute('aria-hidden', 'true'); b.append(mark); }
+                if (entry.id === group.material_id) { const mark = document.createElement('span'); mark.textContent = badgeText("material_strip.text_009"); mark.className = 'badge-material-strip-check'; mark.setAttribute('aria-hidden', 'true'); b.append(mark); }
                 b.onclick = event => {
                     event.stopPropagation();
                     if (!live() || !strip.isConnected || !contextCurrent()) return;
@@ -105,11 +106,11 @@ export function attachMaterialStrip(root, graph, live) {
                 buttons[next].focus();
             };
             buttons.find(b => b.getAttribute('aria-selected') === 'true')?.focus();
-        } catch { if (request === token) strip.textContent = '材质加载失败，请收起后重试。'; }
+        } catch { if (request === token) strip.textContent = badgeText("material_strip.text_010"); }
     }
     const click = event => {
         const trigger = event.target.closest?.('.daelab-badge-material-trigger');
-        if (!trigger || !live()) return;
+        if (!trigger || !trigger.closest('[data-material-region-id]') || !live()) return;
         event.preventDefault(); event.stopImmediatePropagation(); void open(trigger);
     };
     const key = event => {
@@ -124,10 +125,11 @@ export function attachMaterialStrip(root, graph, live) {
         if (opened && (!live() || !opened.contextCurrent() || !opened.trigger.isConnected || !opened.trigger.getClientRects().length)) close();
         for (const [trigger] of labels) if (!trigger.isConnected) labels.delete(trigger);
         root.querySelectorAll('.daelab-badge-material-trigger').forEach(trigger => {
+            if (!trigger.closest('[data-material-region-id]')) return;
             if (labels.has(trigger)) return;
             labels.set(trigger, [trigger.getAttribute('aria-label'), trigger.title]);
-            trigger.setAttribute('aria-label', '目标材质；点击展开横向缩略图列表');
-            trigger.title = '点击选择材质，选中后自动收起';
+            trigger.setAttribute('aria-label', badgeText("material_strip.text_011"));
+            trigger.title = badgeText("material_strip.text_012");
         });
     }, dispose(){
         close();

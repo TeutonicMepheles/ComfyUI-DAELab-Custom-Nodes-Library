@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from "/scripts/app.js";
 import {
     LIST_EDITOR_ICONS,
@@ -10,7 +11,7 @@ import {
     compactInputStyle,
     createCompactColorControl,
     createCompactThresholdControl,
-} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
+} from "./compact_color_group_controls.mjs?v=20260916-content-1";
 import {
     BADGE_HEIGHT_LAYER_V1_PANEL_WIDGET_NAME,
     HEIGHT_LAYER_PROMPT_CONFIG_WIDGET_NAME,
@@ -28,7 +29,7 @@ import {
     syncHeightLayerPromptConfigWidget,
     updateHeightGroup,
     validateHeightLayerConfigSnapshot,
-} from "./badge_height_layer_v1_model.mjs?v=20260902-sync-1";
+} from "./badge_height_layer_v1_model.mjs?v=20260916-content-1";
 
 const NODE_TYPE = "DAELabBadgeHeightLayerV1";
 const CONFIG_PROPERTY = "badge_height_layer_v1_config";
@@ -41,7 +42,7 @@ const OWNED_WIDGET_PROPERTY = "__daelabBadgeHeightLayerV1Panel";
 const APP_HEADING_PROPERTY = "daelab_app_heading";
 
 function appHeading(node) {
-    return String(node?.properties?.[APP_HEADING_PROPERTY] || "高度层级设置（按层次图取色）");
+    return String(node?.properties?.[APP_HEADING_PROPERTY] || badgeText("height_layer_v1.text_001"));
 }
 
 function chainCallback(object, property, callback) {
@@ -91,19 +92,19 @@ function updateSyncStatus(node) {
     if (!element) return;
     const invalid = invalidHexValues(node);
     if (invalid.length || node._badgeHeightLayerV1LastError) {
-        element.textContent = invalid.length ? "颜色格式错误｜禁止排队" : "配置不同步｜禁止排队";
+        element.textContent = invalid.length ? badgeText("height_layer_v1.text_002") : badgeText("height_layer_v1.text_003");
         element.title = node._badgeHeightLayerV1LastError || invalid.join(", ");
         element.style.color = "#ff8585";
         return;
     }
     const digest = heightLayerConfigDigest(getConfig(node));
     element.textContent = digest.slice(0, 8);
-    element.title = `后端配置 SHA-256 ${digest}`;
+    element.title = badgeText("height_layer_v1.text_004", {p0: (digest)});
     element.style.color = "#85c99a";
 }
 
 function showConfigError(node, message) {
-    node._badgeHeightLayerV1LastError = String(message || "高度配置同步失败");
+    node._badgeHeightLayerV1LastError = String(message || badgeText("height_layer_v1.text_005"));
     const detail = node._badgeHeightLayerV1LastError;
     try {
         app.extensionManager?.toast?.add?.({
@@ -132,7 +133,7 @@ function verifyConfigSnapshot(node, queueValue) {
 function flushHeightLayerConfig(node, { notify = true, throwOnError = false } = {}) {
     const invalid = invalidHexValues(node);
     if (invalid.length) {
-        const message = `无效颜色输入：${invalid.join(", ")}。请输入完整 #RRGGBB，排队已阻止。`;
+        const message = badgeText("height_layer_v1.text_006", {p0: (invalid.join(", "))});
         showConfigError(node, message);
         if (throwOnError) throw new Error(message);
         return null;
@@ -145,7 +146,7 @@ function flushHeightLayerConfig(node, { notify = true, throwOnError = false } = 
     node.properties[DIGEST_PROPERTY] = heightLayerConfigDigest(config);
     const promptWidget = getPromptConfigWidget(node);
     if (!promptWidget) {
-        const message = `缺少隐藏输入 ${HEIGHT_LAYER_PROMPT_CONFIG_WIDGET_NAME}，排队已阻止。`;
+        const message = badgeText("height_layer_v1.text_007", {p0: (HEIGHT_LAYER_PROMPT_CONFIG_WIDGET_NAME)});
         showConfigError(node, message);
         if (throwOnError) throw new Error(message);
         return null;
@@ -153,7 +154,7 @@ function flushHeightLayerConfig(node, { notify = true, throwOnError = false } = 
     syncHeightLayerPromptConfigWidget(node, promptWidget, encoded, { notify });
     const snapshot = verifyConfigSnapshot(node, encoded);
     if (!snapshot.ok) {
-        const message = `配置不一致：${snapshot.mismatches.join(", ")}，排队已阻止。`;
+        const message = badgeText("height_layer_v1.text_008", {p0: (snapshot.mismatches.join(", "))});
         showConfigError(node, message);
         if (throwOnError) throw new Error(message);
         return null;
@@ -293,7 +294,7 @@ function selectCardOnInteraction(node, card, groupId) {
 function createColorControl(node, group, card) {
     return createCompactColorControl({
         color: group.color,
-        label: "高度图源区域颜色",
+        label: badgeText("height_layer_v1.text_009"),
         onDraft: (value) => {
             const config = updateHeightGroup(getConfig(node), group.id, { color: value });
             const updated = config.groups.find(({ id }) => id === group.id);
@@ -340,10 +341,10 @@ function createThresholdControl(node, group) {
 
 function createLayerControl(node, group) {
     const label = document.createElement("span");
-    label.textContent = "层次";
+    label.textContent = badgeText("height_layer_v1.text_010");
     label.style.cssText = "font:11px sans-serif;color:#aeb4bc;white-space:nowrap";
     const select = document.createElement("select");
-    select.setAttribute("aria-label", "徽章相对高度层次");
+    select.setAttribute("aria-label", badgeText("height_layer_v1.text_011"));
     select.style.cssText = compactInputStyle("width:100%;padding:2px 7px;cursor:pointer");
     for (const optionSpec of HEIGHT_LAYER_OPTIONS) {
         const option = document.createElement("option");
@@ -383,7 +384,7 @@ function createGroupCard(node, group, index) {
     const firstRow = document.createElement("div");
     firstRow.style.cssText = "min-width:0;display:grid;grid-template-columns:52px minmax(110px,1fr) 96px;align-items:center;gap:6px";
     const groupLabel = document.createElement("span");
-    groupLabel.textContent = `颜色 ${index + 1}`;
+    groupLabel.textContent = badgeText("height_layer_v1.text_012", {p0: (index + 1)});
     groupLabel.style.cssText = "font:11px sans-serif;color:#c5c9cf;white-space:nowrap";
     firstRow.append(groupLabel, createColorControl(node, group, card), createThresholdControl(node, group));
 
@@ -402,7 +403,7 @@ function createToolbar(node, config, selectedId) {
     toolbar.style.cssText = "height:34px;min-height:34px;display:flex;align-items:center;gap:6px;padding:4px 6px;box-sizing:border-box;background:#202226";
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.addRoot,
-        "在选中层后新增",
+        badgeText("height_layer_v1.text_013"),
         () => {
             const result = addHeightGroupAfter(getConfig(node), node._badgeHeightLayerV1SelectedId);
             commitConfig(node, result.config, { selectedId: result.selectedId, render: true, fit: true });
@@ -411,7 +412,7 @@ function createToolbar(node, config, selectedId) {
     ));
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.remove,
-        "删除选中层",
+        badgeText("height_layer_v1.text_014"),
         () => {
             const result = removeSelectedHeightGroup(getConfig(node), node._badgeHeightLayerV1SelectedId);
             commitConfig(node, result.config, { selectedId: result.selectedId, render: true, fit: true });
@@ -443,7 +444,7 @@ function renderPanel(node) {
     fragment.appendChild(createToolbar(node, config, selectedId));
     const list = document.createElement("div");
     list.setAttribute("role", "listbox");
-    list.setAttribute("aria-label", "徽章高度颜色层");
+    list.setAttribute("aria-label", badgeText("height_layer_v1.text_015"));
     list.style.cssText = "min-height:0;display:flex;flex-direction:column;gap:2px;padding:4px 6px;box-sizing:border-box";
     config.groups.forEach((group, index) => list.appendChild(createGroupCard(node, group, index)));
     fragment.appendChild(list);

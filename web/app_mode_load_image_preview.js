@@ -15,7 +15,7 @@ import {
 import {
     BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE,
     normalizeBadgeAppLayout,
-} from "./badge_app_layout_model.mjs?v=20260916-height-1";
+} from "./badge_app_layout_model.mjs?v=20260916-content-1";
 
 const EXTENSION_NAME = "DAELab.AppModeLoadImagePreview";
 const UI_VERSION = "20260904-app-image-preview-v6";

@@ -3,7 +3,20 @@ import assert from 'node:assert/strict';
 import { migrateHeightBoard, resizeHeightBoard, heightBoardPreview } from '../web/badge_height_board_model.mjs';
 import { previewPixels } from '../web/badge_build_preview_model.mjs';
 import { moveHeightColors, insertHeightTier, deleteHeightTier } from '../web/badge_height_board_model.mjs';
-import { fixedHeightBoard87, heightAlpha } from '../web/badge_height_board_model.mjs';
+import { fixedHeightBoard87, heightAlpha, appendLowestHeightTier87 } from '../web/badge_height_board_model.mjs';
+
+test('bottom insertion preserves existing colors, heights, fallback and serialization', () => {
+    const original = fixedHeightBoard87({count:3,fallback:2,alphas:{1:77,2:179,3:255},groups:[{id:'void',tier:0},{id:'low',tier:1},{id:'top',tier:3}]});
+    const snapshot = structuredClone(original), next = appendLowestHeightTier87(original);
+    assert.deepEqual(original, snapshot);
+    assert.deepEqual(next.groups.map(g=>g.tier), [0,2,4]);
+    assert.equal(next.fallback,3);
+    assert.deepEqual([2,3,4].map(t=>heightAlpha(next,t)), [1,2,3].map(t=>heightAlpha(original,t)));
+    assert.ok(heightAlpha(next,1)>0 && heightAlpha(next,1)<heightAlpha(next,2));
+    assert.deepEqual(JSON.parse(JSON.stringify(next)),next);
+    const full=appendLowestHeightTier87(next);
+    assert.equal(appendLowestHeightTier87(full),full);
+});
 
 test('8.7 defaults, endpoint locks, six-total cap and deletions preserve color assignments',()=>{
     let b=fixedHeightBoard87();

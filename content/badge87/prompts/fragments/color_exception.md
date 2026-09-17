@@ -1,0 +1,1 @@
+原稿颜色{{source_color}}区域保留{{material_label}}本色{{intrinsic_color_hex}}

@@ -1,8 +1,9 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 export const MATERIAL_PANEL_WIDGET_NAME = "material_thumbnail_dom_selector";
 export const LEGACY_MATERIAL_COLOR_PICKER_WIDGET_NAME = "material_color_picker";
 export const LEGACY_DEFAULT_MATERIAL_BASE_PROMPT = (
-    "仅修改 Image 1 中红色覆盖标记的目标区域；红色仅是编辑区域指示色，" +
-    "必须在输出中完全移除，不能成为最终材质颜色。"
+    badgeText("material_prompt_model.text_001") +
+    badgeText("material_prompt_model.text_002")
 );
 export const MATERIAL_LAYOUT_GAP = 8;
 export const MATERIAL_CAROUSEL_CARD_SIZE = 76;
@@ -75,7 +76,7 @@ export function getMaterialCardSelectionState(entry, selectedId) {
     const selected = Boolean(id) && id === String(selectedId ?? "");
     return {
         selected,
-        ariaLabel: selected ? `${label}，当前材质` : label,
+        ariaLabel: selected ? badgeText("material_prompt_model.text_003", {p0: (label)}) : label,
         ariaSelected: String(selected),
         tabIndex: selected ? 0 : -1,
     };
@@ -123,9 +124,9 @@ const MATERIAL_WIDGET_DISPLAY_ORDER = Object.freeze([
 ]);
 
 export const MATERIAL_WIDGET_LABELS = Object.freeze({
-    material_id: "材质",
-    base_prompt: "编辑目标（可选）",
-    additional_details: "补充要求",
+    material_id: badgeText("material_prompt_model.text_004"),
+    base_prompt: badgeText("material_prompt_model.text_005"),
+    additional_details: badgeText("material_prompt_model.text_006"),
 });
 
 export function orderMaterialPromptWidgets(widgets) {

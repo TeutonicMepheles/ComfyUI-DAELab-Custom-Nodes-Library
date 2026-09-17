@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from "/scripts/app.js";
 import {
     LIST_EDITOR_ICONS,
@@ -10,7 +11,7 @@ import {
     compactInputStyle,
     createCompactColorControl,
     createCompactThresholdControl,
-} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
+} from "./compact_color_group_controls.mjs?v=20260916-content-1";
 import {
     BADGE_MATERIAL_REGION_V1_PANEL_WIDGET_NAME,
     DEFAULT_COLOR_POLICY,
@@ -36,7 +37,7 @@ import {
     syncMaterialRegionPromptConfigWidget,
     updateMaterialRegion,
     validateMaterialRegionConfigSnapshot,
-} from "./badge_material_region_v1_model.mjs?v=20260904-material-menu-v6";
+} from "./badge_material_region_v1_model.mjs?v=20260917-target87-1";
 import {
     catalogEntries,
     makeCatalogThumbnailUrl,
@@ -61,12 +62,12 @@ const MATERIAL_URL = new URL("./materials.json", import.meta.url);
 MATERIAL_URL.searchParams.set("v", UI_VERSION);
 const THUMB_BASE_URL = new URL("./material_thumbs/", import.meta.url);
 const DEFAULT_MATERIALS = {
-    baked_enamel: { label: "烤漆", thumbnail: "baked_enamel.png" },
-    transparent_lacquer: { label: "透明漆", thumbnail: "transparent_lacquer.png" },
-    satin_gold: { label: "亚金", thumbnail: "satin_gold.png", intrinsic_color_hex: "#c8a86b" },
-    satin_silver: { label: "亚银", thumbnail: "satin_silver.png", intrinsic_color_hex: "#c7cbd0" },
-    glitter: { label: "闪粉", thumbnail: "glitter.png" },
-    rhinestone: { label: "水钻", thumbnail: "rhinestone.png" },
+    baked_enamel: { label: badgeText("material_region_v1.text_001"), thumbnail: "baked_enamel.png" },
+    transparent_lacquer: { label: badgeText("material_region_v1.text_002"), thumbnail: "transparent_lacquer.png" },
+    satin_gold: { label: badgeText("material_region_v1.text_003"), thumbnail: "satin_gold.png", intrinsic_color_hex: "#c8a86b" },
+    satin_silver: { label: badgeText("material_region_v1.text_004"), thumbnail: "satin_silver.png", intrinsic_color_hex: "#c7cbd0" },
+    glitter: { label: badgeText("material_region_v1.text_005"), thumbnail: "glitter.png" },
+    rhinestone: { label: badgeText("material_region_v1.text_006"), thumbnail: "rhinestone.png" },
 };
 
 let materialData = DEFAULT_MATERIALS;
@@ -215,6 +216,7 @@ function selectMaterialForGroup(node, groupId, materialId) {
     const selectedEntry = materialEntry(materialId);
     const config = updateMaterialRegion(getConfig(node), groupId, {
         material_id: selectedEntry?.id || materialId,
+        ...(getConfig(node).groups.find(g => g.id === groupId)?.material_pending !== undefined ? {material_pending: false} : {}),
         ...(!selectedEntry?.intrinsic_color_hex ? { color_policy: DEFAULT_COLOR_POLICY } : {}),
     });
     hideMaterialDropdown(node);
@@ -225,14 +227,14 @@ function showMaterialDropdown(node, group, trigger, focusIndex = null) {
     if (!trigger?.isConnected || Number(node?.mode ?? 0) !== 0) return false;
     hideMaterialDropdown(node);
     ensureMaterialMenuStyles();
-    const entries = materialEntries();
+    const entries = materialEntries().filter(entry => !node.daelabRegionConfigAdapter || entry.id !== 'rhinestone');
     if (!entries.length) return false;
 
     const popup = document.createElement("div");
     popup.className = "daelab-badge-material-menu";
     popup.id = `daelab-badge-material-menu-${node.id}-${group.id}`;
     popup.setAttribute("role", "listbox");
-    popup.setAttribute("aria-label", "区域材质选项（悬浮可预览）");
+    popup.setAttribute("aria-label", badgeText("material_region_v1.text_007"));
     const buttons = entries.map((entry, index) => {
         const option = document.createElement("button");
         option.type = "button";
@@ -335,7 +337,7 @@ function updateSyncStatus(node) {
     if (!element) return;
     const invalid = invalidHexValues(node);
     if (invalid.length || node._badgeMaterialRegionV1LastError) {
-        element.textContent = invalid.length ? "颜色格式错误｜禁止排队" : "配置不同步｜禁止排队";
+        element.textContent = invalid.length ? badgeText("material_region_v1.text_008") : badgeText("material_region_v1.text_009");
         element.title = node._badgeMaterialRegionV1LastError || invalid.join(", ");
         element.style.color = "#ff8585";
         return;
@@ -343,7 +345,7 @@ function updateSyncStatus(node) {
     const config = getConfig(node);
     const digest = materialRegionConfigDigest(config).slice(0, 8);
     element.textContent = `r${config.revision} · ${digest}`;
-    element.title = `后端配置 revision ${config.revision}，SHA-256 ${materialRegionConfigDigest(config)}`;
+    element.title = badgeText("material_region_v1.text_010", {p0: (config.revision), p1: (materialRegionConfigDigest(config))});
     element.style.color = "#85c99a";
 }
 
@@ -368,6 +370,7 @@ function graphTransaction(node, callback) {
 }
 
 function getConfig(node) {
+    if (node.daelabRegionConfigAdapter) return normalizeMaterialRegionConfig(node.daelabRegionConfigAdapter.read());
     if (node._badgeMaterialRegionV1Draft) {
         return normalizeConfigForNode(node, node._badgeMaterialRegionV1Draft);
     }
@@ -386,7 +389,7 @@ function getPromptConfigWidget(node) {
 }
 
 function showConfigError(node, message) {
-    node._badgeMaterialRegionV1LastError = String(message || "材质配置同步失败");
+    node._badgeMaterialRegionV1LastError = String(message || badgeText("material_region_v1.text_011"));
     const detail = node._badgeMaterialRegionV1LastError;
     try {
         app.extensionManager?.toast?.add?.({
@@ -419,7 +422,7 @@ function verifyConfigSnapshot(node, queueValue) {
 function flushMaterialRegionConfig(node, { notify = true, throwOnError = false } = {}) {
     const invalid = invalidHexValues(node);
     if (invalid.length) {
-        const message = `无效颜色输入：${invalid.join(", ")}。请输入完整 #RRGGBB，排队已阻止。`;
+        const message = badgeText("material_region_v1.text_012", {p0: (invalid.join(", "))});
         showConfigError(node, message);
         if (throwOnError) throw new Error(message);
         return null;
@@ -433,7 +436,7 @@ function flushMaterialRegionConfig(node, { notify = true, throwOnError = false }
     node.properties[DIGEST_PROPERTY] = materialRegionConfigDigest(config);
     const promptWidget = getPromptConfigWidget(node);
     if (!promptWidget) {
-        const message = `缺少隐藏输入 ${MATERIAL_REGION_PROMPT_CONFIG_WIDGET_NAME}，排队已阻止。`;
+        const message = badgeText("material_region_v1.text_013", {p0: (MATERIAL_REGION_PROMPT_CONFIG_WIDGET_NAME)});
         showConfigError(node, message);
         if (throwOnError) throw new Error(message);
         return null;
@@ -443,7 +446,7 @@ function flushMaterialRegionConfig(node, { notify = true, throwOnError = false }
     });
     const snapshot = verifyConfigSnapshot(node, encoded);
     if (!snapshot.ok) {
-        const message = `配置不一致：${snapshot.mismatches.join(", ")}，排队已阻止。`;
+        const message = badgeText("material_region_v1.text_014", {p0: (snapshot.mismatches.join(", "))});
         showConfigError(node, message);
         if (throwOnError) throw new Error(message);
         return null;
@@ -557,6 +560,11 @@ function scheduleFit(node) {
 }
 
 function commitConfig(node, config, { selectedId = null, render = false, fit = false } = {}) {
+    if (node.daelabRegionConfigAdapter) {
+        node.daelabRegionConfigAdapter.commit(normalizeMaterialRegionConfig(config));
+        node._badgeMaterialRegionV1SelectedId = selectedId ?? node._badgeMaterialRegionV1SelectedId;
+        return;
+    }
     graphTransaction(node, () => {
         const stored = stageMaterialRegionConfig(node, config, { flush: true }) || getConfig(node);
         node._badgeMaterialRegionV1SelectedId = resolveSelectedMaterialRegionId(
@@ -586,7 +594,7 @@ function setSelectedGroup(node, groupId) {
 function createColorControl(node, group) {
     return createCompactColorControl({
         color: group.color,
-        label: "平面图源区域颜色",
+        label: badgeText("material_region_v1.text_015"),
         onDraft: (value) => {
             const config = updateMaterialRegion(getConfig(node), group.id, { color: value });
             const updated = config.groups.find(({ id }) => id === group.id);
@@ -631,12 +639,12 @@ function createThresholdControl(node, group) {
 
 function createMaterialControl(node, group) {
     const label = document.createElement("span");
-    label.textContent = "材质";
+    label.textContent = badgeText("material_region_v1.text_016");
     label.style.cssText = "font:11px sans-serif;color:#aeb4bc;white-space:nowrap";
 
     const entry = materialEntry(group.material_id);
     const preview = document.createElement("img");
-    preview.alt = `${entry?.label || group.material_id} 材质样片`;
+    preview.alt = badgeText("material_region_v1.text_017", {p0: (entry?.label || group.material_id)});
     preview.src = entry ? makeCatalogThumbnailUrl(entry, THUMB_BASE_URL, UI_VERSION) : "";
     preview.style.cssText = "width:26px;height:26px;display:block;object-fit:cover;border:1px solid #4b4f56;border-radius:5px;background:#2d3137;box-sizing:border-box";
 
@@ -644,14 +652,14 @@ function createMaterialControl(node, group) {
     const trigger = document.createElement("button");
     trigger.type = "button";
     trigger.className = "daelab-badge-material-trigger";
-    trigger.setAttribute("aria-label", "区域材质；打开后悬浮选项可查看大图");
+    trigger.setAttribute("aria-label", badgeText("material_region_v1.text_018"));
     trigger.setAttribute("aria-haspopup", "listbox");
     trigger.setAttribute("aria-expanded", "false");
-    trigger.title = "材质只改变命中区域的表面物理特性；打开后悬浮或聚焦选项可查看材质大图。";
+    trigger.title = badgeText("material_region_v1.text_019");
     const name = document.createElement("span");
     name.textContent = entry?.label || group.material_id;
     const arrow = document.createElement("span");
-    arrow.textContent = "⌄";
+    arrow.textContent = badgeText("material_region_v1.text_020");
     arrow.setAttribute("aria-hidden", "true");
     trigger.append(name, arrow);
     trigger.addEventListener("click", (event) => {
@@ -676,17 +684,29 @@ function createMaterialControl(node, group) {
     return { label, preview, trigger };
 }
 
+// Reuse the native menu and policy controls without adding a node or altering widget slots.
+export function createRegionConfigAdapter(graph, read, commit) {
+    const owner = {id:'local-regions-87', graph, daelabRegionConfigAdapter:{read,commit},
+        get mode() { return graph.getNodeById(104)?.mode || graph.getNodeById(106)?.mode || 0; }};
+    owner.daelabRegionEditor = {
+        read: () => getConfig(owner), commit: config => commitConfig(owner, config),
+        materialControl: group => createMaterialControl(owner, group),
+        policyControl: group => createColorPolicyControl(owner, group), close: () => hideMaterialDropdown(owner),
+    };
+    return owner;
+}
+
 function createColorPolicyControl(node, group) {
     const select = document.createElement("select");
-    select.setAttribute("aria-label", "区域色彩策略");
-    select.title = "默认保留平面图原色；只有目录声明固有色的材质可启用固有色。";
+    select.setAttribute("aria-label", badgeText("material_region_v1.text_021"));
+    select.title = badgeText("material_region_v1.text_022");
     select.style.cssText = compactInputStyle("width:100%;padding:2px 5px;cursor:pointer");
     const preserve = document.createElement("option");
     preserve.value = DEFAULT_COLOR_POLICY;
-    preserve.textContent = "保留原色";
+    preserve.textContent = badgeText("material_region_v1.text_023");
     const intrinsic = document.createElement("option");
     intrinsic.value = MATERIAL_INTRINSIC_COLOR_POLICY;
-    intrinsic.textContent = "材质固有色";
+    intrinsic.textContent = badgeText("material_region_v1.text_024");
     intrinsic.disabled = !materialEntry(group.material_id)?.intrinsic_color_hex;
     select.append(preserve, intrinsic);
     select.value = intrinsic.disabled ? DEFAULT_COLOR_POLICY : group.color_policy;
@@ -701,7 +721,7 @@ function createColorPolicyControl(node, group) {
 
 function createMaterialStrengthControl(node, group) {
     const label = document.createElement("span");
-    label.textContent = "强度";
+    label.textContent = badgeText("material_region_v1.text_025");
     label.style.cssText = "font:11px sans-serif;color:#aeb4bc;white-space:nowrap";
 
     const slider = document.createElement("input");
@@ -710,8 +730,8 @@ function createMaterialStrengthControl(node, group) {
     slider.max = String(Math.round(MAX_MATERIAL_STRENGTH * 100));
     slider.step = "5";
     slider.value = String(Math.round((group.material_strength ?? DEFAULT_MATERIAL_STRENGTH) * 100));
-    slider.setAttribute("aria-label", "区域材质强度");
-    slider.title = "100% 为该材质的推荐强度；调整只影响选中区域，并会同步进入后端配置。";
+    slider.setAttribute("aria-label", badgeText("material_region_v1.text_026"));
+    slider.title = badgeText("material_region_v1.text_027");
     slider.style.cssText = "width:100%;min-width:0;accent-color:#62a7d7;cursor:pointer";
 
     const value = document.createElement("span");
@@ -764,8 +784,8 @@ function createGroupCard(node, group, index) {
     const firstRow = document.createElement("div");
     firstRow.style.cssText = "min-width:0;display:grid;grid-template-columns:52px minmax(110px,1fr) 96px;align-items:center;gap:6px";
     const groupLabel = document.createElement("span");
-    groupLabel.textContent = `区域 ${index + 1}`;
-    groupLabel.title = "此颜色仅用于定位徽章平面图中的源色块";
+    groupLabel.textContent = badgeText("material_region_v1.text_028", {p0: (index + 1)});
+    groupLabel.title = badgeText("material_region_v1.text_029");
     groupLabel.style.cssText = "font:11px sans-serif;color:#c5c9cf;white-space:nowrap";
     firstRow.append(groupLabel, createColorControl(node, group), createThresholdControl(node, group));
 
@@ -799,11 +819,11 @@ async function rerollSelectedRegion(node) {
     const group = config.groups.find(({ id }) => id === selectedId);
     if (!group || group.material_id === DEFAULT_REGION_MATERIAL_ID) return;
     const entry = materialEntry(group.material_id);
-    const message = `区域 ${config.groups.indexOf(group) + 1}｜${entry?.label || group.material_id}\n预计调用 GPT-Image-2：1 次`;
+    const message = badgeText("material_region_v1.text_030", {p0: (config.groups.indexOf(group) + 1), p1: (entry?.label || group.material_id)});
     let confirmed = false;
     try {
         confirmed = Boolean(await app.extensionManager?.dialog?.confirm?.({
-            title: "重抽选中材质区域",
+            title: badgeText("material_region_v1.text_031"),
             message,
         }));
     } catch {
@@ -821,7 +841,7 @@ function createToolbar(node, config, selectedId) {
     toolbar.style.cssText = "height:34px;min-height:34px;display:flex;align-items:center;gap:6px;padding:4px 6px;box-sizing:border-box;background:#202226";
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.addRoot,
-        "在选中区域后新增",
+        badgeText("material_region_v1.text_032"),
         () => {
             const result = addMaterialRegionAfter(
                 getConfig(node),
@@ -839,7 +859,7 @@ function createToolbar(node, config, selectedId) {
     ));
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.remove,
-        "删除选中区域",
+        badgeText("material_region_v1.text_033"),
         () => {
             const result = removeSelectedMaterialRegion(
                 getConfig(node),
@@ -856,7 +876,7 @@ function createToolbar(node, config, selectedId) {
     const selectedGroup = config.groups.find(({ id }) => id === selectedId);
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.edit,
-        "重抽选中区域（预计 1 次 GPT-Image-2 调用）",
+        badgeText("material_region_v1.text_034"),
         () => rerollSelectedRegion(node),
         executionActive
             || !selectedGroup
@@ -868,8 +888,8 @@ function createToolbar(node, config, selectedId) {
     toolbar.appendChild(syncStatus);
     const defaultEntry = materialEntry(config.default_material_id);
     const status = document.createElement("span");
-    status.textContent = `未配置：${defaultEntry?.label || "透明漆"}`;
-    status.title = "未被任何源颜色规则命中的徽章前景区域统一使用透明清漆";
+    status.textContent = badgeText("material_region_v1.text_035", {p0: (defaultEntry?.label || badgeText("material_region_v1.text_036"))});
+    status.title = badgeText("material_region_v1.text_037");
     status.style.cssText = "font:10px sans-serif;color:#aeb4bc;margin-left:auto;white-space:nowrap";
     const count = document.createElement("span");
     count.textContent = `${config.groups.length}/${maximumMaterialGroups(node)}`;
@@ -898,7 +918,7 @@ function renderPanel(node) {
     fragment.appendChild(createToolbar(node, config, selectedId));
     const list = document.createElement("div");
     list.setAttribute("role", "listbox");
-    list.setAttribute("aria-label", "徽章源颜色与材质区域映射");
+    list.setAttribute("aria-label", badgeText("material_region_v1.text_038"));
     list.style.cssText = "min-height:0;display:flex;flex-direction:column;gap:2px;padding:4px 6px;box-sizing:border-box";
     config.groups.forEach((group, index) => list.appendChild(createGroupCard(node, group, index)));
     fragment.appendChild(list);
@@ -955,12 +975,20 @@ function removeOwnedPanel(node) {
 }
 
 function installPanel(node) {
+    // App Mode region editor reuses the native transaction, picker and sample menu.
+    node.daelabRegionEditor = {
+        read: () => getConfig(node),
+        commit: config => commitConfig(node, config, {render: true}),
+        materialControl: group => createMaterialControl(node, group),
+        policyControl: group => createColorPolicyControl(node, group),
+        close: () => hideMaterialDropdown(node),
+    };
     if (
         node._badgeMaterialRegionV1InstalledVersion === UI_VERSION
         && node._badgeMaterialRegionV1Panel?.widget
     ) {
         node._badgeMaterialRegionV1Panel.widget.label = String(
-            node.properties?.[APP_HEADING_PROPERTY] || "特殊材质区域（按平面图取色）"
+            node.properties?.[APP_HEADING_PROPERTY] || badgeText("material_region_v1.text_039")
         );
         configurePromptConfigWidget(node);
         renderPanel(node);
@@ -997,7 +1025,7 @@ function installPanel(node) {
     );
     widget.serialize = false;
     widget.label = String(
-        node.properties?.[APP_HEADING_PROPERTY] || "特殊材质区域（按平面图取色）"
+        node.properties?.[APP_HEADING_PROPERTY] || badgeText("material_region_v1.text_040")
     );
     widget.inputEl = element;
     widget[OWNED_WIDGET_PROPERTY] = true;

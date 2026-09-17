@@ -1,10 +1,11 @@
+import { badgeText } from '../web/badge_ui_text.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../web/badge_execution_87.mjs',import.meta.url),'utf8')
     .replace(/^import .*;\r?\n/gm,'').replace('export async function','async function')
     .replace("    const { api } = await import('/scripts/api.js');",'');
-const factory=new Function('api','request87','prompt87','getRootGraphSafely','queueBadge87','updateLocalTarget87','const isBadge88 = graph => graph.extra?.daelabBadgeLocalMaterialsV1?.version === 1; const request88 = request87, prompt88 = prompt87;\n'+source+'\nreturn execute87;');
+const factory=new Function('api','request87','prompt87','getRootGraphSafely','queueBadge87','updateLocalTarget87','badgeText','const isBadge88 = graph => graph.extra?.daelabBadgeLocalMaterialsV1?.version === 1; const request88 = request87, prompt88 = prompt87;\n'+source+'\nreturn execute87;');
 async function run(fail=false,change=false) {
     const graph={id:'test',extra:{daelabBadgeExecutionV1:{executorNodeId:200}},serialize:()=>({nodes:[]}),getNodeById:()=>({})};
     const app={rootGraph:graph}, state={}, submitted=[];
@@ -15,7 +16,7 @@ async function run(fail=false,change=false) {
     const api={fetchApi:async()=>({ok:true,json:async()=>history})};
     let reads=0;
     const execute=factory(api,()=>({request:{stage:'local',apply:false},fingerprint:change&&++reads>2?'changed':'current'}),request=>request,
-        ()=>graph,async(a,b,c,d,compiled)=>{submitted.push(compiled.output.apply);return {prompt_id:'task'}},()=>false);
+        ()=>graph,async(a,b,c,d,compiled)=>{submitted.push(compiled.output.apply);return {prompt_id:'task'}},()=>false,badgeText);
     await execute(graph,'local',state,app,()=>{},state);
     return {submitted,state};
 }

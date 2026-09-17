@@ -413,6 +413,10 @@ def normalize_material_region_config(value: object, materials: dict[str, dict] |
                 "color_policy": _normalize_color_policy(materials[material_id], group.get("color_policy")),
                 "material_strength": _normalize_material_strength(group.get("material_strength")),
                 "reroll_revision": _normalize_region_revision(group.get("reroll_revision")),
+                **({"name": str(group["name"])[:80]} if "name" in group else {}),
+                **({"samples": list(dict.fromkeys(_normalize_region_color(c, fallback["color"]) for c in group["samples"]))[:15]} if isinstance(group.get("samples"), list) else {}),
+                **({"material_pending": bool(group["material_pending"])} if "material_pending" in group else {}),
+                **({"invert": bool(group["invert"])} if "invert" in group else {}),
             }
         )
     if not groups:
@@ -421,6 +425,7 @@ def normalize_material_region_config(value: object, materials: dict[str, dict] |
         "version": 2,
         "revision": _normalize_region_revision(source.get("revision")),
         "default_material_id": default_material_id,
+        **({"overlap_policy": "error"} if source.get("overlap_policy") == "error" else {}),
         "groups": groups,
     }
 

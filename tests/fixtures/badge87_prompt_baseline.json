@@ -1,0 +1,552 @@
+{
+  "commit": "b4ec184",
+  "cases": [
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "text_only": false,
+        "height": null,
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n输入依据：图1提供原稿图案、文字、底色、轮廓与构图。保留这些设计信息，形成合理的产品厚度和表面表现，不新增图形区域。\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "text_only": false,
+        "height": "{\"groups\":[]}",
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n输入依据：图1提供原稿图案、文字、底色、轮廓与构图。保留这些设计信息，形成合理的产品厚度和表面表现，不新增图形区域。\n\n高度依据：图2仅提供浮雕高度，不提供底色。黑色代表镂空或无实体，按配置灰阶形成对应高度并保留边界。配置：{\"groups\":[]}\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "text_only": true,
+        "height": null,
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "text_only": true,
+        "height": "{\"groups\":[]}",
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n高度依据：图2仅提供浮雕高度，不提供底色。黑色代表镂空或无实体，按配置灰阶形成对应高度并保留边界。配置：{\"groups\":[]}\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "text_only": false,
+        "height": null,
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n用户要求：保留文字与配色 {{literal}}\n\n输入依据：图1提供原稿图案、文字、底色、轮廓与构图。保留这些设计信息，形成合理的产品厚度和表面表现，不新增图形区域。\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "text_only": false,
+        "height": "{\"groups\":[]}",
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n用户要求：保留文字与配色 {{literal}}\n\n输入依据：图1提供原稿图案、文字、底色、轮廓与构图。保留这些设计信息，形成合理的产品厚度和表面表现，不新增图形区域。\n\n高度依据：图2仅提供浮雕高度，不提供底色。黑色代表镂空或无实体，按配置灰阶形成对应高度并保留边界。配置：{\"groups\":[]}\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "text_only": true,
+        "height": null,
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n用户要求：保留文字与配色 {{literal}}\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "build_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "text_only": true,
+        "height": "{\"groups\":[]}",
+        "details": "材质细节"
+      },
+      "expected": "任务：生成写实的徽章产品效果图。\n\n用户要求：保留文字与配色 {{literal}}\n\n高度依据：图2仅提供浮雕高度，不提供底色。黑色代表镂空或无实体，按配置灰阶形成对应高度并保留边界。配置：{\"groups\":[]}\n\n材质细节\n\n摄影表现：徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短。纯白无缝背景，柔和棚拍主光与适度补光，轻微自然接触阴影，避免过曝；完整展示产品。\n\n保持项：不新增无关文字、水印、道具或装饰。"
+    },
+    {
+      "function": "semantic_prompt",
+      "arguments": {
+        "user_prompt": ""
+      },
+      "expected": "任务：仅在编辑遮罩指定区域内执行用户要求。\n\n用户要求：\n\n保持项：保留本次未要求改变的图案、文字、颜色、几何及光照，保持构图；遮罩外内容不变，不扩大编辑范围。"
+    },
+    {
+      "function": "studio_prompt",
+      "arguments": {
+        "user_prompt": ""
+      },
+      "expected": "任务：生成白色无缝背景棚拍图。徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短；完整展示正面，柔和主光及自然接触阴影，不出现支架。\n\n用户要求：\n\n保持项：保留产品轮廓、比例、文字、图案、底色、材质分区和宏观浮雕；按摄影要求调整光照与背景，不替换产品材质或新增装饰。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "local": false,
+        "exceptions": ""
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n摄影表现：徽章底边接触白色台面，近乎直立并略向后倾斜立；镜头光轴垂直于徽章正面，保持原稿的正视轮廓与比例。白色无缝背景、柔和棚拍光和自然接触阴影，不出现支架。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "local": false,
+        "exceptions": "区域保持本色"
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n颜色例外：区域保持本色\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n摄影表现：徽章底边接触白色台面，近乎直立并略向后倾斜立；镜头光轴垂直于徽章正面，保持原稿的正视轮廓与比例。白色无缝背景、柔和棚拍光和自然接触阴影，不出现支架。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "local": true,
+        "exceptions": ""
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n局部编辑收尾：保持图1的视角、构图、背景和光照，不重新布光；后续仅合成原编辑选区。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "",
+        "local": true,
+        "exceptions": "区域保持本色"
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n颜色例外：区域保持本色\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n局部编辑收尾：保持图1的视角、构图、背景和光照，不重新布光；后续仅合成原编辑选区。"
+    },
+    {
+      "function": "semantic_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}"
+      },
+      "expected": "任务：仅在编辑遮罩指定区域内执行用户要求。\n\n用户要求：保留文字与配色 {{literal}}\n\n保持项：保留本次未要求改变的图案、文字、颜色、几何及光照，保持构图；遮罩外内容不变，不扩大编辑范围。"
+    },
+    {
+      "function": "studio_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}"
+      },
+      "expected": "任务：生成白色无缝背景棚拍图。徽章底边接触水平台面，主体近乎直立并略向后倾，呈自然斜立姿态；镜头光轴垂直于徽章正面，正面朝向镜头，与原平面图保持一致的正视轮廓、比例和构图，不产生侧视、俯视或梯形透视缩短；完整展示正面，柔和主光及自然接触阴影，不出现支架。\n\n用户要求：保留文字与配色 {{literal}}\n\n保持项：保留产品轮廓、比例、文字、图案、底色、材质分区和宏观浮雕；按摄影要求调整光照与背景，不替换产品材质或新增装饰。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "local": false,
+        "exceptions": ""
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n用户要求：保留文字与配色 {{literal}}\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n摄影表现：徽章底边接触白色台面，近乎直立并略向后倾斜立；镜头光轴垂直于徽章正面，保持原稿的正视轮廓与比例。白色无缝背景、柔和棚拍光和自然接触阴影，不出现支架。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "local": false,
+        "exceptions": "区域保持本色"
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n颜色例外：区域保持本色\n\n用户要求：保留文字与配色 {{literal}}\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n摄影表现：徽章底边接触白色台面，近乎直立并略向后倾斜立；镜头光轴垂直于徽章正面，保持原稿的正视轮廓与比例。白色无缝背景、柔和棚拍光和自然接触阴影，不出现支架。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "local": true,
+        "exceptions": ""
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n用户要求：保留文字与配色 {{literal}}\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n局部编辑收尾：保持图1的视角、构图、背景和光照，不重新布光；后续仅合成原编辑选区。"
+    },
+    {
+      "function": "color_finish_prompt",
+      "arguments": {
+        "user_prompt": "保留文字与配色 {{literal}}",
+        "local": true,
+        "exceptions": "区域保持本色"
+      },
+      "expected": "任务：对图1完成最终底色校正，图2仅提供配色参考。\n\n校色：按对应设计区域修正偏离原稿的底色和主要色相，保留材质高光、金属反射、透明漆、闪粉和水钻的光学表现，不复制原稿背景或平面质感。\n\n保持项：保留图1的文字内容及字形、图案、轮廓、区域边界、材质分区和宏观浮雕，不重绘或抹平细节。\n\n颜色例外：区域保持本色\n\n用户要求：保留文字与配色 {{literal}}\n\n保留用户明确要求的改色，其余区域以原稿底色为准。\n\n局部编辑收尾：保持图1的视角、构图、背景和光照，不重新布光；后续仅合成原编辑选区。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 1,
+        "custom": false,
+        "reference_only": false
+      },
+      "expected": "参考分工：图1为当前待处理图，决定结构、图案和现有材质；图1为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 1,
+        "custom": false,
+        "reference_only": true
+      },
+      "expected": "参考分工：图1为当前待处理图，决定结构、图案和现有材质；图1为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 1,
+        "custom": true,
+        "reference_only": false
+      },
+      "expected": "参考分工：图1决定当前结构、图案和材质。图1为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 1,
+        "custom": true,
+        "reference_only": true
+      },
+      "expected": "参考分工：按用户提示词建立结构和图案。图1为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 2,
+        "custom": false,
+        "reference_only": false
+      },
+      "expected": "参考分工：图1为当前待处理图，决定结构、图案和现有材质；图2为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 2,
+        "custom": false,
+        "reference_only": true
+      },
+      "expected": "参考分工：图1为当前待处理图，决定结构、图案和现有材质；图2为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 2,
+        "custom": true,
+        "reference_only": false
+      },
+      "expected": "参考分工：图1决定当前结构、图案和材质。图2为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 2,
+        "custom": true,
+        "reference_only": true
+      },
+      "expected": "参考分工：按用户提示词建立结构和图案。图2为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 3,
+        "custom": false,
+        "reference_only": false
+      },
+      "expected": "参考分工：图1为当前待处理图，决定结构、图案和现有材质；图3为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 3,
+        "custom": false,
+        "reference_only": true
+      },
+      "expected": "参考分工：图1为当前待处理图，决定结构、图案和现有材质；图3为原平面稿，仅作为对应设计区域的底色与配色依据，不复制其平面姿态、背景或光照。除用户明确改色或指定材质本色的区域外，遵从原稿底色；保留合理的材质反射与明暗，不把原稿叠贴到效果图上。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 3,
+        "custom": true,
+        "reference_only": false
+      },
+      "expected": "参考分工：图1决定当前结构、图案和材质。图3为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。"
+    },
+    {
+      "function": "original_color_prompt",
+      "arguments": {
+        "index": 3,
+        "custom": true,
+        "reference_only": true
+      },
+      "expected": "参考分工：按用户提示词建立结构和图案。图3为用户上传的配色参考图，优先用于对应设计区域的底色与配色；无法逐区对应时参考整体配色关系。不复制参考图的形状、文字、背景或光照，保留合理的材质反射与明暗。用户明确改色和指定材质本色的要求优先。"
+    },
+    {
+      "function": "masked_prompt",
+      "arguments": {
+        "details": "材质细节"
+      },
+      "expected": "任务：仅替换编辑遮罩指定区域的材质。当前效果图提供图案、底色、宏观几何、视角和光照依据。\n\n材质细节\n\n融合：继承现有光照与视角，按目标材质形成局部高光、反射和阴影，不重新布光。\n\n保持项：保留原有图案、文字内容与字形、位置、比例、外轮廓和宏观浮雕；遮罩外内容不变，不新增边框或装饰。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "baked_enamel",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成均匀、不透明、致密平滑的热固化漆膜，以柔和连续高光表现适度光泽。替换旧材质微纹理，保留原有图案。\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：透明露底、金属拉丝、闪粉、橘皮和厚塑料感。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "baked_enamel",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成均匀、不透明、致密平滑的热固化漆膜，以柔和连续高光表现适度光泽。替换旧材质微纹理，保留原有图案。\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：透明露底、金属拉丝、闪粉、橘皮和厚塑料感。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "transparent_lacquer",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：在现有底层表面叠加薄而清澈的透明保护漆膜，保留底层图案、纹理和材质响应，仅增加清漆高光与轻微光学层次。\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：新增拉丝或金属底、雾感、厚胶滴，以及让整个产品透明或透出背景。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "transparent_lacquer",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：在现有底层表面叠加薄而清澈的透明保护漆膜，保留底层图案、纹理和材质响应，仅增加清漆高光与轻微光学层次。\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：新增拉丝或金属底、雾感、厚胶滴，以及让整个产品透明或透出背景。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "satin_gold",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成细腻均匀的缎面金属表面，呈现宽而柔和的金属反射、微细哑光纹理和受控高光。\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：镜面反射、塑料感、金箔褶皱、粗拉丝和锈蚀。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "satin_gold",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成细腻均匀的缎面金属表面，呈现宽而柔和的金属反射、微细哑光纹理和受控高光。\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：镜面反射、塑料感、金箔褶皱、粗拉丝和锈蚀。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "satin_silver",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成细腻均匀的缎面金属表面，呈现宽而柔和的金属反射、微细哑光纹理和清晰曲面层次。\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：镜面铬、塑料感、粗喷砂、明显划痕和氧化斑。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "satin_silver",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成细腻均匀的缎面金属表面，呈现宽而柔和的金属反射、微细哑光纹理和清晰曲面层次。\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：镜面铬、塑料感、粗喷砂、明显划痕和氧化斑。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "glitter",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：在薄透明涂层中均匀嵌入细小闪粉，保留可辨认的底层图案。颗粒形成自然离散的细小反光，尺寸小于附近图案细节，多个区域保持协调尺度。\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：大亮片、彩纸、星形光效、白噪声、浮游颗粒和遮盖文字。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "glitter",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：在薄透明涂层中均匀嵌入细小闪粉，保留可辨认的底层图案。颗粒形成自然离散的细小反光，尺寸小于附近图案细节，多个区域保持协调尺度。\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：大亮片、彩纸、星形光效、白噪声、浮游颗粒和遮盖文字。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "rhinestone",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成规整排列的小型切面水钻，单颗晶体可辨，具有局部折射、受控点状高光和细小接触阴影。尺寸与区域及徽章比例协调，狭窄处减少数量，晶体完整收在边界内。允许晶体尺度的微小凸起，保留宏观浮雕。\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：巨大宝石、珍珠、铆钉、连续玻璃块、拉长或越界晶体和遮盖文字。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "rhinestone",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：形成规整排列的小型切面水钻，单颗晶体可辨，具有局部折射、受控点状高光和细小接触阴影。尺寸与区域及徽章比例协调，狭窄处减少数量，晶体完整收在边界内。允许晶体尺度的微小凸起，保留宏观浮雕。\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：巨大宝石、珍珠、铆钉、连续玻璃块、拉长或越界晶体和遮盖文字。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "unknown",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "preserve",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：后备表面\n\n颜色：保留输入图对应位置的底色、主要色相和配色关系。材质名称不作为改色依据；允许自然高光和反射造成局部明暗及饱和度变化，不整体染色或调曝光。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：后备排除。"
+    },
+    {
+      "function": "material_details",
+      "arguments": {
+        "material_id": "unknown",
+        "material": {
+          "label": "测试材质",
+          "semantic": "后备表面",
+          "avoid": "后备排除",
+          "intrinsic_color_hex": "#abcdef"
+        },
+        "config": {
+          "color_policy": "material_intrinsic",
+          "base_prompt": "补充",
+          "additional_details": "细节"
+        }
+      },
+      "expected": "材质：后备表面\n\n颜色：仅在选区内使用测试材质本色（#abcdef），保留图案和颜色区域边界。\n\n材质补充：补充\n\n补充要求：细节\n\n避免：后备排除。"
+    }
+  ]
+}

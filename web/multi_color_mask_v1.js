@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from "/scripts/app.js";
 import {
     applyCompactGroupSelection,
@@ -5,7 +6,7 @@ import {
     compactInputStyle,
     createCompactColorControl,
     createCompactThresholdControl,
-} from "./compact_color_group_controls.mjs?v=20260904-color-context-2";
+} from "./compact_color_group_controls.mjs?v=20260916-content-1";
 import {
     LIST_EDITOR_ICONS,
     createIconButton,
@@ -219,7 +220,7 @@ function createThresholdControl(node, group) {
 
 function createInvertControl(node, group) {
     const rowLabel = document.createElement("span");
-    rowLabel.textContent = "蒙版";
+    rowLabel.textContent = badgeText("multi_color_mask_v1.text_001");
     rowLabel.style.cssText = "font:11px sans-serif;color:#aeb4bc;white-space:nowrap";
 
     const control = document.createElement("label");
@@ -240,10 +241,10 @@ function createInvertControl(node, group) {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = group.invert;
-    checkbox.setAttribute("aria-label", "反转颜色匹配结果");
+    checkbox.setAttribute("aria-label", badgeText("multi_color_mask_v1.text_002"));
     checkbox.style.cssText = "width:14px;height:14px;margin:0;accent-color:#4ca2d9";
     const text = document.createElement("span");
-    text.textContent = "反转匹配结果";
+    text.textContent = badgeText("multi_color_mask_v1.text_003");
     checkbox.addEventListener("change", () => {
         const config = updateMaskGroup(getConfig(node), group.id, { invert: checkbox.checked });
         const updated = config.groups.find(({ id }) => id === group.id);
@@ -277,7 +278,7 @@ function createGroupCard(node, group, index) {
     const firstRow = document.createElement("div");
     firstRow.style.cssText = "min-width:0;display:grid;grid-template-columns:52px minmax(110px,1fr) 96px;align-items:center;gap:6px";
     const groupLabel = document.createElement("span");
-    groupLabel.textContent = `颜色 ${index + 1}`;
+    groupLabel.textContent = badgeText("multi_color_mask_v1.text_004", {p0: (index + 1)});
     groupLabel.style.cssText = "font:11px sans-serif;color:#c5c9cf;white-space:nowrap";
     firstRow.append(groupLabel, createColorControl(node, group, card), createThresholdControl(node, group));
 
@@ -296,7 +297,7 @@ function createToolbar(node, config, selectedId) {
     toolbar.style.cssText = "height:34px;min-height:34px;display:flex;align-items:center;gap:6px;padding:4px 6px;box-sizing:border-box;background:#202226";
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.addRoot,
-        "在选中颜色后新增",
+        badgeText("multi_color_mask_v1.text_005"),
         () => {
             const result = addMaskGroupAfter(getConfig(node), node._multiColorMaskV1SelectedId);
             commitConfig(node, result.config, { selectedId: result.selectedId, render: true, fit: true });
@@ -305,7 +306,7 @@ function createToolbar(node, config, selectedId) {
     ));
     toolbar.appendChild(createIconButton(
         LIST_EDITOR_ICONS.remove,
-        "删除选中颜色",
+        badgeText("multi_color_mask_v1.text_006"),
         () => {
             const result = removeSelectedMaskGroup(getConfig(node), node._multiColorMaskV1SelectedId);
             commitConfig(node, result.config, { selectedId: result.selectedId, render: true, fit: true });
@@ -314,10 +315,10 @@ function createToolbar(node, config, selectedId) {
     ));
 
     const outputLabel = document.createElement("span");
-    outputLabel.textContent = "输出";
+    outputLabel.textContent = badgeText("multi_color_mask_v1.text_007");
     outputLabel.style.cssText = "font:11px sans-serif;color:#aeb4bc;margin-left:2px;white-space:nowrap";
     const output = document.createElement("select");
-    output.setAttribute("aria-label", "输出蒙版");
+    output.setAttribute("aria-label", badgeText("multi_color_mask_v1.text_008"));
     output.style.cssText = compactInputStyle("height:24px;min-width:105px;max-width:150px;flex:1;padding:1px 6px;cursor:pointer");
     for (const choice of maskOutputChoices(config)) {
         const option = document.createElement("option");
@@ -354,7 +355,7 @@ function renderPanel(node) {
     fragment.appendChild(createToolbar(node, config, selectedId));
     const list = document.createElement("div");
     list.setAttribute("role", "listbox");
-    list.setAttribute("aria-label", "多颜色蒙版组");
+    list.setAttribute("aria-label", badgeText("multi_color_mask_v1.text_009"));
     list.style.cssText = "min-height:0;display:flex;flex-direction:column;gap:2px;padding:4px 6px;box-sizing:border-box";
     config.groups.forEach((group, index) => list.appendChild(createGroupCard(node, group, index)));
     fragment.appendChild(list);
@@ -413,7 +414,7 @@ function removeOwnedPanel(node) {
 function installPanel(node) {
     if (node._multiColorMaskV1InstalledVersion === UI_VERSION && node._multiColorMaskV1Panel?.widget) {
         node._multiColorMaskV1Panel.widget.label = String(
-            node.properties?.[APP_HEADING_PROPERTY] || "多颜色选区（按参考图取色）"
+            node.properties?.[APP_HEADING_PROPERTY] || badgeText("multi_color_mask_v1.text_010")
         );
         renderPanel(node);
         scheduleFit(node);
@@ -445,7 +446,7 @@ function installPanel(node) {
     );
     widget.serialize = false;
     widget.label = String(
-        node.properties?.[APP_HEADING_PROPERTY] || "多颜色选区（按参考图取色）"
+        node.properties?.[APP_HEADING_PROPERTY] || badgeText("multi_color_mask_v1.text_011")
     );
     widget.inputEl = element;
     widget[OWNED_WIDGET_PROPERTY] = true;

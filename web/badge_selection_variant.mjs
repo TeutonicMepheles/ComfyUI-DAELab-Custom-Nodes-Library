@@ -1,3 +1,4 @@
+import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { drawBrushStrokes, drawSelectionMask } from './badge_selection_render.mjs';
 import { resolveWorkflowPolygonInfo } from './polygon_mask_state.mjs?v=20260908-selection-1';
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
@@ -64,10 +65,10 @@ export function installBadgeSelectionVariant(nodeType) {
             button.style.background = button.disabled ? '#242a30' : '#315f8f';
             button.style.borderColor = button.disabled ? '#46515b' : '#72b8ec';
             button.style.color = button.disabled ? '#99a3ad' : '#ffffff';
-            button.title = pending ? '请先应用待加载的图片' : key === 'clear'
-                ? brush ? button.disabled ? '没有可清空的画笔笔画' : '清空画笔笔画（可撤销）'
-                    : button.disabled ? '请先选中一个 Polygon' : '删除选中的 Polygon（可撤销）'
-                : !w.image ? '请先加载目标图片' : '按当前顶点数重置或创建 Polygon（可撤销）';
+            button.title = pending ? badgeText("selection_variant.text_001") : key === 'clear'
+                ? brush ? button.disabled ? badgeText("selection_variant.text_002") : badgeText("selection_variant.text_003")
+                    : button.disabled ? badgeText("selection_variant.text_004") : badgeText("selection_variant.text_005")
+                : !w.image ? badgeText("selection_variant.text_006") : badgeText("selection_variant.text_007");
         }
     });
     wrap('clearPolygon', function (original) {
@@ -84,11 +85,11 @@ export function installBadgeSelectionVariant(nodeType) {
         // Appearance fields are divs in the shared editor; remove only the text field.
         if (c.text.isConnected || c.text.parentElement) c.text.parentElement?.remove();
         c.element.classList.add('badge-selection-appearance');
-        const tools = document.createElement('div');tools.className='badge-selection-tools';tools.setAttribute('role','tablist');tools.setAttribute('aria-label','选区绘制工具');
+        const tools = document.createElement('div');tools.className='badge-selection-tools';tools.setAttribute('role','tablist');tools.setAttribute('aria-label',badgeText("selection_variant.text_008"));
         const tabs = [];
         for (const [mode,label,path] of [
-            ['brush','画笔涂抹','M4 16c-2 0-3 2-3 5 3 0 5-1 5-3M7 15 17 3c2-2 5 1 3 3L9 17Z'],
-            ['polygon','Polygon 绘制','M4 5 19 4 17 19 6 16Z M2 3h4v4H2Z M17 2h4v4h-4Z M15 17h4v4h-4Z M4 14h4v4H4Z'],
+            ['brush',badgeText("selection_variant.text_009"),'M4 16c-2 0-3 2-3 5 3 0 5-1 5-3M7 15 17 3c2-2 5 1 3 3L9 17Z'],
+            ['polygon',badgeText("selection_variant.text_010"),'M4 5 19 4 17 19 6 16Z M2 3h4v4H2Z M17 2h4v4h-4Z M15 17h4v4h-4Z M4 14h4v4H4Z'],
         ]) {
             const b=document.createElement('button');b.type='button';b.title=label;b.setAttribute('role','tab');b.setAttribute('aria-label',label);
             b.innerHTML=`<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="${path}"/></svg>`;
@@ -96,7 +97,7 @@ export function installBadgeSelectionVariant(nodeType) {
             tools.append(b);tabs.push([b,mode]);
         }
         tools.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const i=e.key==='Home'?0:e.key==='End'?1:tabs.findIndex(([,m])=>m!==this.properties.badge_selection_tool);tabs[i][0].click();tabs[i][0].focus();};
-        const brushLabel=document.createElement('label');brushLabel.textContent='笔刷 ';const brushSize=document.createElement('input');brushSize.type='number';brushSize.min='1';brushSize.max='300';brushSize.value=String(this.properties.badge_brush_size || 30);brushSize.setAttribute('aria-label','笔刷直径（图像像素）');brushLabel.append(brushSize);c.element.append(brushLabel);
+        const brushLabel=document.createElement('label');brushLabel.textContent=badgeText("selection_variant.text_011");const brushSize=document.createElement('input');brushSize.type='number';brushSize.min='1';brushSize.max='300';brushSize.value=String(this.properties.badge_brush_size || 30);brushSize.setAttribute('aria-label',badgeText("selection_variant.text_012"));brushLabel.append(brushSize);c.element.append(brushLabel);
         brushSize.onchange=()=>{this.graph?.beforeChange?.();this.properties.badge_brush_size=Math.max(1,Math.min(300,Number(brushSize.value)||30));brushSize.value=String(this.properties.badge_brush_size);this.graph?.afterChange?.();};
         c.element.before(tools);
         const help = c.element.nextElementSibling?.nextElementSibling;
@@ -105,7 +106,7 @@ export function installBadgeSelectionVariant(nodeType) {
             tabs.forEach(([b,m])=>{const selected=m===(brush?'brush':'polygon');b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
             c.vertexCount.parentElement.hidden=brush;c.outlineWidth.parentElement.hidden=brush;brushLabel.hidden=!brush;
             w.buttons.reset.hidden=brush;
-            if(help)help.textContent=brush?'拖动画布涂抹选区 · Undo / Redo 撤销与重做 · Clear 清空笔画':'Shift+左键新建 Polygon · 拖动顶点或区域 · 左键点边加点 / 右键点顶点删点';
+            if(help)help.textContent=brush?badgeText("selection_variant.text_013"):badgeText("selection_variant.text_014");
             w.canvas.style.cursor=brush?'crosshair':'default';this.updatePolygonButtons();
         };
         let stroke=null;

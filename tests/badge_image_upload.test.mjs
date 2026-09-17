@@ -1,3 +1,4 @@
+import { badgeText } from '../web/badge_ui_text.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -13,7 +14,7 @@ function fixture(badge87 = false) {
     const requests = [], uploadButton = {}, status = {}, file = { value: 'pending' };
     let live = true, currentNode = target, changes = 0;
     const create = new Function('uploadBadgeImage', 'imageWidget', 'sourceNode', 'node', 'live', 'selectionKey',
-        'uploadButton', 'status', 'file', 'state', 'update', 'graph', 'api', 'local', 'segmented', 'localTargets87', 'setExistingTarget87', 'getPrototypeSession',
+        'uploadButton', 'status', 'file', 'state', 'update', 'graph', 'api', 'local', 'segmented', 'localTargets87', 'setExistingTarget87', 'getPrototypeSession', 'badgeText',
         `${handlers}; return { upload, setImage };`);
     const api = { fetchApi: () => new Promise((resolve, reject) => requests.push({
         complete: name => resolve({ ok: true, json: async () => ({ name }) }), reject,
@@ -23,7 +24,7 @@ function fixture(badge87 = false) {
     const session = {};
     if (badge87) localTargets87(graph).source='existing';
     const actions = create(uploadBadgeImage, () => widget, () => target, () => currentNode, () => live, JSON.stringify,
-        uploadButton, status, file, {}, () => {}, graph, api, badge87, badge87, localTargets87, setExistingTarget87, () => session);
+        uploadButton, status, file, {}, () => {}, graph, api, badge87, badge87, localTargets87, setExistingTarget87, () => session, badgeText);
     return { ...actions, widget, target, requests, uploadButton, status, file, graph, session,
         changes: () => changes, dispose: () => { live = false; },
         replaceNode: () => { currentNode = { id: 1 }; },

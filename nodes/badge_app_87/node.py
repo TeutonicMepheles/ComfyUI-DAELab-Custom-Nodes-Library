@@ -261,9 +261,10 @@ class BadgeApp87V1:
 
     def execute(self, request_json):
         request = json.loads(request_json)
-        if request.get('edit_mode') == 'region_materials':
+        if request.get('edit_mode') == 'region_materials' or (request.get('interaction_revision') == 2 and request.get('stage') == 'local' and request.get('edit_mode') == 'material' and request.get('workflow_version') != '8.8'):
             from .region_materials import Badge87RegionExecutor
-            return Badge87RegionExecutor().execute(request_json)
+            request.setdefault('workflow_version','8.7')
+            return Badge87RegionExecutor().execute(json.dumps(request))
         from comfy_execution.graph_utils import GraphBuilder
         prepared = prepare(request)
         stage = request['stage']
@@ -336,6 +337,8 @@ class BadgeApp87V1:
                 inputs['prompt'] = join(inputs['prompt'], original_color_prompt(index, custom=request.get('color_reference') is not None, reference_only=base is None))
             if mask is not None:
                 inputs['model.mask'] = mask
+            if stage == 'local':
+                inputs['prompt'] = join(inputs['prompt'], render('constraints/local_noise_convergence'))
             report.setdefault('prompt_calls', []).append({'call': name, **describe(inputs['prompt'])})
             inputs['prompt'] = str(inputs['prompt'])
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)

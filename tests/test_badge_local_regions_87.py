@@ -9,6 +9,17 @@ from test_badge_app_88 import Badge88Tests, M
 R = importlib.import_module('badge88_test_package.nodes.badge_app_87.region_materials')
 
 class Badge87RegionsTests(unittest.TestCase):
+    def test_material_switch_reuses_geometry(self):
+        import torch
+        request = self.request()
+        with patch.object(R.legacy,'load_source',return_value=self.source()):
+            a=R.prepare(request)
+            request['local_regions']['groups'][0]['material_id']='glitter'
+            b=R.prepare(request)
+            self.assertIs(a['region_geometry'], b['region_geometry'])
+            for left,right in zip(a['regions'],b['regions']):
+                self.assertTrue(torch.equal(left[0],right[0]))
+
     def test_saved_preserve_policy_is_overridden_for_metals(self):
         for material in ('satin_gold', 'satin_silver'):
             request = self.request()
@@ -54,11 +65,13 @@ class Badge87RegionsTests(unittest.TestCase):
         with patch.object(R.legacy,'load_source',return_value=self.source()),patch.dict(sys.modules,{'comfy_execution.graph_utils':module}):
             preview=R.legacy.BadgeApp87V1().execute(json.dumps(request));self.assertFalse(nodes)
             request.update(apply=True,preview_token=preview['ui']['badge87_report'][0]['preview_token'])
-            R.legacy.BadgeApp87V1().execute(json.dumps(request))
+            applied=R.legacy.BadgeApp87V1().execute(json.dumps(request))
         generators=[v for k,i,v in nodes if k=='OpenAIGPTImageNodeV2']
         self.assertEqual(len(generators),2)
         self.assertTrue(all(v['model']=='gpt-image-2.5-flare' for v in generators))
         self.assertTrue(all('model.images.image_1' in v and ('model.mask' in v or 'model.images.image_2' in v) for v in generators))
+        recorded=applied['ui']['badge87_report'][0]['prompt_calls']
+        self.assertEqual([r['text'] for r in recorded],[str(v['prompt']) for v in generators])
         self.assertFalse(any(i.startswith('color_finish') for k,i,v in nodes))
         self.assertTrue(any(i=='final_composite_0' for k,i,v in nodes))
         self.assertEqual(M.BadgeApp88V1().generation_model(request),'gpt-image-2')

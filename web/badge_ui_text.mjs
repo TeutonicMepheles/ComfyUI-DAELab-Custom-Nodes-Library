@@ -1,4 +1,4 @@
-import { messages } from './badge_ui_catalog.mjs?v=20260917-dimensions-2';
+import { messages } from './badge_ui_catalog.mjs?v=20260917-region-2';
 
 // Synchronous, single-pass formatting preserves control initialization and user text.
 export function badgeText(key, values = {}) {

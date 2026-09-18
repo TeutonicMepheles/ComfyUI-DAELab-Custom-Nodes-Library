@@ -13,6 +13,23 @@ function fixture() {
     const session={preview:'old',serverToken:'old',phase:'applied',images:['old'],seed:123};
     return {graph,widget,target,session,calls};
 }
+
+test('historical drops select an output without replacing the latest batch and respect busy state', () => {
+    const {graph, widget, session} = fixture();
+    const latest = {filename:'latest.png', type:'output'};
+    const old = {filename:'historical.png', subfolder:'Badge87', type:'output'};
+    updateLocalTarget87(graph, latest, session);
+    assert.equal(selectGeneratedTarget87(graph, old, session), false);
+    session.busy = true;
+    assert.equal(selectGeneratedTarget87(graph, old, session, {allowHistorical:true}), false);
+    session.busy = false;
+    assert.equal(selectGeneratedTarget87(graph, old, session, {allowHistorical:true}), true);
+    assert.deepEqual(normalizeImageSelection(widget.value), old);
+    assert.equal(localTargets87(graph).source, 'generated');
+    assert.equal(localTargets87(graph).results[0].filename, 'latest.png');
+    assert.equal(session.serverToken, null);
+    assert.equal(selectGeneratedTarget87(graph, {filename:'input.png',type:'input'}, session, {allowHistorical:true}), false);
+});
 test('build output becomes a serializable local target and invalidates prior selection',()=>{
     const {graph,widget,target,session,calls}=fixture();
     const image={filename:'new.png',subfolder:'Badge87\\build',type:'output'};

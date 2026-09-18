@@ -828,6 +828,8 @@
     "regions.overlap": "当前检测到 {{count}} 个重叠像素（红色）；请调整取样色或阈值。",
     "regions.no_overlap": "未检测到区域重叠。",
     "regions.advanced": "高级选区设置",
-    "regions.invert": "反转区域匹配"
+    "regions.invert": "反转区域匹配",
+    "regions.resolving": "正在识别实际编辑范围…",
+    "regions.resolved": "实际选区 {{selected}} 像素 · 补全 {{added}} 像素"
   }
 }

@@ -1,0 +1,20 @@
+{
+  "default": {
+    "color_policy": "preserve",
+    "transport": "alpha_mask"
+  },
+  "materials": {
+    "satin_gold": {
+      "color_policy": "material_intrinsic",
+      "transport": "opaque_locator_image"
+    },
+    "satin_silver": {
+      "color_policy": "material_intrinsic",
+      "transport": "opaque_locator_image"
+    }
+  },
+  "aliases": {
+    "亚金": "satin_gold",
+    "亚银": "satin_silver"
+  }
+}

@@ -1,6 +1,14 @@
-"""Badge 8.7 preset color semantics, independent of saved UI color policies."""
+"""Content-owned material policies. Never consumed by region geometry."""
+import json
+from .prompt_assembler import CONTENT
+
+def generation_policy(config):
+    catalog = json.loads((CONTENT / 'material_execution.json').read_text(encoding='utf-8'))
+    material = config.get('material_id','baked_enamel')
+    material = catalog.get('aliases',{}).get(material,material)
+    return {**catalog['default'], **catalog['materials'].get(material,{})}
+
 def material_config(config):
     result = dict(config or {})
-    material = result.get('material_id', 'baked_enamel')
-    result['color_policy'] = 'material_intrinsic' if material in ('satin_gold', 'satin_silver', '亚金', '亚银') else 'preserve'
+    result['color_policy'] = generation_policy(result)['color_policy']
     return result

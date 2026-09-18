@@ -98,11 +98,21 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
         reference = prepared.get('color_reference')
         return reference if reference is not None else prepared.get('original')
 
+    def geometry_report(self, prepared):
+        return {}
+
+    def geometry_fingerprint(self, prepared):
+        return ''
+
+    def composite_region(self, graph, key, prepared, current, candidate, mask, config):
+        return graph.node('BadgeDeterministicComposite', id=f'composite_{key}',
+                          previous_master=current, edit_candidate=candidate, edit_mask=mask).out(0)
+
     def execute(self, request_json):
         request = json.loads(request_json)
         if request.get('workflow_version') != self.workflow_version:
             raise ValueError('Badge 8.8 execution requires its workflow marker.')
-        if request.get('edit_mode') != 'region_materials':
+        if request.get('edit_mode') != 'region_materials' and not (self.workflow_version == '8.7' and request.get('edit_mode') == 'material'):
             return super().execute(request_json)
         prepared = self.prepare_regions(request)
         count = request.get('count', 1)
@@ -119,6 +129,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
                                'mask_connected': self.mask_transport(config) == 'alpha_mask',
                                'selection_transport': self.mask_transport(config)}
                               for mask, prompt, config in prepared['regions']]}
+        report.update(self.geometry_report(prepared))
         digest = hashlib.sha256(json.dumps({k: v for k, v in request.items() if k not in ('apply', 'nonce', 'preview_token')}, sort_keys=True).encode())
         for key in ('base', 'mask', 'original', 'color_reference'):
             if prepared.get(key) is not None:
@@ -126,6 +137,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
         # A map may change region ownership while keeping the union identical.
         for mask, _, _ in prepared['regions']:
             digest.update(mask.numpy().tobytes())
+        digest.update(self.geometry_fingerprint(prepared).encode())
         token = digest.hexdigest()
         session = request.get('session')
         if not isinstance(session, str) or not session:
@@ -148,10 +160,13 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
         graph = GraphBuilder()
         w, h = legacy.dimensions(request)
 
+        model_dimensions = {axis: graph.node('PrimitiveInt', id=f'output_{axis}', value=value).out(0) if self.workflow_version == '8.7' and value < 1024 else value
+                            for axis,value in (('width',w),('height',h))}
+
         def generate(name, prompt, base, seed_offset, mask=None, palette=None, config=None):
             inputs = {'prompt': prompt, 'model': self.generation_model(request),
                       'model.size': f'{w}x{h}' if (w, h) in ((1024, 1024), (1024, 1536), (1536, 1024), (2048, 2048), (2048, 1152), (1152, 2048)) else 'Custom',
-                      'model.custom_width': w, 'model.custom_height': h, 'model.background': 'opaque',
+                      'model.custom_width': model_dimensions['width'], 'model.custom_height': model_dimensions['height'], 'model.background': 'opaque',
                       'model.quality': request.get('quality', 'low'), 'n': 1,
                       'seed': (int(request.get('seed', 0)) + seed_offset) % 2147483647,
                       'model.images.image_1': base}
@@ -160,6 +175,11 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
             if palette is not None:
                 inputs['model.images.image_2'] = palette
                 inputs['prompt'] += '\n\n' + original_color_prompt(2, custom=request.get('color_reference') is not None)
+            if self.workflow_version == '8.7':
+                inputs['prompt'] = legacy.join(inputs['prompt'], legacy.render('constraints/local_noise_convergence'))
+                report.setdefault('prompt_calls', []).append({'call':name, **legacy.describe(inputs['prompt'])})
+                if len(prepared['regions']) == 1:
+                    report['effective_prompt'] = str(inputs['prompt'])
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
 
         output = None
@@ -177,8 +197,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
                     high_frequency_strength=1., material_id=material_id, material_strength=config.get('material_strength', 1),
                     mid_frequency_strength=1., minimum_visible_mean=0., minimum_visible_p95=0.,
                     pattern_seed=config.get('reroll_revision', 0), deterministic_fallback=True, preserve_optics=True, **self.constraint_options()).out(0)
-                current = graph.node('BadgeDeterministicComposite', id=f'composite_{key}',
-                    previous_master=current, edit_candidate=candidate, edit_mask=mask).out(0)
+                current = self.composite_region(graph,key,prepared,current,candidate,mask,config)
             if reference is not None:
                 exceptions = '；'.join(f'已应用的{legacy.load_materials()[g["material_id"]].get("label", g["material_id"])}材质保留其材质本色' for _, _, g in prepared['regions'] if g.get('color_policy') == 'material_intrinsic')
                 finish = color_finish_prompt(local=True, exceptions=exceptions)

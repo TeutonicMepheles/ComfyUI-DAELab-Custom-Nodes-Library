@@ -126,10 +126,12 @@ export function updateLocalTarget87(graph, image, session) {
     return updated;
 }
 
-export function selectGeneratedTarget87(graph, image, session) {
+export function selectGeneratedTarget87(graph, image, session, {allowHistorical = false} = {}) {
     if (!isBadge87(graph) || session?.busy) return false;
     const targets = localTargets87(graph);
-    const selected = [...targets.results, targets.generated].find(item => item && targetKey87(item) === targetKey87(image));
+    const historical = allowHistorical && normalizeImageSelection(image);
+    const selected = [...targets.results, targets.generated].find(item => item && targetKey87(item) === targetKey87(image))
+        || (historical && ['output', 'temp'].includes(historical.type) ? historical : null);
     if (!selected) return false;
     graph.beforeChange?.();
     targets.generated = normalizeImageSelection(selected);

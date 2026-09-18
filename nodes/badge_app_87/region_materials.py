@@ -44,42 +44,55 @@ def validate_groups(config):
 
 
 def prepare(request):
-    if request.get('stage') != 'local' or request.get('selection') != 'color':
-        raise ValueError('Region materials require local color selection.')
-    groups = [material_config(group) for group in validate_groups(request.get('local_regions'))]
-    # Reuse target fitting, palette handling and map/source validation unchanged.
-    prepared = legacy.prepare({**request, 'edit_mode': 'semantic', 'prompt': '局部区域材质',
-                               'colors': {'groups': [{'color': '#808080', 'threshold': 255}]}})
+    from .region_geometry import color_seeds, resolve, definition
+    from .prompts import material_strength_prompt
+    if request.get('stage') != 'local':
+        raise ValueError('Region materials require local selection.')
+    single = request.get('edit_mode') == 'material'
+    if single:
+        config = dict(request.get('material', {}), id='manual', color='#808080')
+        config['material_id'], _ = legacy.resolve_material(legacy.load_materials(), config.get('material_id','baked_enamel'))
+        groups = [material_config(config)]
+    else:
+        groups = [material_config(group) for group in validate_groups(request.get('local_regions'))]
     target = legacy.load_source(request['image'])
+    if request.get('interaction_revision') == 2:
+        request.update(width=target.shape[1], height=target.shape[0])
+    base_request = {**request, 'edit_mode':'semantic', 'prompt':legacy.render('tasks/region_prepare')}
+    if not single:
+        base_request['colors'] = {'groups':[{'color':'#808080','threshold':255}]}
+    prepared = legacy.prepare(base_request)
     source = legacy.load_source(request['color_map']) if request.get('use_map') else target
-    rgb = source[..., :3].astype(np.float64)
-    assigned = np.full(rgb.shape[:2], -1)
-    best = np.full(rgb.shape[:2], np.inf)
-    matched = np.zeros(rgb.shape[:2], dtype=np.uint8)
+    if request.get('selection') == 'polygon':
+        # Existing brush/Polygon rasterizer owns explicit boundaries.
+        seed_mask = prepared['mask'][0].numpy() > .5
+        fitted = legacy.contain(target, legacy.dimensions(request), False, 0)
+        geometry = resolve(fitted, np.where(seed_mask,0,-1).astype(np.int16),1,
+                           request.get('region_geometry'), expand=False)
+    else:
+        seed_groups = request.get('colors', {}).get('groups', []) if single else groups
+        assigned = color_seeds(source, target[...,3]>127, seed_groups,
+                               'nearest' if single else request['local_regions'].get('overlap_policy','error'))
+        if single:
+            assigned[assigned >= 0] = 0
+        geometry = resolve(target, assigned, len(groups), request.get('region_geometry'))
+    regions, definitions = [], {}
     for index, group in enumerate(groups):
-        distance = np.full(rgb.shape[:2], np.inf)
-        for sample in [group['color'], *group.get('samples', [])]:
-            color = np.array([int(sample[i:i+2], 16) for i in (1, 3, 5)])
-            distance = np.minimum(distance, np.sum((rgb - color) ** 2, axis=-1))
-        match = (target[..., 3] > 127) & (distance <= group.get('threshold', 30) ** 2)
-        if group.get('invert'):
-            match = (target[..., 3] > 127) & ~(distance <= group.get('threshold', 30) ** 2)
-            distance = np.where(match, 0, np.inf)
-        matched += match
-        hit = match & (distance < best)
-        assigned[hit], best[hit] = index, distance[hit]
-    if request['local_regions'].get('overlap_policy') == 'error' and np.any(matched > 1):
-        raise ValueError(f'区域存在 {int((matched > 1).sum())} 个重叠像素，请调整取样色或阈值后再生成。')
-    regions = []
-    for index, group in enumerate(groups):
-        mask = legacy.tensor(legacy.contain((assigned == index).astype(np.uint8) * 255, legacy.dimensions(request), True, 0))
+        region = geometry['regions'][index]
+        mask = legacy.tensor(legacy.contain(region['mask'].astype(np.uint8)*255, legacy.dimensions(request), True, 0))
         if int((mask > .5).sum()) < 16:
-            raise ValueError(f'Region {index + 1} ({group["id"]}) is empty or below 16 pixels; adjust its color or tolerance.')
-        prompt = legacy.masked_prompt(legacy.material_prompt(group))
-        prompt += f'\n材质表现强度：{group.get("material_strength", 1)*100:.0f}%。'
+            raise ValueError(f'Region {index+1} ({group["id"]}) is empty or below 16 pixels; adjust its color or tolerance.')
+        # Coverage must be derived on the final canvas, never resized independently.
+        fitted_definition = definition(mask[0].numpy() > .5)
+        definitions[group['id']] = fitted_definition
+        prompt = material_strength_prompt(legacy.masked_prompt(legacy.material_prompt(group)),group.get('material_strength',1))
+        prompt = legacy.join(prompt,legacy.render('constraints/region_boundary'))
         regions.append((mask, prompt, group))
     prepared['regions'] = regions
-    prepared['mask'] = torch.stack([mask for mask, _, _ in regions]).amax(dim=0)
+    prepared['mask'] = torch.stack([mask for mask,_,_ in regions]).amax(dim=0)
+    prepared['manual_region'] = request.get('selection') == 'polygon'
+    prepared['region_geometry'] = geometry
+    prepared['region_definitions'] = definitions
     return prepared
 
 
@@ -94,7 +107,7 @@ class Badge87RegionExecutor(BadgeApp88V1):
         return legacy.selected_model(request)
 
     def bind_region_mask(self, inputs, mask, config):
-        if config.get('color_policy') != 'material_intrinsic':
+        if self.mask_transport(config) != 'opaque_locator_image':
             return super().bind_region_mask(inputs, mask, config)
         # The tested alpha-mask route returned black holes for metal recoloring.
         # Supply an opaque locator image; exact compositing still uses the same MASK.
@@ -111,16 +124,12 @@ class Badge87RegionExecutor(BadgeApp88V1):
                 shading[batch] = (luminance[batch] / luminance[batch][selected].median().clamp_min(.05)).clamp(.8, 1.15)
         guide = (target * shading.unsqueeze(-1)).clamp(0, 1)
         inputs['model.images.image_1'] = torch.where(mask.unsqueeze(-1) > .5, guide, base)
-        inputs['prompt'] = (
-            '图1已在待修改区域预设目标金属底色，请在这些位置生成真实平整的缎面金属反射。'
-            '图2是独立的黑白区域定位图，不是材质参考。'
-            '只修改图2白色位置在图1对应的区域，黑色位置保持图1不变。'
-            '白色区域必须填充为目标金属本色，不是删除或镂空，不能填黑。'
-            '表面平整洁净，以宽柔高光表现缎面金属，不增加可见拉丝、细线、颗粒、噪点。\n'
-            + inputs['prompt'])
+        inputs['prompt'] = legacy.join(legacy.render('references/intrinsic_locator'), inputs['prompt'])
+
 
     def mask_transport(self, config):
-        return 'opaque_locator_image' if config.get('color_policy') == 'material_intrinsic' else 'alpha_mask'
+        from .material_policy import generation_policy
+        return generation_policy(config)['transport']
 
     def finish_reference(self, prepared):
         # The target already contains its approved colors. A second image generation
@@ -130,3 +139,19 @@ class Badge87RegionExecutor(BadgeApp88V1):
 
     def constraint_options(self):
         return {"preserve_base_lightness": True}
+
+    def geometry_report(self, prepared):
+        g = prepared['region_geometry']
+        return {'effective_prompt':str(prepared['regions'][0][1]), 'region_geometry': {'version':g['version'], 'fingerprint':g['fingerprint'],
+                                   'regions':g['stats'], 'generation_context':'full_target_image',
+                                   'mode':'manual' if prepared.get('manual_region') else 'bounded_structure_completion'}}
+
+    def geometry_fingerprint(self, prepared):
+        return prepared['region_geometry']['fingerprint']
+
+    def composite_region(self, graph, key, prepared, current, candidate, mask, config):
+        coverage = torch.from_numpy(prepared['region_definitions'][config['id']]['coverage']).unsqueeze(0)
+        candidate = graph.node('DAELAB.Badge87BoundaryCompositeV1', id=f'boundary_{key}',
+                              original=prepared['base'], previous_master=current, edit_candidate=candidate,
+                              edit_mask=mask, coverage=coverage).out(0)
+        return super().composite_region(graph,key,prepared,current,candidate,mask,config)

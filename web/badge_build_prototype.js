@@ -1,5 +1,7 @@
+import { requestForStage as regionRequest87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { fetchRegionGeometry87, renderRegionGeometry87 } from './badge_region_geometry_87.mjs?v=20260917-region-1';
 import { usesLocalRegions87, readLocalRegions87, previewLocalRegions87, countRegionOverlap87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
-import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260917-region-2';
 import { createRegionEditor87, REGION_EDITOR_CSS } from './badge_region_editor_87.mjs?v=20260917-inline-1';
 import { refinedBadge87, setLocalTargetSize87, selectedBadgeModel } from './badge_refinement_87.mjs?v=20260916-ui-2';
 import { isBadge88, usesLocalMaterials88, localMaterialNodeId88, previewLocalMaterials88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
@@ -9,7 +11,8 @@ import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
 import { generateGptColorMap87 } from './badge_color_map_87.mjs?v=20260916-content-1';
 import { decorateExclusivePair } from './badge_exclusive_pair.mjs';
 import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
-import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87 } from './badge_result_target_87.mjs?v=20260917-target87-1';
+import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87, selectGeneratedTarget87 } from './badge_result_target_87.mjs?v=20260917-drop-1';
+import { generatedImageFromDrop87 } from './badge_image_drop_87.mjs?v=20260917-drop-1';
 import { createResultPicker87 } from './badge_result_picker_87.mjs?v=20260916-content-1';
 import { drawSelectionMask } from './badge_selection_render.mjs';
 import { app } from '/scripts/app.js';
@@ -263,7 +266,22 @@ function mount(graph, root, tabId = 'build') {
     const empty = make('span', badgeText("build_prototype.text_026"), frame);
     frame.ondragover = e => { e.preventDefault(); frame.dataset.drag = 'true'; };
     frame.ondragleave = () => delete frame.dataset.drag;
-    frame.ondrop = e => { e.preventDefault(); delete frame.dataset.drag; void upload(e.dataTransfer.files[0]); };
+    frame.ondrop = e => {
+        e.preventDefault(); e.stopPropagation(); delete frame.dataset.drag;
+        if (!live()) return;
+        if (local && refined && !isBadge88(graph)) {
+            if (getPrototypeSession(graph, 'local').busy) return;
+            const image = generatedImageFromDrop87(e.dataTransfer, window.location.href);
+            if (image) {
+                imageSelections.set(imageWidget(), Symbol('dropped generated image'));
+                latestUpload = null; file.value = ''; uploadButton.disabled = false;
+                selectGeneratedTarget87(graph, image, getPrototypeSession(graph, 'local'), {allowHistorical: true});
+                colorPicker.close(); gallery.close(); state.sourceKey = ''; update();
+                return;
+            }
+        }
+        void upload(e.dataTransfer.files[0]);
+    };
     const toolbar = make('div'); toolbar.className = 'badge-build-bar';
     const view = make('select', '', toolbar); view.setAttribute('aria-label', badgeText("build_prototype.text_027"));
     for (const [value, key] of [["original", "preview.view.original"], ["overlay", "preview.view.overlay"], ["mask", "preview.view.mask"], ["cutout", "preview.view.cutout"]]) { const option = document.createElement('option'); option.value = value; option.textContent = badgeText(key); view.append(option); }
@@ -272,12 +290,35 @@ function mount(graph, root, tabId = 'build') {
     if (local && refined) { const option = document.createElement('option'); option.value = 'conflicts'; option.textContent = badgeText('regions.conflicts'); view.append(option); }
     view.onchange = () => { state.view = view.value; update(); };
     function maskActive() { return Boolean(state.preview && state.view === 'mask' && state.signature === JSON.stringify(config())); }
-    function toggleMaskPreview() {
+    const authoritativeRegion = () => local && refinedBadge87(graph) && itemValue(hierarchy(),'badge.post.local.material');
+    const regionStatus = () => authoritativeRegion() && (state.geometryBusy ? badgeText('regions.resolving') : state.geometryError || (state.geometry && state.preview ? badgeText('regions.resolved', {selected:state.geometry.stats.reduce((n,r)=>n+r.selected_pixels,0),added:state.geometry.stats.reduce((n,r)=>n+r.added_pixels,0)}) : ''));
+    let geometryJob = 0;
+    async function toggleMaskPreview() {
         if (!live() || !selectionPixels() || !state.section) return;
         if (maskActive()) { state.view = 'original'; update(); return; }
         const id = local && state.section === 'polygon' ? 142 : configs[state.section]?.[0];
         for (const w of node(id)?.widgets || []) w.beforeQueued?.();
         if (local && state.section === 'polygon') node(142)?.serializePolygonInfo?.();
+        if (authoritativeRegion()) {
+            const job = ++geometryJob, sourcePixels = state.pixels, signature = JSON.stringify(config());
+            const image = normalizeImageSelection(imageWidget()?.value);
+            const map = graph.extra.daelabBadgePrototypeV1.gptColorMap;
+            state.geometry = null; state.geometryError = ''; state.geometryBusy = true; state.preview = null; state.view = 'original';
+            status.textContent = badgeText('regions.resolving');
+            try {
+                const request = region87() ? {image, selection:'color', edit_mode:'region_materials',
+                    local_regions:{...structuredClone(config()), groups:config().groups.filter(g=>!g.material_pending)},
+                    use_map:usesMap(), ...(usesMap()?{color_map:map?.image,color_map_source:map?.source}:{})} : regionRequest87(graph,'local').request;
+                const result = await fetchRegionGeometry87(api,request);
+                if (!live() || job!==geometryJob || sourcePixels!==state.pixels || signature!==JSON.stringify(config())) return;
+                state.geometry=result;
+            } catch(error) {
+                if(live() && job===geometryJob) { state.geometryError=error.message; state.geometry=null; }
+                return;
+            } finally {
+                if(live() && job===geometryJob) { state.geometryBusy=false; update(); }
+            }
+        }
         state.preview = structuredClone(config()); state.signature = JSON.stringify(config()); state.view = 'mask';
         if (local) {
             node(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
@@ -373,11 +414,13 @@ function mount(graph, root, tabId = 'build') {
         canvas.hidden = !source; empty.hidden = Boolean(source);
         if (!source) { empty.textContent = mapError || (mapBusy ? segmented ? badgeText("build_prototype.text_035") : badgeText("build_prototype.text_036", {p0: (mapProgress)}) : badgeText("build_prototype.text_037")); return; }
         const selectedRegion = region87() ? regionEditor?.selectedId : localMulti() && regionPreviewScope?.value === 'selected' ? node(localMaterialNodeId88(graph))?._badgeMaterialRegionV1SelectedId : null;
-        const key = [source, state.preview, state.view, state.section, selectedRegion];
+        const key = [source, state.preview, state.view, state.section, selectedRegion, state.geometry];
         if (state.drawn?.every((v, i) => v === key[i])) return;
         state.drawn = key;
         let data;
-        if (state.section === 'polygon' && state.preview && state.view !== 'original') {
+        if (authoritativeRegion() && state.geometry && state.preview && state.view !== 'original' && state.view !== 'conflicts') {
+            data = renderRegionGeometry87(state.pixels.data,state.geometry,state.view,selectedRegion);
+        } else if (state.section === 'polygon' && state.preview && state.view !== 'original') {
             const maskCanvas = document.createElement('canvas'); maskCanvas.width = canvas.width; maskCanvas.height = canvas.height;
             const context = maskCanvas.getContext('2d'); drawSelectionMask(context, state.preview, canvas.width, canvas.height);
             data = context.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -388,7 +431,7 @@ function mount(graph, root, tabId = 'build') {
                 }
             }
         } else data = state.view === 'original' || !state.preview ? source.data
-            : region87() ? previewLocalRegions87(source.data, state.pixels.data, state.preview, state.view, selectedRegion)
+            : region87() ? state.view === 'conflicts' ? previewLocalRegions87(source.data,state.pixels.data,state.preview,state.view,selectedRegion) : state.geometry ? renderRegionGeometry87(state.pixels.data,state.geometry,state.view,selectedRegion) : source.data
             : localMulti() ? previewLocalMaterials88(source.data, state.pixels.data, state.preview, state.view, selectedRegion)
             : previewPixels(source.data, state.preview, state.section, state.view);
         canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data), canvas.width, canvas.height), 0, 0);
@@ -396,7 +439,7 @@ function mount(graph, root, tabId = 'build') {
     async function load(selection, key) {
         const token = ++state.loadToken;
         if (local && segmented) { ++mapJob; mapBusy = false; mapImage = null; mapSource = null; mapError = ''; confirmedSelection = null; }
-        state.pixels = null; state.preview = null; state.view = 'original';
+        state.pixels = null; state.preview = null; state.geometryError = ''; state.geometryBusy = false; state.view = 'original';
         canvas.hidden = true; empty.hidden = false; empty.textContent = selection ? badgeText("build_prototype.text_038") : local ? badgeText("build_prototype.text_039") : state.imageTab === 'height' ? badgeText("build_prototype.text_040") : badgeText("build_prototype.text_041");
         if (!selection && local && segmented && localTargets87(graph).source === 'generated') empty.textContent = badgeText("build_prototype.text_042");
         if (!selection) return;
@@ -505,7 +548,8 @@ function mount(graph, root, tabId = 'build') {
         view.disabled = !state.preview;
         const dirty = state.preview && JSON.stringify(config()) !== state.signature;
         const missingHeight = !isPromptOnlyBuild(graph) && !effect && state.heightEnabled && !normalizeImageSelection(node(2)?.widgets?.find(w => w.name === 'image')?.value);
-        const message = missingHeight ? badgeText("build_prototype.text_062") : state.imageTab === 'height' && !state.heightEnabled ? badgeText("build_prototype.text_063") : !enabled ? badgeText("build_prototype.text_064") : dirty ? badgeText("build_prototype.text_065") : state.preview ? badgeText("build_prototype.text_066") : state.section ? badgeText("build_prototype.text_067") : badgeText("build_prototype.text_068");
+        const geometryMessage = regionStatus();
+        const message = geometryMessage || (missingHeight ? badgeText("build_prototype.text_062") : state.imageTab === 'height' && !state.heightEnabled ? badgeText("build_prototype.text_063") : !enabled ? badgeText("build_prototype.text_064") : dirty ? badgeText("build_prototype.text_065") : state.preview ? badgeText("build_prototype.text_066") : state.section ? badgeText("build_prototype.text_067") : badgeText("build_prototype.text_068"));
         if (status.textContent !== message) status.textContent = message;
         draw();
     }
@@ -593,13 +637,19 @@ function mount(graph, root, tabId = 'build') {
         editEnd = document.createElement('div'); editEnd.className = 'badge-local-options badge-local-block-end badge-local-edit-end';
         if (refined) {
             regionEditor = createRegionEditor87(graph, root, {live,
-                onPreview(id, mode = 'overlay') {
+                async onPreview(id, mode = 'overlay') {
                     referenceOpen = true;
+                    if (region87() && mode !== 'conflicts') {
+                        state.view = 'original';
+                        await toggleMaskPreview();
+                        if (!live() || !state.preview || regionEditor?.selectedId !== id) return;
+                        state.view = mode; state.drawn = null; update(); return;
+                    }
                     state.preview = config(); state.signature = JSON.stringify(state.preview);
                     regionOverlap = mode === 'conflicts' && selectionPixels() && state.pixels ? countRegionOverlap87(selectionPixels().data, state.pixels.data, state.preview) : null;
                     state.view = mode; state.drawn = null; update();
                 },
-                onChange() { regionOverlap = null; state.preview = null; state.drawn = null; state.view = 'original'; confirmedSelection = null; update(); },
+                onChange() { ++geometryJob; state.geometryError = ''; state.geometryBusy = false; state.geometry = null; regionOverlap = null; state.preview = null; state.drawn = null; state.view = 'original'; confirmedSelection = null; update(); },
             });
             localParts.push(regionEditor.selection, regionEditor.materials);
         }
@@ -756,7 +806,7 @@ function mount(graph, root, tabId = 'build') {
         preview.disabled = !state.pixels || !isNodeAvailableInAppMode(maskNode);
         view.disabled = !state.preview;
         const dirty = Boolean(state.preview && JSON.stringify(config()) !== state.signature);
-        status.textContent = dirty ? badgeText("build_prototype.text_115") : state.preview ? badgeText("build_prototype.text_116") : polygon ? badgeText("build_prototype.text_117") : mapMode ? segmented && !selectionPixels() ? mapBusy ? badgeText("build_prototype.text_118") : badgeText("build_prototype.text_119") : badgeText("build_prototype.text_120") : badgeText("build_prototype.text_121");
+        status.textContent = regionStatus() || (dirty ? badgeText("build_prototype.text_115") : state.preview ? badgeText("build_prototype.text_116") : polygon ? badgeText("build_prototype.text_117") : mapMode ? segmented && !selectionPixels() ? mapBusy ? badgeText("build_prototype.text_118") : badgeText("build_prototype.text_119") : badgeText("build_prototype.text_120") : badgeText("build_prototype.text_121"));
         const snapshot = stageSnapshot(graph, 'local'), session = getPrototypeSession(graph, 'local');
         localPreview.disabled = !available || !selectionPixels() || (!color && !polygon) || !isNodeAvailableInAppMode(maskNode) || session.busy;
         const selectionReady = confirmedSelection === selectionSignature() && !dirty;

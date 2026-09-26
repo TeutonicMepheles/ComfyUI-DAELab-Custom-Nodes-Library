@@ -1,4 +1,4 @@
-export const STORYBOARD_SCHEMA_VERSION = 2;
+export const STORYBOARD_SCHEMA_VERSION = 3;
 export const STORYBOARD_PANEL_HEIGHT = 520;
 export const STORYBOARD_MIN_WIDTH = 920;
 export const STORYBOARD_DEFAULT_WIDTH = 1080;
@@ -66,6 +66,8 @@ export function normalizeShot(source = {}, index = 0) {
         source: source.source || null,
         original_fields: Array.isArray(source.original_fields) ? source.original_fields : [],
         input_changed: Boolean(source.input_changed),
+        selected: source.selected !== false,
+        group_refs: source.group_refs && typeof source.group_refs === 'object' ? source.group_refs : {},
     };
 }
 
@@ -84,6 +86,7 @@ export function normalizeStoryboard(value) {
         document_title: text(source?.document_title),
         source_filename: text(source?.source_filename),
         column_order: normalizeColumnOrder(source?.column_order),
+        asset_groups: Array.isArray(source?.asset_groups) ? source.asset_groups : [],
         shots: rawShots.map(normalizeShot),
     };
 }
@@ -94,11 +97,14 @@ export function serializeStoryboard(state) {
         document_title: text(state?.document_title),
         source_filename: text(state?.source_filename),
         column_order: normalizeColumnOrder(state?.column_order),
+        asset_groups: state?.asset_groups || [],
         shots: (state?.shots || []).map((shot, index) => ({
             id: shot.id,
             source: shot.source || null,
             original_fields: shot.original_fields || [],
             input_changed: Boolean(shot.input_changed),
+            selected: shot.selected !== false,
+            group_refs: shot.group_refs || {},
             shot_no: text(shot.shot_no) || String(index + 1).padStart(2, "0"),
             time_range: text(shot.time_range),
             duration: durationFromTimeRange(shot.time_range),

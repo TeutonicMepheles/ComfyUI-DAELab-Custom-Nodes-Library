@@ -1,10 +1,14 @@
 import { app } from "/scripts/app.js";
 import { stopCanvasPropagation } from "./list_editor_controls.mjs";
+import { removeOwnedWidgets } from './dynamic_widget_lifecycle.mjs';
 import { resultUrl, validateResultUrl, addVideoToCanvas } from "./libtv_canvas_result.mjs?v=20260925-1";
 import { connectionPanel, connectionRequest, compatibleValues, fallbackCapabilities } from "./libtv_connection.mjs";
 
 // DAELab-owned adaptation of ComfyTV's StageParamsPanel grouping and theme.
 // No dependency on the upstream Vue application or its node registrations.
+import { studioTheme } from './daelab_studio_theme.mjs';
+import { batchControls, showBatchReport } from './libtv_batch_panel.mjs?v=20260926-batch1';
+const BATCH_TYPE = 'DAELAB.LibTV.StoryboardBatch';
 const TYPE = "DAELAB.LibTV.VideoGenerate";
 const PANEL = "daelab_libtv_panel";
 const names = ["project_uuid", "request_id", "model", "mode", "prompt", "duration", "resolution", "ratio", "sound", "reference_files"];
@@ -25,9 +29,12 @@ function styles() {
 }
 
 function install(node) {
-    if (node.__libtvPanel) return;
+    if (!node.graph) return;
+    if (node.__libtvPanel) {sync(node);return;}
+    const batch=node.type===BATCH_TYPE;
+    studioTheme();
     styles();
-    const root = document.createElement("div"); root.className = "dae-libtv";
+    const root = document.createElement("div"); root.className = "dae-libtv dae-studio";
     root.innerHTML = `<header><div><strong>LibTV 视频工作台</strong><br><small>Comfy → LibTV → Comfy</small></div><span class="badge">DAELAB / VIDEO</span></header>`;
     const controls = {};
     const capabilities = async (adjust) => {
@@ -70,20 +77,21 @@ function install(node) {
     connectionPanel(root,{get:name=>widget(node,name)?.value,set,capabilities});
     const grid=document.createElement("section");grid.className="grid";root.append(grid);
     for(const name of ["model","mode"]) field(name,grid);
-    const prompt=document.createElement("section");root.append(prompt);field("prompt",prompt);
+    const prompt=document.createElement("section");if(!batch){root.append(prompt);field("prompt",prompt);}
     const settings=document.createElement("section");settings.className="grid";root.append(settings);
     for(const name of ["duration","resolution","ratio","sound"])field(name,settings);
     const refs=document.createElement("section");refs.className="refs";
-    const hint=document.createElement("p");hint.textContent="通过左侧接口连接首帧、尾帧、参考图或 ComfyTV 视频；也可填写 Comfy 本地素材路径。";refs.append(hint);field("reference_files",refs);root.append(refs);
+    const hint=document.createElement("p");hint.textContent="通过左侧接口连接首帧、尾帧、参考图或 ComfyTV 视频；也可填写 Comfy 本地素材路径。";refs.append(hint);if(!batch){field("reference_files",refs);root.append(refs);}
     const details=document.createElement("details");const summary=document.createElement("summary");summary.textContent="画布与任务设置";details.append(summary);
     const advanced=document.createElement("section");details.append(advanced);field("project_uuid",advanced);field("request_id",advanced);
-    const fresh=document.createElement("button");fresh.type="button";fresh.textContent="新建任务编号";fresh.onclick=()=>{set("request_id",`video-${crypto.randomUUID()}`);sync(node);};advanced.append(fresh);
+    const fresh=document.createElement("button");fresh.type="button";fresh.textContent="新建任务编号";fresh.onclick=()=>{set("request_id",`${batch?"batch":"video"}-${crypto.randomUUID()}`);sync(node);};advanced.append(fresh);
     const note=document.createElement("p");note.textContent="相同编号用于恢复已有任务；更换编号后运行会创建新的付费生成。";advanced.append(note);root.append(details);
     const status=document.createElement("footer");status.setAttribute("role","status");status.textContent="使用 Comfy 的运行按钮提交。生成完成后，视频显示在节点下方。";root.append(status);
     for(const event of ["pointerdown","pointerup","mousedown","mouseup","click","dblclick","wheel","keydown"])root.addEventListener(event,stopCanvasPropagation);
     for(const name of names){const w=widget(node,name);if(!w)continue;w.hidden=true;w.options={...w.options,hidden:true,canvasOnly:true};w.computeSize=()=>[0,-4];w.computeLayoutSize=()=>({minHeight:0,maxHeight:0,minWidth:0});if(w.inputEl)w.inputEl.style.display="none";}
     const panel=node.addDOMWidget(PANEL,"custom",root,{serialize:false,hideOnZoom:false,getValue:()=>"",setValue:()=>sync(node)});
     panel.serialize=false;panel.inputEl=root;panel.label="LibTV 视频工作台";
+    panel.__daelabLibTVPanel=true;
     panel.computeSize=width=>[width,700];panel.computeLayoutSize=()=>({minHeight:700,maxHeight:700,minWidth:360});
     const video=document.createElement("video");video.controls=true;video.preload="metadata";video.hidden=true;video.style.cssText="width:100%;max-height:260px;flex-shrink:0;background:#111;border-radius:6px";
     const restore=document.createElement("button");restore.type="button";restore.textContent="恢复已有任务预览（不生成）";
@@ -111,9 +119,10 @@ function install(node) {
     };
     root.insertBefore(video,status);root.insertBefore(restore,status);root.insertBefore(send,status);
     node.__libtvPanel={root,controls,status,video,send};nodes.add(node);sync(node);
+    if(batch){restore.remove();send.remove();video.remove();root.querySelector("strong").textContent="LibTV · 分镜批量生成";fresh.textContent="新建批次编号";batchControls(node,root,{app,set});}
     if(node.properties?.daelabLibTVResult)showResult(node,node.properties.daelabLibTVResult);
     // Content-sized panel; restored surplus height must never feed back into layout.
-    requestAnimationFrame(()=>{node.setSize?.([Math.max(420,node.size[0]),1]);node.setSize?.([Math.max(420,node.size[0]),node.computeSize()[1]]);});
+    requestAnimationFrame(()=>{if(!node.graph)return;node.setSize?.([Math.max(420,node.size[0]),1]);node.setSize?.([Math.max(420,node.size[0]),node.computeSize()[1]]);});
 }
 
 function showResult(node,value){
@@ -126,6 +135,12 @@ function showResult(node,value){
 
 function sync(node){
     const panel=node.__libtvPanel;if(!panel)return;
+    const request=widget(node,'request_id');
+    if(node.type===BATCH_TYPE && request && (!request.value || request.value==='video-001') && !node.inputs?.some(i=>i.name==='request_id' && i.link!=null)) {
+        request.value=`batch-${crypto.randomUUID()}`;
+        node.graph?.setDirtyCanvas?.(true,true);
+    }
+    if(panel.batchResults){const report=node.properties?.daelabLibTVBatch;panel.batchResults.hidden=Boolean(report&&(report.batch_id!==widget(node,'request_id')?.value || report.project_uuid!==widget(node,'project_uuid')?.value));}
     const model=widget(node,"model")?.value;
     const h3=model==="Minimax H3";
     const caps=panel.caps?.model===model?panel.caps:null;
@@ -148,13 +163,15 @@ function sync(node){
 }
 
 app.registerExtension({name:"DAELab.LibTV.Panel",beforeRegisterNodeDef(type,data){
-    if(data.name!==TYPE)return;
-    for(const method of ["onNodeCreated","onConfigure"]){const previous=type.prototype[method];type.prototype[method]=function(){const result=previous?.apply(this,arguments);queueMicrotask(()=>install(this));return result;};}
-    const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(){nodes.delete(this);this.__libtvPanel?.root.remove();return removed?.apply(this,arguments);};
-    const executed=type.prototype.onExecuted;type.prototype.onExecuted=function(message){const result=executed?.apply(this,arguments);const url=resultUrl(message);if(url){showResult(this,url);if(globalThis.LiteGraph?.registered_node_types?.["ComfyTV.AssetVideoLoaderStage"])addVideoToCanvas(app,url,`LibTV · ${widget(this,"model").value}`).catch(error=>{this.__libtvPanel.status.textContent=error.message;});}return result;};
+    if(![TYPE,BATCH_TYPE].includes(data.name))return;
+    for(const method of ["onNodeCreated","onConfigure","onAdded"]){const previous=type.prototype[method];type.prototype[method]=function(){const result=previous?.apply(this,arguments);if(this.graph)install(this);else queueMicrotask(()=>install(this));return result;};}
+    const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(){nodes.delete(this);removeOwnedWidgets(this,'__daelabLibTVPanel');this.__libtvPanel?.root.remove();delete this.__libtvPanel;return removed?.apply(this,arguments);};
+    const executed=type.prototype.onExecuted;type.prototype.onExecuted=function(message){const result=executed?.apply(this,arguments);if(this.type===BATCH_TYPE){showBatchReport(this,message.batch_report?.[0]);return result;}const url=resultUrl(message);if(url){showResult(this,url);if(globalThis.LiteGraph?.registered_node_types?.["ComfyTV.AssetVideoLoaderStage"])addVideoToCanvas(app,url,`LibTV · ${widget(this,"model").value}`).catch(error=>{this.__libtvPanel.status.textContent=error.message;});}return result;};
 },afterConfigureGraph(){
     const params=new URLSearchParams(location.search),url=params.get("daelab_libtv_result");
     if(!url||this.resultHandled)return;this.resultHandled=true;
     addVideoToCanvas(app,url,params.get("daelab_libtv_title")||"LibTV 视频结果").catch(error=>app.extensionManager?.toast?.add({severity:"error",summary:"LibTV 回传",detail:error.message,life:10000}));
 }});
 setInterval(()=>{for(const node of nodes)sync(node);},300);
+
+app.api.addEventListener("daelab.libtv.batch",event=>{for(const node of nodes)if(node.type===BATCH_TYPE&&widget(node,"project_uuid")?.value===event.detail.project_uuid&&widget(node,"request_id")?.value===event.detail.batch_id)showBatchReport(node,event.detail);});

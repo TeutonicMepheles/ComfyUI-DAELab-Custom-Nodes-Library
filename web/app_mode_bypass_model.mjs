@@ -2,6 +2,7 @@ export const MODE_ALWAYS = 0;
 
 export const DAELAB_NODE_TYPES = Object.freeze([
   "DAELAB.LibTV.VideoGenerate",
+    "DAELAB.LibTV.StoryboardBatch",
   "DAELAB.BadgeApp87V1",
   "DAELAB.Badge87BoundaryCompositeV1",
   "DAELAB.Badge87IntrinsicGuideV1",

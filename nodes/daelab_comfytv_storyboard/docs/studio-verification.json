@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "paidSubmission": false,
+  "errors": [],
+  "sizes": [
+    {
+      "table": [
+        1420,
+        558
+      ],
+      "video": [
+        420,
+        758
+      ]
+    },
+    {
+      "table": [
+        1420,
+        558
+      ],
+      "video": [
+        420,
+        758
+      ]
+    }
+  ],
+  "registeredNodes": 67,
+  "checks": [
+    "native image-group reorder",
+    "sequential and shared assignment",
+    "reference-cell swap and undo",
+    "selected rows serialized",
+    "batch uses LibTV only",
+    "synthetic result event maps stable shot ID",
+    "two reloads preserve groups and IDs",
+    "oversized heights compact",
+    "both panels App Mode Active/Bypass/Mute",
+    "narrow footer fits",
+    "portable template gets unique persistent batch ID"
+  ]
+}

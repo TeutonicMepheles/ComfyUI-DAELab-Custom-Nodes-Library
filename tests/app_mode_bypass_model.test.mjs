@@ -52,6 +52,7 @@ test("LibTV bridge participates in shared Active/Bypass/Mute handling", () => {
 test("covers every node exported by the DAELab package", () => {
     assert.deepEqual(DAELAB_NODE_TYPES, [
   "DAELAB.LibTV.VideoGenerate",
+    "DAELAB.LibTV.StoryboardBatch",
   "DAELAB.BadgeApp87V1",
   "DAELAB.Badge87BoundaryCompositeV1",
   "DAELAB.Badge87IntrinsicGuideV1",

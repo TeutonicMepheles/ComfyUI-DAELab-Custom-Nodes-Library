@@ -163,7 +163,7 @@ class Bridge:
         self.cache.mkdir(parents=True, exist_ok=True)
         self.output.mkdir(parents=True, exist_ok=True)
 
-    def generate(self, project, request_id, model, mode, prompt, settings, media=()):
+    def request_identity(self, project, request_id, model, mode, prompt, settings, media=()):
         if not project.strip() or not request_id.strip():
             raise ValueError("project_uuid and request_id are required")
         if model not in MODELS:
@@ -173,6 +173,16 @@ class Bridge:
                        media=[dict(kind=m["kind"], sha256=digest_file(m["path"])) for m in media])
         fingerprint = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
         key = hashlib.sha256((project + "\n" + request_id).encode()).hexdigest()[:24]
+        return request, fingerprint, key
+
+    def check_request(self, *args):
+        _, fingerprint, key = self.request_identity(*args)
+        record = self.cache / (key + ".json")
+        if record.exists() and json.loads(record.read_text("utf-8"))["fingerprint"] != fingerprint:
+            raise ValueError("此批次已使用不同内容提交过；恢复原内容，或明确新建批次后再生成。")
+
+    def generate(self, project, request_id, model, mode, prompt, settings, media=()):
+        request, fingerprint, key = self.request_identity(project, request_id, model, mode, prompt, settings, media)
         record = self.cache / (key + ".json")
         with job_lock(self.cache / (key + ".lock")):
             state = json.loads(record.read_text("utf-8")) if record.exists() else None

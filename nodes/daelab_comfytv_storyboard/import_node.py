@@ -16,7 +16,7 @@ def validated_storyboard(value):
         if not shot.get("id") or shot["id"] in ids:
             shot["id"] = str(uuid.uuid4())
         ids.add(shot["id"])
-    data["schema_version"] = 2
+    data["schema_version"] = 3
     return data
 
 

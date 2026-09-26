@@ -1,4 +1,6 @@
 import { previewImport } from "./daelab_storyboard_import.mjs?v=20260926";
+import { groupsPanel } from './daelab_storyboard_groups_ui.mjs?v=20260926-batch1';
+import { studioTheme } from './daelab_studio_theme.mjs';
 import { attachRowDrag, attachCellDrag, attachColumnDrag } from "./daelab_storyboard_table.mjs?v=20260926-table1";
 import { TableHistory } from "./daelab_storyboard_table_model.mjs?v=20260926-table1";
 import { app } from "/scripts/app.js";
@@ -13,7 +15,7 @@ import {
     storyboardPanelLayout,
     STORYBOARD_MIN_WIDTH,
     STORYBOARD_PANEL_HEIGHT,
-} from "./daelab_storyboard_model.mjs?v=20260926-table1";
+} from "./daelab_storyboard_model.mjs?v=20260926-batch1";
 import {
     createIconButton,
     LIST_EDITOR_ICONS,
@@ -25,7 +27,7 @@ import {
 } from "./dynamic_widget_lifecycle.mjs";
 
 const NODE_TYPE = "DAELAB.ComfyTV.GPTImageStoryboardStage";
-const EXTENSION_VERSION = "20260926-table1";
+const EXTENSION_VERSION = "20260926-batch1";
 const PANEL_WIDGET_NAME = "daelab_storyboard_editor";
 const OWNER_PROPERTY = "__daelabStoryboardOwned";
 const PANEL_HEIGHT = STORYBOARD_PANEL_HEIGHT;
@@ -111,6 +113,7 @@ function makeButton(label, onClick, primary = false) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
+    if(primary)button.dataset.primary='true';
     button.style.cssText = [
         "height:30px",
         "padding:0 14px",
@@ -222,6 +225,8 @@ function renderRows(node, tbody, emptyState) {
         };
 
         const shotCell = cell("64px");
+        const selected=document.createElement('input');selected.type='checkbox';selected.checked=shot.selected!==false;selected.setAttribute('aria-label',`选择分镜 ${shot.shot_no}`);
+        selected.onchange=()=>{shot.selected=selected.checked;syncState(node);};shotCell.append(selected);
         const shotInput = makeInput();
         shotInput.value = shot.shot_no;
         shotInput.addEventListener("input", (event) => { shot.shot_no = event.currentTarget.value; syncState(node); });
@@ -330,13 +335,37 @@ function renderRows(node, tbody, emptyState) {
         for (const [field, cell] of Object.entries(cells)) attachCellDrag(node,cell,shot,field,{commit,upload:uploadReference,notify:message=>showToast("warn","未更改单元格",message)});
         attachRowDrag(node,row,shot,index,shotCell,commit);
         const changed=document.createElement("small");changed.dataset.inputChanged=shot.id;changed.hidden=!shot.input_changed;changed.textContent="输入已修改";changed.style.color="#e9be7c";changed.title="相对导入内容有编辑，不会自动重新生成";actionCell.append(changed);
+        const generated=document.createElement('small');generated.dataset.generatedStatus=shot.id;generated.style.cssText='display:block;color:#a0dcc5';actionCell.append(generated);
         for (const field of state.column_order) row.append(cells[field]);
+        for(const group of state.asset_groups || []) {
+            const materialCell=cell('130px');materialCell.dataset.groupColumn=group.id;materialCell.dataset.label=group.name;
+            const refs=shot.group_refs?.[group.id] || [];
+            if(!refs.length){materialCell.textContent='待填入';materialCell.style.color='#d2b078';}
+            for(const [ri,ref] of refs.entries()) {
+                const box=document.createElement('span');box.className='studio-ref';
+                const image=document.createElement('img');image.src=ref.url;image.alt=ref.name;
+                const label=document.createElement('small');label.textContent=ref.name;label.title=ref.name;box.append(image,label);materialCell.append(box);
+                box.draggable=true;box.title='拖到同一素材列的其他行可交换';
+                box.ondragstart=e=>{e.stopPropagation();e.dataTransfer.setData('application/x-daelab-row-ref',JSON.stringify({node:node.id,graph:node.graph?.id,shot:shot.id,group:group.id,index:ri}));};
+            }
+            materialCell.ondragover=e=>{if(e.dataTransfer.types.includes('application/x-daelab-row-ref')){e.preventDefault();e.stopPropagation();}};
+            materialCell.ondrop=e=>{
+                const raw=e.dataTransfer.getData('application/x-daelab-row-ref');if(!raw)return;e.preventDefault();e.stopPropagation();
+                try{const from=JSON.parse(raw);if(from.node!==node.id||from.graph!==node.graph?.id||from.group!==group.id||from.shot===shot.id)return;
+                    const other=state.shots.find(s=>s.id===from.shot);if(!other?.group_refs?.[group.id])return;
+                    // Swap whole reference cells, preserving order within a shared group.
+                    shot.group_refs ||= {};[other.group_refs[group.id],shot.group_refs[group.id]]=[refs,other.group_refs[group.id]];other.input_changed=shot.input_changed=true;commit();
+                }catch{}
+            };
+            row.append(materialCell);
+        }
         row.append(actionCell);
         tbody.append(row);
     });
 }
 
 function createPanel(node) {
+    studioTheme();
     if (!document.getElementById("daelab-storyboard-responsive")) {
         const style = document.createElement("style");
         style.id = "daelab-storyboard-responsive";
@@ -353,12 +382,13 @@ function createPanel(node) {
           .daelab-storyboard-panel td[data-field="image_prompt"]::before{content:'画面内容'}
           .daelab-storyboard-panel td[data-field="camera_notes"]::before{content:'镜头备注'}
           .daelab-storyboard-panel td[data-field="image_url"]::before{content:'参考图'}
-          .daelab-storyboard-panel td:not([data-field])::before{content:'操作'}
+          .daelab-storyboard-panel td[data-group-column]::before{content:attr(data-label)}
+          .daelab-storyboard-panel td:not([data-field]):not([data-group-column])::before{content:'操作'}
         }`;
         document.head.append(style);
     }
     const root = document.createElement("div");
-    root.className = "daelab-storyboard-panel";
+    root.className = "daelab-storyboard-panel dae-studio";
     root.style.cssText = [
         `height:${PANEL_HEIGHT}px`, `min-height:${PANEL_HEIGHT}px`, `max-height:${PANEL_HEIGHT}px`,
         "width:100%", "box-sizing:border-box", "display:flex", "flex-direction:column",
@@ -410,6 +440,10 @@ function createPanel(node) {
         if (file) void handleDocument(file);
     });
     toolbar.append(importButton, source, documentPicker);
+    const heading=document.createElement('div');heading.className='studio-heading';
+    const title=document.createElement('div');title.innerHTML='<div class="studio-eyebrow">DAELAB / STORYBOARD</div><strong>分镜工作台</strong>';
+    const tabs=document.createElement('nav');tabs.className='studio-tabs';tabs.setAttribute('aria-label','分镜视图');
+    heading.append(title,tabs);
 
     const styleRow = document.createElement("label");
     styleRow.style.cssText = "height:38px;min-height:38px;max-height:38px;display:flex;align-items:center;gap:8px";
@@ -449,6 +483,7 @@ function createPanel(node) {
     tableShell.append(table, emptyState);
 
     const footer = document.createElement("div");
+    footer.className='studio-footer';
     footer.style.cssText = "height:34px;min-height:34px;max-height:34px;display:flex;align-items:center;justify-content:space-between;gap:8px";
     const add = makeButton("＋ 新增分镜", () => {
         appendShot(node.__daelabStoryboardState); syncState(node); rerender(node, tbody, emptyState);
@@ -481,13 +516,38 @@ function createPanel(node) {
     undo.title="撤销上一步表格操作";redo.title="重做表格操作";
     node.__storyboardHistoryUI=()=>{undo.disabled=!node.__storyboardHistory?.undoStack.length;redo.disabled=!node.__storyboardHistory?.redoStack.length;};
     node.__storyboardDirtyUI=()=>{root.querySelectorAll('[data-input-changed]').forEach(e=>{e.hidden=!node.__daelabStoryboardState.shots.find(s=>s.id===e.dataset.inputChanged)?.input_changed;});};
-    footer.append(add, undo, redo, counter, run);
+    node.__storyboardResultUI=()=>{
+        const batch=node.graph?._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch' && n.inputs?.some(i=>i.name==='storyboard_json' && node.graph.links[i.link]?.origin_id===node.id));
+        const report=batch?.properties?.daelabLibTVBatch;
+        root.querySelectorAll('[data-generated-status]').forEach(el=>{const result=report?.rows?.find(r=>r.shot_id===el.dataset.generatedStatus);el.textContent=({complete:'上次已完成',running:'处理中',needs_recovery:'待恢复',waiting:'尚未提交'})[result?.phase] || '';el.title=result?`批次 ${report.batch_id}${result.error?'：'+result.error:''}`:'';});
+    };
+    const selectAll=makeButton('全选 / 取消',()=>{const shots=node.__daelabStoryboardState.shots;const value=shots.some(s=>s.selected===false);shots.forEach(s=>s.selected=value);syncState(node);rerender(node,tbody,emptyState);});
+    const prepare=makeButton('视频生成 →',()=>{
+        const graph=node.graph;
+        let batch=graph._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch' && n.inputs?.some(i=>i.name==='storyboard_json' && graph.links[i.link]?.origin_id===node.id));
+        if(!batch){batch=LiteGraph.createNode('DAELAB.LibTV.StoryboardBatch');if(!batch){showToast('error','请重启 ComfyUI','新的 LibTV 批量节点尚未加载');return;}
+            batch.pos=[node.pos[0]+node.size[0]+70,node.pos[1]];graph.add(batch);
+            node.connect(0,batch,batch.inputs.findIndex(i=>i.name==='storyboard_json'));
+            setWidgetValue(batch,'request_id',`batch-${crypto.randomUUID()}`);
+        }
+        graph.extra ||= {};const data=graph.extra.linearData ||= {inputs:[],outputs:[]};data.inputs ||= [];data.outputs ||= [];
+        for(const [id,name] of [[node.id,PANEL_WIDGET_NAME],[batch.id,'daelab_libtv_panel']])if(!data.inputs.some(i=>String(i[0])===String(id)&&i[1]===name))data.inputs.push([id,name]);
+        if(!data.outputs.some(id=>String(id)===String(batch.id)))data.outputs.push(batch.id);
+        graph.events?.dispatchEvent(new Event('configured'));graph.setDirtyCanvas(true,true);
+        app.canvas.selectNode(batch);app.canvas.centerOnNode?.(batch);
+        showToast('success','已连接 LibTV 批量生成','选择 LibTV 画布和模型后，点击“生成选中分镜”。每行使用视频节点设置的统一时长。');
+    },true);
+    footer.append(add, selectAll, undo, redo, counter, run);
+    if(node.type==='DAELAB.StoryboardImport'){run.removeAttribute('data-primary');footer.append(prepare);}
     footer.style.flexWrap="wrap";footer.style.height="auto";footer.style.minHeight="34px";footer.style.maxHeight="76px";
     root.addEventListener("focusin",e=>{if(e.target.matches("input,textarea"))node.__storyboardEditGroup=crypto.randomUUID();});
     root.addEventListener("focusout",()=>{node.__storyboardEditGroup=null;});
     root.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"&&!e.target.matches("input,textarea")){e.preventDefault();e.stopPropagation();restore(e.shiftKey);}},true);
 
-    root.append(toolbar, ...(node.comfyClass === "DAELAB.StoryboardImport" || node.type === "DAELAB.StoryboardImport" ? [] : [styleRow]), tableShell, footer);
+    const groups=groupsPanel({getState:()=>node.__daelabStoryboardState,commit:()=>{node.__storyboardEditGroup=null;syncState(node);rerender(node,tbody,emptyState);},upload:uploadReference,button:makeButton,notify:message=>showToast('info','素材编组',message)});
+    const showTab=group=>{groups.root.hidden=!group;tableShell.hidden=group;taskTab.setAttribute('aria-selected',String(!group));groupTab.setAttribute('aria-selected',String(group));};
+    const taskTab=makeButton('任务表',()=>showTab(false)),groupTab=makeButton('素材组',()=>showTab(true));tabs.append(taskTab,groupTab);showTab(false);
+    root.append(heading,toolbar, ...(node.comfyClass === "DAELAB.StoryboardImport" || node.type === "DAELAB.StoryboardImport" ? [] : [styleRow]), tableShell, groups.root, footer);
     root.addEventListener("dragover", (event) => { event.preventDefault(); root.style.borderColor = "#91a8da"; });
     root.addEventListener("dragleave", () => { root.style.borderColor = "#3b4352"; });
     root.addEventListener("drop", (event) => {
@@ -497,12 +557,17 @@ function createPanel(node) {
     });
 
     const render = () => {
+        header.querySelectorAll('[data-group-header]').forEach(e=>e.remove());
         for(const field of node.__daelabStoryboardState.column_order) header.append(headers[field]);
+        for(const group of node.__daelabStoryboardState.asset_groups || []){const th=document.createElement('th');th.dataset.groupHeader=group.id;th.textContent=group.name;th.style.cssText='width:130px;padding:6px;text-align:left';header.append(th);}
         header.append(headers.actions);
+        table.style.minWidth=`${900+(node.__daelabStoryboardState.asset_groups?.length || 0)*130}px`;
         renderRows(node, tbody, emptyState);
         counter.textContent = `共 ${node.__daelabStoryboardState.shots.length} 个分镜`;
+        groups.render();
         updateSource();
         node.__storyboardHistoryUI?.();
+        node.__storyboardResultUI?.();
     };
     return { root, render };
 }
@@ -545,6 +610,7 @@ function install(node) {
         setValue: () => panel.render(),
     });
     domWidget.serialize = false;
+    domWidget.label='分镜工作台';
     domWidget[OWNER_PROPERTY] = true;
     domWidget.__daelabStoryboardVersion = EXTENSION_VERSION;
     domWidget.__daelabStoryboardRender = panel.render;
@@ -597,6 +663,7 @@ if (globalThis.__DAELAB_STORYBOARD_EXTENSION_VERSION !== EXTENSION_VERSION) {
                 delete this.__daelabStoryboardRender;
                 delete this.__storyboardHistoryUI;
                 delete this.__storyboardDirtyUI;
+                delete this.__storyboardResultUI;
                 delete this.__storyboardHistory;
                 onRemoved?.apply(this, arguments);
             };

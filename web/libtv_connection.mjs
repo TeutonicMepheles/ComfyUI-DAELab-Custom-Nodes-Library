@@ -3,13 +3,14 @@ export function fallbackCapabilities(model) {
     const h3=model==="Minimax H3";
     return {model, resolution:h3?["768P","2K"]:model==="Seedance 2.5"?["480p","720p","1080p"]:model==="Seedance 2.0"?["480p","720p","1080p","4k"]:["480p","720p"],
         modes:h3?["text2video","singleImage2video","frames2video","mixed2video"]:["text2video","singleImage2video","frames2video","image2video","mixed2video"],
+        ratioByMode:h3?{singleImage2video:["adaptive"],frames2video:["adaptive"]}:{},
         duration:{min:h3?5:4,max:model==="Seedance 2.5"?30:15},sound:!h3};
 }
 
 export function compatibleValues(values, caps) {
     const result = {...values};
-    for (const [field, key] of [["resolution", "resolution"], ["ratio", "ratio"], ["mode", "modes"]]) {
-        const choices = caps[key];
+    for (const [field, key] of [["mode", "modes"], ["resolution", "resolution"], ["ratio", "ratio"]]) {
+        const choices = field==="ratio" ? caps.ratioByMode?.[result.mode] || caps[key] : caps[key];
         if (choices?.length && !choices.includes(result[field])) result[field] = choices[0];
     }
     const duration = caps.duration || {};

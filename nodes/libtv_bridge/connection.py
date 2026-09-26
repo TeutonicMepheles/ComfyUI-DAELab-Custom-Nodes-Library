@@ -78,8 +78,13 @@ class Connection:
             raise ValueError('Model unavailable for this account')
         schema = self.cli('model', match['modelName'])['schema']
         props = schema['properties']
-        return {'model': model, 'resolution': props.get('resolution', {}).get('enum', []),
-                'ratio': props.get('ratio', {}).get('enum', []),
+        choices = lambda spec: [v.get('value') if isinstance(v, dict) else v for v in spec.get('enum', [])]
+        settings = schema.get('config', {}).get('settings', [])
+        fields = set(k for row in settings.values() for k in row) if isinstance(settings, dict) else set(settings)
+        ratios = {mode: choices(props[k]) for mode, row in settings.items() for k in row
+                  if props.get(k, {}).get('originalField', k) == 'ratio'} if isinstance(settings, dict) else {}
+        return {'model': model, 'resolution': choices(props.get('resolution', {})),
+                'ratio': choices(props.get('ratio', {})), 'ratioByMode': ratios,
                 'duration': {k: v for k, v in props.get('duration', {}).items() if k in ('min', 'max', 'enum')},
                 'modes': ['text2video', *props.get('modeType', {}).get('items', {}).keys()],
-                'sound': 'enableSound' in schema.get('config', {}).get('settings', [])}
+                'sound': 'enableSound' in fields}

@@ -56,6 +56,18 @@ class ConnectionTests(unittest.TestCase):
             self.assertFalse(caps['sound'])
             self.assertIn('frames2video',caps['modes'])
 
+    def test_object_choices_and_mode_specific_ratio(self):
+        schema={'properties':{'resolution':{'enum':[{'value':'768P','displayName':'768P'}]},
+            'ratio':{'enum':[{'value':'16:9'}]},'ratio_auto':{'originalField':'ratio','enum':[{'value':'adaptive'}]},
+            'modeType':{'items':{'frames2video':[1,2]}}},
+            'config':{'settings':{'frames2video':['ratio_auto','enableSound']}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            cli=Mock(side_effect=[{'matches':[{'modelKey':'MiniMax-Hailuo-H3','modelName':'H3'}]}, {'schema':schema}])
+            caps=module.Connection(tmp,cli).capabilities('Minimax H3')
+            self.assertEqual(caps['resolution'],['768P'])
+            self.assertEqual(caps['ratioByMode']['frames2video'],['adaptive'])
+            self.assertTrue(caps['sound'])
+
     def test_projects_exclude_other_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             cli=Mock(return_value={'projectMetaList':[{'uuid':'demo','name':'Canvas','secret':'PRIVATE'}]})

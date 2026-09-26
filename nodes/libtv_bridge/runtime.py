@@ -61,6 +61,10 @@ class CLI:
                 # Reconcile once with a read-only query; never repeat --run.
                 return self(*(arg for arg in args if arg != "--run"))
             raise RuntimeError("LibTV returned no JSON; no generation will be retried automatically")
+        if args and (args[0] == "upload" or tuple(args[:2]) == ("node", "create")):
+            created = next((v for v in reversed(values) if isinstance(v, dict) and v.get("nodeKey")), None)
+            if created:
+                return created
         return values[-1]
 
 
@@ -221,7 +225,16 @@ class Bridge:
                         args += ["--left", ref]
                     if not state.get("node_key"):
                         node = self.cli(*args)
-                        state.update(node_key=node["nodeKey"], phase="prepared")
+                        created_key = node.get("nodeKey")
+                        if not created_key:
+                            # Reference linking can append a separate CLI response.
+                            # Reconcile the created node by exact name, never create again.
+                            matches = [n for n in self.cli("node", "list", "-p", project).get("nodes", [])
+                                       if n.get("name") == state["node_name"]]
+                            if len(matches) != 1:
+                                raise RuntimeError("Cannot uniquely reconcile created LibTV node; no generation submitted")
+                            created_key = matches[0]["id"]
+                        state.update(node_key=created_key, phase="prepared")
                     atomic_json(record, state)
                 except Exception as exc:
                     state.update(error=str(exc), phase="prepare_uncertain")

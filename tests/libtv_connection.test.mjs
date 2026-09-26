@@ -13,3 +13,8 @@ test('supported values survive schema refresh and enum duration is honored',()=>
     const next=compatibleValues({resolution:'720p',ratio:'9:16',mode:'frames2video',duration:7,sound:true},caps);
     assert.deepEqual(next,{resolution:'720p',ratio:'9:16',mode:'frames2video',duration:5,sound:true});
 });
+
+test('mode is normalized before choosing its restricted ratio',()=>{
+ const next=compatibleValues({mode:'invalid',ratio:'16:9',duration:5},{modes:['frames2video'],ratio:['16:9'],ratioByMode:{frames2video:['adaptive']}});
+ assert.equal(next.mode,'frames2video');assert.equal(next.ratio,'adaptive');
+});

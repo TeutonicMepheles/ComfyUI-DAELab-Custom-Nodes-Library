@@ -17,6 +17,13 @@ SCHEMA = {"properties": {"duration": {"min": 4, "max": 15}, "resolution": {"enum
 
 
 class BridgeTests(unittest.TestCase):
+    def test_create_keeps_node_key_before_link_response(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        output = '{"nodeKey":"created"}\n{"linked":true}'
+        with patch.object(r.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=output, stderr="")):
+            self.assertEqual(r.CLI("libtv")("node", "create", "demo")["nodeKey"], "created")
+
     def test_plain_text_cli_success_recovers_without_resubmission(self):
         from unittest.mock import patch
         from types import SimpleNamespace

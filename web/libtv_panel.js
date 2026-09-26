@@ -60,6 +60,10 @@ function install(node) {
             const values=compatibleValues(Object.fromEntries(names.map(n=>[n,widget(node,n)?.value])),fallbackCapabilities(el.value));
             for(const field of ["resolution","ratio","mode","duration","sound"])set(field,values[field]);
             sync(node);capabilities(true);
+        }else if(name==="mode"){
+            const caps=node.__libtvPanel?.caps || fallbackCapabilities(widget(node,"model")?.value);
+            const values=compatibleValues(Object.fromEntries(names.map(n=>[n,widget(node,n)?.value])),caps);
+            set("ratio",values.ratio);sync(node);
         }});
         row.append(title,el);parent.append(row);controls[name]=el;
     }
@@ -129,7 +133,8 @@ function sync(node){
     // Display capability hints from the verified CLI catalog; backend revalidates live.
     for(const option of panel.controls.resolution.options)option.disabled=!resolutions.includes(option.value);
     for(const option of panel.controls.mode.options)option.disabled=caps?!caps.modes.includes(option.value):h3&&option.value==="image2video";
-    for(const option of panel.controls.ratio.options)option.disabled=Boolean(caps?.ratio?.length&&!caps.ratio.includes(option.value));
+    const ratios=(caps||fallbackCapabilities(model)).ratioByMode?.[widget(node,"mode")?.value] || caps?.ratio;
+    for(const option of panel.controls.ratio.options)option.disabled=Boolean(ratios?.length&&!ratios.includes(option.value));
     panel.controls.duration.min=String(caps?.duration?.min??(h3?5:4));
     panel.controls.duration.max=String(caps?.duration?.max??(model==="Seedance 2.5"?30:15));
     panel.controls.sound.closest("label").hidden=caps?!caps.sound:h3;

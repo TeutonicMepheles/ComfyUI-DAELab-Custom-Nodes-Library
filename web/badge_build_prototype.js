@@ -1,4 +1,5 @@
-import { requestForStage as regionRequest87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { requestForStage as regionRequest87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
+import { targetOnly88 } from './badge_target_only_88.mjs';
 import { fetchRegionGeometry87, renderRegionGeometry87 } from './badge_region_geometry_87.mjs?v=20260917-region-1';
 import { usesLocalRegions87, readLocalRegions87, previewLocalRegions87, countRegionOverlap87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
 import { badgeText } from './badge_ui_text.mjs?v=20260917-region-2';
@@ -8,7 +9,7 @@ import { isBadge88, usesLocalMaterials88, localMaterialNodeId88, previewLocalMat
 import { uploadBadgeImage } from './badge_image_upload.mjs?v=20260916-content-1';
 import { generateColorSelectionSource } from './badge_color_source.mjs';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { generateGptColorMap87 } from './badge_color_map_87.mjs?v=20260916-content-1';
+import { generateGptColorMap87 } from './badge_color_map_87.mjs?v=20260918-auxiliary-1';
 import { decorateExclusivePair } from './badge_exclusive_pair.mjs';
 import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
 import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87, selectGeneratedTarget87 } from './badge_result_target_87.mjs?v=20260917-drop-1';
@@ -25,10 +26,10 @@ import { previewPixels } from './badge_build_preview_model.mjs';
 import { attachMaterialStrip } from './badge_material_strip.mjs?v=20260917-target87-1';
 import { attachBadgeColorPicker } from './badge_color_picker.mjs?v=20260916-content-1';
 import { attachReferenceResize } from './badge_reference_resize.mjs?v=20260916-ui-2';
-import { createHeightBoard } from './badge_height_board.mjs?v=20260917-threshold-drag-1';
+import { createHeightBoard } from './badge_height_board.mjs?v=20260918-height-tips-1';
 import { run as runPrototype, getPrototypeSession } from './badge_app_prototype.js';
 import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20260917-dimensions-2';
-import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260917-dimensions-2';
+import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260918-unified-color-1';
 
 const CONFIGS = {
     background: [47, 'multi_color_mask_v1_panel', '_multiColorMaskV1SelectedId'],
@@ -351,10 +352,10 @@ function mount(graph, root, tabId = 'build') {
     if (download) download.className = 'badge-preview-download';
     const sections = make('div'); sections.className = 'badge-build-sections';
     let mapImage = null, mapSource = null, mapJob = 0, mapBusy = false, mapProgress = 0, mapError = '', mapShown = true;
-    const usesMap = () => local && state.section === 'color' && itemValue(hierarchy(), 'badge.post.local.color_id_map');
+    const usesMap = () => !targetOnly88(graph) && local && state.section === 'color' && itemValue(hierarchy(), 'badge.post.local.color_id_map');
     const selectionPixels = () => usesMap() ? (mapSource === state.pixels ? mapImage : null) : state.pixels;
     async function generateMap(regenerate = false, allowGenerate = false) {
-        if (!live() || !state.pixels || mapBusy) return;
+        if (targetOnly88(graph) || !live() || !state.pixels || mapBusy) return;
         const source = state.pixels, job = ++mapJob;
         mapSource = source; mapImage = null; mapBusy = allowGenerate || !segmented; mapProgress = 0; mapError = ''; mapShown = true;
         colorPicker.close(); state.preview = null; state.view = 'original'; confirmedSelection = null;
@@ -708,7 +709,7 @@ function mount(graph, root, tabId = 'build') {
         if (regionPreviewScope) regionPreviewScope.parentElement.hidden = !multi;
         const color = itemValue(h, 'badge.post.local.selection.color');
         const polygon = itemValue(h, 'badge.post.local.selection.polygon');
-        const mapMode = itemValue(h, 'badge.post.local.color_id_map');
+        const mapMode = !targetOnly88(graph) && itemValue(h, 'badge.post.local.color_id_map');
         view.querySelector('option[value=original]').textContent = color && mapMode && mapShown && (!segmented || selectionPixels()) ? badgeText("build_prototype.text_101") : badgeText("build_prototype.text_102");
         if (lastMapMode !== mapMode) {
             if (!mapMode) { ++mapJob; mapBusy = false; }
@@ -743,7 +744,7 @@ function mount(graph, root, tabId = 'build') {
         if (resizeBar) resizeBar.hidden = editingCanvas;
         element.dataset.canvasEditing = String(editingCanvas);
         for (const part of localParts) part.hidden = !enabled;
-        advanced.hidden = !enabled || !color || !blockOpen('selection');
+        advanced.hidden = targetOnly88(graph) || !enabled || !color || !blockOpen('selection');
         selectionActions.hidden = !enabled || !blockOpen('selection');
         selectionActions.classList.toggle('badge-region-preview-actions', region87());
         editEnd.hidden = !enabled || !blockOpen('edit');

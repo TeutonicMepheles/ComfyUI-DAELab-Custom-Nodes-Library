@@ -1,7 +1,7 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { isBadge88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
 import { requestForStage as request88, promptForRequest as prompt88 } from './badge_execution_88_model.mjs?v=20260917-target87-1';
-import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { queueBadge87 } from './badge_execution_87_queue.mjs?v=20260916-content-1';
 import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260917-target87-1';

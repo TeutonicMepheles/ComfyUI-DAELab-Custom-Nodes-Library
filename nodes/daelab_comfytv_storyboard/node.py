@@ -64,6 +64,7 @@ def storyboard_image_rows(storyboard_data) -> list[dict[str, str]]:
             )
         rows.append(
             {
+                "id": str(shot.get("id") or f"legacy-{index}"),
                 "shot_no": str(shot.get("shot_no") or index).strip(),
                 "prompt": prompt,
                 "camera_notes": str(shot.get("camera_notes") or "").strip(),
@@ -200,6 +201,7 @@ def _emit_progress(node_class, value: int, total: int, text: str) -> None:
 
 def _result_row(index: int, shot: dict, image_url: str) -> dict:
     return {
+        "shot_id": shot.get("id", ""),
         "index": str(index),
         "label": f"Shot {shot['shot_no']}",
         "shot_no": shot["shot_no"],
@@ -285,6 +287,7 @@ class DAELabComfyTVGPTImageStoryboardStage(io.ComfyNode):
                     socketless=True,
                     extra_dict={"hidden": True},
                 ),
+                io.String.Input("imported_storyboard", optional=True, force_input=True),
             ],
             outputs=[COMFYTV_IMAGES.Output("images"), COMFYTV_IMAGE.Output("image")],
             is_output_node=True,
@@ -313,9 +316,10 @@ class DAELabComfyTVGPTImageStoryboardStage(io.ComfyNode):
         storyboard_data="",
         selected_index=1,
         custom_params="{}",
+        imported_storyboard=None,
     ):
         del project_id, parent_output_id, custom_params
-        shots = storyboard_image_rows(storyboard_data)
+        shots = storyboard_image_rows(imported_storyboard if imported_storyboard is not None else storyboard_data)
         width = int(custom_width or 1024)
         height = int(custom_height or 1024)
         validate_custom_size(size, width, height)

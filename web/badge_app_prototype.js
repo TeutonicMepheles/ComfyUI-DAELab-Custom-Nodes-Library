@@ -1,7 +1,7 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from '/scripts/app.js';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { isBadge87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { isBadge87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs?v=20260917-dimensions-2';
 import { APPLY_ITEM, PROTOTYPE_PROPERTY, createPrototypeQueueHandler,

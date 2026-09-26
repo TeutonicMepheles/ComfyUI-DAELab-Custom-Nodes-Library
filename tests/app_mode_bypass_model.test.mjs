@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     createGraphTriggerWrapper,
     DAELAB_NODE_TYPES,
+    findInspectorItem,
     getBuilderIoAssignments,
     getLinearData,
     getRootGraphSafely,
@@ -14,6 +15,13 @@ import {
     refreshGraphNodesReference,
     resolveNode,
 } from "../web/app_mode_bypass_model.mjs";
+
+test("matches current graph-prefixed Inspector keys without crossing workflows", () => {
+    const items = new Map([["graph-a:1:panel", "current"], ["graph-b:1:panel", "other"]]);
+    assert.equal(findInspectorItem(items, "1:panel", "graph-a"), "current");
+    assert.equal(findInspectorItem(items, "1:panel", "graph-c"), undefined);
+    assert.equal(findInspectorItem(new Map([["1:panel", "legacy"]]), "1:panel", "graph-a"), "legacy");
+});
 
 function makeGraph(nodes, linearData = {}) {
     return {
@@ -29,10 +37,27 @@ function makeGraph(nodes, linearData = {}) {
     };
 }
 
+test("LibTV bridge participates in shared Active/Bypass/Mute handling", () => {
+    const node = {type: "DAELAB.LibTV.VideoGenerate", mode: 0};
+    assert.equal(isDaelabNode(node), true);
+    assert.equal(isNodeAvailableInAppMode(node), true);
+    for (const mode of [2, 4]) {
+        node.mode = mode;
+        assert.equal(isNodeAvailableInAppMode(node), false);
+    }
+    node.mode = 0;
+    assert.equal(isNodeAvailableInAppMode(node), true);
+});
+
 test("covers every node exported by the DAELab package", () => {
     assert.deepEqual(DAELAB_NODE_TYPES, [
+  "DAELAB.LibTV.VideoGenerate",
   "DAELAB.BadgeApp87V1",
   "DAELAB.Badge87BoundaryCompositeV1",
+  "DAELAB.Badge87IntrinsicGuideV1",
+  "DAELAB.Badge87MaterialDiagnosticsV1",
+  "DAELAB.Badge87AuxiliaryImageV1",
+  "DAELAB.BadgeApp88TargetOnlyV1",
   "DAELAB.BadgeApp88V1",
   "DAELAB.BadgeApp87RegionAlignV1",
         "BooleanList",
@@ -42,6 +67,7 @@ test("covers every node exported by the DAELab package", () => {
         "SeedreamExhibitionPromptBuilder",
         "GPTImage2Config",
         "DAELAB.ComfyTV.GPTImageStoryboardStage",
+    "DAELAB.StoryboardImport",
         "GPTImage2MaterialPrompt",
         "DAELabBadgeMaterialRegionV1",
         "BadgeReliefPrompt",
@@ -100,6 +126,7 @@ test("includes grouped panel nodes in app mode bypass collapsing", () => {
     for (const type of [
         "GPTImage2Config",
         "DAELAB.ComfyTV.GPTImageStoryboardStage",
+    "DAELAB.StoryboardImport",
         "GPTImage2MaterialPrompt",
         "DAELabBadgeMaterialRegionV1",
         "BadgeReliefPrompt",

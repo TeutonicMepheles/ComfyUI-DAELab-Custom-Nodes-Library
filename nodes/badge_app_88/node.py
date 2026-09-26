@@ -85,10 +85,10 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
     def generation_model(self, request):
         return 'gpt-image-2'
 
-    def constraint_options(self):
+    def constraint_options(self, config=None):
         return {}
 
-    def bind_region_mask(self, inputs, mask, config):
+    def bind_region_mask(self, inputs, mask, config, graph=None, name=None):
         inputs['model.mask'] = mask
 
     def mask_transport(self, config):
@@ -103,6 +103,9 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
 
     def geometry_fingerprint(self, prepared):
         return ''
+
+    def inspect_region(self, graph, key, request, config, base, raw, corrected, composite, mask):
+        return composite
 
     def composite_region(self, graph, key, prepared, current, candidate, mask, config):
         return graph.node('BadgeDeterministicComposite', id=f'composite_{key}',
@@ -171,12 +174,12 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
                       'seed': (int(request.get('seed', 0)) + seed_offset) % 2147483647,
                       'model.images.image_1': base}
             if mask is not None:
-                self.bind_region_mask(inputs, mask, config or {})
+                self.bind_region_mask(inputs, mask, config or {}, graph=graph, name=name)
             if palette is not None:
                 inputs['model.images.image_2'] = palette
                 inputs['prompt'] += '\n\n' + original_color_prompt(2, custom=request.get('color_reference') is not None)
             if self.workflow_version == '8.7':
-                inputs['prompt'] = legacy.join(inputs['prompt'], legacy.render('constraints/local_noise_convergence'))
+                inputs['prompt'] = legacy.join(inputs['prompt'], legacy.render('constraints/local_material_quality' if config else 'constraints/local_noise_convergence'))
                 report.setdefault('prompt_calls', []).append({'call':name, **legacy.describe(inputs['prompt'])})
                 if len(prepared['regions']) == 1:
                     report['effective_prompt'] = str(inputs['prompt'])
@@ -188,6 +191,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
             for index, (mask, prompt, config) in enumerate(prepared['regions']):
                 key = f'{variant}_{config["id"]}'
                 candidate = generate(f'material_{key}', prompt, current, variant*1000 + index + 1 + config.get('reroll_revision', 0), mask=mask, config=config)
+                raw_candidate = candidate
                 material_id, material = legacy.resolve_material(legacy.load_materials(), config['material_id'])
                 candidate = graph.node('BadgeMaterialConstraintV1', id=f'constraint_{key}',
                     base_image=current, candidate_image=candidate, flat_image=prepared['base'],
@@ -196,8 +200,9 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
                     mean_chroma_limit=.02, p95_chroma_limit=.05, median_low_frequency_lightness_limit=.03,
                     high_frequency_strength=1., material_id=material_id, material_strength=config.get('material_strength', 1),
                     mid_frequency_strength=1., minimum_visible_mean=0., minimum_visible_p95=0.,
-                    pattern_seed=config.get('reroll_revision', 0), deterministic_fallback=True, preserve_optics=True, **self.constraint_options()).out(0)
-                current = self.composite_region(graph,key,prepared,current,candidate,mask,config)
+                    pattern_seed=config.get('reroll_revision', 0), deterministic_fallback=True, preserve_optics=True, **self.constraint_options(config)).out(0)
+                composite = self.composite_region(graph,key,prepared,current,candidate,mask,config)
+                current = self.inspect_region(graph,key,request,config,current,raw_candidate,candidate,composite,mask)
             if reference is not None:
                 exceptions = '；'.join(f'已应用的{legacy.load_materials()[g["material_id"]].get("label", g["material_id"])}材质保留其材质本色' for _, _, g in prepared['regions'] if g.get('color_policy') == 'material_intrinsic')
                 finish = color_finish_prompt(local=True, exceptions=exceptions)

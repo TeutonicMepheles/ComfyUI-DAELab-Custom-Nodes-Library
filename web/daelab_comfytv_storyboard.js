@@ -1,3 +1,6 @@
+import { previewImport } from "./daelab_storyboard_import.mjs?v=20260926";
+import { attachRowDrag, attachCellDrag, attachColumnDrag } from "./daelab_storyboard_table.mjs?v=20260926-table1";
+import { TableHistory } from "./daelab_storyboard_table_model.mjs?v=20260926-table1";
 import { app } from "/scripts/app.js";
 import {
     appendShot,
@@ -5,12 +8,12 @@ import {
     moveShot,
     normalizeStoryboard,
     removeShot,
-    replaceImportedShots,
+    applyImportedShots,
     serializeStoryboard,
     storyboardPanelLayout,
     STORYBOARD_MIN_WIDTH,
     STORYBOARD_PANEL_HEIGHT,
-} from "./daelab_storyboard_model.mjs?v=20260902-3";
+} from "./daelab_storyboard_model.mjs?v=20260926-table1";
 import {
     createIconButton,
     LIST_EDITOR_ICONS,
@@ -22,7 +25,7 @@ import {
 } from "./dynamic_widget_lifecycle.mjs";
 
 const NODE_TYPE = "DAELAB.ComfyTV.GPTImageStoryboardStage";
-const EXTENSION_VERSION = "20260902-4";
+const EXTENSION_VERSION = "20260926-table1";
 const PANEL_WIDGET_NAME = "daelab_storyboard_editor";
 const OWNER_PROPERTY = "__daelabStoryboardOwned";
 const PANEL_HEIGHT = STORYBOARD_PANEL_HEIGHT;
@@ -150,7 +153,18 @@ function makeInput(multiline = false) {
 }
 
 function syncState(node) {
-    setWidgetValue(node, "storyboard_data", serializeStoryboard(node.__daelabStoryboardState));
+    const before = widget(node, "storyboard_data")?.value || "";
+    const prior = normalizeStoryboard(before);
+    for (const shot of node.__daelabStoryboardState.shots) {
+        const old = prior.shots.find(s => s.id === shot.id);
+        if (old && ["image_prompt", "camera_notes", "image_url", "time_range"].some(key => old[key] !== shot[key])) shot.input_changed = true;
+        shot.duration = durationFromTimeRange(shot.time_range);
+    }
+    const after = serializeStoryboard(node.__daelabStoryboardState);
+    (node.__storyboardHistory ??= new TableHistory()).record(before, after, node.__storyboardEditGroup);
+    setWidgetValue(node, "storyboard_data", after);
+    node.__storyboardHistoryUI?.();
+    node.__storyboardDirtyUI?.();
 }
 
 function rerender(node, tbody, emptyState) {
@@ -163,10 +177,10 @@ function rerender(node, tbody, emptyState) {
 
 async function uploadReference(file) {
     const body = new FormData();
-    body.append("image", file, file.name);
+    body.append("image", file, `${crypto.randomUUID()}-${file.name}`);
     body.append("type", "input");
     body.append("subfolder", "DAELAB/storyboard");
-    body.append("overwrite", "true");
+    body.append("overwrite", "false");
     const response = await app.api.fetchApi("/upload/image", { method: "POST", body });
     if (!response.ok) throw new Error((await response.text()) || `${response.status} ${response.statusText}`);
     const result = await response.json();
@@ -181,7 +195,7 @@ async function uploadReference(file) {
 async function importDocument(file) {
     const body = new FormData();
     body.append("file", file, file.name);
-    const response = await app.api.fetchApi("/daelab/storyboard/import_document", { method: "POST", body });
+    const response = await app.api.fetchApi("/daelab/storyboard/import_document?preview=1", { method: "POST", body });
     if (!response.ok) {
         let detail = "";
         try { detail = String((await response.json())?.error || ""); }
@@ -198,6 +212,7 @@ function renderRows(node, tbody, emptyState) {
 
     state.shots.forEach((shot, index) => {
         const row = document.createElement("tr");
+        row.title = (shot.original_fields || []).map(field => `${field.name}: ${field.value}`).join("\n");
         row.style.cssText = "border-top:1px solid #343b49;vertical-align:top";
 
         const cell = (width) => {
@@ -273,9 +288,12 @@ function renderRows(node, tbody, emptyState) {
             picker.addEventListener("change", async () => {
                 const file = picker.files?.[0];
                 if (!file) return;
+                const originalImage = shot.image_url;
                 preview.textContent = "上传中…";
                 try {
-                    shot.image_url = await uploadReference(file);
+                    const uploaded = await uploadReference(file);
+                    if(node.__daelabStoryboardState!==state || !state.shots.includes(shot) || shot.image_url!==originalImage) throw new Error("表格已变化，未替换参考图，请重试");
+                    shot.image_url = uploaded;
                     syncState(node);
                     rerender(node, tbody, emptyState);
                 } catch (error) {
@@ -307,12 +325,38 @@ function renderRows(node, tbody, emptyState) {
             }));
         }
         actionCell.append(actions);
-        row.append(shotCell, timeCell, promptCell, notesCell, referenceCell, actionCell);
+        const cells = {shot_no:shotCell,time_range:timeCell,image_prompt:promptCell,camera_notes:notesCell,image_url:referenceCell};
+        const commit = () => {node.__storyboardEditGroup=null;syncState(node);rerender(node,tbody,emptyState);};
+        for (const [field, cell] of Object.entries(cells)) attachCellDrag(node,cell,shot,field,{commit,upload:uploadReference,notify:message=>showToast("warn","未更改单元格",message)});
+        attachRowDrag(node,row,shot,index,shotCell,commit);
+        const changed=document.createElement("small");changed.dataset.inputChanged=shot.id;changed.hidden=!shot.input_changed;changed.textContent="输入已修改";changed.style.color="#e9be7c";changed.title="相对导入内容有编辑，不会自动重新生成";actionCell.append(changed);
+        for (const field of state.column_order) row.append(cells[field]);
+        row.append(actionCell);
         tbody.append(row);
     });
 }
 
 function createPanel(node) {
+    if (!document.getElementById("daelab-storyboard-responsive")) {
+        const style = document.createElement("style");
+        style.id = "daelab-storyboard-responsive";
+        style.textContent = `.daelab-storyboard-panel{container-type:inline-size}.daelab-storyboard-panel,.daelab-storyboard-panel input,.daelab-storyboard-panel textarea,.daelab-storyboard-panel button{font-family:'Alibaba PuHuiTi 3',sans-serif!important}
+        @container (max-width:600px){
+          .daelab-storyboard-panel table{min-width:0!important;width:100%!important}
+          .daelab-storyboard-panel thead{display:none}
+          .daelab-storyboard-panel tr{display:grid;grid-template-columns:1fr 1fr}
+          .daelab-storyboard-panel td{width:auto!important;min-width:0}
+          .daelab-storyboard-panel td[data-field="image_prompt"],.daelab-storyboard-panel td[data-field="camera_notes"]{grid-column:1/-1}
+          .daelab-storyboard-panel td::before{display:block;color:#9baabd;font-size:11px;margin-bottom:4px}
+          .daelab-storyboard-panel td[data-field="shot_no"]::before{content:'镜号'}
+          .daelab-storyboard-panel td[data-field="time_range"]::before{content:'时长'}
+          .daelab-storyboard-panel td[data-field="image_prompt"]::before{content:'画面内容'}
+          .daelab-storyboard-panel td[data-field="camera_notes"]::before{content:'镜头备注'}
+          .daelab-storyboard-panel td[data-field="image_url"]::before{content:'参考图'}
+          .daelab-storyboard-panel td:not([data-field])::before{content:'操作'}
+        }`;
+        document.head.append(style);
+    }
     const root = document.createElement("div");
     root.className = "daelab-storyboard-panel";
     root.style.cssText = [
@@ -339,18 +383,24 @@ function createPanel(node) {
     documentPicker.type = "file";
     documentPicker.accept = DOCUMENT_ACCEPT;
     documentPicker.hidden = true;
+    let importing = false;
     const handleDocument = async (file) => {
+        if (importing) return;
+        importing = true;
         importButton.disabled = true;
         importButton.textContent = "解析中…";
         try {
             const result = await importDocument(file);
-            replaceImportedShots(node.__daelabStoryboardState, result);
+            const confirmed = await previewImport(result, uploadReference);
+            if (!confirmed) return;
+            applyImportedShots(node.__daelabStoryboardState, confirmed.result, confirmed.mode);
             syncState(node); updateSource(); rerender(node, tbody, emptyState);
             const warning = result.warnings?.length ? `；${result.warnings.length} 条提示` : "";
-            showToast("success", "分镜文档已导入", `已填入 ${result.shots.length} 个分镜${warning}`);
+            showToast("success", "分镜文档已导入", `已填入 ${confirmed.result.shots.length} 个分镜${warning}`);
         } catch (error) {
             showToast("error", "分镜文档解析失败", String(error?.message || error));
         } finally {
+            importing = false;
             importButton.disabled = false;
             importButton.textContent = "上传 / 拖入分镜文档";
         }
@@ -373,23 +423,28 @@ function createPanel(node) {
     styleRow.append(styleLabel, styleInput);
 
     const tableShell = document.createElement("div");
+    tableShell.dataset.storyboardScroll = "true";
     tableShell.style.cssText = "flex:1;min-height:0;overflow:auto;border:1px solid #343b49;border-radius:6px;background:#141923";
     const table = document.createElement("table");
     table.style.cssText = "width:100%;min-width:900px;table-layout:fixed;border-collapse:collapse";
     const thead = document.createElement("thead");
     thead.style.cssText = "position:sticky;top:0;z-index:1;background:#2a303c;color:#b7c0d0";
     const header = document.createElement("tr");
+    const headers = {};
     for (const [label, width] of [["镜号","64px"],["时长","94px"],["画面内容（提示词）","330px"],["镜头备注（可空）","230px"],["参考图","112px"],["操作","78px"]]) {
         const th = document.createElement("th");
         th.textContent = label;
         th.style.cssText = `width:${width};height:30px;padding:0 6px;text-align:left;border-right:1px solid #3c4452;box-sizing:border-box;font-weight:600`;
         header.append(th);
+        const field = ["shot_no","time_range","image_prompt","camera_notes","image_url","actions"][header.children.length-1];
+        headers[field] = th;
+        if(field!=="actions") attachColumnDrag(node,th,field,()=>{syncState(node);node.__daelabStoryboardRender?.();});
     }
     thead.append(header);
     const tbody = document.createElement("tbody");
     table.append(thead, tbody);
     const emptyState = document.createElement("div");
-    emptyState.textContent = "请上传分镜文档，或点击下方“新增分镜”开始。配音旁白列不会导入。";
+    emptyState.textContent = "请上传分镜文档，或点击下方“新增分镜”开始。旁白保留在原文字段，不加入生图提示词。";
     emptyState.style.cssText = "height:210px;display:flex;align-items:center;justify-content:center;color:#7f899d;text-align:center;padding:20px";
     tableShell.append(table, emptyState);
 
@@ -400,10 +455,11 @@ function createPanel(node) {
     });
     const counter = document.createElement("span");
     counter.style.cssText = "margin-left:auto;color:#9da7ba";
-    const run = makeButton("一键运行", () => {
+    const run = makeButton(node.type === "DAELAB.StoryboardImport" ? "输出分镜任务" : "一键运行", () => {
         const state = node.__daelabStoryboardState;
         const missing = state.shots.findIndex((shot) => !String(shot.image_prompt || shot.prompt || "").trim());
-        if (!state.shots.length || missing >= 0) {
+        const connected = node.inputs?.some(input => input.name === "imported_storyboard" && input.link != null);
+        if (!connected && (!state.shots.length || (missing >= 0 && node.type !== "DAELAB.StoryboardImport"))) {
             showToast("warn", "无法运行", !state.shots.length ? "请先添加分镜" : `第 ${missing + 1} 个分镜缺少画面提示词`);
             return;
         }
@@ -414,9 +470,24 @@ function createPanel(node) {
             showToast("error", "运行失败", String(error?.message || error));
         });
     }, true);
-    footer.append(add, counter, run);
+    const restore = (redo=false) => {
+        const state=node.__storyboardHistory?.restore(serializeStoryboard(node.__daelabStoryboardState),redo);
+        if(!state)return;
+        node.__storyboardEditGroup=null;node.__daelabStoryboardState=state;
+        setWidgetValue(node,"storyboard_data",serializeStoryboard(state));
+        rerender(node,tbody,emptyState);
+    };
+    const undo=makeButton("撤销",()=>restore()),redo=makeButton("重做",()=>restore(true));
+    undo.title="撤销上一步表格操作";redo.title="重做表格操作";
+    node.__storyboardHistoryUI=()=>{undo.disabled=!node.__storyboardHistory?.undoStack.length;redo.disabled=!node.__storyboardHistory?.redoStack.length;};
+    node.__storyboardDirtyUI=()=>{root.querySelectorAll('[data-input-changed]').forEach(e=>{e.hidden=!node.__daelabStoryboardState.shots.find(s=>s.id===e.dataset.inputChanged)?.input_changed;});};
+    footer.append(add, undo, redo, counter, run);
+    footer.style.flexWrap="wrap";footer.style.height="auto";footer.style.minHeight="34px";footer.style.maxHeight="76px";
+    root.addEventListener("focusin",e=>{if(e.target.matches("input,textarea"))node.__storyboardEditGroup=crypto.randomUUID();});
+    root.addEventListener("focusout",()=>{node.__storyboardEditGroup=null;});
+    root.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"&&!e.target.matches("input,textarea")){e.preventDefault();e.stopPropagation();restore(e.shiftKey);}},true);
 
-    root.append(toolbar, styleRow, tableShell, footer);
+    root.append(toolbar, ...(node.comfyClass === "DAELAB.StoryboardImport" || node.type === "DAELAB.StoryboardImport" ? [] : [styleRow]), tableShell, footer);
     root.addEventListener("dragover", (event) => { event.preventDefault(); root.style.borderColor = "#91a8da"; });
     root.addEventListener("dragleave", () => { root.style.borderColor = "#3b4352"; });
     root.addEventListener("drop", (event) => {
@@ -426,14 +497,18 @@ function createPanel(node) {
     });
 
     const render = () => {
+        for(const field of node.__daelabStoryboardState.column_order) header.append(headers[field]);
+        header.append(headers.actions);
         renderRows(node, tbody, emptyState);
         counter.textContent = `共 ${node.__daelabStoryboardState.shots.length} 个分镜`;
         updateSource();
+        node.__storyboardHistoryUI?.();
     };
     return { root, render };
 }
 
 function compactFit(node) {
+    if (!node.graph) return;
     const { width } = storyboardPanelLayout(node.size?.[0] || DEFAULT_WIDTH);
     node.__daelabStoryboardProgrammaticResize = true;
     try {
@@ -447,8 +522,8 @@ function compactFit(node) {
 }
 
 function install(node) {
-    if (!node || typeof node.addDOMWidget !== "function") return;
-    recoverShiftedWorkflowValues(node);
+    if (!node?.graph || typeof node.addDOMWidget !== "function") return;
+    if (node.type !== "DAELAB.StoryboardImport" && node.comfyClass !== "DAELAB.StoryboardImport") recoverShiftedWorkflowValues(node);
     const storyboardWidget = widget(node, "storyboard_data");
     node.__daelabStoryboardState = normalizeStoryboard(storyboardWidget?.value || "");
     hideNativeWidget(node, "storyboard_data");
@@ -498,7 +573,7 @@ if (globalThis.__DAELAB_STORYBOARD_EXTENSION_VERSION !== EXTENSION_VERSION) {
     app.registerExtension({
         name: "DAELab.ComfyTV.Storyboard",
         async beforeRegisterNodeDef(nodeType, nodeData) {
-            if (nodeData.name !== NODE_TYPE) return;
+            if (![NODE_TYPE, "DAELAB.StoryboardImport"].includes(nodeData.name)) return;
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 onNodeCreated?.apply(this, arguments);
@@ -507,12 +582,22 @@ if (globalThis.__DAELAB_STORYBOARD_EXTENSION_VERSION !== EXTENSION_VERSION) {
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = function () {
                 onConfigure?.apply(this, arguments);
-                scheduleInstall(this);
+                delete this.__storyboardHistory;
+                if (this.graph) install(this);
+                else scheduleInstall(this);
+            };
+            const onAdded = nodeType.prototype.onAdded;
+            nodeType.prototype.onAdded = function () {
+                onAdded?.apply(this, arguments);
+                install(this);
             };
             const onRemoved = nodeType.prototype.onRemoved;
             nodeType.prototype.onRemoved = function () {
                 removeOwnedWidgets(this, OWNER_PROPERTY);
                 delete this.__daelabStoryboardRender;
+                delete this.__storyboardHistoryUI;
+                delete this.__storyboardDirtyUI;
+                delete this.__storyboardHistory;
                 onRemoved?.apply(this, arguments);
             };
         },

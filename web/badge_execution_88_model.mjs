@@ -1,5 +1,5 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
-import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
 import { isBadge88, localMaterialNodeId88, usesLocalMaterials88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
 import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-content-1';
 

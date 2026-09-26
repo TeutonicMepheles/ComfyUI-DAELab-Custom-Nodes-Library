@@ -75,7 +75,7 @@ if __name__ == '__main__':
     source = directory / '#8.7 - Badge Workflow.json'
     before = source.read_bytes()
     result = build(json.loads(before))
-    target = directory / '#8.8 - Badge Workflow.json'
+    target = directory / '#8.8-Legacy - Badge Local Materials.json'
     target.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     assert source.read_bytes() == before
     print(f'{target}\n8.7 SHA256: {hashlib.sha256(before).hexdigest()}')

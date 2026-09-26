@@ -1,5 +1,6 @@
 """Badge 8.7 region masks; reuse the 8.8 execution engine without changing its defaults."""
 import math
+import json
 import re
 import numpy as np
 import torch
@@ -87,6 +88,8 @@ def prepare(request):
         definitions[group['id']] = fitted_definition
         prompt = material_strength_prompt(legacy.masked_prompt(legacy.material_prompt(group)),group.get('material_strength',1))
         prompt = legacy.join(prompt,legacy.render('constraints/region_boundary'))
+        if request.get('sampling_policy') == 'target_only':
+            prompt = legacy.join(prompt, legacy.render('constraints/local_repair_88'))
         regions.append((mask, prompt, group))
     prepared['regions'] = regions
     prepared['mask'] = torch.stack([mask for mask,_,_ in regions]).amax(dim=0)
@@ -106,24 +109,23 @@ class Badge87RegionExecutor(BadgeApp88V1):
     def generation_model(self, request):
         return legacy.selected_model(request)
 
-    def bind_region_mask(self, inputs, mask, config):
+    def bind_region_mask(self, inputs, mask, config, graph=None, name=None):
         if self.mask_transport(config) != 'opaque_locator_image':
             return super().bind_region_mask(inputs, mask, config)
-        # The tested alpha-mask route returned black holes for metal recoloring.
-        # Supply an opaque locator image; exact compositing still uses the same MASK.
+        # Keep the original surface visible to the model. Alpha-mask generation
+        # can return black holes and apply the requested appearance outside them.
         inputs['model.images.image_2'] = mask.unsqueeze(-1).repeat(1, 1, 1, 3)
+        if config.get('color_policy') != 'material_intrinsic':
+            inputs['prompt'] = legacy.join(legacy.render('references/region_locator'), inputs['prompt'])
+            return
         base = inputs['model.images.image_1']
-        material = legacy.load_materials()[config['material_id']]
-        color = material['intrinsic_color_hex']
-        target = torch.tensor([int(color[i:i+2], 16)/255 for i in (1,3,5)], device=base.device, dtype=base.dtype)
-        luminance = base.mean(dim=-1)
-        shading = torch.ones_like(luminance)
-        for batch in range(base.shape[0]):
-            selected = mask[batch] > .5
-            if selected.any():
-                shading[batch] = (luminance[batch] / luminance[batch][selected].median().clamp_min(.05)).clamp(.8, 1.15)
-        guide = (target * shading.unsqueeze(-1)).clamp(0, 1)
-        inputs['model.images.image_1'] = torch.where(mask.unsqueeze(-1) > .5, guide, base)
+        color = legacy.load_materials()[config['material_id']]['intrinsic_color_hex']
+        if graph is None:
+            from .intrinsic_guide import Badge87IntrinsicGuide
+            inputs['model.images.image_1'] = Badge87IntrinsicGuide().prepare(base, mask, color)[0]
+        else:
+            inputs['model.images.image_1'] = graph.node('DAELAB.Badge87IntrinsicGuideV1',
+                id=f'{name}_intrinsic_guide', image=base, mask=mask, color=color).out(0)
         inputs['prompt'] = legacy.join(legacy.render('references/intrinsic_locator'), inputs['prompt'])
 
 
@@ -137,8 +139,16 @@ class Badge87RegionExecutor(BadgeApp88V1):
         # Keep the optical color constraint and exact mask composite instead.
         return None
 
-    def constraint_options(self):
-        return {"preserve_base_lightness": True}
+    def constraint_options(self, config=None):
+        from .material_policy import generation_policy
+        return generation_policy(config or {}).get('optical_constraints', {})
+
+    def inspect_region(self, graph, key, request, config, base, raw, corrected, composite, mask):
+        from .material_policy import generation_policy
+        policy = {**generation_policy(config).get('validation', {}), 'material_id': config['material_id']}
+        return graph.node('DAELAB.Badge87MaterialDiagnosticsV1', id=f'diagnostics_{key}',
+                          base=base, raw=raw, corrected=corrected, composite=composite, mask=mask,
+                          policy_json=json.dumps(policy), save_stages=request.get('diagnostics') is True).out(0)
 
     def geometry_report(self, prepared):
         g = prepared['region_geometry']

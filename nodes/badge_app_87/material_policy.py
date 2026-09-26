@@ -6,7 +6,11 @@ def generation_policy(config):
     catalog = json.loads((CONTENT / 'material_execution.json').read_text(encoding='utf-8'))
     material = config.get('material_id','baked_enamel')
     material = catalog.get('aliases',{}).get(material,material)
-    return {**catalog['default'], **catalog['materials'].get(material,{})}
+    default, override = catalog['default'], catalog['materials'].get(material,{})
+    result = {**default, **override}
+    for key in ('optical_constraints', 'validation'):
+        result[key] = {**default.get(key, {}), **override.get(key, {})}
+    return result
 
 def material_config(config):
     result = dict(config or {})

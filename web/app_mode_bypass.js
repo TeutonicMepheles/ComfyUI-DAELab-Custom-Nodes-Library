@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import {
     createGraphTriggerWrapper,
+    findInspectorItem,
     getBuilderIoAssignments,
     getRootGraphSafely,
     getSelectedInputEntries,
@@ -111,7 +112,7 @@ function syncKeyedInspectorItems(graph) {
 
     for (const entry of getSelectedInputEntries(graph)) {
         if (!entry.node) continue;
-        const element = itemsByKey.get(entry.key);
+        const element = findInspectorItem(itemsByKey, entry.key, graph.id);
         if (!element) continue;
         if (!isNodeAvailableInAppMode(entry.node)) setElementState(element, "hidden");
     }
@@ -157,7 +158,7 @@ function refreshOfficialInspectorIfNeeded(graph, activatedNodes, itemsByKey) {
     if (!activatedNodes.size || !document.querySelector('[data-testid="linear-widgets"]')) return;
 
     const hasMissingActivatedInput = getSelectedInputEntries(graph).some(
-        (entry) => activatedNodes.has(entry.node) && !itemsByKey.has(entry.key)
+        (entry) => activatedNodes.has(entry.node) && !findInspectorItem(itemsByKey, entry.key, graph.id)
     );
     if (!hasMissingActivatedInput) return;
 

@@ -1,4 +1,24 @@
-# Badge 8.8: local region materials
+# Badge 8.8: target-image-only sampling (2026-09-18)
+
+The current `#8.8 - Badge Workflow.json` is copied from current 8.7. It reuses
+the same target selection, draft state, material lists, manual masks, templates,
+generation controls, and optical/boundary processing. The only product difference
+is that local colors are sampled from the current edit target. The source switch
+and map generation/preview controls are hidden; changing the edit target updates
+the existing reference and sampling path.
+
+`extra.daelabBadgeTargetOnlyV1.version=1` selects this variant, distinct from the
+historical experiment. `DAELAB.BadgeApp88TargetOnlyV1` delegates to current 8.7,
+clears stale map inputs, rejects `color_map` requests, and reports version 8.8.
+The authoritative region preview applies the same policy. Shared App Mode Bypass
+includes the new executor. No segmentation or material semantics are changed.
+
+Build with `python tools/build_badge88_target_workflow.py`. It generates repository
+and workspace workflow copies independently from their respective 8.7 files,
+verifies that 8.7 stays byte-identical, and preserves the old 8.8 as
+`#8.8-Legacy - Badge Local Materials.json` before replacement.
+
+## Historical 8.8 local region materials experiment
 
 `DAELAB.BadgeApp88V1` adds `edit_mode: region_materials` for local color selections.
 The workflow opts in with `extra.daelabBadgeLocalMaterialsV1.version: 1`; its

@@ -1,7 +1,7 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
 import { queueBadge87 } from './badge_execution_87_queue.mjs?v=20260916-content-1';
-import { promptForRequest, BADGE87_IMAGE_MODEL } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { promptForRequest, BADGE87_IMAGE_MODEL } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
 import { normalizeImageSelection, buildImageViewPath } from './app_mode_load_image_preview_model.mjs';
 
 export async function generateGptColorMap87(graph, pixels, {cancelled, regenerate=false, allowGenerate=false}) {
@@ -34,7 +34,7 @@ export async function generateGptColorMap87(graph, pixels, {cancelled, regenerat
         }
         if(!history) throw new Error(badgeText("color_map_87.text_003"));
         if(history.status?.status_str==='error') throw new Error(history.status.messages?.find(([type])=>type==='execution_error')?.[1]?.exception_message || badgeText("color_map_87.text_004"));
-        const image = history.outputs?.['113']?.images?.[0];
+        const image = history.outputs?.badge87_color_map?.badge87_auxiliary_images?.[0];
         if(!image) throw new Error(badgeText("color_map_87.text_005"));
         if(cancelled()) return null;
         record = {model,sourceKey,source,image:normalizeImageSelection(image),quality,revision:request.map_revision};

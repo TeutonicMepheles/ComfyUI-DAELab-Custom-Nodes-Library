@@ -26,6 +26,35 @@ with mock.patch.dict(sys.modules, {"server": server_stub}):
 
 
 class DAELabStoryboardImportTests(unittest.TestCase):
+    def test_docx_preview_preserves_tables_rows_images_and_original_text(self):
+        import io
+        from docx import Document
+        from PIL import Image
+        doc = Document()
+        for _ in range(2):
+            table = doc.add_table(rows=1, cols=4)
+            for cell, value in zip(table.rows[0].cells, ["镜号", "画面内容", "旁白", "参考图"]):
+                cell.text = value
+            cells = table.add_row().cells
+            cells[0].text = "01"
+            cells[2].text = "保留旁白"
+            blob = io.BytesIO()
+            Image.new("RGB", (4, 4), "red").save(blob, format="PNG")
+            blob.seek(0)
+            cells[3].paragraphs[0].add_run().add_picture(blob)
+        payload = io.BytesIO()
+        doc.save(payload)
+        result = module.preview_storyboard_document("test.docx", payload.getvalue())
+        self.assertEqual(len(result["tables"]), 2)
+        self.assertEqual(result["tables"][0]["rows"][1][2], "保留旁白")
+        self.assertEqual(len(result["assets"]), 1)
+        self.assertEqual(result["tables"][1]["images"]["1:3"], [result["assets"][0]["id"]])
+        self.assertNotIn("dialogue", result["tables"][0]["mapping"])
+
+    def test_preview_allows_unknown_headers_for_manual_mapping(self):
+        result = module.preview_storyboard_document("test.csv", b"a,b\n1,hello\n")
+        self.assertEqual(result["tables"][0]["rows"][1], ["1", "hello"])
+
     def test_business_csv_ignores_voiceover_and_allows_blank_notes(self):
         payload = (
             "镜号,时长,画面内容,配音旁白,镜头备注,参考图\n"

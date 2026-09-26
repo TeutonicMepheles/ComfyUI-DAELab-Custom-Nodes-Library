@@ -1,8 +1,13 @@
 export const MODE_ALWAYS = 0;
 
 export const DAELAB_NODE_TYPES = Object.freeze([
+  "DAELAB.LibTV.VideoGenerate",
   "DAELAB.BadgeApp87V1",
   "DAELAB.Badge87BoundaryCompositeV1",
+  "DAELAB.Badge87IntrinsicGuideV1",
+  "DAELAB.Badge87MaterialDiagnosticsV1",
+  "DAELAB.Badge87AuxiliaryImageV1",
+  "DAELAB.BadgeApp88TargetOnlyV1",
   "DAELAB.BadgeApp88V1",
   "DAELAB.BadgeApp87RegionAlignV1",
     "BooleanList",
@@ -12,6 +17,7 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "SeedreamExhibitionPromptBuilder",
     "GPTImage2Config",
     "DAELAB.ComfyTV.GPTImageStoryboardStage",
+    "DAELAB.StoryboardImport",
     "GPTImage2MaterialPrompt",
     "DAELabBadgeMaterialRegionV1",
     "BadgeReliefPrompt",
@@ -116,6 +122,10 @@ export function resolveNode(graph, nodeId) {
 
 export function makeWidgetKey(nodeId, widgetName) {
     return `${nodeId}:${widgetName}`;
+}
+
+export function findInspectorItem(itemsByKey, key, graphId) {
+    return itemsByKey.get(key) ?? (graphId ? itemsByKey.get(`${graphId}:${key}`) : undefined);
 }
 
 export function normalizeLinearInputReference(nodeReference, widgetName) {

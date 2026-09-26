@@ -2,7 +2,7 @@ import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { isBadge88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
 import { normalizeMaterialRegionConfig } from './badge_material_region_v1_model.mjs?v=20260917-target87-1';
 import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
-import { isBadge87 } from './badge_execution_87_model.mjs?v=20260917-target87-1';
+import { isBadge87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
 import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
 import { normalizeMaskV1Config } from './multi_color_mask_v1_model.mjs';
 

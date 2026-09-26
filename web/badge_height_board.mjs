@@ -1,4 +1,4 @@
-import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { badgeText } from './badge_ui_text.mjs?v=20260918-height-tips-1';
 import { bindCompactNumberDrag } from './compact_color_group_controls.mjs?v=20260916-content-1';
 import { refinedBadge87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
 import { migrateHeightBoard, heightBoardPreview, heightAlpha, moveHeightColors, insertHeightTier, deleteHeightTier, fixedHeightBoard87, MAX_HEIGHT_SOLID_TIERS_87, appendLowestHeightTier87 } from './badge_height_board_model.mjs?v=20260916-ui-2';
@@ -76,12 +76,16 @@ export function createHeightBoard(graph, live, onPreview, onEdit) {
         const count = el('div', '', header); count.className = 'badge-height-count'; count.setAttribute('role','group'); count.setAttribute('aria-label',refined ? badgeText("height_board.text_015") : badgeText("height_board.text_016"));
         el('span', badgeText("height_board.text_017", {p0: (board.count + (refined ? 1 : 0))}), count);
         if (refined && board.count > MAX_HEIGHT_SOLID_TIERS_87) el('p', badgeText("height_board.text_018"), element).setAttribute('role','alert');
-        const u = btn(badgeText("height_board.text_019"), header, () => { if (undo) { const previous = undo; commit(previous); undo = null; render(); } }); u.disabled = !undo;
+        if (!refined) {
+            const u = btn(badgeText("height_board.text_019"), header, () => { if (undo) { const previous = undo; commit(previous); undo = null; render(); } }); u.disabled = !undo;
+        }
         const preview = btn(badgeText("height_board.text_020"), header, onPreview); preview.className = 'badge-build-mask-preview'; preview.dataset.heightPreview = '';
-        const fallbackLabel = el('label', badgeText("height_board.text_021"), element); fallbackLabel.className = 'badge-height-fallback';
-        const fallback = el('select', '', fallbackLabel); tierOptions(fallback); fallback.value = board.fallback;
-        fallback.onchange = () => commit({ ...board, fallback: Number(fallback.value) });
-        el('span', badgeText("height_board.text_022"), fallbackLabel);
+        if (!refined) {
+            const fallbackLabel = el('label', badgeText("height_board.text_021"), element); fallbackLabel.className = 'badge-height-fallback';
+            const fallback = el('select', '', fallbackLabel); tierOptions(fallback); fallback.value = board.fallback;
+            fallback.onchange = () => commit({ ...board, fallback: Number(fallback.value) });
+            el('span', badgeText("height_board.text_022"), fallbackLabel);
+        }
         for (let tier = board.count; tier >= 0; tier--) {
             const row = el('div', '', element); row.className = 'badge-height-tier'; row.dataset.tier = tier;
             const heading = el('div', '', row); heading.className = 'badge-height-tier-title';
@@ -136,7 +140,10 @@ export function createHeightBoard(graph, live, onPreview, onEdit) {
                 while (used.has(`#${n.toString(16).padStart(6, '0')}`)) n--;
                 commit({ ...board, groups: [...board.groups, { id: crypto.randomUUID(), color: `#${n.toString(16).padStart(6, '0')}`, threshold: 30, tier }] });
             }); add.className='badge-height-circle'; add.title=badgeText("height_board.text_046"); add.setAttribute('aria-label',badgeText("height_board.text_047", {p0: (title(tier))})); add.disabled = board.groups.length >= 16;
-            if(!tierGroups.length) el('span',badgeText("height_board.text_048"),colorList).className='badge-height-empty';
+            if(!tierGroups.length) {
+                const tip = el('span',badgeText(refined ? 'height_board.empty_tip' : 'height_board.text_048'),colorList);
+                tip.className='badge-height-empty'; tip.setAttribute('role','status');
+            }
         }
         if (refined) {
             const addTier = btn(badgeText('refinement.add_height'), element, () => commit(appendLowestHeightTier87(board), 1));

@@ -9,6 +9,9 @@ from PIL import Image
 def preview_geometry(request):
     from .region_materials import prepare
     request = dict(request)
+    if request.get('sampling_policy') == 'target_only':
+        from ..badge_app_88.target_only import target_request
+        request = target_request(request)
     request.update(stage='local', workflow_version='8.7', interaction_revision=2, apply=False)
     if request.get('edit_mode') not in ('material','region_materials'):
         raise ValueError('Geometry preview requires local material selection.')

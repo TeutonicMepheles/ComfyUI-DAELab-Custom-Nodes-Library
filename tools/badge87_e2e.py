@@ -44,7 +44,9 @@ def main():
             if entry:
                 report = entry.get('outputs',{}).get('200',{}).get('badge87_report',[{}])[0]
                 error = next((m[1].get('exception_message','Execution failed') for m in entry.get('status',{}).get('messages',[]) if m[0]=='execution_error'),None)
-                return {'prompt_id':pid,'status':entry['status']['status_str'],'seconds':round(time.time()-started,2),'images':entry.get('outputs',{}).get('113',{}).get('images',[]),'report':report,'error':error}
+                diagnostics = [record for value in entry.get('outputs',{}).values()
+                               for record in value.get('badge87_material_diagnostics',[])]
+                return {'prompt_id':pid,'status':entry['status']['status_str'],'seconds':round(time.time()-started,2),'images':entry.get('outputs',{}).get('113',{}).get('images',[]),'report':report,'diagnostics':diagnostics,'error':error}
             time.sleep(2)
         raise TimeoutError('Generation still pending: '+pid)
     for case in json.loads(Path(args.cases).read_text(encoding='utf-8')):

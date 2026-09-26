@@ -1,0 +1,10 @@
+{
+  "name": "daelab-badge87-layout-editor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": { "grapesjs": "0.23.6" }
+}

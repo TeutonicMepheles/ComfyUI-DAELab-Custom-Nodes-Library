@@ -1,6 +1,10 @@
 // Native image drags expose their original ComfyUI /view URL. Never import
 // workflow metadata or fetch arbitrary remote URLs when choosing an edit target.
 export function generatedImageFromDrop87(transfer, baseURL) {
+    return localImageFromDrop(transfer, baseURL, ['output', 'temp']);
+}
+
+export function localImageFromDrop(transfer, baseURL, allowedTypes = ['input', 'output', 'temp']) {
     const candidates = [];
     for (const type of ['text/uri-list', 'text/plain']) {
         candidates.push(...String(transfer?.getData(type) || '').split(/\r?\n/).filter(line => !line.startsWith('#')));
@@ -17,7 +21,7 @@ export function generatedImageFromDrop87(transfer, baseURL) {
             if (url.origin !== base.origin || !/\/(?:api\/)?view$/.test(url.pathname)) continue;
             const filename = url.searchParams.get('filename');
             const type = url.searchParams.get('type') || 'output';
-            if (!filename || !['output', 'temp'].includes(type)) continue;
+            if (!filename || !allowedTypes.includes(type)) continue;
             return {filename, subfolder: url.searchParams.get('subfolder') || '', type};
         } catch { /* Ignore unrelated drag payloads. */ }
     }

@@ -226,3 +226,36 @@ test('all five 8.7 ratios support both tiers after catalog refresh and serializa
         if (preset.size === 'Custom') assert.equal(generationParameters(preset)['model.size'], 'Custom');
     }
 });
+
+
+test('color map is auxiliary and never targets the output gallery', () => {
+    const prompt = promptForRequest({stage:'color_map'}, 207);
+    assert.equal(prompt['113'], undefined);
+    assert.equal(prompt.badge87_color_map.class_type, 'DAELAB.Badge87AuxiliaryImageV1');
+    assert.deepEqual(prompt.badge87_color_map.inputs.images, ['207', 0]);
+    assert.equal(promptForRequest({stage:'build'})['113'].class_type, 'SaveImage');
+});
+
+
+test('target-only 8.8 ignores stale map state and keeps the selected target', () => {
+ const {g,set}=fixture();
+ g.extra.daelabBadgeTargetOnlyV1={version:1};
+ for(const [k,v] of [['badge.post.local',true],['badge.post.local.selection.color',true],['badge.post.local.selection.polygon',false],['badge.post.local.semantic',true],['badge.post.local.material',false],['badge.post.local.color_id_map',true]])set(k,v);
+ g.getNodeById(146).widgets_values_named.image='target-only.png';
+ g.extra.daelabBadgePrototypeV1.gptColorMap={image:{filename:'stale-map.png',subfolder:'',type:'output'}};
+ const before=JSON.stringify(g.extra);
+ const request=requestForStage(g,'local').request;
+ assert.equal(request.image.filename,'target-only.png');
+ assert.equal(request.use_map,false);assert.equal(request.color_map,undefined);
+ assert.equal(request.workflow_version,'8.8');assert.equal(request.sampling_policy,'target_only');
+ assert.equal(g.extra.daelabBadgePrototypeV1.gptColorMap.image.filename,'stale-map.png');
+ for(const apply of [false,true]) {
+  const prompt=promptForRequest({...request,apply});
+  assert.equal(prompt['200'].class_type,'DAELAB.BadgeApp88TargetOnlyV1');
+  if(apply)assert.equal(prompt['113'].inputs.filename_prefix,'Badge88/local');
+  else assert.equal(prompt['113'],undefined);
+ }
+ assert.throws(()=>promptForRequest({...request,stage:'color_map'}),/仅使用编辑目标图/);
+ delete g.extra.daelabBadgeTargetOnlyV1;
+ assert.throws(()=>requestForStage(g,'local'),/GPT/);
+});

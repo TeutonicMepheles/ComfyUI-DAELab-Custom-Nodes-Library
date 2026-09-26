@@ -244,6 +244,9 @@ def prepare(request):
 
 
 class BadgeApp87V1:
+    def photography_prompt(self, prompt, stage):
+        return prompt
+
     @classmethod
     def INPUT_TYPES(cls):
         return {'required': {'request_json': ('STRING', {'default': '{}', 'multiline': True})}}
@@ -323,6 +326,7 @@ class BadgeApp87V1:
             for axis, value in (('width', w), ('height', h))
         }
         def generate(name, prompt, base=None, mask=None, height=None, seed_offset=0, n=1, original=None):
+            prompt = self.photography_prompt(prompt, stage)
             inputs = {'prompt': prompt, 'model': model, 'model.size': f'{w}x{h}' if (w,h) in ((1024,1024),(1024,1536),(1536,1024),(2048,2048),(2048,1152),(1152,2048)) else 'Custom', 'model.custom_width': model_dimensions['width'], 'model.custom_height': model_dimensions['height'], 'model.background': 'opaque', 'model.quality': request.get('quality', 'low'), 'n': 1, 'seed': (int(request.get('seed', 0))+seed_offset) % 2147483647}
             inputs['n'] = n
             if base is not None:
@@ -340,11 +344,16 @@ class BadgeApp87V1:
             if stage == 'local':
                 inputs['prompt'] = join(inputs['prompt'], render('constraints/local_noise_convergence'))
             report.setdefault('prompt_calls', []).append({'call': name, **describe(inputs['prompt'])})
+            if name == 'generate' and stage == 'local':
+                report['effective_prompt'] = str(inputs['prompt'])
             inputs['prompt'] = str(inputs['prompt'])
             return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
         from .prompts import color_finish_prompt
         # Masked calls use one image. Color references belong to the unmasked finish.
         initial_prompt = prepared['prompt']
+        single_pass_build = stage == 'build' and request.get('interaction_revision') == 2
+        if single_pass_build and prepared['base'] is not None:
+            initial_prompt = join(initial_prompt, render('constraints/build_color_accuracy'))
         palette = prepared.get('color_reference')
         studio_reference = palette if palette is not None else prepared.get('original')
         if stage == 'studio' and studio_reference is not None:
@@ -384,7 +393,7 @@ class BadgeApp87V1:
             reference = prepared.get('original') if stage == 'local' else prepared.get('base') if stage == 'build' and not request.get('prompt_only') else None
             if palette is not None and stage in ('build', 'local'):
                 reference = palette
-            if reference is not None:
+            if reference is not None and not single_pass_build:
                 exceptions = []
                 configs = [request.get('material', {})] + [config for _, _, config in prepared['regions']]
                 for config in configs:

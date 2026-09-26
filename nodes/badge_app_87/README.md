@@ -1,5 +1,7 @@
 # Badge 8.7 Stage Execution
 
+当前新版 8.7（`interaction_revision=2`）效果图生成将保色要求合入首次生成提示词：图1负责原稿底色，高度图仅负责浮雕；保留用户改色和材质本色例外。首次结果直接作为最终输出，不再执行 `color_finish_*` 校色调用。批量生成仍由首次调用的 `n` 指定数量，纯提示词生成不追加依赖原稿的保色说明。旧版兼容请求、局部编辑与棚拍阶段保持原有逻辑。
+
 节点 ID：`DAELAB.BadgeApp87V1`。分类：`DAELab/Badge/App`。
 
 配套工作流为 `user/default/workflows/#8.7 - Badge Workflow.json`。它复制 #8.6 APP Mode Prototype 的控件和布局，增加独立的阶段执行适配器。已有 #8.6 生成工作流和原型 JSON 不变。通过 `daelabBadgeExecutionV1.version=1` 启用真实执行；没有此标记的原型继续使用原来的模拟流程。
@@ -104,3 +106,12 @@ python tools/badge87_verify_outputs.py --workspace '<ComfyUI>' --comfy-core '<Co
 - 文字使用 `content/badge87/prompts/` 模板；生成策略使用 `content/badge87/material_execution.json`。当前亚金/亚银采用目录中的材质本色与不透明定位图，其他材质默认保色。材质生成策略不进入选区算法。
 
 测试记录位于工作区 `output/badge87-region-boundary-20260917/`。真实 Sunburst 的烤漆、亚银、闪粉均完成，范围外像素误差为零；复杂细金线附近仍有部分旧青绿色残边，不能视为所有边缘已通过视觉验收。低分辨率、弱边界和不可可靠分离的混色像素需要手动修正或后续更强的分割方法。
+
+## 局部材质可见性与辅助输出（2026-09-18）
+
+- 复现闪粉生成时，alpha-mask 通路将大部分选区返回为黑色，并在保护区生成材质；保亮度处理又将黑块提亮。当前 8.7 材质列表与 revision 2 单材质入口默认使用完整效果图和独立不透明定位图。保色材质原图不预染色，金银继续复用固有色引导节点；没有改变选区算法或强度滑条。
+- 光学参数和可见性阈值统一由 `material_execution.json` 配置，默认不再把选区亮度中位数强行拉回旧材质。材质编辑使用 `constraints/local_material_quality.md`，语义编辑仍使用原去噪模板。
+- `DAELAB.Badge87MaterialDiagnosticsV1` 在发布前检查原始候选黑洞、透明区域、最终范围外差异和最低可见变化；闪粉额外检查新增局部亮点比例。检查不是语义分类，报告明确保留 `material_appearance=requires_visual_review`。不合格结果报错，不自动叠加程序纹理或额外付费重试。
+- 请求设置 `diagnostics: true` 时，将原始 RGBA、用于比较的 RGB、保色结果、最终合成、原图、遮罩及指标保存到 `output/Badge87/diagnostics/<id>/`。默认只返回诊断报告，不写阶段图，也不发送图库图片事件。`tools/badge87_e2e.py` 会收集运行时诊断。
+- 色块分区图复用原生成按钮、原任务队列与 `meta.gptColorMap` 状态，使用 `DAELAB.Badge87AuxiliaryImageV1` 复用原生 SaveImage 文件写入，但仅返回 `badge87_auxiliary_images`。前端从独立 `badge87_color_map` 节点读取，不进入 113 成品输出及左侧列表。已经存在的历史输出不删除。
+- 当前测试记录：`output/badge87-material-visibility-20260918/`，同一源图/同一选区的闪粉、亚银、透明漆均完成真实模型测试，保护区差异为零；复杂细边仍可能残留未选中的原色，需要单独处理范围识别。

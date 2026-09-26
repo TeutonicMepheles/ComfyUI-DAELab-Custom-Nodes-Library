@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import base64
+import hashlib
 import io
 import re
 import unicodedata
@@ -357,9 +359,77 @@ async def import_storyboard_document(request: web.Request) -> web.Response:
             return web.json_response({"error": "document is larger than 20 MB"}, status=400)
 
     try:
-        result = parse_storyboard_document(field.filename or "", bytes(payload))
+        result = (preview_storyboard_document if request.query.get("preview") == "1" else parse_storyboard_document)(field.filename or "", bytes(payload))
     except StoryboardImportError as exc:
         return web.json_response({"error": str(exc)}, status=400)
     except Exception:
         return web.json_response({"error": "document could not be parsed"}, status=400)
     return web.json_response(result)
+
+
+def preview_storyboard_document(filename: str, payload: bytes) -> dict:
+    """Read-only import draft. Embedded images are not persisted until UI confirmation."""
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS or not payload or len(payload) > MAX_DOCUMENT_SIZE:
+        raise StoryboardImportError("请选择支持的文档，文件大小须在 20 MB 以内")
+    warnings, assets, tables = [], [], []
+    if suffix == ".docx":
+        _archive_preflight(payload)
+        from docx import Document
+        from PIL import Image
+        document = Document(io.BytesIO(payload))
+        title = next((p.text for p in document.paragraphs if p.text.strip()), "")
+        asset_by_rel = {}
+        asset_bytes = 0
+        for rel_id, rel in document.part.rels.items():
+            if "image" not in rel.reltype or rel.is_external:
+                continue
+            try:
+                blob = rel.target_part.blob
+                with Image.open(io.BytesIO(blob)) as image:
+                    if image.width * image.height > 25_000_000:
+                        raise ValueError("image too large")
+                    converted = io.BytesIO()
+                    image.convert("RGBA").save(converted, format="PNG")
+                data = converted.getvalue()
+                if asset_bytes + len(data) > 32 * 1024 * 1024:
+                    raise ValueError("embedded images exceed preview limit")
+                asset = {"id": hashlib.sha256(blob).hexdigest(), "data_url": "data:image/png;base64," + base64.b64encode(data).decode(), "name": "reference.png"}
+                asset_by_rel[rel_id] = asset["id"]
+                if not any(a["id"] == asset["id"] for a in assets):
+                    assets.append(asset)
+                    asset_bytes += len(data)
+            except Exception:
+                warnings.append("有图片无法读取，请在预览中手动补图")
+        for ti, table in enumerate(document.tables):
+            rows, images = [], {}
+            if len(table.rows) > MAX_ROWS:
+                warnings.append(f"表 {ti + 1} 超过 {MAX_ROWS} 行，超出部分未读取")
+            for ri, row in enumerate(table.rows[:MAX_ROWS]):
+                if len(row.cells) > MAX_COLUMNS:
+                    warnings.append(f"表 {ti + 1} 第 {ri + 1} 行超过 {MAX_COLUMNS} 列")
+                rows.append([c.text for c in row.cells[:MAX_COLUMNS]])
+                for ci, cell in enumerate(row.cells[:MAX_COLUMNS]):
+                    ids = [asset_by_rel.get(blip.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")) for blip in cell._tc.xpath(".//a:blip")]
+                    if any(ids):
+                        images[f"{ri}:{ci}"] = list(dict.fromkeys(i for i in ids if i))
+            tables.append({"rows": rows, "images": images})
+        numbered = _numbered_list_to_table(p.text for p in document.paragraphs)
+        if numbered:
+            tables.append({"rows": numbered, "images": {}})
+    else:
+        if suffix in {".xlsx", ".xlsm"}:
+            raw, title = _xlsx_tables(payload)
+        elif suffix == ".pdf":
+            raw, title = _pdf_tables(payload)
+        else:
+            raw, title = _text_tables(payload, suffix)
+        tables = [{"rows": t, "images": {}} for t in raw]
+        warnings.append("非 Word 文档最多读取 500 行、64 列；本版仅提取 Word 内嵌图片")
+    for ti, table in enumerate(tables):
+        rows = table["rows"]
+        hi = max(range(min(12, len(rows))), key=lambda i: len(_header_map(rows[i])), default=0)
+        table.update(id=ti, name=f"表 {ti + 1}", header_index=hi, mapping=_header_map(rows[hi]) if rows else {})
+    if not tables:
+        raise StoryboardImportError("未找到表格或编号分镜，请使用 Word 分镜表")
+    return {"filename": Path(filename).name, "document_title": title, "tables": tables, "assets": assets, "warnings": warnings}

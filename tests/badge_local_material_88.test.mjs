@@ -10,7 +10,8 @@ import { setExistingTarget87 } from '../web/badge_result_target_87.mjs';
 import {setLocalTargetSize87} from '../web/badge_refinement_87.mjs';
 
 function fixture(version = '8.8') {
-    const graph = JSON.parse(readFileSync(new URL(`../user/default/workflows/%23${version}%20-%20Badge%20Workflow.json`, import.meta.url)));
+    const name = version === '8.8' ? '%238.8-Legacy%20-%20Badge%20Local%20Materials.json' : `%23${version}%20-%20Badge%20Workflow.json`;
+    const graph = JSON.parse(readFileSync(new URL(`../user/default/workflows/${name}`, import.meta.url)));
     graph.getNodeById = id => graph.nodes.find(n => String(n.id) === String(id));
     graph.nodes.forEach(n => { n.mode = 0; });
     const h = readHierarchyState(graph.getNodeById(95));

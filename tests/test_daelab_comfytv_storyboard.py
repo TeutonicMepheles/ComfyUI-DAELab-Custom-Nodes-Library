@@ -58,6 +58,13 @@ with mock.patch.dict(sys.modules, {
 
 
 class DAELabStoryboardTests(unittest.TestCase):
+    def test_generated_result_retains_stable_shot_id(self):
+        rows = module.storyboard_image_rows({"shots": [{"id": "stable-shot", "image_prompt": "visual", "original_fields": [{"name": "dialogue", "value": "private narration"}]}]})
+        result = module._result_row(1, rows[0], "/view?filename=result.png")
+        self.assertEqual(result["shot_id"], "stable-shot")
+        self.assertEqual(result["prompt"], "visual")
+        self.assertNotIn("original_fields", rows[0])
+
     def test_registration_uses_isolated_daelab_id(self):
         self.assertEqual(module.NODE_ID, "DAELAB.ComfyTV.GPTImageStoryboardStage")
         self.assertIn(module.NODE_ID, module.NODE_CLASS_MAPPINGS)
@@ -72,6 +79,7 @@ class DAELabStoryboardTests(unittest.TestCase):
             "image_url": "/view?filename=ref.png&type=input",
         }]}))
         self.assertEqual(rows, [{
+            "id": "legacy-1",
             "shot_no": "01",
             "prompt": "浩瀚星空铺开",
             "camera_notes": "",

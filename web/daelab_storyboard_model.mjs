@@ -1,7 +1,12 @@
-export const STORYBOARD_SCHEMA_VERSION = 1;
+export const STORYBOARD_SCHEMA_VERSION = 2;
 export const STORYBOARD_PANEL_HEIGHT = 520;
 export const STORYBOARD_MIN_WIDTH = 920;
 export const STORYBOARD_DEFAULT_WIDTH = 1080;
+export const STORYBOARD_COLUMNS = ['shot_no','time_range','image_prompt','camera_notes','image_url'];
+
+export function normalizeColumnOrder(order) {
+    return [...new Set([...(Array.isArray(order)?order:[]).filter(k=>STORYBOARD_COLUMNS.includes(k)), ...STORYBOARD_COLUMNS])];
+}
 
 export function storyboardPanelLayout(width) {
     const numericWidth = Number(width);
@@ -16,6 +21,16 @@ export function storyboardPanelLayout(width) {
 
 function text(value) {
     return String(value ?? "").trim();
+}
+
+export function timeRangeNeedsReview(value) {
+    const source = text(value).normalize("NFKC").toLowerCase();
+    const token = "\\d+(?::\\d{1,2}){0,2}(?:\\.\\d+)?";
+    const range = source.match(new RegExp(`^(${token})\\s*(?:-|~|至|到)\\s*(${token})(?:s|秒)?$`));
+    const seconds = part => part.split(":").reduce((total, item) => total * 60 + Number(item), 0);
+    const single = source.match(new RegExp(`^(${token})\\s*(?:s|秒|sec|seconds?)?$`));
+    const duration = range ? seconds(range[2]) - seconds(range[1]) : single ? seconds(single[1]) : 0;
+    return duration <= 0 || duration > 3600;
 }
 
 export function durationFromTimeRange(value) {
@@ -38,7 +53,7 @@ export function durationFromTimeRange(value) {
 
 export function normalizeShot(source = {}, index = 0) {
     const timeRange = text(source.time_range);
-    const prompt = text(source.image_prompt || source.prompt);
+    const prompt = text(source.image_prompt ?? source.prompt);
     return {
         id: text(source.id) || `shot-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
         shot_no: text(source.shot_no) || String(index + 1).padStart(2, "0"),
@@ -48,6 +63,9 @@ export function normalizeShot(source = {}, index = 0) {
         image_prompt: prompt,
         camera_notes: text(source.camera_notes),
         image_url: text(source.image_url),
+        source: source.source || null,
+        original_fields: Array.isArray(source.original_fields) ? source.original_fields : [],
+        input_changed: Boolean(source.input_changed),
     };
 }
 
@@ -65,6 +83,7 @@ export function normalizeStoryboard(value) {
         schema_version: STORYBOARD_SCHEMA_VERSION,
         document_title: text(source?.document_title),
         source_filename: text(source?.source_filename),
+        column_order: normalizeColumnOrder(source?.column_order),
         shots: rawShots.map(normalizeShot),
     };
 }
@@ -74,16 +93,44 @@ export function serializeStoryboard(state) {
         schema_version: STORYBOARD_SCHEMA_VERSION,
         document_title: text(state?.document_title),
         source_filename: text(state?.source_filename),
+        column_order: normalizeColumnOrder(state?.column_order),
         shots: (state?.shots || []).map((shot, index) => ({
+            id: shot.id,
+            source: shot.source || null,
+            original_fields: shot.original_fields || [],
+            input_changed: Boolean(shot.input_changed),
             shot_no: text(shot.shot_no) || String(index + 1).padStart(2, "0"),
             time_range: text(shot.time_range),
             duration: durationFromTimeRange(shot.time_range),
-            prompt: text(shot.image_prompt || shot.prompt),
-            image_prompt: text(shot.image_prompt || shot.prompt),
+            prompt: text(shot.image_prompt ?? shot.prompt),
+            image_prompt: text(shot.image_prompt ?? shot.prompt),
             camera_notes: text(shot.camera_notes),
             image_url: text(shot.image_url),
         })),
     });
+}
+
+export function draftTable(result, table, mapping = table.mapping, headerIndex = table.header_index) {
+    const headers = table.rows[headerIndex] || [];
+    return table.rows.slice(headerIndex + 1).flatMap((row, index) => {
+        const ri = headerIndex + index + 1;
+        const refs = [...new Set(Object.entries(table.images || {}).filter(([key]) => key.startsWith(`${ri}:`)).flatMap(([, ids]) => ids))];
+        if (!row.some(value => String(value).trim()) && !refs.length) return [];
+        const field = name => row[mapping[name]] || "";
+        return [{...normalizeShot({shot_no: field("shot_no"), time_range: field("time_range"), image_prompt: field("image_prompt"), camera_notes: field("camera_notes"), image_url: field("reference_image").startsWith("/view?") ? field("reference_image") : ""}, index),
+            asset_id: refs.length === 1 ? refs[0] : "", candidate_assets: refs,
+            source: {filename: result.filename, table: table.id, row: ri + 1},
+            original_fields: row.map((value, ci) => ({column: ci, name: headers[ci] || `列 ${ci + 1}`, value})),
+        }];
+    });
+}
+
+export function applyImportedShots(state, result, mode) {
+    if (!["append", "replace"].includes(mode)) throw new Error("请选择追加或替换");
+    const shots = result.shots.map(normalizeShot);
+    state.shots = mode === "append" ? [...state.shots, ...shots] : shots;
+    state.document_title = result.document_title;
+    state.source_filename = result.filename;
 }
 
 export function appendShot(state, source = {}) {

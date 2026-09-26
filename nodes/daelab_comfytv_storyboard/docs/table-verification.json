@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "sizes": [
+    {
+      "node": [
+        920,
+        558
+      ],
+      "panels": 1,
+      "panelHeight": 468
+    },
+    {
+      "node": [
+        920,
+        558
+      ],
+      "panels": 1,
+      "panelHeight": 468
+    }
+  ],
+  "errors": [],
+  "registeredNodes": 66,
+  "checks": [
+    "native row drag",
+    "swap",
+    "cancel",
+    "replace",
+    "move to empty",
+    "undo redo",
+    "column reorder",
+    "text undo",
+    "native image URI drop",
+    "file drop upload",
+    "failed upload no mutation",
+    "undo while uploading no late overwrite",
+    "two refreshes",
+    "oversized reopen",
+    "App Mode row drag and Active/Bypass/Muted"
+  ]
+}

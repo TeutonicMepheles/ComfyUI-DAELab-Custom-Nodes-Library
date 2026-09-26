@@ -320,6 +320,7 @@
     "height_board.text_046": "添加颜色",
     "height_board.text_047": "{{p0}}添加颜色",
     "height_board.text_048": "暂无颜色",
+    "height_board.empty_tip": "Tips：本层尚未配置颜色，可点击“＋”添加，或从其他层拖入颜色。",
     "height_layer_v1.text_001": "高度层级设置（按层次图取色）",
     "height_layer_v1.text_002": "颜色格式错误｜禁止排队",
     "height_layer_v1.text_003": "配置不同步｜禁止排队",

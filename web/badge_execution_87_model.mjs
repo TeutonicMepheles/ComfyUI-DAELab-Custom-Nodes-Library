@@ -10,6 +10,7 @@ import { getConnectedLoadImageInfo, getConnectedLoadImageKey } from './polygon_m
 
 export const BADGE87_IMAGE_MODEL = 'gpt-image-2.5-sunburst';
 export const isBadge87 = graph => graph?.extra?.daelabBadgeExecutionV1?.version === 1;
+import { targetOnly88 } from './badge_target_only_88.mjs';
 export function requestForStage(graph, stage) {
     if (!isBadge87(graph)) throw new Error(badgeText("execution_87_model.text_001"));
     const meta = graph.extra.daelabBadgePrototypeV1;
@@ -51,7 +52,7 @@ export function requestForStage(graph, stage) {
     } else if (stage === 'local') {
         request.image = image(meta.localReferenceNodeId);
         request.selection = on('badge.post.local.selection.color') ? 'color' : 'polygon';
-        request.use_map = request.selection === 'color' && on('badge.post.local.color_id_map');
+        request.use_map = !targetOnly88(graph) && request.selection === 'color' && on('badge.post.local.color_id_map');
         if (request.use_map) {
             const map = meta.gptColorMap;
             if (!map?.image || map.model !== (refinedBadge87(graph) ? selectedBadgeModel(graph, 'local') : BADGE87_IMAGE_MODEL) || map.sourceKey !== JSON.stringify(request.image)) throw new Error(badgeText("execution_87_model.text_004"));
@@ -103,10 +104,26 @@ export function requestForStage(graph, stage) {
         delete request.original_background;
     }
     enabled(graph.extra.daelabBadgeExecutionV1.executorNodeId);
+    if (targetOnly88(graph)) {
+        request.workflow_version = '8.8';
+        request.sampling_policy = 'target_only';
+    }
     return { request, fingerprint: JSON.stringify([snapshot?.fingerprint, request]) };
 }
 
 export function promptForRequest(request, executorId = 200) {
+    if (request.sampling_policy === 'target_only') {
+        if (request.stage === 'color_map') throw new Error('8.8 仅使用编辑目标图取色。');
+        const prompt = promptForRequest({...request, sampling_policy: undefined}, executorId);
+        prompt[executorId].class_type = 'DAELAB.BadgeApp88TargetOnlyV1';
+        prompt[executorId].inputs.request_json = JSON.stringify(request);
+        if (prompt['113']) prompt['113'].inputs.filename_prefix = `Badge88/${request.stage}`;
+        return prompt;
+    }
+    if (request.stage === 'color_map') return {
+        [executorId]: {class_type: 'DAELAB.BadgeApp87V1', inputs: {request_json: JSON.stringify(request)}},
+        badge87_color_map: {class_type: 'DAELAB.Badge87AuxiliaryImageV1', inputs: {images: [String(executorId), 0]}}
+    };
     if (request.interaction_revision === 2 && request.stage === 'local' && !request.apply) return {
         [executorId]: {class_type: 'DAELAB.BadgeApp87V1', inputs: {request_json: JSON.stringify(request)}}
     };

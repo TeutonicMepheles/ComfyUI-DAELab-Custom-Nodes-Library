@@ -32,14 +32,16 @@ def json_stream(text):
 
 
 class CLI:
-    def __init__(self, executable=None):
-        self.executable = executable or shutil.which("libtv") or str(Path.home() / ".libtv/libtv.exe")
+    def __init__(self, executable=None, timeout=None, cwd=None):
+        self.executable = executable or os.environ.get("DAELAB_LIBTV_CLI") or shutil.which("libtv") or str(Path.home() / ".libtv" / ("libtv.exe" if os.name == "nt" else "libtv"))
+        self.timeout, self.cwd = timeout, cwd
 
     def __call__(self, *args):
         # --run is synchronous; never add a timeout/retry around a paid submission.
         proc = subprocess.run([self.executable, *map(str, args)], capture_output=True,
                               encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
-                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                              timeout=self.timeout, cwd=self.cwd)
         try:
             values = json_stream(proc.stdout)
         except ValueError:

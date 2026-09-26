@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import { stopCanvasPropagation } from "./list_editor_controls.mjs";
 import { resultUrl, validateResultUrl, addVideoToCanvas } from "./libtv_canvas_result.mjs?v=20260925-1";
+import { connectionPanel, connectionRequest, compatibleValues, fallbackCapabilities } from "./libtv_connection.mjs";
 
 // DAELab-owned adaptation of ComfyTV's StageParamsPanel grouping and theme.
 // No dependency on the upstream Vue application or its node registrations.
@@ -29,6 +30,16 @@ function install(node) {
     const root = document.createElement("div"); root.className = "dae-libtv";
     root.innerHTML = `<header><div><strong>LibTV 视频工作台</strong><br><small>Comfy → LibTV → Comfy</small></div><span class="badge">DAELAB / VIDEO</span></header>`;
     const controls = {};
+    const capabilities = async (adjust) => {
+        const model=widget(node,"model")?.value;
+        try {
+            const caps=await connectionRequest(`capabilities?model=${encodeURIComponent(model)}`);
+            if(widget(node,"model")?.value!==model || !node.__libtvPanel)return;
+            node.__libtvPanel.caps=caps;
+            if(adjust){const values=compatibleValues(Object.fromEntries(names.map(n=>[n,widget(node,n)?.value])),caps);for(const name of ["resolution","ratio","mode","duration","sound"])set(name,values[name]);}
+            sync(node);
+        }catch(error){if(node.__libtvPanel)node.__libtvPanel.status.textContent=error.message;}
+    };
     const set = (name, value, event) => {
         const w = widget(node,name); if (!w) return;
         w.value = value; w.callback?.(value,app.canvas,node,null,event);
@@ -44,9 +55,15 @@ function install(node) {
         if(Array.isArray(options)) for(const value of options){ const option=document.createElement("option");option.value=value;option.textContent=modes[value]||value;el.append(option); }
         if(name==="duration"){el.type="number";el.min="4";el.max="30";el.step="1";}
         if(name==="sound") el.type="checkbox";
-        el.addEventListener(el.tagName==="TEXTAREA"?"input":"change",event=>set(name,name==="sound"?el.checked:name==="duration"?Number(el.value):el.value,event));
+        el.addEventListener(el.tagName==="TEXTAREA"?"input":"change",event=>{set(name,name==="sound"?el.checked:name==="duration"?Number(el.value):el.value,event);if(name==="model"){
+            if(node.__libtvPanel)node.__libtvPanel.caps=null;
+            const values=compatibleValues(Object.fromEntries(names.map(n=>[n,widget(node,n)?.value])),fallbackCapabilities(el.value));
+            for(const field of ["resolution","ratio","mode","duration","sound"])set(field,values[field]);
+            sync(node);capabilities(true);
+        }});
         row.append(title,el);parent.append(row);controls[name]=el;
     }
+    connectionPanel(root,{get:name=>widget(node,name)?.value,set,capabilities});
     const grid=document.createElement("section");grid.className="grid";root.append(grid);
     for(const name of ["model","mode"]) field(name,grid);
     const prompt=document.createElement("section");root.append(prompt);field("prompt",prompt);
@@ -82,7 +99,7 @@ function install(node) {
     send.onclick=async()=>{
         try {
             if(!globalThis.LiteGraph?.registered_node_types?.["ComfyTV.AssetVideoLoaderStage"]){
-                const target=new URL("http://127.0.0.1:8000/");target.searchParams.set("daelab_libtv_result",node.properties.daelabLibTVResult);target.searchParams.set("daelab_libtv_title",`LibTV · ${widget(node,"model").value}`);window.open(target.href,"_blank");return;
+                throw new Error("当前服务未加载 ComfyTV。请在安装了 ComfyTV 的同一服务中打开此工作流，无需固定端口。");
             }
             await addVideoToCanvas(app,node.properties.daelabLibTVResult,`LibTV · ${widget(node,"model").value}`);
             status.textContent="已加入 ComfyTV 画布，可从视频节点继续编辑。";
@@ -107,13 +124,15 @@ function sync(node){
     const panel=node.__libtvPanel;if(!panel)return;
     const model=widget(node,"model")?.value;
     const h3=model==="Minimax H3";
-    const resolutions=h3?["768P","2K"]:model==="Seedance 2.5"?["480p","720p","1080p"]:model==="Seedance 2.0"?["480p","720p","1080p","4k"]:["480p","720p"];
+    const caps=panel.caps?.model===model?panel.caps:null;
+    const resolutions=caps?.resolution?.length?caps.resolution:h3?["768P","2K"]:model==="Seedance 2.5"?["480p","720p","1080p"]:model==="Seedance 2.0"?["480p","720p","1080p","4k"]:["480p","720p"];
     // Display capability hints from the verified CLI catalog; backend revalidates live.
     for(const option of panel.controls.resolution.options)option.disabled=!resolutions.includes(option.value);
-    for(const option of panel.controls.mode.options)option.disabled=h3&&option.value==="image2video";
-    panel.controls.duration.min=h3?"5":"4";
-    panel.controls.duration.max=model==="Seedance 2.5"?"30":"15";
-    panel.controls.sound.closest("label").hidden=h3;
+    for(const option of panel.controls.mode.options)option.disabled=caps?!caps.modes.includes(option.value):h3&&option.value==="image2video";
+    for(const option of panel.controls.ratio.options)option.disabled=Boolean(caps?.ratio?.length&&!caps.ratio.includes(option.value));
+    panel.controls.duration.min=String(caps?.duration?.min??(h3?5:4));
+    panel.controls.duration.max=String(caps?.duration?.max??(model==="Seedance 2.5"?30:15));
+    panel.controls.sound.closest("label").hidden=caps?!caps.sound:h3;
     for(const name of names){const w=widget(node,name),el=panel.controls[name];if(!w||!el)continue;if(document.activeElement!==el){if(name==="sound")el.checked=Boolean(w.value);else el.value=String(w.value??"");}el.disabled=Boolean(node.inputs?.find(i=>i.name===name)?.link!=null);}
     const graph=node.graph;const data=graph?.extra?.linearData;
     if(Array.isArray(data?.inputs)){

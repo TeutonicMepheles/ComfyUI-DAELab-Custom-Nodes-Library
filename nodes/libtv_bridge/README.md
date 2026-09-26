@@ -79,9 +79,28 @@ The DAELab panel persists its preview URL in workflow properties. Restore previe
 reads matching Comfy history without generating again. Canvas import uses ComfyTV's
 public asset API and registered AssetVideoLoaderStage, without importing upstream code.
 Repeated imports reuse an existing matching card. If ComfyTV is loaded in the same
-service, execution imports the returned video automatically. The standalone test
-service can hand off to localhost:8000; both services must share their output directory.
-The destination page must load ComfyTV. This cross-service path is a local setup
-convention, not remote-server support.
+service, execution imports the returned video automatically. The current ComfyUI service must load ComfyTV to import a native asset card.
+No fixed hostname or port is used.
 
 The frontend reuses list_editor_controls.mjs and the shared App Mode Bypass registry.
+
+## Portable login and unified video node
+
+There is one node identifier: DAELAB.LibTV.VideoGenerate. Select the model and all
+video parameters on this node. The connection section launches official
+`libtv login web --open`, probes the active account, and lists canvases with pagination.
+Switching models requests live capabilities and normalizes unsupported options.
+Existing loaded workflows are not silently rewritten.
+
+Install the official CLI on each machine (PATH, ~/.libtv/libtv[.exe], or
+DAELAB_LIBTV_CLI). Log in separately on every ComfyUI host; credentials stay in the
+official CLI config directory and are never included in workflow serialization.
+Connection management is localhost-only: the browser callback belongs to the
+ComfyUI machine. It does not implement remote browser login, credential copying,
+media synchronization or a distributed job lock. Do not submit the same request
+concurrently from multiple machines. Network failures report unverified connection,
+not an assertion that the user has logged out. No login or capability probe generates media.
+
+After installing/updating this backend, restart ComfyUI and refresh the frontend.
+The workspace repository now ships one LibTV Video.json template rather than five
+model-specific templates. Historical local test workflows remain intact.

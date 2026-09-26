@@ -60,7 +60,7 @@ def image_files(tensor, single=False):
 class LibTVVideo(io.ComfyNode):
     @classmethod
     def define_schema(cls):
-        return io.Schema(node_id=NODE_ID, display_name="LibTV Video Bridge / 视频互传", category="DAELab/LibTV",
+        return io.Schema(node_id=NODE_ID, display_name="LibTV Video / 统一视频指令", category="DAELab/LibTV",
             description="Uses the logged-in LibTV CLI and LibTV credits. Keep request_id unchanged to recover a result; change it deliberately for a new paid generation.",
             is_output_node=True, not_idempotent=True,
             inputs=[
@@ -112,4 +112,4 @@ class LibTVVideo(io.ComfyNode):
 
 
 NODE_CLASS_MAPPINGS = {NODE_ID: LibTVVideo}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "LibTV Video Bridge / 视频互传"}
+NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "LibTV Video / 统一视频指令"}

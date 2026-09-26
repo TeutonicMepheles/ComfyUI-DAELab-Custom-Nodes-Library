@@ -30,7 +30,8 @@ function makeGraph(nodes, linearData = {}) {
 
 test("covers every node exported by the DAELab package", () => {
     assert.deepEqual(DAELAB_NODE_TYPES, [
-        "BooleanList",
+        "DAELAB.LibTV.VideoGenerate",
+    "BooleanList",
         "BooleanListHierarchy",
         "BooleanListHierarchyGet",
         "BooleanGroupBypassController",

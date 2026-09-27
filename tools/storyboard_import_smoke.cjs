@@ -10,7 +10,7 @@ const assert=require('node:assert/strict');
   const page=await browser.newPage({viewport:{width:1600,height:1050}});
   const errors=[]; page.on('pageerror',e=>errors.push(e.stack));
   await page.goto('http://127.0.0.1:8199');
-  await page.waitForFunction(()=>!!window.app?.graph);
+  await page.waitForFunction(()=>!!window.app?.graph); await page.waitForTimeout(1800);
   await page.keyboard.press('Escape');
   await page.evaluate(async()=>{
    const {app}=await import('/scripts/app.js'); window.qaApp=app;
@@ -36,7 +36,7 @@ const assert=require('node:assert/strict');
   assert.equal(new Set(saved.state.shots.map(s=>s.image_url)).size,3);
   for(const shot of saved.state.shots) assert((await page.request.get('http://127.0.0.1:8199'+shot.image_url)).ok());
   await page.screenshot({path:path.join(out,'02-imported.png')});
-  await page.reload(); await page.waitForFunction(()=>!!window.app?.graph);
+  await page.reload(); await page.waitForFunction(()=>!!window.app?.graph); await page.waitForTimeout(1800);
   await page.evaluate(async workflow=>{const {app}=await import('/scripts/app.js'); window.qaApp=app; await app.loadGraphData(workflow); window.qaNode=app.graph._nodes.find(n=>n.type==='DAELAB.StoryboardImport');},saved.workflow);
   await page.waitForTimeout(700);
   assert.deepEqual(await page.evaluate(()=>qaNode.__daelabStoryboardState.shots.map(s=>s.id)),saved.state.shots.map(s=>s.id));
@@ -58,7 +58,7 @@ const assert=require('node:assert/strict');
   await page.evaluate(async()=>{const workflow=qaApp.graph.serialize();workflow.extra.linearData={inputs:[[qaNode.id,'daelab_storyboard_editor']],outputs:[qaNode.id]};await qaApp.loadGraphData(workflow);window.qaNode=qaApp.graph._nodes.find(n=>n.type==='DAELAB.StoryboardImport');});
   await page.getByRole('button',{name:'进入应用模式',exact:true}).click();
   if(await page.getByRole('button',{name:'跳过',exact:true}).count()) await page.getByRole('button',{name:'跳过',exact:true}).click();
-  const appPanel=page.locator('[data-testid="app-mode-widget-item"]').filter({has:page.getByRole('button',{name:'上传 / 拖入分镜文档',exact:true})});
+  const appPanel=page.locator('[data-testid="app-mode-widget-item"]').filter({has:page.getByRole('button',{name:'导入文稿',exact:true})});
   await appPanel.waitFor({state:'visible'});
   for(const mode of [4,2]) {
    await page.evaluate(mode=>{qaNode.mode=mode;qaApp.graph.setDirtyCanvas(true,true);},mode);

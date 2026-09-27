@@ -19,6 +19,7 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "GPTImage2Config",
     "DAELAB.ComfyTV.GPTImageStoryboardStage",
     "DAELAB.StoryboardImport",
+    "DAELAB.Table",
     "GPTImage2MaterialPrompt",
     "DAELabBadgeMaterialRegionV1",
     "BadgeReliefPrompt",

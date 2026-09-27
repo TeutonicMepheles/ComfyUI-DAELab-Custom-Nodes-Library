@@ -1,0 +1,44 @@
+{
+  "checks": [
+    "cancel",
+    "select table",
+    "edit",
+    "embedded images",
+    "append",
+    "replace",
+    "upload failure preserves state",
+    "reload stable IDs",
+    "connect to generator",
+    "real import node execution",
+    "App Mode Active/Bypass/Muted recovery"
+  ],
+  "errors": [],
+  "execution": {
+    "status_str": "success",
+    "completed": true,
+    "messages": [
+      [
+        "execution_start",
+        {
+          "prompt_id": "3af32da2-ca3c-417e-b08d-34e6f1ebbc27",
+          "timestamp": 1790498495796
+        }
+      ],
+      [
+        "execution_cached",
+        {
+          "nodes": [],
+          "prompt_id": "3af32da2-ca3c-417e-b08d-34e6f1ebbc27",
+          "timestamp": 1790498495807
+        }
+      ],
+      [
+        "execution_success",
+        {
+          "prompt_id": "3af32da2-ca3c-417e-b08d-34e6f1ebbc27",
+          "timestamp": 1790498495808
+        }
+      ]
+    ]
+  }
+}

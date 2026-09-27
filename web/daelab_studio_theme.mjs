@@ -1,6 +1,8 @@
 export function studioTheme() {
-    if (document.getElementById('dae-studio-theme')) return;
-    const style = document.createElement('style'); style.id = 'dae-studio-theme';
+    const existing=document.getElementById('dae-studio-theme');
+    if(existing?.dataset.version==='20260927-layout1')return;
+    existing?.remove();
+    const style = document.createElement('style'); style.id = 'dae-studio-theme';style.dataset.version='20260927-layout1';
     style.textContent = `
 .dae-studio{--studio-bg:#17191c;--studio-line:#30343a;--studio-accent:#b6ecd8;background:var(--studio-bg)!important;color:#e5e8eb!important;border:1px solid var(--studio-line)!important;border-radius:12px!important;padding:14px!important;gap:12px!important;font:12px/1.5 'Alibaba PuHuiTi 3',sans-serif!important}
 .dae-studio *{box-sizing:border-box;font-family:'Alibaba PuHuiTi 3',sans-serif!important}.dae-studio [hidden]{display:none!important}.dae-studio .studio-footer{flex-shrink:0;max-height:none!important}.dae-studio .studio-tabs{flex-shrink:0}.dae-studio .studio-tabs button{white-space:nowrap}.dae-studio [data-storyboard-scroll]{background:#17191c!important}

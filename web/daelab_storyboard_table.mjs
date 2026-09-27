@@ -1,3 +1,4 @@
+import {conflictChoice} from './table_cell_choice.mjs';
 import {FIELD_TYPES,reorderShot,transferCell,setCell} from './daelab_storyboard_table_model.mjs?v=20260926-table1';
 import {localImageFromDrop} from './badge_image_drop_87.mjs?v=20260926-table1';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
@@ -40,26 +41,12 @@ function handle(label, payload, node) {
 function highlight(element,event) {event.preventDefault();event.stopPropagation();trackScroll(element,event);element.style.outline='2px solid #5fb9ef';element.dataset.storyboardDrop='true';}
 function clear(element) {element.style.outline='';if(element.tagName==='TR'){element.style.borderTop='';element.style.borderBottom='';}delete element.dataset.storyboardDrop;}
 
-function conflictChoice(swap) {
-    return new Promise(resolve=>{
-        const dialog=document.createElement('dialog');dialog.setAttribute('aria-label','调整单元格');
-        dialog.style.cssText="background:#252d38;color:#eee;border:1px solid #657283;border-radius:10px;padding:24px;font-family:'Alibaba PuHuiTi 3',sans-serif";
-        const text=document.createElement('p');text.textContent=swap?'目标已有内容，交换两格，还是移动并替换目标？':'目标已有内容，是否替换？';dialog.append(text);
-        const done=value=>{dialog.remove();resolve(value);};
-        for(const [value,label] of [...(swap?[['swap','交换']]:[]),['replace',swap?'移动并替换':'替换'],[null,'取消']]) {
-            const button=document.createElement('button');button.textContent=label;button.style.cssText='padding:7px 14px;margin:4px';button.onclick=()=>done(value);dialog.append(button);
-        }
-        dialog.oncancel=e=>{e.preventDefault();done(null);};dialog.addEventListener('pointerdown',stopCanvasPropagation);
-        document.body.append(dialog);dialog.showModal();
-    });
-}
 
 export function attachRowDrag(node,row,shot,index,firstCell,commit) {
     row.dataset.shotId=shot.id;
     const grip=handle(`拖动分镜第 ${index+1} 行`,{kind:'row',id:shot.id},node);grip.dataset.dragKind='row';
     grip.textContent='↕';
-    const label=document.createElement('small');label.textContent=`第 ${index+1} 行 `;label.style.color='#98a8b8';
-    firstCell.prepend(label,grip);
+    firstCell.prepend(grip);
     row.addEventListener('dragover',e=>{if(activeDrag?.kind==='row' && activeDrag.owner===owner(node)){highlight(row,e);const after=e.clientY>row.getBoundingClientRect().top+row.getBoundingClientRect().height/2;row.style.borderBottom=after?'3px solid #5fb9ef':'';row.style.borderTop=after?'':'3px solid #5fb9ef';}});
     row.addEventListener('dragleave',()=>{clear(row);row.style.borderBottom='';row.style.borderTop='';});
     row.addEventListener('drop',e=>{

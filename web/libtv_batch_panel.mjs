@@ -12,7 +12,7 @@ export function batchControls(node,root,{app,set}) {
             const source=link && node.graph.getNodeById(link.origin_id);
             const raw=value(source,'storyboard_data');
             if(!raw)throw new Error('请连接“剧本分镜导入”的 storyboard_json，并在任务表中勾选分镜。');
-            const data=JSON.parse(raw),rows=data.shots.filter(s=>s.selected!==false);
+            const data=JSON.parse(raw),rows=(data.table?.records||data.shots||[]).filter(s=>s.selected!==false);
             if(!rows.length)throw new Error('请至少勾选一行');
             if(!value(node,'project_uuid'))throw new Error('请先选择 LibTV 画布');
             if(!window.confirm(`提交 ${rows.length} 行到 LibTV？\n模型：${value(node,'model')} · 每行 ${value(node,'duration')} 秒\n会使用 LibTV 积分。相同批次编号恢复已有任务；新编号会重新生成。`))return;

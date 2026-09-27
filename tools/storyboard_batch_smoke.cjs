@@ -20,7 +20,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   const panel=page.locator('.daelab-storyboard-panel').filter({visible:true});
   const state=()=>page.evaluate(()=>JSON.parse(qaNode.widgets.find(w=>w.name==='storyboard_data').value));
   for(const [i,prompt] of ['山间清晨，薄雾缓缓散开','日落时分，镜头掠过山脊'].entries()){
-   await panel.getByRole('button',{name:'＋ 新增分镜',exact:true}).click();
+   await panel.getByRole('button',{name:'＋ 新增记录',exact:true}).click();
    await panel.locator('tbody tr').nth(i).locator('[data-field="image_prompt"] textarea').fill(prompt);
   }
   await panel.getByRole('button',{name:'素材组',exact:true}).click();
@@ -44,12 +44,19 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await panel.getByRole('button',{name:'任务表',exact:true}).click();
   const rows=panel.locator('tbody tr');
   await panel.locator("[data-storyboard-scroll]").evaluate(e=>{e.scrollLeft=400;});
-  await rows.nth(1).locator(`[data-group-column="${gid}"] .studio-ref`).dragTo(rows.first().locator(`[data-group-column="${gid}"]`));
+  await rows.nth(1).locator(`[data-field="${assigned.asset_groups[0].field_id}"] .cell-grip`).dragTo(rows.first().locator(`[data-field="${assigned.asset_groups[0].field_id}"]`));
+  await page.getByRole('button',{name:'交换',exact:true}).click();
   assert.equal((await state()).shots[0].group_refs[gid][0].name,'fixture-0.png');
   await panel.getByRole('button',{name:'撤销',exact:true}).click();
   assert.equal((await state()).shots[0].group_refs[gid][0].name,'fixture-1.png');
   await rows.nth(1).getByRole('checkbox').uncheck();
   await panel.locator('[data-storyboard-scroll]').evaluate(e=>{e.scrollLeft=0;});
+  await page.mouse.move(0,0);
+  const alignment=await rows.first().evaluate(row=>{
+   const controls=['shot_no','time_range','image_prompt','camera_notes'].map(field=>row.querySelector(`[data-field="${field}"]`).querySelector('input,textarea,button:not([data-drag-kind])'));
+   return {tops:controls.map(e=>e.getBoundingClientRect().top),selection:row.querySelectorAll('.table-choice input[type=checkbox]').length,handles:[...row.querySelectorAll('[data-drag-kind=cell]')].map(e=>getComputedStyle(e).opacity)};
+  });
+  assert.equal(alignment.selection,1);assert(Math.max(...alignment.tops)-Math.min(...alignment.tops)<1,'row controls share top alignment');assert(alignment.handles.every(a=>a==='0'),'idle cell handles do not clutter content');
   await panel.screenshot({path:path.join(out,'studio-table.png')});
   await panel.getByRole('button',{name:'视频生成 →',exact:true}).click();
   await page.waitForFunction(()=>qaApp.graph._nodes.some(n=>n.type==='DAELAB.LibTV.StoryboardBatch'));
@@ -67,12 +74,15 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   assert.equal(JSON.parse(tasks.find(n=>n.class_type==='DAELAB.StoryboardImport').inputs.storyboard_data).shots.filter(s=>s.selected!==false).length,1);
   // A synthetic server event validates result routing; it does not claim a real generated video.
   await page.evaluate(()=>{const project=qaBatch.widgets.find(w=>w.name==='project_uuid').value,batch=qaBatch.widgets.find(w=>w.name==='request_id').value,shot=qaNode.__daelabStoryboardState.shots[0];qaApp.api.dispatchEvent(new CustomEvent('daelab.libtv.batch',{detail:{project_uuid:project,batch_id:batch,phase:'complete',rows:[{shot_id:shot.id,shot_no:shot.shot_no,phase:'complete'}]}}));});
-  assert.equal(await panel.locator('[data-generated-status]').first().textContent(),'上次已完成');
+  assert.equal(await panel.locator('[data-field="generation_status"] .readonly-value').first().textContent(),'已完成');
+  await page.evaluate(()=>{[...qaNode.__dataTablePanel.root.querySelectorAll('button')].find(b=>b.textContent==='撤销').click();});
+  assert.equal((await state()).table.records[0].values.generation_status,'已完成','undo preserves latest external result');
+  await page.evaluate(()=>{[...qaNode.__dataTablePanel.root.querySelectorAll('button')].find(b=>b.textContent==='重做').click();});
   await batch.evaluate(e=>{e.scrollTop=0;});
   await batch.screenshot({path:path.join(out,'studio-video.png')});
   const saved=await page.evaluate(()=>qaApp.graph.serialize()),before=await state();
   const sizes=[];
-  for(let i=0;i<2;i++){await page.reload();await page.waitForFunction(()=>!!window.app?.graph);await load(saved);assert.deepEqual(await state(),before);assert.equal(await page.locator('.dae-libtv').count(),1);assert.equal(await page.locator('.daelab-storyboard-panel').count(),1);sizes.push(await page.evaluate(()=>({table:[...qaNode.size],video:[...qaBatch.size]})));}
+  for(let i=0;i<2;i++){await page.reload();await page.waitForFunction(()=>!!window.app?.graph);await page.waitForTimeout(1800);await load(saved);assert.deepEqual(await state(),before);assert.equal(await page.locator('.dae-libtv').count(),1);assert.equal(await page.locator('.daelab-storyboard-panel').count(),1);sizes.push(await page.evaluate(()=>({table:[...qaNode.size],video:[...qaBatch.size]})));}
   assert.deepEqual(sizes[0],sizes[1]);
   const oversized=structuredClone(saved);oversized.nodes.forEach(n=>n.size[1]=5000);await load(oversized);assert((await page.evaluate(()=>qaNode.size[1]))<1500);assert((await page.evaluate(()=>qaBatch.size[1]))<1500);
   await page.getByRole('button',{name:'进入应用模式',exact:true}).click();if(await page.getByRole('button',{name:'跳过',exact:true}).count())await page.getByRole('button',{name:'跳过',exact:true}).click();
@@ -100,7 +110,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   const portable=await page.evaluate(()=>({id:qaBatch.widgets.find(w=>w.name==='request_id').value,project:qaBatch.widgets.find(w=>w.name==='project_uuid').value,shots:qaNode.__daelabStoryboardState.shots.length}));
   assert.match(portable.id,/^batch-/);assert.equal(portable.project,'');assert.equal(portable.shots,0);
   const portableSaved=await page.evaluate(()=>qaApp.graph.serialize());await load(portableSaved);assert.equal(await page.evaluate(()=>qaBatch.widgets.find(w=>w.name==='request_id').value),portable.id);
-  const result={passed:true,paidSubmission:false,errors,sizes,registeredNodes:DAELAB_NODE_TYPES.length,checks:['native image-group reorder','sequential and shared assignment','reference-cell swap and undo','selected rows serialized','batch uses LibTV only','synthetic result event maps stable shot ID','two reloads preserve groups and IDs','oversized heights compact','both panels App Mode Active/Bypass/Mute','narrow footer fits','portable template gets unique persistent batch ID']};
+  const result={passed:true,paidSubmission:false,errors,sizes,registeredNodes:DAELAB_NODE_TYPES.length,checks:['aligned row controls and separate selection','idle cell handles hidden','native image-group reorder','sequential and shared assignment','reference-cell swap and undo','selected rows serialized','batch uses LibTV only','synthetic result event maps stable shot ID','undo preserves latest external result','two reloads preserve groups and IDs','oversized heights compact','both panels App Mode Active/Bypass/Mute','narrow footer fits','portable template gets unique persistent batch ID']};
   fs.writeFileSync(path.join(out,'studio-verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
  }catch(e){if(page){await page.screenshot({path:path.join(out,"failure.png")});console.log(await page.evaluate(()=>({text:document.body.innerText.slice(-2000),panels:document.querySelectorAll(".daelab-storyboard-panel").length})));}throw e;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -24,14 +24,17 @@
       ]
     }
   ],
-  "registeredNodes": 67,
+  "registeredNodes": 68,
   "checks": [
+    "aligned row controls and separate selection",
+    "idle cell handles hidden",
     "native image-group reorder",
     "sequential and shared assignment",
     "reference-cell swap and undo",
     "selected rows serialized",
     "batch uses LibTV only",
     "synthetic result event maps stable shot ID",
+    "undo preserves latest external result",
     "two reloads preserve groups and IDs",
     "oversized heights compact",
     "both panels App Mode Active/Bypass/Mute",

@@ -6,6 +6,9 @@ from .runtime import MODELS, validate, atomic_json, job_lock
 
 def compile_rows(value, local_media):
     data = json.loads(value) if isinstance(value, str) else value
+    if isinstance(data, dict) and 'table' in data:
+        from ..daelab_comfytv_storyboard.table_adapter import project_table
+        data = project_table(data['table'])
     if not isinstance(data, dict) or not isinstance(data.get('shots'), list):
         raise ValueError('请连接分镜导入节点的 storyboard_json')
     shots = data['shots']
@@ -30,6 +33,7 @@ def compile_rows(value, local_media):
         if notes:
             prompt += '\n镜头要求：' + notes
         refs = [shot['image_url']] if shot.get('image_url') else []
+        refs.extend(shot.get('additional_reference_images', []))
         for group in groups:
             assigned = shot.get('group_refs', {}).get(group['id'])
             if not isinstance(assigned, list) or not assigned:

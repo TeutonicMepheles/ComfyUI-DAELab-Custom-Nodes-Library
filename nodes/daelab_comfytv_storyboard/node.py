@@ -48,6 +48,9 @@ def storyboard_image_rows(storyboard_data) -> list[dict[str, str]]:
         except (TypeError, ValueError) as exc:
             raise ValueError("Storyboard list is not valid JSON") from exc
 
+    if isinstance(data, dict) and "table" in data:
+        from .table_adapter import project_table
+        data = project_table(data["table"])
     shots = data.get("shots") if isinstance(data, dict) else None
     if not isinstance(shots, list) or not shots:
         raise ValueError("Add at least one storyboard shot before running")

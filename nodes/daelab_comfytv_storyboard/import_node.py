@@ -1,12 +1,15 @@
 import json
 import uuid
 from comfy_api.latest import io
+from .table_adapter import project_table
 
 NODE_ID = "DAELAB.StoryboardImport"
 
 
 def validated_storyboard(value):
     data = json.loads(value or '{"shots": []}')
+    if isinstance(data, dict) and 'table' in data:
+        return project_table(data['table'])
     if not isinstance(data, dict) or not isinstance(data.get("shots"), list):
         raise ValueError("分镜数据必须包含 shots 列表")
     ids = set()

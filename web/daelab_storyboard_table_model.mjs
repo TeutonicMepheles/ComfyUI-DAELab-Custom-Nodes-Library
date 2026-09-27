@@ -1,3 +1,4 @@
+import {SnapshotHistory} from './data_table_model.mjs';
 import {normalizeStoryboard} from './daelab_storyboard_model.mjs?v=20260926-table1';
 
 export const FIELD_TYPES = Object.freeze({shot_no:'label',time_range:'time',image_prompt:'text',camera_notes:'text',image_url:'image'});
@@ -31,18 +32,6 @@ export function transferCell(state, sourceId, sourceField, targetId, targetField
     return true;
 }
 
-export class TableHistory {
-    constructor(limit=60) {this.undoStack=[];this.redoStack=[];this.group=null;this.limit=limit;}
-    record(before,after,group=null) {
-        if(before===after) return;
-        if(!group || group!==this.group) this.undoStack.push(before);
-        if(this.undoStack.length>this.limit) this.undoStack.shift();
-        this.group=group;this.redoStack=[];
-    }
-    restore(current,redo=false) {
-        const from=redo?this.redoStack:this.undoStack,to=redo?this.undoStack:this.redoStack;
-        if(!from.length) return null;
-        to.push(current);this.group=null;
-        return normalizeStoryboard(from.pop());
-    }
+export class TableHistory extends SnapshotHistory {
+    restore(current,redo=false) {const state=super.restore(current,redo);return state ? normalizeStoryboard(state) : null;}
 }

@@ -1,40 +1,63 @@
 {
   "passed": true,
-  "sizes": [
+  "registeredNodes": 68,
+  "paidSubmission": false,
+  "errors": [],
+  "evidence": [
     {
-      "node": [
-        920,
-        558
+      "type": "DAELAB.Table",
+      "sizes": [
+        [
+          1400,
+          558
+        ],
+        [
+          1400,
+          558
+        ]
       ],
-      "panels": 1,
-      "panelHeight": 468
+      "geometry": {
+        "width": 252,
+        "content": 768,
+        "row": "table-row",
+        "table": "table-header-group"
+      }
     },
     {
-      "node": [
-        920,
-        558
+      "type": "DAELAB.StoryboardImport",
+      "sizes": [
+        [
+          1400,
+          558
+        ],
+        [
+          1400,
+          558
+        ]
       ],
-      "panels": 1,
-      "panelHeight": 468
+      "geometry": {
+        "width": 252,
+        "content": 1638,
+        "row": "table-row",
+        "table": "table-header-group"
+      }
     }
   ],
-  "errors": [],
-  "registeredNodes": 66,
   "checks": [
-    "native row drag",
-    "swap",
-    "cancel",
-    "replace",
-    "move to empty",
-    "undo redo",
-    "column reorder",
-    "text undo",
-    "native image URI drop",
-    "file drop upload",
-    "failed upload no mutation",
-    "undo while uploading no late overwrite",
-    "two refreshes",
-    "oversized reopen",
-    "App Mode row drag and Active/Bypass/Muted"
-  ]
+    "same DOM editor for both node types",
+    "record reorder and undo",
+    "external text overwrite cancellation preserves data",
+    "dynamic typed field add rename hide reorder",
+    "atomic typed paste with row expansion",
+    "group upload and ordering",
+    "generic asset-cell transfer and undo",
+    "record selection and duplicate",
+    "explicit card/table view",
+    "rename preserves storyboard bindings",
+    "two reloads preserve complete data and sizes",
+    "oversized height compact",
+    "App Mode Active/Bypass/Muted recovery",
+    "narrow table retains headers and horizontal scroll"
+  ],
+  "genericNodeExecution": "success"
 }

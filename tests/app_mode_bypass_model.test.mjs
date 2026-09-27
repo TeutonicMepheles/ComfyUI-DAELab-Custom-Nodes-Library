@@ -4,15 +4,24 @@ import test from "node:test";
 import {
     createGraphTriggerWrapper,
     DAELAB_NODE_TYPES,
+    findInspectorItem,
     getBuilderIoAssignments,
     getLinearData,
     getRootGraphSafely,
     getSelectedInputEntries,
     isDaelabNode,
     isNodeAvailableInAppMode,
+    normalizeLinearInputReference,
     refreshGraphNodesReference,
     resolveNode,
 } from "../web/app_mode_bypass_model.mjs";
+
+test("matches current graph-prefixed Inspector keys without crossing workflows", () => {
+    const items = new Map([["graph-a:1:panel", "current"], ["graph-b:1:panel", "other"]]);
+    assert.equal(findInspectorItem(items, "1:panel", "graph-a"), "current");
+    assert.equal(findInspectorItem(items, "1:panel", "graph-c"), undefined);
+    assert.equal(findInspectorItem(new Map([["1:panel", "legacy"]]), "1:panel", "graph-a"), "legacy");
+});
 
 function makeGraph(nodes, linearData = {}) {
     return {
@@ -28,27 +37,43 @@ function makeGraph(nodes, linearData = {}) {
     };
 }
 
+test("LibTV bridge participates in shared Active/Bypass/Mute handling", () => {
+    const node = {type: "DAELAB.LibTV.VideoGenerate", mode: 0};
+    assert.equal(isDaelabNode(node), true);
+    assert.equal(isNodeAvailableInAppMode(node), true);
+    for (const mode of [2, 4]) {
+        node.mode = mode;
+        assert.equal(isNodeAvailableInAppMode(node), false);
+    }
+    node.mode = 0;
+    assert.equal(isNodeAvailableInAppMode(node), true);
+});
+
 test("covers every node exported by the DAELab package", () => {
     assert.deepEqual(DAELAB_NODE_TYPES, [
-        "DAELAB.LibTV.VideoGenerate",
+    "DAELAB.LibTV.VideoGenerate",
     "BooleanList",
-        "BooleanListHierarchy",
-        "BooleanListHierarchyGet",
-        "BooleanGroupBypassController",
-        "SeedreamExhibitionPromptBuilder",
-        "GPTImage2Config",
-        "RMBGConfig",
-        "AppModeLoadImage",
-        "BBoxPromptReroute",
-        "PolygonMask",
-        "SAM3ComplexCollector",
-    ]);
+    "BooleanListHierarchy",
+    "BooleanListHierarchyGet",
+    "BooleanGroupBypassController",
+    "SeedreamExhibitionPromptBuilder",
+    "GPTImage2Config",
+    "RMBGConfig",
+    "AppModeLoadImage",
+    "BBoxPromptReroute",
+    "PolygonMask",
+    "SAM3ComplexCollector",
+    "DAELAB.LibTV.StoryboardBatch",
+    "DAELAB.ComfyTV.GPTImageStoryboardStage",
+    "DAELAB.StoryboardImport",
+    "DAELAB.Table"
+]);
     for (const type of DAELAB_NODE_TYPES) assert.equal(isDaelabNode({ type }), true);
     assert.equal(isDaelabNode({ type: "SaveImage" }), false);
 });
 
-test("includes grouped config nodes in app mode bypass collapsing", () => {
-    for (const type of ["GPTImage2Config", "RMBGConfig"]) {
+test("includes grouped panel nodes in app mode bypass collapsing", () => {
+    for (const type of ["GPTImage2Config", "DAELAB.ComfyTV.GPTImageStoryboardStage", "DAELAB.StoryboardImport", "DAELAB.Table", "DAELAB.LibTV.StoryboardBatch", "RMBGConfig", "AppModeLoadImage"]) {
         const node = { type, mode: 4 };
         assert.equal(isDaelabNode(node), true);
         assert.equal(isNodeAvailableInAppMode(node), false);
@@ -147,6 +172,22 @@ test("builds exact Inspector keys from the persisted input order", () => {
     assert.deepEqual(
         getSelectedInputEntries(graph).map(({ key, node: entryNode }) => [key, entryNode]),
         [["7:base_prompt", node], ["7:tone", node]]
+    );
+});
+
+test("resolves workflow-scoped App Mode widget references", () => {
+    const node = { id: 7, type: "AppModeLoadImage", mode: 0 };
+    const graph = makeGraph([node], {
+        inputs: [["workflow-uuid:7:image", "image"]],
+    });
+
+    assert.deepEqual(normalizeLinearInputReference("workflow-uuid:7:image", "image"), {
+        nodeId: "7",
+        widgetKey: "workflow-uuid:7:image",
+    });
+    assert.deepEqual(
+        getSelectedInputEntries(graph).map(({ nodeId, key, node: entryNode }) => [nodeId, key, entryNode]),
+        [["7", "workflow-uuid:7:image", node]],
     );
 });
 

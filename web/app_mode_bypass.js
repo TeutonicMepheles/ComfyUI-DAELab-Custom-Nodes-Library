@@ -1,12 +1,13 @@
 import { app } from "/scripts/app.js";
 import {
     createGraphTriggerWrapper,
+    findInspectorItem,
     getBuilderIoAssignments,
     getRootGraphSafely,
     getSelectedInputEntries,
     isNodeAvailableInAppMode,
     refreshGraphNodesReference,
-} from "./app_mode_bypass_model.mjs?v=20260806-2";
+} from "./app_mode_bypass_model.mjs?v=20260917-region-1";
 
 const EXTENSION_NAME = "DAELab.AppModeBypassInspector";
 const STATE_ATTRIBUTE = "data-daelab-app-bypass-state";
@@ -111,7 +112,7 @@ function syncKeyedInspectorItems(graph) {
 
     for (const entry of getSelectedInputEntries(graph)) {
         if (!entry.node) continue;
-        const element = itemsByKey.get(entry.key);
+        const element = findInspectorItem(itemsByKey, entry.key, graph.id);
         if (!element) continue;
         if (!isNodeAvailableInAppMode(entry.node)) setElementState(element, "hidden");
     }
@@ -157,7 +158,7 @@ function refreshOfficialInspectorIfNeeded(graph, activatedNodes, itemsByKey) {
     if (!activatedNodes.size || !document.querySelector('[data-testid="linear-widgets"]')) return;
 
     const hasMissingActivatedInput = getSelectedInputEntries(graph).some(
-        (entry) => activatedNodes.has(entry.node) && !itemsByKey.has(entry.key)
+        (entry) => activatedNodes.has(entry.node) && !findInspectorItem(itemsByKey, entry.key, graph.id)
     );
     if (!hasMissingActivatedInput) return;
 
@@ -205,6 +206,7 @@ function syncInspector() {
     const itemsByKey = syncKeyedInspectorItems(graph);
     syncBuilderIoItems(graph);
     refreshOfficialInspectorIfNeeded(graph, activatedNodes, itemsByKey);
+    globalThis.dispatchEvent?.(new CustomEvent("daelab:app-mode-synced"));
 }
 
 function queueSync() {

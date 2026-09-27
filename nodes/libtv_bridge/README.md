@@ -65,26 +65,49 @@ five workflows and executes them sequentially through Comfy. It spends credits o
 after preflight passes. Omit `--run` to create templates only. Live evidence is saved
 to `output/daelab/libtv/acceptance/results.json`.
 
-## Validation status
+Initial live attempts on 2026-09-24 reached the installed node for all five models,
+but failed on LibTV TLS/model-discovery errors. No successful Seedance/H3 return has
+yet been verified. The separate earlier Wan result is not acceptance evidence.
+# 视频工作台前端
 
-Five text-to-video models were exercised in the development environment on 2026-09-25:
-Seedance 2.5, 2.0, 2.0 Mini, 2.0 Fast and Minimax H3. Returned files decoded and
-appeared as native ComfyTV video asset cards; a downstream video trim was exercised.
-First/last-frame and mixed-reference generation have not been accepted end to end.
-Private job records and generated media are intentionally excluded from this repository.
+2026-09-25 画布回传补齐：节点面板内直接显示视频，结果 URL 随工作流保存；
+“恢复已有任务预览”只读取与当前画布 ID / 请求编号 / 模型匹配的 Comfy 历史。
+`libtv_canvas_result.mjs` 通过 ComfyTV 公开素材 API 和已注册的
+`ComfyTV.AssetVideoLoaderStage` 添加原生视频卡片，不导入或修改上游代码。
+同一画布内相同结果复用已有节点。加载 ComfyTV 的服务中，节点执行完成后自动加入；
+隔离的 8001 测试服务未加载 ComfyTV，按钮将结果交给本机 8000 主服务的当前画布。
+这两个服务必须使用同一个 output 目录。目标页面须正常加载 ComfyTV。
 
-## Canvas handoff
+现有五模型结果已注册为 ComfyTV 素材并保存为
+`LibTV/03-LibTV-ComfyTV-Editable.json`。实际 UI 已验证五个原生卡片预览，
+并从 Seedance 2.0 卡片的“修改视频 → 剪辑”创建相连的 VideoClipStage，
+把范围设为 0–2 秒后本地执行成功。没有新增 LibTV 付费生成。
 
-The DAELab panel persists its preview URL in workflow properties. Restore preview
-reads matching Comfy history without generating again. Canvas import uses ComfyTV's
-public asset API and registered AssetVideoLoaderStage, without importing upstream code.
-Repeated imports reuse an existing matching card. If ComfyTV is loaded in the same
-service, execution imports the returned video automatically. The current ComfyUI service must load ComfyTV to import a native asset card.
-No fixed hostname or port is used.
+`web/libtv_panel.js` 参考本地 ComfyTV `src/style.css` 与
+`src/components/sidebar/StageParamsPanel.vue` 的主题及分组布局，独立实现中文复合面板。
+复用 DAELab `list_editor_controls.mjs` 的事件隔离及共享 App Mode Bypass 扩展；
+原生 widgets 保留原始序列化顺序，面板本身不序列化。
+`LibTV/01-LibTV-Video-Studio.json` 可直接进入 App Mode。
 
-The frontend reuses list_editor_controls.mjs and the shared App Mode Bypass registry.
+2026-09-24 页面检查：节点图与 App Mode 均显示面板；Bypass 后隐藏、恢复 Active 后显示；
+两次刷新后 App Mode 面板均为 599 × 667 CSS px，10 个字段，没有重复面板。
+Mute、窄宽度及真实视频预览尚未完成页面验收。五模型云端回传仍为 0/5，详见原始测试记录。
 
-## Portable login and unified video node
+## 2026-09-25 live retry
+
+All five text-to-video jobs generated real videos, downloaded and decoded completely.
+After read-only recovery, all five completed successfully through Comfy queue; browser
+media gallery showed all five videos with readyState 4 and matching dimensions.
+Evidence: output/daelab/libtv/acceptance/results.json and video-validation.json.
+
+Fixed CLI success output handling: download prints paths, and a successful --run
+without JSON is reconciled by one read-only node query. No paid submission is repeated.
+11 backend tests pass. The running 8001 process still has the earlier implementation;
+restart was blocked by automatic approval policy. The fix loads on the next normal restart.
+Existing completed tasks return cached files successfully in that process.
+First/last-frame and mixed-reference generation remain untested.
+
+
 
 There is one node identifier: DAELAB.LibTV.VideoGenerate. Select the model and all
 video parameters on this node. The connection section launches official

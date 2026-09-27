@@ -1,0 +1,75 @@
+{
+  "id": "6a023a9f-6ec1-4f92-9eeb-1ebefcf313fa",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "pos": [
+        60,
+        80
+      ],
+      "size": [
+        1400,
+        558
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "table_data",
+          "name": "table_data",
+          "type": "STRING",
+          "widget": {
+            "name": "table_data"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "table_json",
+          "name": "table_json",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table"
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"title\",\"name\":\"标题\",\"type\":\"text\",\"hidden\":false,\"width\":180},{\"id\":\"assets\",\"name\":\"素材\",\"type\":\"assets\",\"hidden\":false,\"width\":180}],\"records\":[],\"view\":\"table\",\"meta\":{}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"title\",\"name\":\"标题\",\"type\":\"text\",\"hidden\":false,\"width\":180},{\"id\":\"assets\",\"name\":\"素材\",\"type\":\"assets\",\"hidden\":false,\"width\":180}],\"records\":[],\"view\":\"table\",\"meta\":{}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.9,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "linearData": {
+      "inputs": [
+        [
+          1,
+          "daelab_table_editor"
+        ]
+      ],
+      "outputs": [
+        1
+      ]
+    }
+  },
+  "version": 0.4
+}

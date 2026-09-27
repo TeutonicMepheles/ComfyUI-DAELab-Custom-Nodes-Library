@@ -1,0 +1,125 @@
+{
+  "baseline_commit": "83724f2",
+  "paid_submission": false,
+  "unit_tests": 25,
+  "browser_table": {
+    "passed": true,
+    "registeredNodes": 68,
+    "paidSubmission": false,
+    "errors": [],
+    "evidence": [
+      {
+        "type": "DAELAB.Table",
+        "sizes": [
+          [
+            1400,
+            558
+          ],
+          [
+            1400,
+            558
+          ]
+        ],
+        "geometry": {
+          "width": 252,
+          "content": 768,
+          "row": "table-row",
+          "table": "table-header-group"
+        }
+      },
+      {
+        "type": "DAELAB.StoryboardImport",
+        "sizes": [
+          [
+            1400,
+            558
+          ],
+          [
+            1400,
+            558
+          ]
+        ],
+        "geometry": {
+          "width": 252,
+          "content": 1638,
+          "row": "table-row",
+          "table": "table-header-group"
+        }
+      }
+    ],
+    "checks": [
+      "same DOM editor for both node types",
+      "record reorder and undo",
+      "external text overwrite cancellation preserves data",
+      "dynamic typed field add rename hide reorder",
+      "atomic typed paste with row expansion",
+      "group upload and ordering",
+      "generic asset-cell transfer and undo",
+      "record selection and duplicate",
+      "explicit card/table view",
+      "rename preserves storyboard bindings",
+      "two reloads preserve complete data and sizes",
+      "oversized height compact",
+      "App Mode Active/Bypass/Muted recovery",
+      "narrow table retains headers and horizontal scroll"
+    ]
+  },
+  "browser_batch": {
+    "passed": true,
+    "paidSubmission": false,
+    "errors": [],
+    "sizes": [
+      {
+        "table": [
+          1420,
+          558
+        ],
+        "video": [
+          420,
+          758
+        ]
+      },
+      {
+        "table": [
+          1420,
+          558
+        ],
+        "video": [
+          420,
+          758
+        ]
+      }
+    ],
+    "registeredNodes": 68,
+    "checks": [
+      "aligned row controls and separate selection",
+      "idle cell handles hidden",
+      "native image-group reorder",
+      "sequential and shared assignment",
+      "reference-cell swap and undo",
+      "selected rows serialized",
+      "batch uses LibTV only",
+      "synthetic result event maps stable shot ID",
+      "undo preserves latest external result",
+      "two reloads preserve groups and IDs",
+      "oversized heights compact",
+      "both panels App Mode Active/Bypass/Mute",
+      "narrow footer fits",
+      "portable template gets unique persistent batch ID"
+    ]
+  },
+  "additional_verified": [
+    "Both table types: expand, edit, collapse, undo",
+    "Missing prompt marks cell and blocks generation dialog",
+    "First-use generation dialog opens after new node mounts",
+    "Image preview opens and closes",
+    "Local synthetic MP4 plays in enlarged preview",
+    "Edited prompt shows changed status; undo restores completed status",
+    "Bypass while expanded closes workbench"
+  ],
+  "docx_import": {
+    "passed": true,
+    "page_errors": []
+  },
+  "video_fixture": "Local synthetic 2-second clip; not a generated LibTV result"
+}

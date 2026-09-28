@@ -126,7 +126,7 @@ function install(node) {
         }catch(error){status.textContent=error.message;}
     };
     root.insertBefore(video,status);root.insertBefore(restore,status);root.insertBefore(send,status);
-    node.__libtvPanel={root,controls,status,video,send};nodes.add(node);sync(node);
+    node.__libtvPanel={root,controls,status,video,send,creativeButtons:[fresh,restore],creativeFields:[controls.prompt,controls.duration,controls.model].filter(Boolean)};nodes.add(node);sync(node);
     if(batch){restore.remove();send.remove();video.remove();root.querySelector("strong").textContent="LibTV · 分镜批量生成";fresh.textContent="新建批次编号";batchControls(node,root,{app,set});}
     if(node.properties?.daelabLibTVResult)showResult(node,node.properties.daelabLibTVResult);
     // Content-sized panel; restored surplus height must never feed back into layout.

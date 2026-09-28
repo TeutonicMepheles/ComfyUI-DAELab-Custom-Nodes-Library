@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-28",
+  "branch": "codex/add-app-mode-workflow-controls",
+  "head": "83724f242800f5c5cadf1d539969e7d3c19fbdb5",
+  "scope": "Existing files in web,nodes,tests,tools excluding __pycache__; baseline taken before document creation",
+  "baselineFileCount": 1426,
+  "changedBaselineFiles": [],
+  "checkedExplicitSourcePaths": 20,
+  "brokenReferences": [],
+  "rootWebJsMjsCount": 122,
+  "runtimeTests": "not rerun; documentation-only phase",
+  "phase1CheckPassed": true
+}

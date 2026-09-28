@@ -1,0 +1,20 @@
+{
+  "checks": [
+    "prompt commits independently",
+    "reject invalid duration ",
+    "reject invalid duration 999",
+    "reject invalid duration 5.5",
+    "valid numeric commit clears error",
+    "disabled field blocks synthetic commit",
+    "model action and instance isolation",
+    "existing model compatibility remains active",
+    "lease exit restores attributes",
+    "mode roundtrips leave no field bindings",
+    "App Mode has no creative field bindings",
+    "saved values survive reload",
+    "badge original workflow loads in App Mode without creative bindings",
+    "exhibition original workflow loads in App Mode without creative bindings"
+  ],
+  "errors": [],
+  "requests": []
+}

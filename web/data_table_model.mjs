@@ -1,4 +1,6 @@
 // Business-independent table model. No storyboard, ComfyUI or provider dependencies.
+import {isPrompt,validatePrompt} from './table_prompt_model.mjs';
+import {migrateVideoReferences} from './table_video_references.mjs';
 export const FIELD_TYPES = ['text','longtext','number','checkbox','select','assets','json'];
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const uid = () => globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -18,6 +20,7 @@ export function convertValue(field,value) {
     }
     if(field.type==='number') {if(value==='' || value==null)return null;const n=Number(value);if(!Number.isFinite(n))throw new Error('请输入有效数字');return n;}
     if(field.type==='select' && value && !field.options?.includes(String(value)))throw new Error('内容不在该字段的选项中');
+    if(isPrompt(field)){if(value==null||value==='')return '';if(typeof value==='string')throw new Error('请在提示词编辑器中粘贴文字');return clone(validatePrompt(value));}
     if(field.type==='json') {if(typeof value==='object')return clone(value);if(!value)return '';return JSON.parse(value);}
     return String(value ?? '');
 }
@@ -33,12 +36,14 @@ export function normalizeTable(value={}) {
     const records=(raw.records || []).map(r=>{
         const id=String(r.id||uid());if(recordIds.has(id))throw new Error('记录 ID 重复');recordIds.add(id);
         // Preserve values for unknown/deleted fields until an explicit delete operation.
-        return {...clone(r),id,selected:r.selected!==false,values:clone(r.values||{})};
+        const values=clone(r.values||{}),assetIds=new Set();
+        for(const f of fields.filter(f=>f.type==='assets'))for(const a of values[f.id]||[]){if(!a.id)a.id=uid();if(assetIds.has(a.id))throw new Error('行内素材 ID 重复，请检查复制的素材');assetIds.add(a.id);}
+        return {...clone(r),id,selected:r.selected!==false,values};
     });
-    return {version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})};
+    return migrateVideoReferences({version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})});
 }
 export function addField(table,spec={}) {
-    const field={id:uid(),name:'新字段',type:'text',width:180,hidden:false,...spec};
+    const field={id:uid(),name:'新字段',type:'text',width:180,hidden:false,...(spec.type==='assets'?{video_reference:false}:{}),...spec};
     if(table.fields.some(f=>f.id===field.id))throw new Error('字段 ID 已存在');
     table.fields.push(field);return field;
 }
@@ -49,7 +54,7 @@ export function addRecord(table,values={},afterId=null) {
     table.records.splice(at,0,record);return record;
 }
 export function duplicateSelected(table) {
-    const records=[];for(const r of table.records){records.push(r);if(r.selected)records.push({...clone(r),id:uid()});}table.records=records;
+    const records=[];for(const r of table.records){records.push(r);if(r.selected){const copy={...clone(r),id:uid()};if(copy.meta)delete copy.meta.generation;for(const f of table.fields)if(f.id===table.meta.storyboard?.bindings?.video_result||f.id===table.meta.prompt_config?.bindings?.video_result)copy.values[f.id]=[];records.push(copy);}}table.records=records;
 }
 export function reorder(items,sourceId,targetId,after=false) {
     if(sourceId===targetId)return;
@@ -59,12 +64,14 @@ export function reorder(items,sourceId,targetId,after=false) {
 export function setValue(table,recordId,fieldId,value) {
     const field=table.fields.find(f=>f.id===fieldId),record=table.records.find(r=>r.id===recordId);
     if(!field || !record)throw new Error('字段或记录已不存在');if(field.readonly)throw new Error('此字段由数据来源更新');
+    if(isPrompt(field)&&typeof value==='string'&&value){const old=record.values[fieldId];if(!old)throw new Error('请先解析再粘贴最终正文');value={...clone(old),segments:[{type:'text',text:value}],editOrigin:'edited'};}
     record.values[fieldId]=convertValue(field,value);
 }
 export function transferValue(table,from,to,mode='swap') {
     const a=table.fields.find(f=>f.id===from.field),b=table.fields.find(f=>f.id===to.field);
     if(!a||!b||a.readonly||b.readonly)throw new Error('此字段不可拖动');
     if(a.type!==b.type)throw new Error('请在同类型字段之间拖动');
+    if(isPrompt(a)||isPrompt(b))throw new Error('提示词请通过专用编辑器修改；复制整行可保留引用作用域');
     if(from.record===to.record && from.field===to.field)return;
     const source=table.records.find(r=>r.id===from.record),target=table.records.find(r=>r.id===to.record);
     if(!source||!target)throw new Error('记录已不存在');

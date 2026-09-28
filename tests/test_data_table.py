@@ -14,6 +14,20 @@ from table_test_nodes.libtv_bridge.batch import compile_rows
 
 
 class CanonicalTableTest(unittest.TestCase):
+    def test_video_required_reference_checks_only_selected_rows(self):
+        table=self.table();table['meta']['asset_groups']=[dict(id='g',field_id='a',required=True)]
+        table['meta']['storyboard']['bindings'].pop('image_url')
+        table['records'].append(dict(id='unselected',selected=False,values={'p':'Not submitted','a':[]}))
+        self.assertEqual(len(compile_rows({'table':table},lambda u:u)),1)
+        table['records'][0]['values']['a']=[]
+        with self.assertRaisesRegex(ValueError,'必填'):compile_rows({'table':table},lambda u:u)
+
+    def test_video_flags_do_not_change_image_generation_source_mapping(self):
+        table=self.table();table['meta']['video_reference_version']=1
+        table['fields'][1].update(type='assets',video_reference=False)
+        self.assertEqual(project_table(table)['shots'][0]['image_url'],'/view?a')
+        self.assertEqual(compile_rows({'table':table},lambda u:u)[0]['media'],[])
+
     def table(self):
         return dict(fields=[dict(id='p', name='任意列名'), dict(id='a', name='图片')],
                     records=[dict(id='stable', selected=True, values={'p': 'new prompt', 'a': [{'url': '/view?a'}, {'url': '/view?b'}]})],

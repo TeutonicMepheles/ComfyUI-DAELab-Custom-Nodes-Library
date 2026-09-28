@@ -1,8 +1,9 @@
+import {selectedTaskSummary} from './storyboard_task_state.mjs';
 import { validateResultUrl, addVideoToCanvas } from './libtv_canvas_result.mjs?v=20260925-1';
 
 const value=(node,key)=>node?.widgets?.find(w=>w.name===key)?.value;
 export function batchControls(node,root,{app,set}) {
-    const hint=document.createElement('p');hint.textContent='任务来自连接的分镜表。每行使用上方统一时长；画面描述＋镜头备注作为视频提示词。参考顺序：行参考图 → 从左到右的素材组。';
+    const hint=document.createElement('p');hint.textContent='任务来自连接的通用表格或分镜表。已解析表格使用最终提示词；历史分镜沿用画面描述＋镜头备注。行内生成设置优先；切换首尾帧方式后请返回表格复核素材角色。';
     const run=document.createElement('button');run.textContent='生成选中分镜';run.dataset.primary='true';
     if(!value(node,'request_id') || value(node,'request_id')==='video-001')set('request_id',`batch-${crypto.randomUUID()}`);
     run.onclick=async()=>{
@@ -10,12 +11,14 @@ export function batchControls(node,root,{app,set}) {
             const input=node.inputs.find(i=>i.name==='storyboard_json');
             const link=node.graph.links[input?.link];
             const source=link && node.graph.getNodeById(link.origin_id);
-            const raw=value(source,'storyboard_data');
+            source?.__syncPromptDefaults?.();
+            const raw=value(source,'storyboard_data')||value(source,'table_data');
             if(!raw)throw new Error('请连接“剧本分镜导入”的 storyboard_json，并在任务表中勾选分镜。');
-            const data=JSON.parse(raw),rows=(data.table?.records||data.shots||[]).filter(s=>s.selected!==false);
+            const data=JSON.parse(raw),table=data.table||(data.fields&&data.records?data:null),rows=(table?.records||data.shots||[]).filter(s=>s.selected!==false);
+            if(table){if(source.type==='DAELAB.Table'&&table.meta.prompt_mode!=='reviewed')throw new Error('请先完成字段映射并解析最终提示词');const check=selectedTaskSummary(table);if(check.invalid)throw new Error(`${check.invalid} 条记录待补充，请返回表格查看标记的单元格；尚未提交生成。`);}
             if(!rows.length)throw new Error('请至少勾选一行');
             if(!value(node,'project_uuid'))throw new Error('请先选择 LibTV 画布');
-            if(!window.confirm(`提交 ${rows.length} 行到 LibTV？\n模型：${value(node,'model')} · 每行 ${value(node,'duration')} 秒\n会使用 LibTV 积分。相同批次编号恢复已有任务；新编号会重新生成。`))return;
+            if(!window.confirm(`提交 ${rows.length} 行到 LibTV？\n模型：${value(node,'model')} · 每行 ${value(node,'duration')} 秒（行内设置优先）\n会使用 LibTV 积分。相同批次编号恢复已有任务；新编号会重新生成。`))return;
             run.disabled=true;node.__libtvPanel.status.textContent='已请求加入 Comfy 队列；提交前会检查所有选中行。';
             await app.queuePrompt(0,1,[node.id]);
         }catch(e){node.__libtvPanel.status.textContent=e.message;}finally{run.disabled=false;}

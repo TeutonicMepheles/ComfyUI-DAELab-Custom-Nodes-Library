@@ -17,6 +17,34 @@ from batch_test_bridge.runtime import Bridge, atomic_json
 SCHEMA = {'properties': {'duration': {'min':4,'max':15}, 'modeType': {'items':{'frames2video':[1,2]}}}, 'config':{'settings':['duration']}}
 
 class BatchTests(unittest.TestCase):
+    def test_optional_groups_and_per_row_modes_are_preserved(self):
+        data={'asset_groups':[{'id':'g','required':False}], 'shots':[
+            {'id':'a','image_prompt':'A','generation_duration':8,'generation_mode':'多图参考','image_url':'a','additional_reference_images':['b','c']},
+            {'id':'b','image_prompt':'B','generation_mode':'文生视频'}]}
+        rows=compile_rows(data,lambda p:{'kind':'image','path':p})
+        self.assertEqual([len(r['media']) for r in rows],[3,0])
+        self.assertEqual(rows[0]['generation_duration'],8)
+        self.assertEqual(rows[0]['generation_mode'],'image2video')
+        data['asset_groups'][0]['required']=True
+        with self.assertRaisesRegex(ValueError,'未填入'):compile_rows(data,lambda p:p)
+
+    def test_each_row_settings_validated_before_any_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            schema={'properties':{'duration':{'min':4,'max':15},'modeType':{'items':{'image2video':[1,9]}}},'config':{'settings':['duration']}}
+            def cli(*args):return {'matches':[{'modelKey':'star-video2','modelName':'model'}]} if args[1]=='search' else {'schema':schema}
+            bridge=Bridge(Path(tmp)/'cache',Path(tmp)/'output',cli);calls=[]
+            bridge.generate=lambda *args:calls.append(args) or {'file':str(Path(tmp)/'x.mp4')}
+            rows=[{'shot_id':'a','shot_no':'1','prompt':'A','media':[],'generation_duration':6,'generation_mode':'text2video'},
+                  {'shot_id':'b','shot_no':'2','prompt':'B','media':[{'kind':'image','path':'b'}],'generation_duration':16,'generation_mode':'image2video'}]
+            with self.assertRaisesRegex(ValueError,'尚未提交'):run_batch(bridge,'p','b','Seedance 2.0','text2video',{'duration':4},rows)
+            self.assertEqual(calls,[])
+            rows[1]['generation_duration']=8
+            media_file=Path(tmp)/'b.png';media_file.write_bytes(b'fixture')
+            rows[1]['media'][0]['path']=str(media_file)
+            run_batch(bridge,'p','b','Seedance 2.0','text2video',{'duration':4},rows)
+            self.assertEqual([a[3] for a in calls],['text2video','image2video'])
+            self.assertEqual([a[5]['duration'] for a in calls],[6,8])
+
     def test_real_bridge_two_rows_cache_and_partial_recovery(self):
         import av
         import numpy as np

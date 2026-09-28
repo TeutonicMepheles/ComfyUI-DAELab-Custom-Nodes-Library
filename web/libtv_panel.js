@@ -7,7 +7,7 @@ import { connectionPanel, connectionRequest, compatibleValues, fallbackCapabilit
 // DAELab-owned adaptation of ComfyTV's StageParamsPanel grouping and theme.
 // No dependency on the upstream Vue application or its node registrations.
 import { studioTheme } from './daelab_studio_theme.mjs';
-import { batchControls, showBatchReport } from './libtv_batch_panel.mjs?v=20260926-batch1';
+import { batchControls, showBatchReport } from './libtv_batch_panel.mjs?v=20260927-ux1';
 const BATCH_TYPE = 'DAELAB.LibTV.StoryboardBatch';
 const TYPE = "DAELAB.LibTV.VideoGenerate";
 const PANEL = "daelab_libtv_panel";
@@ -30,7 +30,14 @@ function styles() {
 
 function install(node) {
     if (!node.graph) return;
-    if (node.__libtvPanel) {sync(node);return;}
+    if (node.__libtvPanel) {
+        sync(node);
+        // onAdded can install the panel before onConfigure restores the report.
+        if (node.type === BATCH_TYPE && node.properties?.daelabLibTVBatch) {
+            showBatchReport(node, node.properties.daelabLibTVBatch);
+        }
+        return;
+    }
     const batch=node.type===BATCH_TYPE;
     studioTheme();
     styles();
@@ -51,6 +58,7 @@ function install(node) {
         const w = widget(node,name); if (!w) return;
         w.value = value; w.callback?.(value,app.canvas,node,null,event);
         node.graph?.setDirtyCanvas?.(true,true);
+        if(batch){const input=node.inputs?.find(i=>i.name==='storyboard_json');const source=node.graph?.getNodeById(node.graph.links[input?.link]?.origin_id);source?.__syncPromptDefaults?.();}
     };
     function field(name, parent) {
         const w = widget(node,name); if (!w) return;

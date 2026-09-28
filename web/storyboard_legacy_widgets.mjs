@@ -39,4 +39,3 @@ export function recoverShiftedWorkflowValues(node) {
     }
     if (seedControl) seedControl.value = "fixed";
 }
-

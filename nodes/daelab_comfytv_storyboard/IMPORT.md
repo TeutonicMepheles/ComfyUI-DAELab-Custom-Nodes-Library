@@ -4,9 +4,8 @@
 
 可直接加载空白工作流：[storyboard-import.json](workflows/storyboard-import.json)。
 
-导入预览实测画面（合成分镜素材）：
+导入流程：
 
-![选表、修正与确认](docs/import-preview.png)
 
 1. 上传或拖入 Word 分镜表。
 2. 选择表格、表头行，以及镜号、时长、画面内容等对应列。切换表或列会重建当前预览。
@@ -20,7 +19,7 @@
 
 ## 保存什么
 
-输出为 STRING 类型 JSON，`schema_version: 2`。`shots` 中每行包含：
+输出为 STRING 类型 JSON。当前表格封装使用 `schema_version: 4`，`table` 是编辑数据真值，`shots` 为兼容投影；旧版独立 shots 仍可迁移。`shots` 中每行包含：
 
 | 字段 | 用途 |
 |---|---|
@@ -50,8 +49,6 @@
 
 `tools/storyboard_import_smoke.cjs` 在独立的本地 ComfyUI 测试实例中验证真实上传、取消、追加/替换、上传失败保护、刷新、节点连线和免费导入执行。测试素材由 `tests/storyboard_fixture.py` 生成，不冒充真实业务文档。未触发收费生图。
 
-2026-09-26 验收：9 项 Python 测试、24 项 JavaScript 测试通过；浏览器完整流程通过，无页面异常。实际验证了 App Mode 的 Active / Bypass / Muted 切换恢复及空白模板加载。真实项目分镜文档尚未验收。
+2026-09-26 验收：9 项 Python 测试、24 项 JavaScript 测试通过；浏览器完整流程通过，无页面异常。实际验证了 App Mode 的 Active / Bypass / Muted 切换恢复及空白模板加载。此为初版记录；2026-09-27 已追加真实文稿与 4 个视频验收，详见 [完整记录](PROMPT_PARSE_ACCEPTANCE.md)。
 
-App Mode 复用共享控制器，并补齐新版前端含 graph ID 的控件定位；窄侧栏按分镜纵向排列：
-
-![App Mode 分镜面板](docs/import-app-mode.png)
+App Mode 复用共享控制器，并补齐新版前端含 graph ID 的控件定位；窄侧栏默认保留表格横向滚动，也可主动切换卡片视图。

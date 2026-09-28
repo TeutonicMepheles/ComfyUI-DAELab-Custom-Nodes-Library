@@ -1,0 +1,43 @@
+{
+  "date": "2026-09-27",
+  "base": "codex/libtv-bridge-workspace",
+  "unitTests": {
+    "python": 123,
+    "node": 153
+  },
+  "registeredNodes": 16,
+  "browser": {
+    "table": {
+      "passed": true,
+      "pageErrors": []
+    },
+    "prompt": {
+      "passed": true,
+      "pageErrors": []
+    },
+    "reference": {
+      "passed": true,
+      "pageErrors": []
+    },
+    "splitter": {
+      "passed": true,
+      "pageErrors": []
+    },
+    "import": {
+      "passed": true,
+      "pageErrors": []
+    }
+  },
+  "realV3MockCLI": {
+    "passed": true,
+    "rows": 2,
+    "secondExecutionAdditionalRuns": 0
+  },
+  "paidGenerationDuringRelease": false,
+  "priorPaidAcceptance": {
+    "cases": 4,
+    "playable": 4,
+    "description": "Verified earlier in the authoring workspace; see PROMPT_PARSE_ACCEPTANCE.md"
+  },
+  "screenshots": "Synthetic fixtures only"
+}

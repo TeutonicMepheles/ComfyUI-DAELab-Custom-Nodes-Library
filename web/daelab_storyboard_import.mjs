@@ -1,3 +1,4 @@
+import {initializeImportAssets,materializeImportRows} from './storyboard_import_assets.mjs';
 import {draftTable, timeRangeNeedsReview} from "./daelab_storyboard_model.mjs?v=20260926";
 import {stopCanvasPropagation} from "./list_editor_controls.mjs";
 
@@ -12,6 +13,7 @@ export function previewImport(result, uploadReference) {
         const title = el("h2", "预览分镜导入");
         el("p", "先选择表格与对应列，再修正内容。切换表或列会重建预览。确认前不会改变原有分镜。旁白等原文会保留，不加入生图提示词。");
         const warning = el("p", result.warnings.join("；"));
+        if(result.document_notes){const notes=el("details");el("summary","查看表外说明（保留原文，不自动加入提示词）",notes);el("pre",result.document_notes,notes);}
         const controls = el("div");
         const pick = el("select", "", controls);
         result.tables.forEach((t, i) => { const o = el("option", `${t.name}（${t.rows.length} 行）`, pick); o.value = i; });
@@ -19,7 +21,7 @@ export function previewImport(result, uploadReference) {
         const header = el("input", "", headerLabel); header.type = "number"; header.min = "1"; header.title = "表头所在行"; header.style.width = "70px";
         const mappingBox = el("div");
         const bulk = el("select");
-        el("option", "同一参考图用于全部分镜…", bulk).value = "";
+        el("option", "追加共同参考图到全部分镜…", bulk).value = "";
         result.assets.forEach((a, i) => {el("option", `图片 ${i + 1}`, bulk).value = a.id;});
         const rows = el("div");
         rows.style.cssText = "max-height:48vh;overflow:auto;margin-top:12px";
@@ -29,30 +31,35 @@ export function previewImport(result, uploadReference) {
         function draw() {
             rows.replaceChildren();
             draft.forEach((shot, index) => {
-                const row = el("div", "", rows); row.style.cssText = "display:grid;grid-template-columns:55px 95px 2fr 1fr 180px 65px;gap:8px;padding:10px 0;border-bottom:1px solid #556";
+                const row = el("div", "", rows); row.style.cssText = "display:grid;grid-template-columns:55px 95px 2fr 1fr 280px 65px;gap:8px;padding:10px 0;border-bottom:1px solid #556";
                 for (const [key, label] of [["shot_no", "镜号"], ["time_range", "时长"], ["image_prompt", "画面内容"], ["camera_notes", "镜头备注"]]) {
                     const input = el("textarea", "", row); input.value = shot[key]; input.placeholder = label; input.setAttribute("aria-label", label);
-                    input.oninput = () => {shot[key] = input.value;};
+                    input.oninput = () => {shot[key] = input.value; if(key==="image_prompt"&&input.value.trim()&&shot.disposition==="pending")shot.disposition="independent"; const choice=row.querySelector("select[aria-label$=图片行处理]");if(choice)choice.value=shot.disposition;updateStatus();};
                 }
-                const ref = el("div", "", row), image = el("img", "", ref); image.style.cssText = "width:120px;height:70px;object-fit:contain";
-                const select = el("select", "", ref); el("option", "无参考图", select).value = "";
-                if (shot.image_url) el("option", "原有参考图", select).value = "existing";
-                result.assets.forEach((a, i) => {el("option", `图片 ${i + 1}${shot.candidate_assets.includes(a.id) ? '（本行）' : ''}`, select).value = a.id;});
-                select.value = shot.asset_id || (shot.image_url ? "existing" : "");
-                const refresh = () => {image.src = result.assets.find(a => a.id === shot.asset_id)?.data_url || shot.image_url || ""; image.hidden = !shot.asset_id && !shot.image_url;};
-                select.onchange = () => {delete shot.file; shot.asset_id = select.value === "existing" ? "" : select.value; if(select.value !== "existing") shot.image_url = ""; refresh();}; refresh();
-                const upload = el("input", "", ref); upload.type = "file"; upload.accept = "image/*";
-                upload.style.width = "100%";
-                upload.onchange = () => {shot.file = upload.files[0]; if(shot.file) {image.src = URL.createObjectURL(shot.file); image.onload = () => URL.revokeObjectURL(image.src); image.hidden = false; shot.asset_id = ""; shot.image_url = "";}};
+                const ref = el("div", "", row);ref.style.cssText="min-width:0";const gallery=el("div","",ref);gallery.style.cssText="display:flex;gap:6px;overflow-x:auto;max-width:280px;padding-bottom:6px";
+                shot.references.forEach((entry,i)=>{
+                    const tile=el('div','',gallery);tile.style.cssText='flex:0 0 126px;width:126px;border:1px solid #546170;padding:4px';
+                    const image=el('img','',tile);image.style.cssText='width:116px;height:70px;object-fit:contain';image.src=entry.url||result.assets.find(a=>a.id===entry.asset_id)?.data_url||'';
+                    if(entry.file){image.src=URL.createObjectURL(entry.file);image.onload=()=>URL.revokeObjectURL(image.src);}
+                    el('small',entry.source_column||'参考图',tile);const label=el('label',`图 ${i+1} 用于生成`,tile),check=el('input','',label);check.type='checkbox';check.checked=entry.selected;check.setAttribute('aria-label',`第 ${index+1} 条图 ${i+1} 用于生成`);check.onchange=()=>entry.selected=check.checked;
+                    for(const [step,text] of [[-1,'前移'],[1,'后移']]){const b=el('button',text,tile);b.disabled=i+step<0||i+step>=shot.references.length;b.onclick=()=>{const [item]=shot.references.splice(i,1);shot.references.splice(i+step,0,item);draw();};}
+                });
+                const upload=el('input','',ref);upload.type='file';upload.multiple=true;upload.accept='image/*';upload.setAttribute('aria-label',`第 ${index+1} 条补图`);upload.style.width='100%';upload.onchange=()=>{shot.references.push(...[...upload.files].map(file=>({file,selected:true})));draw();};
+                if(!shot.image_prompt.trim()&&shot.references.length||shot.disposition!=='independent'){
+                    const disposition=el('select','',ref);disposition.setAttribute('aria-label',`第 ${index+1} 条图片行处理`);
+                    for(const [value,label] of [['pending','请选择图片行归属'],['independent','独立保留，稍后补描述'],['merge','并入上一条分镜']]){const o=el('option',label,disposition);o.value=value;if(value==='merge'&&index===0)o.disabled=true;}
+                    disposition.value=shot.disposition;disposition.onchange=()=>{shot.disposition=disposition.value;updateStatus();};
+                }
                 const remove = el("button", "移除", row); remove.onclick = () => {draft.splice(index, 1); draw();};
                 remove.style.alignSelf = "start";
                 const note = el("small", "", rows);
-                const updateNote = () => { note.textContent = `来源：${table.name} 第 ${shot.source.row} 行。` + (!shot.image_prompt.trim() ? "画面内容待补；" : "") + (timeRangeNeedsReview(shot.time_range) ? "时长待确认（当前默认 3 秒）；" : "") + (shot.candidate_assets.length > 1 && !shot.asset_id && !shot.image_url && !shot.file ? "本行有多张图片，请选择；" : ""); }; updateNote(); row.addEventListener("input", updateNote); row.addEventListener("change", updateNote);
+                const updateNote = () => { note.textContent = `来源：${table.name} 第 ${shot.source.row} 行。` + (!shot.image_prompt.trim() ? "画面内容待补；" : "") + (timeRangeNeedsReview(shot.time_range) ? "剧本时长待确认（视频时长另设）；" : "") + `原稿 ${shot.references.length} 张图；未勾选的图片仍保留在原稿图片列。`; }; updateNote(); row.addEventListener("input", updateNote); row.addEventListener("change", updateNote);
                 const raw = el("details", "", rows); el("summary", "查看原文（含旁白）", raw); el("pre", shot.original_fields.map(f => `${f.name}：${f.value}`).join("\n"), raw);
             });
-            status.textContent = `共 ${draft.length} 个分镜。缺项可导入后补齐；生成前必须补齐画面内容。`;
+            updateStatus();
         }
-        function remap() { draft = draftTable(result, table, mapping, Number(header.value) - 1); draw(); }
+        function updateStatus(){const pending=draft.filter(s=>s.disposition==='pending').length,merged=draft.filter(s=>s.disposition==='merge').length;status.textContent=`将导入 ${draft.length-merged} 条分镜，合并 ${merged} 条图片续行。${pending?pending+' 条图片行待确认归属。':'原稿图片全部保留，勾选的图片用于生成。'}`;}
+        function remap() { draft = draftTable(result, table, mapping, Number(header.value) - 1).map(initializeImportAssets); draw(); }
         function changeTable() {
             table = result.tables[Number(pick.value)]; mapping = {...table.mapping}; header.value = table.header_index + 1; buildMapping();
         }
@@ -65,7 +72,7 @@ export function previewImport(result, uploadReference) {
             } remap();
         }
         pick.onchange = changeTable; header.onchange = () => {header.value = Math.max(1, Math.min(table.rows.length, Number(header.value)||1)); buildMapping();};
-        bulk.onchange = () => { if(bulk.value) {draft.forEach(s=>{s.asset_id=bulk.value; s.image_url=""; delete s.file;}); draw();} };
+        bulk.onchange = () => { if(bulk.value) {draft.forEach(s=>{if(!s.references.some(r=>r.asset_id===bulk.value))s.references.push({asset_id:bulk.value,selected:true});}); draw();} };
         const finish = value => {dialog.remove(); resolve(value);};
         const cancel = el("button", "取消", footer); cancel.onclick = () => {if(!busy) finish(null);};
         dialog.oncancel = event => {event.preventDefault(); if(!busy) finish(null);};
@@ -76,16 +83,7 @@ export function previewImport(result, uploadReference) {
                 if(busy || !draft.length) return;
                 busy=true; dialog.querySelectorAll("button,input,select,textarea").forEach(e=>e.disabled=true); status.textContent="正在保存参考图…";
                 try {
-                    const uploaded=new Map(), shots=[];
-                    for(const source of draft) {
-                        const shot={...source};
-                        if(shot.file) shot.image_url = await uploadReference(shot.file);
-                        else if(shot.asset_id) {
-                            if(!uploaded.has(shot.asset_id)) {const a=result.assets.find(a=>a.id===shot.asset_id); const blob=await (await fetch(a.data_url)).blob(); uploaded.set(a.id,await uploadReference(new File([blob],a.name,{type:blob.type})));}
-                            shot.image_url=uploaded.get(shot.asset_id);
-                        }
-                        shots.push(shot);
-                    }
+                    const shots=await materializeImportRows(draft,result.assets,uploadReference);
                     finish({mode, result:{...result,shots}});
                 } catch(error) {status.textContent=`导入未应用：${error.message}。可以重试或取消。`; busy=false; dialog.querySelectorAll("button,input,select,textarea").forEach(e=>e.disabled=false);}
             };

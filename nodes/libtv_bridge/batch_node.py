@@ -29,7 +29,6 @@ class LibTVStoryboardBatch(io.ComfyNode):
     def execute(cls, storyboard_json, project_uuid, request_id, model, mode, duration, resolution, ratio, sound=False):
         from server import PromptServer
         import comfy.model_management
-        rows = compile_rows(storyboard_json, local_media)
         settings = dict(duration=duration, resolution=resolution, ratio=ratio)
         if model != 'Minimax H3':
             settings['enableSound'] = 'on' if sound else 'off'
@@ -37,6 +36,9 @@ class LibTVStoryboardBatch(io.ComfyNode):
             raise ValueError('H3 不支持声音开关')
         output = Path(folder_paths.get_output_directory()).resolve()
         bridge = Bridge(Path(folder_paths.get_user_directory()) / 'daelab/libtv/jobs', output / 'daelab/libtv')
+        from .media_snapshot import recovery_context
+        rows = compile_rows(storyboard_json, local_media, dict(model=model, mode=mode, duration=duration),
+                            recovery_context(bridge, project_uuid, request_id))
         def public(report):
             for row in report['rows']:
                 if row.get('file'):

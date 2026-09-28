@@ -1,14 +1,19 @@
 """Compile selected storyboard rows, then reuse the single-video CLI bridge serially."""
 import hashlib
 import json
+import time
 from .runtime import MODELS, validate, atomic_json, job_lock
 
 
-def compile_rows(value, local_media):
+def compile_rows(value, local_media, defaults=None, recover_context=None):
     data = json.loads(value) if isinstance(value, str) else value
+    table = data.get('table', data if 'fields' in data and 'records' in data else None) if isinstance(data, dict) else None
+    if table is not None and (table.get('meta', {}).get('prompt_mode') == 'reviewed' or 'table' not in data):
+        from ..daelab_comfytv_storyboard.prompt_service import compile_table
+        return compile_table(table, local_media, defaults, recover_context)
     if isinstance(data, dict) and 'table' in data:
         from ..daelab_comfytv_storyboard.table_adapter import project_table
-        data = project_table(data['table'])
+        data = project_table(data['table'], for_video=True)
     if not isinstance(data, dict) or not isinstance(data.get('shots'), list):
         raise ValueError('请连接分镜导入节点的 storyboard_json')
     shots = data['shots']
@@ -36,10 +41,19 @@ def compile_rows(value, local_media):
         refs.extend(shot.get('additional_reference_images', []))
         for group in groups:
             assigned = shot.get('group_refs', {}).get(group['id'])
-            if not isinstance(assigned, list) or not assigned:
+            if assigned is None and group.get('required') is False:
+                assigned = []
+            if not isinstance(assigned, list) or (not assigned and group.get('required') is not False):
                 raise ValueError(f"分镜 {shot.get('shot_no', shot['id'])} 未填入素材组“{group.get('name', '')}”")
             refs.extend(a['url'] for a in assigned)
-        rows.append(dict(shot_id=shot['id'], shot_no=str(shot.get('shot_no', '')), prompt=prompt,
+        duration = shot.get('generation_duration')
+        if duration not in (None, '') and (isinstance(duration, bool) or not isinstance(duration, (int, float)) or not 0 < duration <= 3600):
+            raise ValueError(f"分镜 {shot.get('shot_no', '')} 的生成秒数无效")
+        mode_label = shot.get('generation_mode') or ''
+        modes = {'文生视频':'text2video','首帧生视频':'singleImage2video','首尾帧':'frames2video','多图参考':'image2video','全能参考':'mixed2video'}
+        if mode_label and mode_label not in modes:
+            raise ValueError(f"分镜 {shot.get('shot_no', '')} 的生成方式无效")
+        rows.append(dict(generation_duration=duration, generation_mode=modes.get(mode_label), shot_id=shot['id'], shot_no=str(shot.get('shot_no', '')), prompt=prompt,
                          media=[local_media(url) for url in refs]))
     if not rows:
         raise ValueError('请至少勾选一行')
@@ -57,18 +71,33 @@ def run_batch(bridge, project, batch_id, model, mode, settings, rows, progress=l
         raise ValueError('LibTV 当前账号没有这个模型')
     schema = bridge.cli('model', match['modelName'])['schema']
     requests = []
+    identities = []
     for row in rows:
         request_id = batch_id + ':' + hashlib.sha256(row['shot_id'].encode()).hexdigest()[:24]
-        args = (project, request_id, model, mode, row['prompt'], settings, row['media'])
+        row_mode = row.get('generation_mode') or mode
+        row_settings = dict(settings)
+        if row.get('generation_duration') not in (None, ''):
+            row_settings['duration'] = row['generation_duration']
+        args = (project, request_id, model, row_mode, row['prompt'], row_settings, row['media'])
         try:
-            validate(schema, mode, row['prompt'], settings, row['media'])
+            validate(schema, row_mode, row['prompt'], row_settings, row['media'])
+            if row.get('reviewed'):
+                from .media_snapshot import freeze_media
+                media = freeze_media(bridge, project, request_id, row['media'], row.get('source_context'))
+                args = (*args[:-1], media)
             bridge.check_request(*args)
+            _, task_fingerprint, snapshot_id = bridge.request_identity(*args)
+            identities.append(dict(fingerprint=task_fingerprint, snapshot_id=snapshot_id,
+                                   editorFingerprint=row.get('editorFingerprint', '')))
         except Exception as exc:
             raise ValueError(f"分镜 {row['shot_no']}：{exc}；本次尚未提交任何生成") from exc
         requests.append(args)
     key = hashlib.sha256((project + '\n' + batch_id).encode()).hexdigest()[:24]
-    report = dict(batch_id=batch_id, project_uuid=project, model=model, phase='running', rows=[
-        dict(shot_id=r['shot_id'], shot_no=r['shot_no'], request_id=a[1], phase='waiting') for r, a in zip(rows, requests)])
+    previous_report = bridge.cache / ('batch-' + key + '.json')
+    started_at = json.loads(previous_report.read_text('utf-8')).get('started_at', time.time()) if previous_report.exists() else time.time()
+    report = dict(batch_id=batch_id, project_uuid=project, model=model, started_at=started_at, phase='running', rows=[
+        dict(shot_id=r['shot_id'], shot_no=r['shot_no'], request_id=a[1], phase='waiting', **identity)
+        for r, a, identity in zip(rows, requests, identities)])
     def publish():
         atomic_json(bridge.cache / ('batch-' + key + '.json'), report)
         progress(json.loads(json.dumps(report)))

@@ -2,6 +2,17 @@
 
 DAELab 维护的 ComfyUI 自定义节点库。
 
+## 分镜与视频工作流
+
+从文稿导入或空表开始，在同一表格中整理逐行任务、标记视频参考图片列、解析并编辑最终 Prompt，再连接现有 LibTV 批量生成节点。
+
+- [交付范围、启动方式与复验入口](nodes/daelab_comfytv_storyboard/DELIVERY.md)
+- [表格操作与参考列规则](nodes/daelab_comfytv_storyboard/TABLE.md)
+- [Prompt 方案](nodes/daelab_comfytv_storyboard/PROMPT_PARSE_PLAN.md) · [分阶段验收与 4 个真实视频结果](nodes/daelab_comfytv_storyboard/PROMPT_PARSE_ACCEPTANCE.md)
+- [分镜视频模板](examples/libtv/Storyboard%20Studio.json) · [通用空表模板](examples/table/Generic%20Table.json)
+
+节点：`DAELAB.Table`（通用表格）、`DAELAB.StoryboardImport`（文稿分镜导入）、`DAELAB.LibTV.StoryboardBatch`（批量视频）及 `DAELAB.ComfyTV.GPTImageStoryboardStage`（既有独立图片生成）。安装新增依赖后重启 ComfyUI 并刷新前端；上游 ComfyTV 保持只读。
+
 ## 维护指南
 
 - 多人协作请先阅读 [Contributor Action List](./CONTRIBUTOR_ACTION_LIST.md)。

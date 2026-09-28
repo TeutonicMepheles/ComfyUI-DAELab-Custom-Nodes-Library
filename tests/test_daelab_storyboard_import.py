@@ -26,6 +26,12 @@ with mock.patch.dict(sys.modules, {"server": server_stub}):
 
 
 class DAELabStoryboardImportTests(unittest.TestCase):
+    def test_explicit_description_beats_picture_column_and_decimal_is_not_list(self):
+        self.assertEqual(module._header_map(['序号','画面','描述','备注'])['image_prompt'], 2)
+        self.assertEqual(module._header_map(['段落',' 设计描述','画面参考','备注'])['image_prompt'], 1)
+        self.assertIsNone(module._numbered_list_to_table(['3.8米']))
+        self.assertEqual(module._numbered_list_to_table(['3. 开始发射'])[1], ['3','开始发射'])
+
     def test_docx_preview_preserves_tables_rows_images_and_original_text(self):
         import io
         from docx import Document
@@ -54,6 +60,46 @@ class DAELabStoryboardImportTests(unittest.TestCase):
     def test_preview_allows_unknown_headers_for_manual_mapping(self):
         result = module.preview_storyboard_document("test.csv", b"a,b\n1,hello\n")
         self.assertEqual(result["tables"][0]["rows"][1], ["1", "hello"])
+
+    def test_docx_tracked_insertions_and_deletions_use_final_view(self):
+        import io
+        from docx import Document
+        from docx.oxml import OxmlElement
+        from PIL import Image
+        doc = Document()
+        para = doc.add_paragraph('最终说明')
+        table = doc.add_table(rows=3, cols=3)
+        for cell, text in zip(table.rows[0].cells, ['镜号', '画面内容', '旁白']):
+            cell.text = text
+        for cell, text in zip(table.rows[1].cells, ['01', '最终画面', '旁白另存']):
+            cell.text = text
+        table.rows[2].cells[1].text = '删除整行'
+        table.rows[2]._tr.get_or_add_trPr().append(OxmlElement('w:del'))
+        blob = io.BytesIO()
+        Image.new('RGB', (3, 3), 'blue').save(blob, format='PNG')
+        blob.seek(0)
+        table.rows[1].cells[1].paragraphs[0].add_run().add_picture(blob)
+        # Both paragraph- and run-level insertion wrappers occur in real Word files.
+        for p in [p for row in table.rows for cell in row.cells for p in cell.paragraphs]:
+            insertion = OxmlElement('w:ins')
+            for run in list(p._p.findall('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r')):
+                insertion.append(run)
+            p._p.append(insertion)
+        insertion = OxmlElement('w:ins')
+        para._p.addprevious(insertion)
+        insertion.append(para._p)
+        deleted = OxmlElement('w:del')
+        run = OxmlElement('w:r')
+        old = OxmlElement('w:delText'); old.text = '旧画面不可混入'
+        run.append(old); deleted.append(run)
+        table.rows[1].cells[1].paragraphs[0]._p.append(deleted)
+        payload = io.BytesIO(); doc.save(payload)
+        result = module.preview_storyboard_document('revision.docx', payload.getvalue())
+        self.assertEqual(result['tables'][0]['rows'], [['镜号','画面内容','旁白'],['01','最终画面','旁白另存']])
+        self.assertEqual(result['document_notes'], '最终说明')
+        self.assertEqual(len(result['tables'][0]['images']['1:1']), 1)
+        self.assertTrue(any('修订' in warning for warning in result['warnings']))
+        self.assertEqual(module.parse_storyboard_document('revision.docx', payload.getvalue())['shots'][0]['image_prompt'], '最终画面')
 
     def test_business_csv_ignores_voiceover_and_allows_blank_notes(self):
         payload = (

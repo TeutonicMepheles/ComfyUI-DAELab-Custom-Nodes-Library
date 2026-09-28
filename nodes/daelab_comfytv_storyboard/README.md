@@ -1,5 +1,7 @@
 # DAELAB - GPT Image 2 StoryBoard
 
+通用表格、分镜导入、Prompt 与视频提交的完整使用说明见 [交付索引](DELIVERY.md)。本文说明现有独立 GPT Image 分镜节点；它的图片生成素材映射与视频列标记分开处理。
+
 - 节点 ID：`DAELAB.ComfyTV.GPTImageStoryboardStage`
 - 分类：`DAELab/ComfyTV`
 - 输出：`COMFYTV_IMAGES` 批量结果与 `COMFYTV_IMAGE` 当前选中图

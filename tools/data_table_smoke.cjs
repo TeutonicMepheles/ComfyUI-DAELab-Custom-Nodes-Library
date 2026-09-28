@@ -22,6 +22,12 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    await rows.nth(0).locator(`[data-field="${primary}"]`).locator('input,textarea').fill('山间清晨，薄雾缓缓散开');
    await rows.nth(1).locator(`[data-field="${primary}"]`).locator('input,textarea').fill('日落时分，镜头掠过山脊');
    const original=await state();
+   await panel.getByRole('button',{name:'展开工作台',exact:true}).click();
+   assert((await page.locator('.dae-workbench').boundingBox()).width>1400);
+   await rows.first().locator(`[data-field="${primary}"]`).locator('input,textarea').fill('展开后编辑');
+   await panel.getByRole('button',{name:'收起工作台',exact:true}).click();
+   assert.equal((await state()).records[0].values[primary],'展开后编辑');
+   await panel.getByRole('button',{name:'撤销',exact:true}).click();assert.deepEqual((await state()).records,original.records);
    await rows.first().locator(`[data-field="${primary}"]`).evaluate(el=>{const data=new DataTransfer();data.setData('text/plain','外部文字');el.dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:data}));});
    await page.getByRole('dialog',{name:'调整单元格'}).getByRole('button',{name:'取消',exact:true}).click();assert.deepEqual((await state()).records,original.records);
 
@@ -90,7 +96,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    // Return to graph for the next preset.
    await page.reload();await page.waitForFunction(()=>!!window.app?.graph);await page.waitForTimeout(1800);await page.keyboard.press('Escape');
   }
-  assert.deepEqual(errors,[]);const result={passed:true,registeredNodes:DAELAB_NODE_TYPES.length,paidSubmission:false,errors,evidence,checks:['same DOM editor for both node types','record reorder and undo','external text overwrite cancellation preserves data','dynamic typed field add rename hide reorder','atomic typed paste with row expansion','group upload and ordering','generic asset-cell transfer and undo','record selection and duplicate','explicit card/table view','rename preserves storyboard bindings','two reloads preserve complete data and sizes','oversized height compact','App Mode Active/Bypass/Muted recovery','narrow table retains headers and horizontal scroll']};
+  assert.deepEqual(errors,[]);const result={passed:true,registeredNodes:DAELAB_NODE_TYPES.length,paidSubmission:false,errors,evidence,checks:['expand edit collapse and undo in both table types','same DOM editor for both node types','record reorder and undo','external text overwrite cancellation preserves data','dynamic typed field add rename hide reorder','atomic typed paste with row expansion','group upload and ordering','generic asset-cell transfer and undo','record selection and duplicate','explicit card/table view','rename preserves storyboard bindings','two reloads preserve complete data and sizes','oversized height compact','App Mode Active/Bypass/Muted recovery','narrow table retains headers and horizontal scroll']};
   fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
  }catch(e){if(page)await page.screenshot({path:path.join(out,'failure.png')});throw e;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

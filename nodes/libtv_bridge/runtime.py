@@ -112,7 +112,9 @@ def validate(schema, mode, prompt, settings, media):
     if mode != "text2video" and mode not in modes:
         raise ValueError(f"Model does not support {mode}")
     counts = {kind: sum(m["kind"] == kind for m in media) for kind in ("image", "video", "audio")}
-    for kind, index in re.findall(r"@(image|video|audio)_(\d+)\b", prompt):
+    spans = getattr(prompt, 'reference_spans', None)
+    references = [(s['kind'], s['index']) for s in spans] if spans is not None else re.findall(r"@(image|video|audio)_(\d+)\b", prompt)
+    for kind, index in references:
         if not 1 <= int(index) <= counts[kind]:
             raise ValueError(f"Reference @{kind}_{index} has no connected asset")
     if mode == "text2video" and media:
@@ -153,6 +155,13 @@ def validate(schema, mode, prompt, settings, media):
 def reference_prompt(prompt, media, keys):
     refs = {kind: [key for item, key in zip(media, keys) if item["kind"] == kind]
             for kind in ("image", "video", "audio")}
+    spans = getattr(prompt, 'reference_spans', None)
+    if spans is not None:
+        parts, offset = [], 0
+        for span in spans:
+            parts.extend([prompt[offset:span['start']], '{{Node ' + refs[span['kind']][span['index'] - 1] + '}}'])
+            offset = span['end']
+        return ''.join(parts) + prompt[offset:]
     return re.sub(r"@(image|video|audio)_(\d+)\b",
                   lambda m: "{{Node " + refs[m[1]][int(m[2]) - 1] + "}}", prompt)
 
@@ -168,9 +177,17 @@ class Bridge:
             raise ValueError("project_uuid and request_id are required")
         if model not in MODELS:
             raise ValueError("Unsupported model")
+        identity_media = []
+        for item in media:
+            actual = digest_file(item['path'])
+            if item.get('sha256') and actual != item['sha256']:
+                raise ValueError('素材快照内容已变化，已阻止提交')
+            identity_media.append(dict(kind=item['kind'], sha256=actual))
         request = dict(project=project, request_id=request_id, model=model, mode=mode,
                        prompt=prompt, settings=settings,
-                       media=[dict(kind=m["kind"], sha256=digest_file(m["path"])) for m in media])
+                       media=identity_media)
+        if hasattr(prompt, 'reference_spans'):
+            request['reference_spans'] = prompt.reference_spans
         fingerprint = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
         key = hashlib.sha256((project + "\n" + request_id).encode()).hexdigest()[:24]
         return request, fingerprint, key

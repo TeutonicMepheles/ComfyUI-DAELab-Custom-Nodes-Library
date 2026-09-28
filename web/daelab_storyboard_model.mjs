@@ -125,6 +125,7 @@ export function draftTable(result, table, mapping = table.mapping, headerIndex =
         const field = name => row[mapping[name]] || "";
         return [{...normalizeShot({shot_no: field("shot_no"), time_range: field("time_range"), image_prompt: field("image_prompt"), camera_notes: field("camera_notes"), image_url: field("reference_image").startsWith("/view?") ? field("reference_image") : ""}, index),
             asset_id: refs.length === 1 ? refs[0] : "", candidate_assets: refs,
+              candidate_asset_sources: Object.fromEntries(refs.map(id=>[id,Object.entries(table.images||{}).filter(([key,ids])=>key.startsWith(`${ri}:`)&&ids.includes(id)).map(([key])=>headers[Number(key.split(':')[1])]||'图片').join(' / ')])),
             source: {filename: result.filename, table: table.id, row: ri + 1},
             original_fields: row.map((value, ci) => ({column: ci, name: headers[ci] || `列 ${ci + 1}`, value})),
         }];

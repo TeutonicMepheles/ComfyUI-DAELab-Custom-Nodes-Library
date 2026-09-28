@@ -39,7 +39,7 @@ _HEADER_ALIASES = {
     "image_prompt": {
         "画面内容", "画面描述", "画面", "提示词", "图像提示词", "分镜内容",
         "镜头内容", "视觉描述", "visual", "visualdescription", "imageprompt",
-        "prompt", "description",
+        "prompt", "description", "描述", "设计描述",
     },
     "camera_notes": {
         "镜头备注", "镜头说明", "运镜", "镜头运动", "拍摄备注", "摄影备注",
@@ -47,7 +47,7 @@ _HEADER_ALIASES = {
     },
     "reference_image": {
         "参考图", "参考图片", "参考图像", "参考素材", "referenceimage",
-        "refimage", "reference", "image",
+        "refimage", "reference", "image", "画面参考",
     },
 }
 
@@ -79,6 +79,11 @@ def _header_map(row: Sequence[object]) -> dict[str, int]:
             if field not in matched and key in aliases:
                 matched[field] = index
                 break
+    # Prefer explicit description columns over the ambiguous image-bearing 画面 column.
+    for index, cell in enumerate(row[:MAX_COLUMNS]):
+        if _header_key(cell) in {"描述", "设计描述", "画面描述", "画面内容", "imageprompt"}:
+            matched["image_prompt"] = index
+            break
     return matched
 
 
@@ -197,7 +202,7 @@ def _table_to_shots(table, header_index, mapping) -> tuple[list[dict], list[str]
 def _numbered_list_to_table(lines: Iterable[str]):
     rows = [["镜号", "画面内容"]]
     for line in lines:
-        match = re.match(r"^\s*(?:(\d+)\s*[.)、]|[-*•])\s*(.+?)\s*$", line)
+        match = re.match(r"^\s*(?:(\d+)\s*(?:\.(?!\d)|[)、])|[-*•])\s*(.+?)\s*$", line)
         if match:
             rows.append([match.group(1) or str(len(rows)), match.group(2)])
     return rows if len(rows) > 1 else None
@@ -239,12 +244,35 @@ def _text_tables(payload: bytes, suffix: str):
     return tables, title
 
 
+def _load_docx(payload: bytes):
+    """Read the final revision view in memory; never rewrite the source DOCX."""
+    from docx import Document
+    document = Document(io.BytesIO(payload))
+    root = document.element
+    revised = bool(root.xpath('.//w:ins | .//w:del | .//w:moveFrom | .//w:moveTo'))
+    # A deleted row is represented by a marker in trPr, not a wrapper.
+    for row in root.xpath('.//w:tr[w:trPr/w:del]'):
+        row.getparent().remove(row)
+    for element in root.xpath('.//w:del | .//w:moveFrom'):
+        parent = element.getparent()
+        if parent is not None:
+            parent.remove(element)
+    # python-docx skips runs/paragraphs wrapped in tracked insertions.
+    for element in reversed(root.xpath('.//w:ins | .//w:moveTo')):
+        parent = element.getparent()
+        if parent is not None:
+            index = parent.index(element)
+            for child in list(element):
+                parent.insert(index, child)
+                index += 1
+            parent.remove(element)
+    return document, revised
+
+
 def _docx_tables(payload: bytes):
     _archive_preflight(payload)
     try:
-        from docx import Document
-
-        document = Document(io.BytesIO(payload))
+        document, _ = _load_docx(payload)
     except (ImportError, ValueError, KeyError) as exc:
         raise StoryboardImportError(f"could not read DOCX: {exc}") from exc
     tables = [
@@ -375,9 +403,10 @@ def preview_storyboard_document(filename: str, payload: bytes) -> dict:
     warnings, assets, tables = [], [], []
     if suffix == ".docx":
         _archive_preflight(payload)
-        from docx import Document
         from PIL import Image
-        document = Document(io.BytesIO(payload))
+        document, revised = _load_docx(payload)
+        if revised:
+            warnings.append("文档含修订记录，预览按最终修订内容读取（保留新增、排除删除）；原文件未修改，请核对后导入")
         title = next((p.text for p in document.paragraphs if p.text.strip()), "")
         asset_by_rel = {}
         asset_bytes = 0
@@ -432,4 +461,4 @@ def preview_storyboard_document(filename: str, payload: bytes) -> dict:
         table.update(id=ti, name=f"表 {ti + 1}", header_index=hi, mapping=_header_map(rows[hi]) if rows else {})
     if not tables:
         raise StoryboardImportError("未找到表格或编号分镜，请使用 Word 分镜表")
-    return {"filename": Path(filename).name, "document_title": title, "tables": tables, "assets": assets, "warnings": warnings}
+    return {"filename": Path(filename).name, "document_title": title, "tables": tables, "assets": assets, "warnings": warnings, "document_notes": "\n".join(p.text for p in document.paragraphs if p.text.strip()) if suffix == ".docx" else ""}

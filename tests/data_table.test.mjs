@@ -4,6 +4,13 @@ import {normalizeTable,addField,removeField,addRecord,reorder,transferValue,pars
 import {newStoryboardTable,readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults} from '../web/storyboard_table_adapter.mjs';
 import {addAssetGroup,applyAssetGroups} from '../web/data_table_groups.mjs';
 
+test('optional groups allow different per-row counts without duplicating images',()=>{
+ const table=newStoryboardTable();addRecord(table);addRecord(table);const group=addAssetGroup(table);
+ group.required=false;group.items=[{id:'a',url:'/a'}];applyAssetGroups(table);
+ assert.deepEqual(table.records.map(r=>r.values[group.field_id].length),[1,0]);
+ group.required=true;assert.throws(()=>applyAssetGroups(table),/需要 2 张/);
+});
+
 test('quoted clipboard roundtrip and invalid typed paste are atomic',()=>{
  const t=normalizeTable({fields:[{id:'text',type:'text'},{id:'n',type:'number'}],records:[{id:'r',values:{text:'old',n:1}}]});
  const matrix=[['a\tb\n"c"',3],['two',4]];pasteMatrix(t,'r','text',parseTSV(encodeTSV(matrix)));

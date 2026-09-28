@@ -13,4 +13,3 @@ export function conflictChoice(swap) {
         document.body.append(dialog);dialog.showModal();
     });
 }
-

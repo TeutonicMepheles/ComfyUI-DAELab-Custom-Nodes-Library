@@ -1,7 +1,5 @@
 # LibTV 多参考演示
 
-新增：[Storyboard Studio.json](Storyboard%20Studio.json) 提供“分镜表 → 素材编组 → 选中行批量生成”的空白模板。参见[分镜工作台使用说明](../../nodes/libtv_bridge/STORYBOARD.md)。
-
 将 MultiReference Demo.json 拖入同时加载 DAELab 节点和 ComfyTV 的 ComfyUI。
 演示只包含一个 `DAELAB.LibTV.VideoGenerate` 视频指令节点，三张图片经 ImageBatch 接入 reference_images。
 先在三个 LoadImage 中选择自己的同尺寸参考图，再在视频节点登录 LibTV、选择画布。

@@ -1,3 +1,5 @@
+import {taskFingerprint} from './storyboard_task_state.mjs';
+import {promptConfig} from './table_prompt_model.mjs';
 import {normalizeTable,clone,addField,uid} from './data_table_model.mjs';
 import {normalizeStoryboard,durationFromTimeRange} from './daelab_storyboard_model.mjs?v=20260926-batch1';
 
@@ -23,7 +25,7 @@ export function projectStoryboard(table) {
     const groups=(table.meta.asset_groups||[]).filter(g=>fields.has(g.field_id)).sort((a,b)=>table.fields.findIndex(f=>f.id===a.field_id)-table.fields.findIndex(f=>f.id===b.field_id)).map(g=>({...clone(g),name:table.fields.find(f=>f.id===g.field_id).name}));
     return {schema_version:4,document_title:m.document_title||'',source_filename:m.source_filename||'',asset_groups:groups,column_order:table.fields.map(f=>f.id),shots:table.records.map((r,i)=>{
         const refs=get(r,'image_url')||[],prompt=raw(get(r,'image_prompt'));
-        return {id:r.id,selected:r.selected,input_changed:Boolean(r.meta?.input_changed),shot_no:raw(get(r,'shot_no')) || String(i+1).padStart(2,'0'),time_range:raw(get(r,'time_range')),duration:durationFromTimeRange(get(r,'time_range')),prompt,image_prompt:prompt,camera_notes:raw(get(r,'camera_notes')),image_url:Array.isArray(refs)?refs[0]?.url||'':'',additional_reference_images:Array.isArray(refs)?refs.slice(1).map(a=>a.url):[],source:get(r,'source')||null,original_fields:get(r,'original_fields')||[],group_refs:Object.fromEntries(groups.map(g=>[g.id,clone(r.values[g.field_id]||[])]))};
+        return {id:r.id,selected:r.selected,input_changed:Boolean(r.meta?.input_changed),shot_no:raw(get(r,'shot_no')) || String(i+1).padStart(2,'0'),time_range:raw(get(r,'time_range')),duration:durationFromTimeRange(get(r,'time_range')),prompt,image_prompt:prompt,camera_notes:raw(get(r,'camera_notes')),image_url:Array.isArray(refs)?refs[0]?.url||'':'',reference_assets:clone(Array.isArray(refs)?refs:[]),additional_reference_images:Array.isArray(refs)?refs.slice(1).map(a=>a.url):[],generation_duration:r.values[m.generation_fields?.duration]??null,generation_mode:r.values[m.generation_fields?.mode]||'',source:get(r,'source')||null,original_fields:get(r,'original_fields')||[],group_refs:Object.fromEntries(groups.map(g=>[g.id,clone(r.values[g.field_id]||[])]))};
     })};
 }
 export function serializeStoryboardTable(table) {return JSON.stringify({...projectStoryboard(table),table});}
@@ -33,7 +35,7 @@ export function applyLegacy(table,legacy) {
     for(const g of groups) {
         m.group_fields||={};
         let field=table.fields.find(f=>f.id===(g.field_id||m.group_fields[g.id]));
-        if(!field){field=addField(table,{id:'group:'+g.id,name:g.name,type:'assets',width:170});m.group_fields[g.id]=field.id;}
+        if(!field){field=addField(table,{id:'group:'+g.id,name:g.name,type:'assets',width:170,video_reference:true});m.group_fields[g.id]=field.id;}
         m.group_fields[g.id]=field.id;
         field.name=g.name;
     }
@@ -44,7 +46,7 @@ export function applyLegacy(table,legacy) {
         const row={id:s.id||uid(),selected:s.selected!==false,values:clone(previous.get(s.id)?.values||{}),meta:{...clone(previous.get(s.id)?.meta||{}),input_changed:Boolean(s.input_changed)}};
         for(const role of ['shot_no','time_range','image_prompt','camera_notes','image_url','source','original_fields']) {
             const f=table.fields.find(f=>f.id===m.bindings[role]);if(!f)continue;
-            row.values[f.id]=role==='image_url'?[...asset(s.image_url),...(s.additional_reference_images||[]).flatMap(asset)]:clone(s[role]??(role==='original_fields'?[]:role==='source'?null:''));
+            row.values[f.id]=role==='image_url'?clone(s.reference_assets??previous.get(s.id)?.values[f.id]??[...asset(s.image_url),...(s.additional_reference_images||[]).flatMap(asset)]):clone(s[role]??(role==='original_fields'?[]:role==='source'?null:''));
         }
         for(const g of groups)row.values[m.group_fields[g.id]]=clone(s.group_refs?.[g.id]||[]);
         return row;
@@ -52,18 +54,36 @@ export function applyLegacy(table,legacy) {
 }
 export function importRows(table,result,mode) {
     const m=meta(table),current=projectStoryboard(table);
+    const preserved=mode==='replace'?new Map():new Map(table.records.map(r=>[r.id,clone(r)]));
     if(!table.fields.some(f=>f.id===m.bindings.image_prompt))throw new Error('请先在“字段映射”中绑定画面描述字段');
     // Import reuses mapped fields and common record creation; custom columns remain intact.
+    m.document_notes=result.document_notes||m.document_notes||'';
+    let originals=table.fields.find(f=>f.id===m.original_assets_field);
+    if(result.shots.some(s=>s.original_assets?.length)&&!originals){originals=addField(table,{name:'原稿图片',type:'assets',width:240});originals.readonly=true;m.original_assets_field=originals.id;}
     const shots=result.shots.map(s=>({...s,id:s.id||uid()}));
     const ids=new Set(current.shots.map(s=>s.id));for(const shot of shots){if(ids.has(shot.id))shot.id=uid();ids.add(shot.id);}
     applyLegacy(table,{...current,document_title:result.document_title,source_filename:result.filename,shots:mode==='replace'?shots:[...current.shots,...shots]});
+    table.records=table.records.map(r=>preserved.get(r.id)||r);
+    if(originals)for(const shot of shots){const row=table.records.find(r=>r.id===shot.id);if(row)row.values[originals.id]=clone(shot.original_assets||[]);}
 }
 export function writeGenerationResults(table,report) {
-    const m=meta(table);if(!m)return;
+    const m=promptConfig(table);if(!m.bindings)return;
     const exists=id=>table.fields.some(f=>f.id===id);
     for(const result of report.rows||[]) {
         const row=table.records.find(r=>r.id===result.shot_id);if(!row)continue;
+        row.meta||={};const request=result.request_id||report.batch_id;
+        if(row.meta.generation?.request!==request&&(row.meta.generation?.started_at||0)>(report.started_at||0))continue;
+        if(!row.meta.generation||row.meta.generation.request!==request)row.meta.generation={request,fingerprint:result.editorFingerprint||(table.meta.prompt_mode==='reviewed'?'unknown-task-snapshot':taskFingerprint(table,row)),started_at:report.started_at||0,taskFingerprint:result.fingerprint,snapshot_id:result.snapshot_id};
+        Object.assign(row.meta.generation,{phase:result.phase,error:result.error||''});
         if(exists(m.bindings.generation_status))row.values[m.bindings.generation_status]=({complete:'已完成',running:'处理中',needs_recovery:'待恢复',waiting:'尚未提交'})[result.phase]||result.phase;
-        if(result.url && exists(m.bindings.video_result))row.values[m.bindings.video_result]=[{id:result.request_id||result.shot_id,url:result.url,name:`分镜 ${result.shot_no} · ${report.batch_id}`,kind:'video'}];
+        if(result.url && exists(m.bindings.video_result)&&row.meta.generation.fingerprint===taskFingerprint(table,row))row.values[m.bindings.video_result]=[{id:result.request_id||result.shot_id,url:result.url,name:`记录 ${result.shot_no} · ${report.batch_id}`,kind:'video'}];
     }
+}
+
+export function addGenerationFields(table){
+ table.meta.prompt_config||=clone(meta(table)||{bindings:{}});const m=table.meta.prompt_config;m.generation_fields||={};
+ for(const [key,spec] of Object.entries({duration:{name:'生成秒数',type:'number',width:120},mode:{name:'生成方式',type:'select',width:160,options:['文生视频','首帧生视频','首尾帧','多图参考','全能参考']}})){
+  if(!table.fields.some(f=>f.id===m.generation_fields[key]))m.generation_fields[key]=addField(table,spec).id;
+ }
+ if(meta(table))meta(table).generation_fields=clone(m.generation_fields);
 }

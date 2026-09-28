@@ -19,6 +19,11 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await page.evaluate(()=>qaNode.setSize([1420,qaNode.size[1]]));
   const panel=page.locator('.daelab-storyboard-panel').filter({visible:true});
   const state=()=>page.evaluate(()=>JSON.parse(qaNode.widgets.find(w=>w.name==='storyboard_data').value));
+  await panel.getByRole('button',{name:'＋ 新增记录',exact:true}).click();
+  await panel.getByRole('button',{name:'生成选中项',exact:true}).click();
+  assert.equal(await page.locator('.dae-generation-dialog').count(),0);
+  assert.equal(await panel.locator('td[data-invalid=true]').count(),1);
+  await panel.getByRole('button',{name:'撤销',exact:true}).click();
   for(const [i,prompt] of ['山间清晨，薄雾缓缓散开','日落时分，镜头掠过山脊'].entries()){
    await panel.getByRole('button',{name:'＋ 新增记录',exact:true}).click();
    await panel.locator('tbody tr').nth(i).locator('[data-field="image_prompt"] textarea').fill(prompt);
@@ -58,7 +63,18 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   });
   assert.equal(alignment.selection,1);assert(Math.max(...alignment.tops)-Math.min(...alignment.tops)<1,'row controls share top alignment');assert(alignment.handles.every(a=>a==='0'),'idle cell handles do not clutter content');
   await panel.screenshot({path:path.join(out,'studio-table.png')});
-  await panel.getByRole('button',{name:'视频生成 →',exact:true}).click();
+  await panel.getByRole('button',{name:'展开工作台',exact:true}).click();
+  const workbench=page.locator('.dae-workbench');await workbench.waitFor({state:'visible'});
+  assert((await workbench.boundingBox()).width>1600);
+  await panel.getByRole('combobox',{name:'行高'}).selectOption('compact');
+  await panel.getByRole('combobox',{name:'行高'}).selectOption('comfortable');
+  await panel.locator('.table-asset img').first().click();
+  await page.locator('.dae-media-dialog img').waitFor({state:'visible'});
+  await page.screenshot({path:path.join(out,'media-preview.png')});
+  await page.getByRole('button',{name:'关闭预览',exact:true}).click();
+  await panel.screenshot({path:path.join(out,'workbench.png')});
+  await panel.getByRole('button',{name:'生成选中项',exact:true}).click();
+  await page.locator('.dae-generation-dialog .dae-libtv').waitFor({state:'visible'});
   await page.waitForFunction(()=>qaApp.graph._nodes.some(n=>n.type==='DAELAB.LibTV.StoryboardBatch'));
   await page.evaluate(()=>{window.qaBatch=qaApp.graph._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch');qaBatch.pos=[1080,100];qaApp.canvas.ds.offset=[-850,0];});
   const batch=page.locator('.dae-libtv').filter({visible:true});
@@ -74,7 +90,23 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   assert.equal(JSON.parse(tasks.find(n=>n.class_type==='DAELAB.StoryboardImport').inputs.storyboard_data).shots.filter(s=>s.selected!==false).length,1);
   // A synthetic server event validates result routing; it does not claim a real generated video.
   await page.evaluate(()=>{const project=qaBatch.widgets.find(w=>w.name==='project_uuid').value,batch=qaBatch.widgets.find(w=>w.name==='request_id').value,shot=qaNode.__daelabStoryboardState.shots[0];qaApp.api.dispatchEvent(new CustomEvent('daelab.libtv.batch',{detail:{project_uuid:project,batch_id:batch,phase:'complete',rows:[{shot_id:shot.id,shot_no:shot.shot_no,phase:'complete'}]}}));});
+  await batch.screenshot({path:path.join(out,'generation-settings.png')});
+  await page.getByRole('button',{name:'返回表格',exact:true}).click();
+  if((await page.request.get('http://127.0.0.1:8199/view?filename=ux-preview.mp4&type=input')).ok()){
+   await page.evaluate(()=>{const report=structuredClone(qaBatch.properties.daelabLibTVBatch);report.rows[0].url='/view?filename=ux-preview.mp4&type=input';qaApp.api.dispatchEvent(new CustomEvent('daelab.libtv.batch',{detail:report}));});
+   await panel.locator('[data-field="video_result"] video').first().click();
+   const preview=page.locator('.dae-media-dialog video');await preview.evaluate(async v=>{await v.play();});
+   await page.waitForFunction(()=>document.querySelector('.dae-media-dialog video')?.currentTime>0.1);
+   await page.screenshot({path:path.join(out,'video-preview.png')});
+   await page.getByRole('button',{name:'关闭预览',exact:true}).click();
+  }
   assert.equal(await panel.locator('[data-field="generation_status"] .readonly-value').first().textContent(),'已完成');
+  await rows.first().locator('[data-field="image_prompt"] textarea').fill('修改后的山间画面');
+  await rows.first().locator('[data-field="image_prompt"] textarea').press('Tab');
+  assert.equal(await panel.locator('[data-field="generation_status"] .readonly-value').first().textContent(),'内容已修改');
+  await panel.getByRole('button',{name:'撤销',exact:true}).click();
+  assert.equal(await panel.locator('[data-field="generation_status"] .readonly-value').first().textContent(),'已完成');
+  await panel.getByRole('button',{name:'收起工作台',exact:true}).click();
   await page.evaluate(()=>{[...qaNode.__dataTablePanel.root.querySelectorAll('button')].find(b=>b.textContent==='撤销').click();});
   assert.equal((await state()).table.records[0].values.generation_status,'已完成','undo preserves latest external result');
   await page.evaluate(()=>{[...qaNode.__dataTablePanel.root.querySelectorAll('button')].find(b=>b.textContent==='重做').click();});
@@ -91,7 +123,11 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    for(const mode of [4,2]){await page.evaluate(({globalName,mode})=>{window[globalName].mode=mode;qaApp.graph.setDirtyCanvas(true,true);},{globalName,mode});await item.waitFor({state:'hidden'});await page.evaluate(globalName=>{window[globalName].mode=0;qaApp.graph.setDirtyCanvas(true,true);},globalName);await item.waitFor({state:'visible'});}
   }
   const appTable=page.locator('[data-testid="app-mode-widget-item"]').filter({has:page.locator('.daelab-storyboard-panel')});
-  const bounds=await appTable.locator('.daelab-storyboard-panel').boundingBox(),footerButton=await appTable.getByRole('button',{name:'视频生成 →',exact:true}).boundingBox();
+  await appTable.getByRole('button',{name:'展开工作台',exact:true}).click();
+  await page.evaluate(()=>{qaNode.mode=4;qaApp.graph.setDirtyCanvas(true,true);});
+  await workbench.waitFor({state:'detached'});
+  await page.evaluate(()=>{qaNode.mode=0;qaApp.graph.setDirtyCanvas(true,true);});await appTable.waitFor({state:'visible'});
+  const bounds=await appTable.locator('.daelab-storyboard-panel').boundingBox(),footerButton=await appTable.getByRole('button',{name:'生成选中项',exact:true}).boundingBox();
   assert(footerButton.y+footerButton.height<=bounds.y+bounds.height+1,'footer fits narrow App Mode');
   await page.screenshot({path:path.join(out,'studio-app-mode.png')});
   assert.deepEqual(errors,[]);
@@ -110,7 +146,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   const portable=await page.evaluate(()=>({id:qaBatch.widgets.find(w=>w.name==='request_id').value,project:qaBatch.widgets.find(w=>w.name==='project_uuid').value,shots:qaNode.__daelabStoryboardState.shots.length}));
   assert.match(portable.id,/^batch-/);assert.equal(portable.project,'');assert.equal(portable.shots,0);
   const portableSaved=await page.evaluate(()=>qaApp.graph.serialize());await load(portableSaved);assert.equal(await page.evaluate(()=>qaBatch.widgets.find(w=>w.name==='request_id').value),portable.id);
-  const result={passed:true,paidSubmission:false,errors,sizes,registeredNodes:DAELAB_NODE_TYPES.length,checks:['aligned row controls and separate selection','idle cell handles hidden','native image-group reorder','sequential and shared assignment','reference-cell swap and undo','selected rows serialized','batch uses LibTV only','synthetic result event maps stable shot ID','undo preserves latest external result','two reloads preserve groups and IDs','oversized heights compact','both panels App Mode Active/Bypass/Mute','narrow footer fits','portable template gets unique persistent batch ID']};
+  const result={passed:true,paidSubmission:false,errors,sizes,registeredNodes:DAELAB_NODE_TYPES.length,checks:['expanded workbench and image preview','missing cells block settings entry','first-use generation settings reuse existing panel','changed prompt warning and undo','expanded App Mode closes on bypass','aligned row controls and separate selection','idle cell handles hidden','native image-group reorder','sequential and shared assignment','reference-cell swap and undo','selected rows serialized','batch uses LibTV only','synthetic result event maps stable shot ID','undo preserves latest external result','two reloads preserve groups and IDs','oversized heights compact','both panels App Mode Active/Bypass/Mute','narrow footer fits','portable template gets unique persistent batch ID']};
   fs.writeFileSync(path.join(out,'studio-verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
  }catch(e){if(page){await page.screenshot({path:path.join(out,"failure.png")});console.log(await page.evaluate(()=>({text:document.body.innerText.slice(-2000),panels:document.querySelectorAll(".daelab-storyboard-panel").length})));}throw e;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

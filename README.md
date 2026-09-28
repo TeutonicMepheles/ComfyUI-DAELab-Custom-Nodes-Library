@@ -1,3 +1,5 @@
+> 创作画布、共享控件与 `DAELAB.MediaUpload` 已迁至 [独立 Creative Canvas 仓库](https://github.com/TeutonicMepheles/ComfyUI-DAELab-Creative-Canvas)。已有画布用户需同时安装新仓库并重启 ComfyUI。表格、分镜、LibTV、徽章与展厅业务仍由本库维护；画布通过公开 v1 适配器接入。
+
 # ComfyUI-DAELab-Custom-Nodes-Library
 
 DAELab 维护的 ComfyUI 自定义节点库。

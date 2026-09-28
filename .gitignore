@@ -8,3 +8,7 @@ venv/
 env/
 .DS_Store
 Thumbs.db
+
+# Local frontend dependencies and generated builds
+frontend/node_modules/
+frontend/dist/

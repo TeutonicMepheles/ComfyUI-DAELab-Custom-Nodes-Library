@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-28",
+  "phase": "3 independent showcase",
+  "runtimeBaselineFiles": 1426,
+  "changedLegacyFiles": [],
+  "forbiddenHostReferencesInUI": [],
+  "componentSourceHashes": {
+    "frontend\\src\\ui\\ActionButton.vue": "578a66f4dbb6cc6052227f60e4b6eecf2c3cf2efcc56a182996a7c79ce953160",
+    "frontend\\src\\ui\\CanvasCard.vue": "cb44afe9d2d0c19d528ec332bc3dc37f55814dc12a2d6cc520e1a53c3444e552",
+    "frontend\\src\\ui\\MediaPreview.vue": "ef10b3c0f06f40277872b93ecb3b197d98aa74ecdf9ffdd11fba04c00dd27fc9",
+    "frontend\\src\\ui\\OverlaySurface.vue": "b85bbc1ca5cff1e33acb833ae4f9ea94119232aa57424b3f136f5b83195d9f07",
+    "frontend\\src\\ui\\ParameterField.vue": "47d6700b4d4dd5744b551c211ddc902435c016496dcf7d06d7a55469939e50c4",
+    "frontend\\src\\ui\\TaskStatus.vue": "48c1e61e76d9c29ce0485fe5555531e1673745842793b115ba36d712160ce497"
+  },
+  "build": "npm run build passed; frontend/dist only",
+  "productionBrowserChecks": "production.json",
+  "ComfyUIIntegration": "not performed; phase 4",
+  "upstreamComfyTV": "not modified",
+  "scope": "existing creative canvas only; exhibition and badge App Mode excluded",
+  "passed": true
+}

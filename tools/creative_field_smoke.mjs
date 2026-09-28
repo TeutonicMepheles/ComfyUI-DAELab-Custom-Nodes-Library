@@ -1,4 +1,7 @@
 import {createRequire} from 'node:module';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+const evidenceDir=process.env.CREATIVE_EVIDENCE?pathToFileURL(resolve(process.env.CREATIVE_EVIDENCE)+'/'):new URL('../docs/architecture/native-gallery/',import.meta.url);
 import {readFile,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
@@ -11,7 +14,7 @@ await page.route('**/prompt',r=>{if(r.request().method()==='POST'){requests.push
 await page.route('**/comfytv/assets?*',r=>r.fulfill({json:{assets:[],total:0}}));
 const fixture=JSON.parse(await readFile(new URL('../examples/creative_canvas/Creative Canvas Controls.json',import.meta.url),'utf8'));
 try{
- await page.goto('http://127.0.0.1:8000');await page.waitForFunction(()=>window.app?.daelabCreativeCanvas);
+ await page.goto(process.env.COMFY_URL||'http://127.0.0.1:8000');await page.waitForFunction(()=>window.app?.daelabCreativeCanvas);
  await page.evaluate(async data=>{await app.loadGraphData(data);app.daelabCreativeCanvas.show();},fixture);
  await page.waitForFunction(()=>document.querySelectorAll('[data-creative-field]').length===13);
  checks.push(...await page.evaluate(async()=>{
@@ -44,18 +47,18 @@ try{
  assert.equal(await page.evaluate(()=>JSON.stringify(app.graph.serialize().nodes.find(n=>n.type==='DAELAB.LibTV.VideoGenerate').widgets_values)),JSON.stringify(expected.widgets_values));
  checks.push('saved values survive reload');
  assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
- await page.screenshot({path:fileURLToPath(new URL('../docs/architecture/native-gallery/field-pilot.png',import.meta.url))});
+ await page.screenshot({path:fileURLToPath(new URL('field-pilot.png',evidenceDir))});
  await page.evaluate(()=>{const w=document.querySelector('.dae-creative-world');w.style.transform='translate(-2150px,40px) scale(1)';});
- await page.screenshot({path:fileURLToPath(new URL('../docs/architecture/native-gallery/field-states.png',import.meta.url))});
+ await page.screenshot({path:fileURLToPath(new URL('field-states.png',evidenceDir))});
  for(const [name,file] of [['badge','#8.8 - Badge Workflow.json'],['exhibition','#7-展厅工作流优化-OpenAI-分割单独描述版.json']]){
   const data=JSON.parse(await readFile(new URL('../../../user/default/workflows/'+encodeURIComponent(file),import.meta.url),'utf8'));
   await page.evaluate(async data=>{app.daelabCreativeCanvas.hide();await app.loadGraphData(data);const w=app.extensionManager.workflow.activeWorkflow;if((w.activeMode??w.initialMode)!=='app')await app.extensionManager.command.execute('Comfy.ToggleLinear');},data);
   await page.waitForTimeout(700);
   const state=await page.evaluate(()=>({mode:app.extensionManager.workflow.activeWorkflow.activeMode,bindings:document.querySelectorAll('[data-creative-field],[data-creative-button]').length,creative:app.daelabCreativeCanvas.active}));
   assert.equal(state.mode,'app');assert.equal(state.bindings,0);assert.equal(state.creative,false);
-  await page.screenshot({path:fileURLToPath(new URL('../docs/architecture/native-gallery/'+name+'-app-regression.png',import.meta.url))});
+  await page.screenshot({path:fileURLToPath(new URL(name+'-app-regression.png',evidenceDir))});
   checks.push(name+' original workflow loads in App Mode without creative bindings');
  }
  assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
- await writeFile(new URL('../docs/architecture/native-gallery/field-pilot-verification.json',import.meta.url),JSON.stringify({checks,errors,requests},null,2));console.log(checks);
+ await writeFile(new URL('field-pilot-verification.json',evidenceDir),JSON.stringify({checks,errors,requests},null,2));console.log(checks);
 }finally{await browser.close();}

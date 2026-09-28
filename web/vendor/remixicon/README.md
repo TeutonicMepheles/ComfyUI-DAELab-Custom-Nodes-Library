@@ -15,3 +15,5 @@ https://github.com/Remix-Design/RemixIcon/blob/master/icons/Design/artboard-line
 The bundled Remix Icon license applies.
 
 2026-09-08: Added official icons/Arrows/arrow-down-line.svg, icons/Arrows/arrow-up-line.svg, icons/System/delete-bin-line.svg from the same Remix-Design/RemixIcon repository.
+
+2026-09-28: Added Media/image-line.svg, Media/video-line.svg, Design/scissors-cut-line.svg and Design/layout-grid-line.svg from the same official repository for the four-item creative node menu.

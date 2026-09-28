@@ -16,7 +16,7 @@
     "native keyboard activation",
     "serialized workflow reload restores shared buttons"
   ],
-  "sharedButtons": 26,
+  "sharedButtons": 14,
   "errors": [],
   "prompts": []
 }

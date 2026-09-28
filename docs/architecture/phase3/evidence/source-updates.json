@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "ParameterField: shared style and behavior propagated to two instances",
+    "OverlaySurface: shared style and behavior propagated to two instances",
+    "MediaPreview: shared style and behavior propagated to two instances",
+    "TaskStatus: shared style and behavior propagated to two instances",
+    "CanvasCard: shared style and behavior propagated to two instances"
+  ],
+  "scope": "C01 covered by browser.mjs; C02-C06 actual source mutations in independent showcase",
+  "passed": true
+}

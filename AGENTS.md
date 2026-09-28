@@ -22,3 +22,9 @@ These rules apply to every custom node and every file under this repository.
 - Resolve the expanded image through stable workflow-scoped input or source identifiers, never through mutable display labels. The displayed image must be the same source actually used by the color-processing path; do not substitute an upload, stale execution result, downstream output, or other potentially misleading fallback.
 - If the required source is unavailable or invalid, keep a clear compact placeholder instead of expanding a substitute image. Leaving the color-picking context, changing tabs or routes, or rebuilding App Mode must restore the normal reference layout.
 - Reuse the shared reference-dock and color-control activation contracts when available, and cover source mapping, expansion/reset behavior, missing-image handling, and App Mode lifecycle restoration with tests.
+
+## Creative canvas development contract
+
+- Before changing shared controls or adding a creative-canvas node, read and follow [the control and node development contract](docs/architecture/CONTRIBUTING_CONTROLS.md).
+- Keep shared interaction code independent of business nodes; inject actions through explicit contracts and dispose all instance-owned bindings. New nodes must not call another node’s private implementation.
+- Use the native ComfyUI gallery as the visual acceptance baseline. Preserve exhibition/badge App Mode and read-only ComfyTV upstream boundaries.

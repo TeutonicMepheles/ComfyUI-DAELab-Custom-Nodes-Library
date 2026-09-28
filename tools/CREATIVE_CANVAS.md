@@ -51,3 +51,7 @@ node tools/creative_canvas_smoke.cjs <evidence-directory>
 本轮证据：工作区 `output/DAELab/CreativeCanvas-QA/verification.json` 及同目录截图。
 ComfyTV 功能选择器列出当前已注册类型；本轮实际运行验收覆盖视频加载与抽帧，
 不代表每一种 ComfyTV 特效、3D、音频和外部模型节点都已逐一验证。
+
+## 通用画布交互（2026-09-28）
+共享入口为 creative_canvas_view.mjs / creative_canvas.css，消费方为 supportedNode 支持的所有卡片。复用现有节点注册表、graph.connect/removeLink/remove、cardState、leasePanel 及共享设置按钮；业务面板与旧 App Mode 不变。
+双击空白打开图片、视频、剪辑、故事板四项菜单；双击标题重命名；选中节点或连线按 Delete 删除；双击连线断开；拖拽两侧接口建立连接（支持正向/反向，已有输入连接保留替换确认）。类型显示于左下角胶囊，多接口围绕边框中点排列。标题使用原生 node.title 序列化，连线仍由原生图管理。

@@ -46,7 +46,7 @@ try{
  if(!process.env.SKIP_SOURCE_MUTATION){
   const path=resolve('src/ui/ActionButton.vue'),original=await readFile(path,'utf8');
   try{
-   await choose('动作按钮');await writeFile(path,original.replace('!disabled&&!busy&&emit','false&& !disabled&&!busy&&emit').replace('var(--dae-radius-control)','18px'));
+   await choose('动作按钮');await writeFile(path,original.replace('!disabled&&!busy&&emit','false&& !disabled&&!busy&&emit').replace('var(--dae-radius-button)','18px'));
    await page.reload();await choose('动作按钮');await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-instance=A] .dae-button')).borderRadius==='18px');
    for(const pane of [a(),b()]){assert.equal(await pane.locator('.dae-button').evaluate(el=>getComputedStyle(el).borderRadius),'18px');await pane.locator('.dae-button').click();assert.equal(await pane.locator('b').textContent(),'0');}
    pass('U01 actual shared ActionButton source style+activation change propagates to both instances');

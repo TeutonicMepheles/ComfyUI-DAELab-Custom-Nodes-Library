@@ -1,18 +1,5 @@
-.dae-ui {
-  --dae-bg-canvas:#111214; --dae-surface:#1c1d20; --dae-surface-raised:#25272b;
-  --dae-surface-hover:#353840; --dae-border:#393b40; --dae-border-control:#737780;
-  --dae-text:#e8e9eb; --dae-text-muted:#a1a4ad; --dae-text-on-accent:#171821;
-  --dae-accent:#a5b4fc; --dae-focus:#a5b4fc; --dae-success:#a4ddcb;
-  --dae-warning:#f2ca84; --dae-danger:#ffaaa8; --dae-info:#b1cbfa;
-  --dae-space-1:4px; --dae-space-2:8px; --dae-space-3:12px; --dae-space-4:16px; --dae-space-6:24px;
-  --dae-radius-control:8px; --dae-radius-card:14px; --dae-radius-overlay:12px;
-  --dae-font-caption:12px; --dae-font-body:14px; --dae-font-title:16px;
-  --dae-control-height:36px; --dae-control-height-compact:32px; --dae-icon-size:18px;
-  --dae-duration-fast:120ms; --dae-focus-width:2px; --dae-focus-offset:2px;
-  --dae-layer-floating:20; --dae-layer-modal:40;
-  color:var(--dae-text); font:var(--dae-font-body)/1.5 system-ui,"Microsoft YaHei",sans-serif;
-  color-scheme:dark;
-}
+@import '../../../web/creative_theme.css';
+
 .dae-ui *, .dae-ui *::before, .dae-ui *::after {box-sizing:border-box}
 .dae-ui button,.dae-ui input,.dae-ui select,.dae-ui textarea {font:inherit}
 .dae-ui :focus-visible {outline:var(--dae-focus-width) solid var(--dae-focus);outline-offset:var(--dae-focus-offset)}

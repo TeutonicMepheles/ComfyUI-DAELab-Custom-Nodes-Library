@@ -42,6 +42,8 @@ These rules apply to every custom node and every file under this repository.
   or interaction logic into individual nodes. For DAELab, the shared theme entry
   is `web/creative_theme.css`;
   the native creative canvas and auxiliary Vue gallery must use the same tokens.
+  This path now forwards to the Creative Canvas repository; edit the owning
+  theme there, not this compatibility stub.
 - Scope styles to the owned UI (`.dae-creative` / `.dae-ui` for DAELab). These
   standards do not authorize restyling native ComfyUI, read-only upstream code,
   or existing exhibition/badge App Mode outside the requested task scope.
@@ -63,7 +65,7 @@ These rules apply to every custom node and every file under this repository.
   panels and native form controls; avoid node-specific system-font overrides.
 - Bundle the original WOFF2 files with the extension and built distribution.
   Current assets live in
-  `web/vendor/alibaba-puhuiti-3/`.
+  the sibling Creative Canvas repository at `web/vendor/alibaba-puhuiti-3/`.
   Load them through relative `@font-face` URLs, without `local()` or external
   font services, so another machine does not need the fonts installed.
 - Preserve the font's own license, copyright notices, and SHA-256 manifest with

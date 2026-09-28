@@ -17,8 +17,11 @@ export function zoomAt(v, point, factor) {
     const zoom = normalizeViewport({...v,zoom:v.zoom*factor}).zoom;
     return {x:point.x-(point.x-v.x)*zoom/v.zoom,y:point.y-(point.y-v.y)*zoom/v.zoom,zoom};
 }
+export const workspaceNode = type => type === "ComfyTV.StoryboardEditorStage";
+export const cardWidth = type => workspaceNode(type) ? 1200 : TABLE_TYPES.includes(type) ? 1060 : 460;
 export function cardState(state,node,index=0) {
-    return state.cards[node.id] ||= {x:index%3*530,y:Math.floor(index/3)*440,width:TABLE_TYPES.includes(node.type)?1060:460,expanded:TABLE_TYPES.includes(node.type)};
+    if(workspaceNode(node.type) && state.cards[node.id]) state.cards[node.id].width=Math.max(1200,state.cards[node.id].width||0);
+    return state.cards[node.id] ||= {x:index%3*530,y:Math.floor(index/3)*440,width:cardWidth(node.type),expanded:TABLE_TYPES.includes(node.type)};
 }
 export function socketCompatible(output,input) {
     const a=String(output),b=String(input);

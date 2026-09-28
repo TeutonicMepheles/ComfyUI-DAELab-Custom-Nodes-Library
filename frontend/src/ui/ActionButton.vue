@@ -10,7 +10,7 @@ const emit=defineEmits(['activate']);
   </button>
 </template>
 <style scoped>
-.dae-button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--dae-control-height);min-width:var(--dae-control-height);padding:6px 12px;border:1px solid var(--dae-border-control);border-radius:var(--dae-radius-control);background:var(--dae-surface-raised);color:var(--dae-text);cursor:pointer;transition:background var(--dae-duration-fast)}
+.dae-button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--dae-control-height);min-width:var(--dae-control-height);padding:6px 12px;border:1px solid var(--dae-border-control);border-radius:var(--dae-radius-button);background:var(--dae-surface-raised);color:var(--dae-text);cursor:pointer;transition:background var(--dae-duration-fast)}
 .dae-button[data-size=compact]{min-height:var(--dae-control-height-compact);min-width:var(--dae-control-height-compact);padding:4px 8px;font-size:12px}
 .dae-button:hover:not(:disabled){background:var(--dae-surface-hover)}
 .dae-button[data-variant=primary]{background:var(--dae-accent);color:var(--dae-text-on-accent);border-color:var(--dae-accent)}

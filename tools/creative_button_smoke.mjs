@@ -1,4 +1,7 @@
 import {createRequire} from 'node:module';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+const evidenceDir=process.env.CREATIVE_EVIDENCE?pathToFileURL(resolve(process.env.CREATIVE_EVIDENCE)+'/'):new URL('../docs/architecture/native-gallery/',import.meta.url);
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const require=createRequire(new URL('../frontend/package.json',import.meta.url));
@@ -12,7 +15,7 @@ await page.route('**/prompt',r=>{if(r.request().method()==='POST'){prompts.push(
 await page.route('**/comfytv/assets?*',r=>r.fulfill({json:{assets:[],total:0}}));
 const fixture=JSON.parse(await readFile(new URL('../examples/creative_canvas/Creative Canvas Controls.json',import.meta.url),'utf8'));
 try {
- await page.goto('http://127.0.0.1:8000/');
+ await page.goto(process.env.COMFY_URL||'http://127.0.0.1:8000/');
  await page.waitForFunction(()=>window.app?.daelabCreativeCanvas);
  await page.evaluate(async data=>{await app.loadGraphData(data);app.daelabCreativeCanvas.show();},fixture);
  await page.waitForFunction(()=>document.querySelectorAll('.dae-libtv [data-creative-button]').length>=5);
@@ -59,7 +62,7 @@ try {
  await page.waitForFunction(()=>document.querySelectorAll('.dae-libtv [data-creative-button]').length>=5);
  result.checks.push('serialized workflow reload restores shared buttons');
  assert.deepEqual(errors,[]);assert.deepEqual(prompts,[]);
- const dir=new URL('../docs/architecture/native-gallery/',import.meta.url);
+ const dir=evidenceDir;
  await mkdir(dir,{recursive:true});
  await page.screenshot({path:new URL('button-pilot.png',dir).pathname.replace(/^\/(\w:)/,'$1')});
  await writeFile(new URL('button-pilot-verification.json',dir),JSON.stringify({...result,errors,prompts},null,2));

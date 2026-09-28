@@ -12,6 +12,9 @@
 .dae-creative button:disabled{opacity:.38;cursor:default}
 .dae-creative button[aria-busy=true]{cursor:progress}
 .dae-creative-world{position:absolute;left:0;top:0;transform-origin:0 0}
+.dae-creative-marquee{position:absolute;pointer-events:none;z-index:3;border:1px solid var(--dae-focus);background:color-mix(in srgb,var(--dae-focus) 12%,transparent)}
+.dae-creative-marquee[hidden]{display:none}
+.dae-creative[data-panning=true],.dae-creative[data-panning=true] *{cursor:grabbing!important}
 .dae-creative-grid{position:absolute;inset:0;background-image:radial-gradient(var(--dae-grid-dot) .7px,transparent .7px);background-size:24px 24px;pointer-events:none;opacity:.65}
 .dae-creative-card{position:absolute;border:1px solid var(--dae-border);background:var(--dae-surface);border-radius:var(--dae-radius-card);box-shadow:var(--dae-elevation-card);overflow:visible}
 .dae-creative-card[data-selected=true]{border-color:var(--dae-node-selected);box-shadow:0 0 0 1px var(--dae-node-selected),var(--dae-elevation-card)}
@@ -41,6 +44,19 @@
 .dae-creative-ports button::after{content:'';position:absolute;inset:-7px;border-radius:50%}
 .dae-creative-ports button:hover:not(:disabled){background:var(--dae-primary-container);border-color:var(--dae-on-primary-container);box-shadow:0 0 0 5px #b8c4ff1f}
 .dae-creative-ports button[data-linked=true]{background:var(--dae-accent)}
+/* DAELab-owned cards use one floating connector per meaningful direction.
+   Opacity preserves wire anchors while the controls are hidden. */
+.dae-creative-card[data-unified=true]>.dae-creative-ports>div[data-side=input]{left:-54px}
+.dae-creative-card[data-unified=true]>.dae-creative-ports>div[data-side=output]{right:-54px}
+.dae-creative-card[data-unified=true]>.dae-creative-ports button{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:grid;place-items:center;font-size:23px;line-height:1;font-weight:400;border-color:var(--dae-border-control);color:var(--dae-text);background:var(--dae-bg-canvas);opacity:0;pointer-events:none;transition:opacity var(--dae-duration-fast) var(--dae-easing)}
+.dae-creative-card[data-unified=true]>.dae-creative-ports button::after{inset:-8px}
+.dae-creative-card[data-unified=true]:is(:hover,:focus-within)>.dae-creative-ports button,.dae-creative[data-connecting=true] .dae-creative-card[data-unified=true]>.dae-creative-ports button{opacity:1;pointer-events:auto}
+.dae-creative-card[data-unified=true]>.dae-creative-ports button:hover:not(:disabled){background:var(--dae-surface-hover);border-color:var(--dae-focus)}
+.dae-creative-card[data-unified=true]>.dae-creative-ports button[data-magnetic=true]{opacity:1;pointer-events:auto;background:var(--dae-secondary-container);border-color:var(--dae-focus);box-shadow:0 0 0 6px var(--dae-surface-hover)}
+.dae-creative.dae-port-magnet{cursor:crosshair}
+.dae-creative-card[data-unified=true]>.dae-creative-ports button:disabled{opacity:0;pointer-events:none}
+.dae-creative-card[data-unified=true]:is(:hover,:focus-within)>.dae-creative-ports button:disabled{opacity:.38}
+@media(prefers-reduced-motion:reduce){.dae-creative-card[data-unified=true]>.dae-creative-ports button{transition:none}}
 .dae-creative-wires{position:absolute;overflow:visible;width:1px;height:1px;pointer-events:none}
 .dae-creative-wires path{fill:none;stroke:var(--dae-wire);stroke-opacity:.85;stroke-width:3;vector-effect:non-scaling-stroke;pointer-events:stroke;cursor:pointer}
 .dae-creative-wires path:hover,.dae-creative-wires path[data-selected=true]{stroke:var(--dae-wire-hover);stroke-opacity:1;stroke-width:5}

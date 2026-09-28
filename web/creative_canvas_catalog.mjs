@@ -1,8 +1,7 @@
 import {socketCompatible} from './creative_canvas_model.mjs';
 
 export const CREATIVE_NODE_MENU = Object.freeze([
-    {label:'图片',type:'ComfyTV.ImageStage',icon:'image-line'},
-    {label:'视频',type:'ComfyTV.VideoStage',icon:'video-line'},
+    {label:'上传',type:'DAELAB.MediaUpload',icon:'upload-2-line'},
     {label:'剪辑',type:'ComfyTV.VideoClipStage',icon:'scissors-cut-line'},
     {label:'故事板',type:'ComfyTV.StoryboardEditorStage',icon:'layout-grid-line'},
 ]);

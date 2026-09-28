@@ -1,3 +1,6 @@
+import {wheelViewport,copySnapshot,readSnapshot} from './creative_navigation.mjs';
+import {UPLOAD_TYPE} from './media_upload_model.mjs';
+import {MATERIAL_SLOT,uploadKind,sourceSlots,resolveOutput,targetChoices,outputSelector,inputSelector,unifiedNode,inputSlots} from './creative_connections.mjs';
 import {CREATIVE_NODE_MENU,canConnectDefinition,matchingSlot} from './creative_canvas_catalog.mjs';
 import {createFieldGallery} from './creative_field_gallery.mjs';
 import {bindCreativeField} from './creative_field.mjs';
@@ -24,11 +27,13 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
     const root=el('section','dae-creative');root.setAttribute('aria-label','创作画布');root.tabIndex=-1;
     const grid=el('div','dae-creative-grid'),world=el('div','dae-creative-world');
     const wires=document.createElementNS('http://www.w3.org/2000/svg','svg');wires.classList.add('dae-creative-wires');world.append(wires);
-    const status=el('div','dae-creative-status','拖动画布移动 · 滚轮缩放 · 双击空白新增 · 拖拽接口连接 · Del 删除');status.setAttribute('role','status');
+    const status=el('div','dae-creative-status','中键拖动 · 左键框选 · 滚轮上下 · Shift 滚轮左右 · Ctrl 滚轮缩放 · Ctrl+C/V 复制粘贴 · Del 删除');status.setAttribute('role','status');
     const empty=el('div','dae-creative-empty');empty.append(el('strong','','从一个素材开始'),el('span','','双击空白处，选择一个节点开始创作'));
+    const marquee=el('div','dae-creative-marquee');marquee.hidden=true;root.append(marquee);
     const zoom=el('div','dae-creative-zoom'),zoomLabel=el('span','','100%');
     root.append(grid,world,status,empty,zoom);document.body.append(root);
-    let graph=app.graph,state=canvasState(graph),selected=null,pending=null,picker=null,visible=false,drag=null;
+    let graph=app.graph,state=canvasState(graph),selected=new Set(),pending=null,picker=null,visible=false,drag=null;
+    const portStarts=new WeakMap();let magneticPort=null;let pointerPoint=null,pasteCount=0;
     const cards=new Map();let fieldGallery=null,selectedLink=null,addPoint=null,pickerConnection=null,workspace=null;
     const dirty=()=>{graph.setDirtyCanvas?.(true,true);graph.change?.();};
     const message=text=>{status.textContent=text;};
@@ -37,37 +42,45 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
     zoom.append(button('−',()=>setZoom(0.8)),zoomLabel,button('+',()=>setZoom(1.25)),button('适应',fit));
     function fit(){
         const list=[...cards.values(),...(fieldGallery?[{layout:{x:graph.extra.daelabControlGallery.x,y:graph.extra.daelabControlGallery.y,width:480},element:fieldGallery.root}]:[])];if(!list.length){state.viewport={x:60,y:60,zoom:.8};viewport();return;}
-        const minX=Math.min(...list.map(c=>c.layout.x)),minY=Math.min(...list.map(c=>c.layout.y));
-        const maxX=Math.max(...list.map(c=>c.layout.x+c.layout.width)),maxY=Math.max(...list.map(c=>c.layout.y+c.element.offsetHeight));
+        const minX=Math.min(...list.map(c=>c.layout.x-(unifiedNode(c.node||{})?60:0))),minY=Math.min(...list.map(c=>c.layout.y));
+        const maxX=Math.max(...list.map(c=>c.layout.x+c.layout.width+(unifiedNode(c.node||{})?60:0))),maxY=Math.max(...list.map(c=>c.layout.y+c.element.offsetHeight));
         const z=Math.max(.15,Math.min(1,(root.clientWidth-100)/(maxX-minX),(root.clientHeight-150)/(maxY-minY)));
         state.viewport={x:50-minX*z,y:50-minY*z,zoom:z};viewport();dirty();
     }
     function panelFor(node){
+        if(node.__mediaUpload)return node.__mediaUpload.root;
         if(node.__dataTablePanel)return node.__dataTablePanel.root;
         if(node.__libtvPanel)return node.__libtvPanel.root;
         return node.widgets?.map(w=>w.element||w.inputEl).find(e=>e instanceof HTMLElement&&e.classList.contains('comfytv-root'));
     }
-    function select(node){selectedLink=null;selected=node?.id??null;for(const c of cards.values())c.element.dataset.selected=String(c.node.id===selected);}
+    function paintSelection(){for(const c of cards.values())c.element.dataset.selected=String(selected.has(c.node.id));}
+    function select(node,{toggle=false,preserve=false}={}){selectedLink=null;if(!node)selected.clear();else if(toggle){if(selected.has(node.id))selected.delete(node.id);else selected.add(node.id);}else if(!preserve||!selected.has(node.id)){selected.clear();selected.add(node.id);}paintSelection();}
     function connect(node,index,side){
         if(side==='output'){pending={node,index};message(`已选择 ${node.title} 的 ${node.outputs[index].name}，点击目标输入连接；Esc 取消`);return;}
         if(!pending){message('请先点击来源卡片的输出接口');return;}
         const source=pending;pending=null;
-        if(source.node===node||!socketCompatible(source.node.outputs[source.index].type,node.inputs[index].type)){message('接口类型不兼容，未更改连线');return;}
+        const output=resolveOutput(source.node,source.index,node.inputs?.[index]?.type);
+        if(source.node===node||output<0){message('素材与目标接口不兼容，未更改连线');return;}
         // Replacement is explicit; existing connections are never silently discarded.
         if(node.inputs[index].link!=null&&!window.confirm('该输入已有连接，替换为新连接？'))return;
-        const link=source.node.connect(source.index,node,index);
+        const link=source.node.connect(output,node,index);
         message(link?'已连接，可在当前画布继续操作':'连接未建立，请检查接口类型');dirty();sync();return link;
     }
     function ports(c){
-        const signature=JSON.stringify([c.layout.portsExpanded,c.node.inputs?.map(i=>[i.name,i.type,i.link]),c.node.outputs?.map(o=>[o.name,o.type,o.links])]);
+        const signature=JSON.stringify([c.node.__mediaUpload?.kind(),c.layout.portsExpanded,c.node.inputs?.map(i=>[i.name,i.type,i.link]),c.node.outputs?.map(o=>[o.name,o.type,o.links])]);
         if(c.portSignature===signature)return;c.portSignature=signature;c.ports.replaceChildren();
         for(const side of ['input','output']){
             const group=el('div');group.dataset.side=side;c.ports.append(group);
-            for(const [i,p] of (c.node[side==='input'?'inputs':'outputs']||[]).entries()){
+            const material=c.node.type===UPLOAD_TYPE,unified=unifiedNode(c.node);
+            const indices=side==='input'?inputSlots(c.node):sourceSlots(c.node,MATERIAL_SLOT);
+            const entries=unified?((indices.length||(material&&side==='output'))?[[MATERIAL_SLOT,{name:side==='input'?'输入':'输出',type:'*',link:indices.some(i=>c.node.inputs?.[i]?.link!=null)?1:null,links:c.node.outputs?.flatMap(o=>o.links||[])}]]:[]):[...(c.node[side==='input'?'inputs':'outputs']||[]).entries()];
+            for(const [i,p] of entries){
                 if(side==='input'&&p.widget&&p.link==null)continue;
-                const b=button('',()=>{});
-                b.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.stopPropagation();e.preventDefault();closePicker();select(c.node);root.focus();drag={kind:'wire',node:c.node,index:i,side,slot:p,x:e.clientX,y:e.clientY};root.setPointerCapture(e.pointerId);});
+                const b=button(unified?'+':'',()=>{});
+                b.disabled=material&&!uploadKind(c.node);
+                const startWire=e=>{if(e.button!==0)return;e.stopPropagation();e.preventDefault();closePicker();select(c.node);root.focus();drag={kind:'wire',node:c.node,index:i,side,slot:p,mediaKind:material?uploadKind(c.node):null,x:e.clientX,y:e.clientY};root.dataset.connecting='true';root.setPointerCapture(e.pointerId);};portStarts.set(b,startWire);b.addEventListener('pointerdown',startWire);
                 b.dataset.side=side;b.dataset.slot=String(i);b.dataset.linked=String(side==='input'?p.link!=null:!!p.links?.length);b.title=`${p.name} · ${p.type}`;
+                if(unified)b.title=b.disabled?'上传素材后可连接':side==='input'?'拖入素材，自动匹配用途':'拖到目标节点，自动匹配用途';
                 b.setAttribute('aria-label',`${c.node.title} ${side==='input'?'输入':'输出'} ${p.name}`);group.append(b);
             }
         }
@@ -112,7 +125,7 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         dialog.showModal();
     }
     function makeCard(node,index){
-        const layout=cardState(state,node,index),element=el('article','dae-creative-card');element.dataset.nodeId=String(node.id);
+        const layout=cardState(state,node,index),element=el('article','dae-creative-card');element.dataset.nodeId=String(node.id);element.dataset.upload=String(node.type===UPLOAD_TYPE);element.dataset.unified=String(unifiedNode(node));
         const heading=el('header','dae-creative-heading'),title=el('strong','',node.title||node.type),media=el('div','dae-creative-media'),summary=el('div','dae-creative-summary'),body=el('div','dae-creative-body'),portBox=el('div','dae-creative-ports');
         const c={node,layout,element,heading,title,media,summary,body,fields:el('div','dae-creative-fields'),ports:portBox,panel:null,release:null,portSignature:null};
         const toggle=createCreativeButton('设置',()=>{layout.expanded=!layout.expanded;select(node);update(c);dirty();});toggle.setAttribute('aria-label',`${node.title} 设置`);c.toggle=toggle;
@@ -125,8 +138,8 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
             const finish=save=>{if(done)return;done=true;if(save&&input.value.trim()){node.title=input.value.trim();dirty();}input.remove();title.hidden=false;update(c);root.focus();};
             input.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&!e.isComposing)finish(true);if(e.key==='Escape')finish(false);});input.addEventListener('blur',()=>finish(true));input.focus();input.select();};
         title.addEventListener('dblclick',e=>{e.stopPropagation();rename();});
-        heading.addEventListener('pointerdown',e=>{if(e.target.closest('button,input')||e.button!==0)return;select(node);root.focus();drag={kind:'card',c,x:e.clientX,y:e.clientY,original:{x:layout.x,y:layout.y}};e.target.setPointerCapture(e.pointerId);e.preventDefault();});
-        element.addEventListener('pointerdown',()=>select(node));
+        heading.addEventListener('pointerdown',e=>{if(e.target.closest('button,input')||e.button!==0)return;if(!selected.has(node.id))return;root.focus();drag={kind:'card',x:e.clientX,y:e.clientY,originals:[...selected].map(id=>cards.get(id)).filter(Boolean).map(card=>({card,x:card.layout.x,y:card.layout.y}))};e.target.setPointerCapture(e.pointerId);e.preventDefault();});
+        element.addEventListener('pointerdown',e=>{if(e.button!==0)return;select(node,{toggle:e.shiftKey||e.ctrlKey,preserve:true});if(!e.target.closest('input,textarea,select,button,a,video,[contenteditable=true]'))root.focus({preventScroll:true});},true);
         body.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
         const typeLabel=el('span','dae-creative-type',category?.label||node.type);typeLabel.title=node.type;
         element.append(heading,media,summary,body,typeLabel,portBox);world.append(element);cards.set(node.id,c);
@@ -136,12 +149,12 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         update(c);return c;
     }
     function update(c){
-        const {node,layout}=c;c.element.style.left=`${layout.x}px`;c.element.style.top=`${layout.y}px`;c.element.style.width=`${layout.width}px`;
+        const {node,layout}=c;if(node.type===UPLOAD_TYPE){layout.expanded=true;node.__mediaUpload?.render();}c.element.style.left=`${layout.x}px`;c.element.style.top=`${layout.y}px`;c.element.style.width=`${layout.width}px`;
         c.element.dataset.inactive=String(node.mode!=null&&node.mode!==0);c.body.inert=node.mode!=null&&node.mode!==0;
         for(const {w,input} of c.fieldBindings||[]){input.disabled=node.inputs?.some(p=>p.name===w.name&&p.link!=null);if(document.activeElement!==input){input.value=w.value??'';input.checked=!!w.value;}}
         c.title.textContent=node.title||node.type;c.body.hidden=!layout.expanded;c.toggle.textContent=layout.expanded?'收起':'设置';c.toggle.setAttribute('aria-expanded',String(layout.expanded));
         const text=TABLE_TYPES.includes(node.type)?`${node.__dataTable?.records?.length||0} 条记录`:value(node,'prompt')||value(node,'text')||'展开设置进行编辑';
-        if(c.summary.textContent!==text)c.summary.textContent=text;c.summary.hidden=layout.expanded;
+        if(c.summary.textContent!==text)c.summary.textContent=text;c.summary.hidden=layout.expanded||node.type===UPLOAD_TYPE;
         const url=mediaURL(node);if(url!==c.mediaURL){c.mediaURL=url;c.media.replaceChildren();if(typeof url==='string'&&(/^(\/view\?|\/comfytv\/|https?:\/\/)/).test(url)){
             const file=new URL(url,location.href).searchParams.get('filename')||url;
             const isVideo=node.properties?.daelabCreativePreview?.kind==='video'||/\.(mp4|webm|mov)(?:[?&]|$)/i.test(file);const m=el(isVideo?'video':'img');m.src=url;if(isVideo){m.controls=true;m.preload='metadata';}else m.alt=node.title||'素材';c.media.append(m);
@@ -153,9 +166,10 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         const segments=[];
         for(const link of graphLinks(graph)){
             const a=cards.get(link.origin_id),b=cards.get(link.target_id);if(!a||!b)continue;
-            const source=a.ports.querySelector(`[data-side=output][data-slot="${link.origin_slot}"]`),target=b.ports.querySelector(`[data-side=input][data-slot="${link.target_slot}"]`);if(!source||!target)continue;
+            const source=a.ports.querySelector(outputSelector(a.node,link.origin_slot)),target=b.ports.querySelector(inputSelector(b.node,link.target_slot));if(!source||!target)continue;
             const ra=source.getBoundingClientRect(),rb=target.getBoundingClientRect(),rw=world.getBoundingClientRect(),z=state.viewport.zoom;
-            const x1=(ra.right-rw.left)/z,y1=(ra.top+ra.height/2-rw.top)/z,x2=(rb.left-rw.left)/z,y2=(rb.top+rb.height/2-rw.top)/z,d=Math.max(60,Math.abs(x2-x1)*.45);
+            const hiddenPort=c=>unifiedNode(c.node)&&!root.dataset.connecting&&!c.element.matches(':hover,:focus-within')&&!c.ports.querySelector('[data-magnetic=true]');
+            const x1=((hiddenPort(a)?a.element.getBoundingClientRect().right:ra.right)-rw.left)/z,y1=(ra.top+ra.height/2-rw.top)/z,x2=((hiddenPort(b)?b.element.getBoundingClientRect().left:rb.left)-rw.left)/z,y2=(rb.top+rb.height/2-rw.top)/z,d=Math.max(60,Math.abs(x2-x1)*.45);
             segments.push([link.id,`M${x1},${y1} C${x1+d},${y1} ${x2-d},${y2} ${x2},${y2}`]);
         }
         const sig=JSON.stringify([segments,selectedLink]);if(wires.dataset.signature===sig)return;wires.dataset.signature=sig;wires.replaceChildren();
@@ -163,9 +177,10 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         if(pickerConnection&&addPoint)previewConnection(pickerConnection,addPoint);
         else if(drag?.kind==='wire'&&drag.point)previewConnection(drag,drag.point);
     }
-    function clear(){closeWorkspace();closePicker();fieldGallery?.release();fieldGallery=null;for(const c of cards.values()){c.node.__dataTablePanel?.close?.();c.release?.();c.element.remove();}cards.clear();wires.replaceChildren();delete wires.dataset.signature;selected=null;selectedLink=null;pending=null;drag=null;}
+    function clear(){setMagnet(null);closeWorkspace();closePicker();fieldGallery?.release();fieldGallery=null;for(const c of cards.values()){c.node.__dataTablePanel?.close?.();c.release?.();c.element.remove();}cards.clear();wires.replaceChildren();delete wires.dataset.signature;selected.clear();marquee.hidden=true;delete root.dataset.panning;selectedLink=null;pending=null;drag=null;}
     function sync(){
         if(!visible)return;
+        for(const id of selected)if(!graph.getNodeById(id))selected.delete(id);
         if(graph!==app.graph||state!==app.graph.extra?.daelabCreativeCanvasV1){clear();graph=app.graph;state=canvasState(graph);if(!state.active){hide(false);onExit();return;}viewport();}
         if(pickerConnection&&!validConnection(pickerConnection))closePicker();
         const nodes=graph._nodes.filter(supportedNode),current=new Set(nodes);
@@ -179,8 +194,8 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         const v=state.viewport;state.cards[node.id]={x:((addPoint?.x??root.clientWidth/2)-v.x)/v.zoom,y:((addPoint?.y??root.clientHeight/3)-v.y)/v.zoom,width:cardWidth(type),expanded:true};
         dirty();sync();select(node);closePicker();message('已添加，可直接编辑、连接并运行');return node;
     }
-    function closePicker(){picker?.remove();picker=null;pickerConnection=null;addPoint=null;wires.querySelector('[data-preview]')?.remove();}
-    function validConnection(context){return graph===app.graph&&graph.getNodeById(context.node.id)===context.node&&context.node[context.side==='output'?'outputs':'inputs']?.[context.index]===context.slot;}
+    function closePicker(){delete root.dataset.connecting;picker?.remove();picker=null;pickerConnection=null;addPoint=null;wires.querySelector('[data-preview]')?.remove();}
+    function validConnection(context){return graph===app.graph&&graph.getNodeById(context.node.id)===context.node&&(context.index===MATERIAL_SLOT?(context.node.type!==UPLOAD_TYPE||uploadKind(context.node)===context.mediaKind):context.node[context.side==='output'?'outputs':'inputs']?.[context.index]===context.slot);}
     function previewConnection(context,point){
         const c=cards.get(context.node.id),port=c?.ports.querySelector(`[data-side=${context.side}][data-slot="${context.index}"]`);if(!port)return;
         let path=wires.querySelector('[data-preview]');if(!path){path=document.createElementNS(wires.namespaceURI,'path');path.dataset.preview='true';wires.append(path);}
@@ -195,9 +210,26 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         const y=Math.max(12,Math.min(addPoint.y,root.clientHeight-picker.offsetHeight-12));
         picker.style.left=`${x}px`;picker.style.top=`${y}px`;
         addPoint={x:Math.min(addPoint.x,root.clientWidth-12),y:Math.min(addPoint.y,root.clientHeight-12)};
-        if(pickerConnection)previewConnection(pickerConnection,addPoint);
+        if(pickerConnection){root.dataset.connecting='true';previewConnection(pickerConnection,addPoint);}
     }
     const resizeObserver=new ResizeObserver(positionPicker);resizeObserver.observe(root);
+    function connectToCard(context,target,point){
+        if(!validConnection(context))return message('素材已改变，请重新连线');
+        const choices=targetChoices(context.node,context.index,target).filter(c=>context.targetIndex==null||c.index===context.targetIndex);
+        if(!choices.length)return message('该节点没有兼容的素材入口，未更改连线');
+        const apply=index=>{
+            if(!validConnection(context)||graph.getNodeById(target.id)!==target){closePicker();message('节点已改变，请重新连线');return;}
+            closePicker();pending={node:context.node,index:context.index};connect(target,index,'input');
+        };
+        if(choices.length===1){apply(choices[0].index);return;}
+        closePicker();addPoint=point;pickerConnection=context;
+        picker=el('section','dae-creative-picker');picker.setAttribute('aria-label','选择素材用途');
+        picker.append(el('h2','',`连接到 ${target.title}`));const list=el('div');picker.append(list);root.append(picker);
+        const names={first_frame:'首帧',last_frame:'尾帧',reference_images:'参考图片',reference_video:'参考视频'};
+        for(const choice of choices){const b=button(names[choice.name]||choice.name,()=>apply(choice.index));b.title=choice.name;list.append(b);}
+        list.append(button('取消',()=>{closePicker();root.focus();}));positionPicker();picker.querySelector('button').focus();
+        message('此节点有多个兼容入口，请选择素材用途');
+    }
     function choose(point,context=null){
         closePicker();if(context&&!validConnection(context))return;addPoint=point;pickerConnection=context;
         picker=el('section','dae-creative-picker');picker.setAttribute('aria-label','添加节点');
@@ -205,11 +237,12 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         const list=el('div');picker.append(list);root.append(picker);
         for(const item of CREATIVE_NODE_MENU){
             const definition=globalThis.LiteGraph.registered_node_types[item.type];
-            const compatible=!context||canConnectDefinition(definition?.nodeData,context.side,context.slot.type);
+            const compatible=!context||(context.side==='output'?sourceSlots(context.node,context.index).some(i=>canConnectDefinition(definition?.nodeData,context.side,context.node.outputs[i].type)):(context.index===MATERIAL_SLOT?inputSlots(context.node):[context.index]).some(i=>canConnectDefinition(definition?.nodeData,context.side,context.node.inputs[i].type)));
             const b=button('',()=>{
                 if(context&&!validConnection(context)){closePicker();message('来源已改变，请重新拖出连线');return;}
                 const node=add(item.type);if(!node)return;
                 if(context){
+                    if(context.index===MATERIAL_SLOT){if(context.side==='output')connectToCard(context,node,point);else connectToCard({node,index:unifiedNode(node)?MATERIAL_SLOT:0,side:'output',slot:node.outputs?.[0],mediaKind:node.type===UPLOAD_TYPE?uploadKind(node):null},context.node,point);return;}
                     const index=matchingSlot(node,context.side,context.slot.type);
                     let link;
                     if(index>=0){pending=context.side==='output'?{node:context.node,index:context.index}:{node,index};link=connect(context.side==='output'?node:context.node,context.side==='output'?index:context.index,'input');}
@@ -222,19 +255,126 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
         positionPicker();
         picker.tabIndex=-1;(picker.querySelector('button:not(:disabled)')||picker).focus();
     }
+    function setMagnet(port){
+        if(magneticPort===port)return;
+        if(magneticPort)delete magneticPort.dataset.magnetic;
+        magneticPort=port;
+        if(port)port.dataset.magnetic='true';
+        root.classList.toggle('dae-port-magnet',!!port);
+    }
+    function nearestPort(x,y,context=null){
+        if(picker||workspace)return null;
+        const hit=document.elementFromPoint(x,y);
+        if(hit?.closest('button:not([data-slot]),input,textarea,select,a,video,.dae-creative-picker'))return null;
+        let best=null,distance=32;
+        for(const c of cards.values()){
+            if(!unifiedNode(c.node)||context?.node===c.node)continue;
+            const bounds=c.element.getBoundingClientRect();
+            if(x>bounds.left&&x<bounds.right&&y>bounds.top&&y<bounds.bottom&&!hit?.closest('[data-slot]'))continue;
+            for(const port of c.ports.querySelectorAll('button[data-slot]')){
+                if(port.disabled||context?.side===port.dataset.side)continue;
+                if(context){
+                    const compatible=context.side==='output'?targetChoices(context.node,context.index,c.node).length:
+                        targetChoices(c.node,MATERIAL_SLOT,context.node).some(choice=>context.index===MATERIAL_SLOT||choice.index===context.index);
+                    if(!compatible)continue;
+                }
+                const r=port.getBoundingClientRect(),d=Math.hypot(x-r.left-r.width/2,y-r.top-r.height/2);
+                if(d<distance){best=port;distance=d;}
+            }
+        }
+        return best;
+    }
+    root.addEventListener('pointermove',e=>{const rect=root.getBoundingClientRect();pointerPoint={x:e.clientX-rect.left,y:e.clientY-rect.top};if(!drag)setMagnet(nearestPort(e.clientX,e.clientY));},true);
+    root.addEventListener('pointerleave',()=>{if(!drag)setMagnet(null);});
+    root.addEventListener('pointerdown',e=>{
+        if(e.button!==0||drag)return;
+        const port=nearestPort(e.clientX,e.clientY);
+        if(port){setMagnet(port);portStarts.get(port)?.(e);}
+    },true);
     root.addEventListener('pointerdown',e=>{if(picker&&!picker.contains(e.target))closePicker();},true);
     root.addEventListener('dblclick',e=>{if(e.target.closest('.dae-creative-card,.dae-creative-picker,.dae-creative-zoom,path'))return;const r=root.getBoundingClientRect();choose({x:e.clientX-r.left,y:e.clientY-r.top});});
-    root.addEventListener('wheel',e=>{if(e.target.closest('.dae-creative-card,.dae-creative-picker,.dae-creative-toolbar'))return;closePicker();e.preventDefault();const r=root.getBoundingClientRect();state.viewport=zoomAt(state.viewport,{x:e.clientX-r.left,y:e.clientY-r.top},Math.exp(-e.deltaY*.001));viewport();dirty();},{passive:false});
-    root.addEventListener('pointerdown',e=>{if(e.target.closest('button,input,select,textarea,.dae-creative-card,.dae-creative-picker')||e.button!==0)return;select(null);root.focus();closePicker();drag={kind:'pan',x:e.clientX,y:e.clientY,original:{...state.viewport}};root.setPointerCapture(e.pointerId);});
-    root.addEventListener('pointermove',e=>{if(!drag)return;if(drag.kind==='wire'){const r=root.getBoundingClientRect();drag.point={x:e.clientX-r.left,y:e.clientY-r.top};previewConnection(drag,drag.point);return;}const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.kind==='pan'){state.viewport.x=drag.original.x+dx;state.viewport.y=drag.original.y+dy;viewport();}else{drag.c.layout.x=drag.original.x+dx/state.viewport.zoom;drag.c.layout.y=drag.original.y+dy/state.viewport.zoom;update(drag.c);drawWires();}});
-    const endDrag=e=>{const current=drag;drag=null;wires.querySelector('[data-preview]')?.remove();if(!current)return;
+    root.addEventListener('wheel',e=>{
+        if(e.target.closest('.dae-creative-picker,dialog,.dae-creative-toolbar'))return;
+        if(drag){e.preventDefault();return;}
+        // Give scrollable content its own wheel, while Ctrl always zooms the canvas.
+        if(!e.ctrlKey){
+            const horizontal=e.shiftKey||Math.abs(e.deltaX)>Math.abs(e.deltaY);
+            for(let owner=e.target;owner&&owner!==root;owner=owner.parentElement){
+                const style=getComputedStyle(owner),overflow=horizontal?style.overflowX:style.overflowY;
+                if(/auto|scroll/.test(overflow)&&(horizontal?owner.scrollWidth>owner.clientWidth:owner.scrollHeight>owner.clientHeight))return;
+            }
+        }
+        closePicker();setMagnet(null);e.preventDefault();e.stopPropagation();const r=root.getBoundingClientRect();
+        state.viewport=wheelViewport(state.viewport,{x:e.clientX-r.left,y:e.clientY-r.top},e,root.clientHeight);viewport();dirty();
+    },{passive:false,capture:true});
+    root.addEventListener('pointerdown',e=>{
+        if(e.button!==1||e.target.closest('dialog,.dae-creative-picker'))return;
+        e.preventDefault();e.stopPropagation();setMagnet(null);closePicker();root.focus();
+        drag={kind:'pan',x:e.clientX,y:e.clientY,original:{...state.viewport}};root.dataset.panning='true';root.setPointerCapture(e.pointerId);
+    },true);
+    root.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault();});
+    root.addEventListener('pointerdown',e=>{
+        if(e.target.closest('button,input,select,textarea,.dae-creative-card,.dae-creative-picker,path')||e.button!==0)return;
+        e.preventDefault();root.focus();closePicker();setMagnet(null);
+        const base=e.shiftKey?new Set(selected):new Set();selected=new Set(base);selectedLink=null;paintSelection();
+        drag={kind:'marquee',x:e.clientX,y:e.clientY,base};root.setPointerCapture(e.pointerId);
+    });
+    root.addEventListener('pointermove',e=>{if(!drag)return;if(drag.kind==='wire'){const r=root.getBoundingClientRect(),port=nearestPort(e.clientX,e.clientY,drag);setMagnet(port);const target=port?.getBoundingClientRect();drag.point={x:(target?target.left+target.width/2:e.clientX)-r.left,y:(target?target.top+target.height/2:e.clientY)-r.top};previewConnection(drag,drag.point);return;}const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.kind==='pan'){state.viewport.x=drag.original.x+dx;state.viewport.y=drag.original.y+dy;viewport();}else if(drag.kind==='marquee'){
+            const r=root.getBoundingClientRect(),left=Math.min(drag.x,e.clientX),top=Math.min(drag.y,e.clientY),right=Math.max(drag.x,e.clientX),bottom=Math.max(drag.y,e.clientY);
+            marquee.hidden=false;Object.assign(marquee.style,{left:`${left-r.left}px`,top:`${top-r.top}px`,width:`${right-left}px`,height:`${bottom-top}px`});
+            selected=new Set(drag.base);
+            if(Math.abs(dx)>3||Math.abs(dy)>3)for(const c of cards.values()){const b=c.element.getBoundingClientRect();if(b.right>left&&b.left<right&&b.bottom>top&&b.top<bottom)selected.add(c.node.id);}
+            paintSelection();
+        }else{for(const item of drag.originals){item.card.layout.x=item.x+dx/state.viewport.zoom;item.card.layout.y=item.y+dy/state.viewport.zoom;update(item.card);}drawWires();}});
+    const endDrag=e=>{const current=drag,dropHit=current?.kind==='wire'?(nearestPort(e.clientX,e.clientY,current)||document.elementFromPoint(e.clientX,e.clientY)):document.elementFromPoint(e.clientX,e.clientY);setMagnet(null);drag=null;marquee.hidden=true;delete root.dataset.panning;delete root.dataset.connecting;wires.querySelector('[data-preview]')?.remove();if(!current)return;
         if(current.kind==='wire'&&e.type==='pointerup'){
-            const hit=document.elementFromPoint(e.clientX,e.clientY),port=hit?.closest('button[data-slot]'),card=port?.closest('.dae-creative-card');
+            if(!validConnection(current)){message('素材或接口已改变，请重新连线');return;}
+            const hit=dropHit,port=hit?.closest('button[data-slot]'),card=hit?.closest('.dae-creative-card');
             const target=card&&[...cards.values()].find(c=>String(c.node.id)===card.dataset.nodeId)?.node;
-            if(target&&port.dataset.side!==current.side){const index=Number(port.dataset.slot);pending=current.side==='output'?{node:current.node,index:current.index}:{node:target,index};connect(current.side==='output'?target:current.node,current.side==='output'?index:current.index,'input');}
+            if(target&&current.side==='output'&&(!port||port.dataset.side==='input')){
+                const r=root.getBoundingClientRect(),index=port?Number(port.dataset.slot):MATERIAL_SLOT;
+                connectToCard({...current,targetIndex:index===MATERIAL_SLOT?null:index},target,{x:e.clientX-r.left,y:e.clientY-r.top});
+            }else if(target&&current.side==='input'&&(!port||port.dataset.side==='output')){
+                const index=port?Number(port.dataset.slot):unifiedNode(target)?MATERIAL_SLOT:0;
+                const r=root.getBoundingClientRect();
+                connectToCard({node:target,index,side:'output',slot:target.outputs?.[index],mediaKind:target.type===UPLOAD_TYPE?uploadKind(target):null,targetIndex:current.index===MATERIAL_SLOT?null:current.index},current.node,{x:e.clientX-r.left,y:e.clientY-r.top});
+            }
             else if(root.contains(hit)&&!hit.closest('.dae-creative-card,.dae-creative-zoom,.dae-creative-picker,path')){const r=root.getBoundingClientRect();choose({x:e.clientX-r.left,y:e.clientY-r.top},current);}
             else message('连接已取消，请拖到兼容接口或空白处');
         }dirty();};root.addEventListener('pointerup',endDrag);root.addEventListener('pointercancel',endDrag);
+    const editable=target=>target?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable=false])');
+    function copyNode(e){
+        if(!visible||editable(e.target)||workspace||picker)return;
+        const list=[...selected].map(id=>cards.get(id)).filter(Boolean);if(!list.length)return;
+        const left=Math.min(...list.map(c=>c.layout.x)),top=Math.min(...list.map(c=>c.layout.y));
+        const nodes=list.map(c=>({...copySnapshot(c.node,c.layout),sourceId:c.node.id,offset:{x:c.layout.x-left,y:c.layout.y-top}}));
+        const snapshot={...nodes[0],nodes,links:graphLinks(graph).filter(l=>selected.has(l.origin_id)&&selected.has(l.target_id)).map(l=>({source:l.origin_id,output:l.origin_slot,target:l.target_id,input:l.target_slot}))};
+        e.clipboardData.setData('text/plain',JSON.stringify(snapshot));
+        e.preventDefault();e.stopPropagation();pasteCount=0;message('已复制节点；Ctrl+V 粘贴为新节点');
+    }
+    function pasteNode(e){
+        if(!visible||editable(e.target)||workspace||picker)return;
+        const snapshot=readSnapshot(e.clipboardData.getData('text/plain'));if(!snapshot)return;
+        e.preventDefault();e.stopPropagation();
+        const entries=snapshot.nodes||[snapshot],created=[],mapping=new Map();
+        if(!entries.length||entries.some(item=>!supportedNode({type:item.node?.type}))){message('包含不支持的节点，无法粘贴');return;}
+        const point=pointerPoint||{x:root.clientWidth/2,y:root.clientHeight/2},v=state.viewport,offset=32*(++pasteCount);
+        try{
+            for(const item of entries){
+                const node=globalThis.LiteGraph.createNode(item.node.type);if(!node)throw new Error('节点未加载');created.push(node);
+                const data=JSON.parse(JSON.stringify(item.node));delete data.id;
+                for(const input of data.inputs||[])input.link=null;for(const output of data.outputs||[])output.links=null;
+                for(const [i,w] of (node.widgets||[]).entries())if(w.name==='request_id'&&data.widgets_values)data.widgets_values[i]=`copy-${crypto.randomUUID()}`;
+                node.configure(data);graph.add(node);mapping.set(item.sourceId,node);
+                node.pos=[Math.max(0,...graph._nodes.filter(n=>n!==node).map(n=>n.pos[0]+n.size[0]))+80,100];
+                state.cards[node.id]={x:(point.x-v.x)/v.zoom+offset+(item.offset?.x||0),y:(point.y-v.y)/v.zoom+offset+(item.offset?.y||0),width:Number(item.layout?.width)||cardWidth(node.type),expanded:item.layout?.expanded!==false};
+            }
+            for(const link of snapshot.links||[]){const source=mapping.get(link.source),target=mapping.get(link.target);if(source&&target&&!source.connect(link.output,target,link.input))throw new Error('内部连线恢复失败');}
+            dirty();sync();selected=new Set(created.map(n=>n.id));selectedLink=null;paintSelection();root.focus({preventScroll:true});message(`已粘贴 ${created.length} 个新节点`);
+        }catch(error){for(const node of created){if(node.graph===graph){graph.remove(node);delete state.cards[node.id];}else node.onRemoved?.();}message(`粘贴失败：${error.message}`);}
+
+    }
+    root.addEventListener('copy',copyNode,true);root.addEventListener('paste',pasteNode,true);
     root.addEventListener('keydown',e=>{
         if(picker?.contains(e.target)){
             if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)&&!e.isComposing){
@@ -244,8 +384,8 @@ export function createCreativeCanvas(app,{onExit=()=>{}}={}) {
             }
             if(e.key==='Escape'&&!e.isComposing){e.preventDefault();closePicker();root.focus();}e.stopPropagation();return;}
         if(e.target.closest('input,textarea,select,[contenteditable=true]')){e.stopPropagation();return;}
-        if(e.key==='Escape'){pending=null;drag=null;closePicker();message('已取消');}
-        if(e.key==='Delete'){e.preventDefault();if(selectedLink!=null){graph.removeLink(selectedLink);selectedLink=null;}else if(selected!=null){const c=cards.get(selected);if(c){graph.remove(c.node);delete state.cards[selected];}selected=null;}dirty();sync();}
+        if(e.key==='Escape'){if(drag?.kind==='marquee'){selected=new Set(drag.base);paintSelection();}marquee.hidden=true;delete root.dataset.panning;setMagnet(null);delete root.dataset.connecting;pending=null;drag=null;closePicker();message('已取消');}
+        if(e.key==='Delete'){e.preventDefault();if(selectedLink!=null){graph.removeLink(selectedLink);selectedLink=null;}else{for(const id of selected){const c=cards.get(id);if(c){graph.remove(c.node);delete state.cards[id];}}selected.clear();}dirty();sync();}
         e.stopPropagation();});
     function show(){graph=app.graph;state=canvasState(graph);state.active=true;visible=true;root.hidden=false;document.body.dataset.daelabCreative='true';viewport();sync();if(graph.extra?.daelabControlGallery&&!fieldGallery){fieldGallery=createFieldGallery(graph.extra.daelabControlGallery);world.append(fieldGallery.root);}dirty();}
     function hide(save=true){if(save&&state){state.active=false;dirty();}visible=false;root.hidden=true;delete document.body.dataset.daelabCreative;clear();closePicker();app.canvas.setDirty?.(true,true);}

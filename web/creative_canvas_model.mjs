@@ -1,7 +1,7 @@
 export const STATE_KEY = 'daelabCreativeCanvasV1';
 export const TABLE_TYPES = ['DAELAB.Table', 'DAELAB.StoryboardImport', 'DAELAB.ComfyTV.GPTImageStoryboardStage'];
 export function supportedNode(node) {
-    return TABLE_TYPES.includes(node.type) || node.type?.startsWith('DAELAB.LibTV.') || node.type?.startsWith('ComfyTV.');
+    return node.type==='DAELAB.MediaUpload' || TABLE_TYPES.includes(node.type) || node.type?.startsWith('DAELAB.LibTV.') || node.type?.startsWith('ComfyTV.');
 }
 export function canvasState(graph) {
     graph.extra ||= {};
@@ -18,7 +18,7 @@ export function zoomAt(v, point, factor) {
     return {x:point.x-(point.x-v.x)*zoom/v.zoom,y:point.y-(point.y-v.y)*zoom/v.zoom,zoom};
 }
 export const workspaceNode = type => type === "ComfyTV.StoryboardEditorStage";
-export const cardWidth = type => workspaceNode(type) ? 1200 : TABLE_TYPES.includes(type) ? 1060 : 460;
+export const cardWidth = type => type==='DAELAB.MediaUpload' ? 680 : workspaceNode(type) ? 1200 : TABLE_TYPES.includes(type) ? 1060 : 460;
 export function cardState(state,node,index=0) {
     if(workspaceNode(node.type) && state.cards[node.id]) state.cards[node.id].width=Math.max(1200,state.cards[node.id].width||0);
     return state.cards[node.id] ||= {x:index%3*530,y:Math.floor(index/3)*440,width:cardWidth(node.type),expanded:TABLE_TYPES.includes(node.type)};

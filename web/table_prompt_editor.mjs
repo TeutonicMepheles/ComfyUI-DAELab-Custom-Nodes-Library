@@ -59,9 +59,9 @@ export function createPromptEditor({getTable,editor,request,notify,getDefaults=(
   }catch(e){report({busy:false,error:true,message:e.message});if(alive)notify(e.message,'error');}finally{parsing=false;}
  }
  function editTemplate(fieldId=promptField(getTable()),recordId=getTable().records[0]?.id){openColumnPromptEditor({getTable,editor,fieldId,recordId,column:true,drawSegments});}
- function edit(recordId,{toggle=false}={}){
-  const current=getTable(),active=current.records.find(r=>r.id===recordId),value=effectivePrompt(current,active,promptField(current));
-  if(isColumnPrompt(value)||!value){openColumnPromptEditor({getTable,editor,fieldId:promptField(current),recordId,toggle,drawSegments});return;}
+ function edit(recordId,{toggle=false,fieldId=promptField(getTable())}={}){
+  const current=getTable(),active=current.records.find(r=>r.id===recordId),value=effectivePrompt(current,active,fieldId);
+  if(isColumnPrompt(value)||!value){openColumnPromptEditor({getTable,editor,fieldId,recordId,toggle,drawSegments});return;}
   const table=getTable(),row=table.records.find(r=>r.id===recordId),original=row?.values[promptField(table)];if(!original){editor.openTextSide(recordId,promptField(table),'最终提示词',d=>{el('p',d,'尚未解析最终提示词。');d.append(button('解析此行',async()=>{await parse([recordId],false);if(getTable().records.find(r=>r.id===recordId)?.values[promptField(getTable())]){d.close();edit(recordId);}}));},{toggle});return;}
   if(original.version!==1||original.compilerVersion!==1||!Array.isArray(original.segments)||!Array.isArray(original.references)){notify('不支持的提示词版本，请保留原数据或明确重新解析','error');return;}
   editor.openTextSide(recordId,promptField(table),'最终提示词',d=>{
@@ -88,7 +88,7 @@ export function createPromptEditor({getTable,editor,request,notify,getDefaults=(
   },{toggle});
  }
  function renderCell({cell,row,field,onCleanup}){
-  if(!isPrompt(field))return false;cell.addEventListener('dae-expand-text',()=>edit(row.id,{toggle:true}));
+  if(!isPrompt(field))return false;cell.addEventListener('dae-expand-text',()=>edit(row.id,{toggle:true,fieldId:field.id}));
   const container=el('div',cell);container.className='dae-prompt-cell';const preview=el('div',container);preview.className='dae-prompt-preview';preview.tabIndex=0;preview.setAttribute('aria-label',`${field.name}正文`);
   const currentRow=()=>getTable().records.find(r=>r.id===row.id),current=()=>effectivePrompt(getTable(),currentRow(),field.id);
   drawSegments(preview,current(),row);
@@ -98,7 +98,7 @@ export function createPromptEditor({getTable,editor,request,notify,getDefaults=(
     read:()=>({...draft,segments:readPromptSegments(preview)}),
     write:doc=>{const actual=currentRow()?.values[field.id]??'';if(JSON.stringify(actual)!==expected)throw new Error('提示词已被更新，请重新编辑');editor.change(t=>{t.records.find(r=>r.id===row.id).values[field.id]=doc;t.meta.prompt_mode='reviewed';},{render:false,group});expected=JSON.stringify(doc);},
     reset:()=>{if(JSON.stringify(currentRow()?.values[field.id]??'')===expected)editor.change(t=>t.records.find(r=>r.id===row.id).values[field.id]=original,{render:false,group});},
-    columns:()=>getTable().fields.filter(f=>!f.readonly&&f.presentation!=='prompt'&&['assets','content','text','longtext','select','number','checkbox'].includes(f.type)),
+    columns:()=>getTable().fields.filter(f=>(!f.readonly||f.presentation==='generation')&&f.presentation!=='prompt'&&['assets','content','text','longtext','select','number','checkbox'].includes(f.type)),
     getColumnChip:f=>{const box=document.createElement('div');drawSegments(box,{segments:[{type:'column',fieldId:f.id}]},currentRow()||row);return box.firstChild;}
    });
   }

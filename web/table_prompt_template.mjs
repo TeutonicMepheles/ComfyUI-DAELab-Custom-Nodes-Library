@@ -13,7 +13,8 @@ export function effectivePrompt(table,row,fieldId) {
 export function columnValue(table,row,fieldId) {
  const field=table.fields.find(f=>f.id===fieldId);
  if(!field)throw new Error('引用列已删除');
- if(field.presentation==='prompt'||field.readonly)throw new Error(`不能引用提示词或生成结果列：${field.name}`);
+ if(field.presentation==='prompt'||field.readonly&&field.presentation!=='generation')throw new Error(`不能引用此列：${field.name}`);
+ if(field.presentation==='generation'&&row.meta?.generationColumns?.[fieldId]?.phase!=='complete')throw new Error(`本行生成尚未完成：${field.name}`);
  const value=row.values[fieldId];
  if(Array.isArray(value)){
   if(!['assets','content'].includes(field.type))throw new Error(`不支持的引用列：${field.name}`);
@@ -38,6 +39,7 @@ export function resolveColumnPrompt(doc,table,row) {
  return {version:1,compilerVersion:1,segments,references,assets};
 }
 export function toColumnPrompt(doc) {
+ if(typeof doc==='string')return {kind:'column-template',version:1,segments:[{type:'text',text:doc}]};
  if(isColumnPrompt(doc))return structuredClone(doc);
  const refs=new Map((doc?.references||[]).map(r=>[r.refId,r]));
  return {kind:'column-template',version:1,segments:(doc?.segments||[]).map(s=>s.type==='text'?{...s}:{type:'column',fieldId:refs.get(s.refId)?.fieldId||''})};
@@ -49,5 +51,6 @@ export function setColumnTemplate(table,fieldId,doc,{replaceRows=false}={}) {
  validateColumnPrompt(doc);const field=table.fields.find(f=>f.id===fieldId);if(!field)throw new Error('提示词列已删除');
  field.promptTemplate=structuredClone(doc);
  if(replaceRows)for(const row of table.records)row.values[fieldId]='';
+ if(field.generationPrompt)return;
  table.meta.prompt_config||=structuredClone(table.meta.storyboard||{});table.meta.prompt_config.bindings||={};table.meta.prompt_config.bindings.final_prompt=fieldId;table.meta.prompt_mode='reviewed';
 }

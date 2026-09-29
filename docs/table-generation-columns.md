@@ -2,6 +2,20 @@
 
 Status: implementation in progress. Product decisions confirmed by the user.
 
+## First implementation checkpoint
+
+Implemented: generation column creation, existing side-panel configuration, direct text and same-row structured column references, image/video transport through the official CLI, per-cell task receipts, serial execution, stop-before-submission, recovery, and local result backfill. Existing text can be promoted into the shared column-template editor without losing its contents. Copying rows clears generation identities and outputs.
+
+The bridge shares its persistent request protocol with video nodes. Image output adds decoding verification; structured spans are replaced with LibTV `{{Node ...}}` references without rewriting literal prompt text. A server-side input index recovers a request if workflow undo removed its browser receipt. Replacing an existing result is an explicit new request.
+
+Validation: 31 relevant Node tests and 28 Python tests in ComfyUI's virtual environment pass. Tests include image download recovery with one paid-command mock invocation, missing-model rejection, stable column/row identity, stale result protection and receipt recovery after undo. These are isolated tests, not real paid generation evidence.
+
+Outstanding acceptance gates:
+
+- Live `libtv model search --type image` reported TLS ECONNRESET; the returned image/video catalog did not contain the requested models. Their current availability and full real schemas remain unverified. No alternate model was selected or paid generation submitted.
+- ComfyUI at localhost:8000 was opened in the in-app browser, but UI targeting failed/misdirected actions and the Chrome control failed to initialize. The generation panel, two-instance isolation, overflow/focus, mode switching and save/reload have NOT passed actual visual acceptance.
+- The running ComfyUI process has not been restarted to register the new table-generation routes. Restart and browser refresh are required before runtime acceptance. This checkpoint must not be described as production-ready or fully accepted.
+
 ## Scope
 
 - Add a generation column with a settings icon and a text Generate action in its header.

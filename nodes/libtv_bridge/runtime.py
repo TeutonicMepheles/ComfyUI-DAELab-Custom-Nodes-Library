@@ -167,6 +167,30 @@ def reference_prompt(prompt, media, keys):
 
 
 class Bridge:
+    node_type = 'video'
+    models = MODELS
+
+    def model_info(self, model):
+        matches = self.cli('model', 'search', '--type', self.node_type).get('matches', [])
+        info = next((m for m in matches if m['modelKey'] == self.models[model]), None)
+        if not info:
+            raise RuntimeError(f'{model} absent from current LibTV model list; no substitute submitted')
+        return info
+
+    def validate_request(self, schema, mode, prompt, settings, media):
+        validate(schema, mode, prompt, settings, media)
+
+    def inspect_output(self, directory):
+        videos = [p for p in directory.rglob('*') if p.suffix.lower() in ('.mp4', '.webm', '.mov')]
+        if len(videos) != 1:
+            raise RuntimeError('Expected exactly one downloaded video')
+        import av
+        with av.open(str(videos[0])) as container:
+            frame = next(container.decode(video=0), None)
+            if frame is None:
+                raise RuntimeError('Downloaded video has no decodable frame')
+            return videos[0], frame.width, frame.height
+
     def __init__(self, cache, output, cli=None):
         self.cache, self.output, self.cli = Path(cache), Path(output), cli or CLI()
         self.cache.mkdir(parents=True, exist_ok=True)
@@ -175,7 +199,7 @@ class Bridge:
     def request_identity(self, project, request_id, model, mode, prompt, settings, media=()):
         if not project.strip() or not request_id.strip():
             raise ValueError("project_uuid and request_id are required")
-        if model not in MODELS:
+        if model not in self.models:
             raise ValueError("Unsupported model")
         identity_media = []
         for item in media:
@@ -209,13 +233,10 @@ class Bridge:
                 if digest_file(state["file"]) == state.get("sha256"):
                     return state
             if not state:
-                matches = self.cli("model", "search", "--type", "video").get("matches", [])
-                model_info = next((m for m in matches if m["modelKey"] == MODELS[model]), None)
-                if not model_info:
-                    raise RuntimeError(f"{model} absent from current LibTV model list; no substitute submitted")
+                model_info = self.model_info(model)
                 name = model_info["modelName"]
                 schema = self.cli("model", name)["schema"]
-                validate(schema, mode, prompt, settings, media)
+                self.validate_request(schema, mode, prompt, settings, media)
                 state = dict(request=request, fingerprint=fingerprint, model_name=name,
                              phase="preparing", node_name="DAELab-" + key, references=[])
                 atomic_json(record, state)
@@ -243,11 +264,14 @@ class Bridge:
                                        "-p", project, "-t", item["kind"], "-f", item["path"])
                         state["references"].append(ref["nodeKey"])
                         atomic_json(record, state)
-                    args = ["node", "create", state["node_name"], "-p", project, "-t", "video",
-                            "-s", "model=" + state["model_name"], "-s", "modeType=" + mode, "-s", "count=1",
+                    args = ["node", "create", state["node_name"], "-p", project, "-t", self.node_type,
+                            "-s", "model=" + state["model_name"], "-s", "count=1",
                             "--prompt", reference_prompt(prompt, media, state["references"])]
+                    if mode:
+                        args += ["-s", "modeType=" + mode]
                     for k, v in settings.items():
-                        args += ["-s", f"{k}={v}"]
+                        encoded = json.dumps(v, ensure_ascii=False) if isinstance(v, (bool, dict, list)) else str(v)
+                        args += ["-s", f"{k}={encoded}"]
                     for ref in state["references"]:
                         args += ["--left", ref]
                     if not state.get("node_key"):
@@ -292,15 +316,7 @@ class Bridge:
             directory = self.output / key
             directory.mkdir(parents=True, exist_ok=True)
             self.cli("download", "-p", project, "-n", state["node_key"], "-o", directory)
-            videos = [p for p in directory.rglob("*") if p.suffix.lower() in (".mp4", ".webm", ".mov")]
-            if len(videos) != 1:
-                raise RuntimeError("Expected exactly one downloaded video")
-            import av
-            with av.open(str(videos[0])) as container:
-                frame = next(container.decode(video=0), None)
-                if frame is None:
-                    raise RuntimeError("Downloaded video has no decodable frame")
-                state["width"], state["height"] = frame.width, frame.height
-            state.update(phase="complete", file=str(videos[0].resolve()), sha256=digest_file(videos[0]))
+            file, state['width'], state['height'] = self.inspect_output(directory)
+            state.update(phase="complete", file=str(file.resolve()), sha256=digest_file(file))
             atomic_json(record, state)
             return state

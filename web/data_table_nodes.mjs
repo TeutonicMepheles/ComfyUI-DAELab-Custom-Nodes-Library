@@ -1,3 +1,4 @@
+import {attachGenerationColumns} from './table_generation_panel.mjs';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
 import {installContentPresentation} from './table_content_view.mjs?v=20260930-structure9';
 import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-structure9';
@@ -68,8 +69,8 @@ function createPanel(node){
  const heading=document.createElement('header');heading.className='studio-heading';const title=document.createElement('div');const name=document.createElement('strong');name.textContent=isGeneric(node)?'多维表格':'分镜表';title.append(name);heading.append(title);
  const tabs=document.createElement('nav');tabs.className='studio-tabs';heading.append(tabs);root.append(heading);
  let tools=document.createElement('div');tools.className='studio-group-head';root.append(tools);
- let updateSummary=()=>{},promptUI=null;
- const editor=createTableEditor({nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&!!root.closest('.dae-creative'),getTable:()=>node.__dataTable,setTable:t=>{save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>promptUI?.invalidate()});
+ let updateSummary=()=>{},promptUI=null,generationUI=null;
+ const editor=createTableEditor({nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&!!root.closest('.dae-creative'),getTable:()=>node.__dataTable,setTable:t=>{save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>{promptUI?.invalidate();generationUI?.invalidate();}});
  function defaults(){const batch=node.graph?._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch'&&n.inputs?.some(i=>i.name==='storyboard_json'&&node.graph.links[i.link]?.origin_id===node.id));return batch?Object.fromEntries(['model','mode','duration','resolution','ratio','sound'].map(k=>[k,widget(batch,k)?.value])):promptConfig(node.__dataTable).defaults||{};}
  function syncDefaults(){const next=defaults();if(JSON.stringify(next)!==JSON.stringify(promptConfig(node.__dataTable).defaults||{}))editor.change(t=>{t.meta.prompt_config||=clone(promptConfig(t));t.meta.prompt_config.defaults=next;});}
  node.__syncPromptDefaults=syncDefaults;
@@ -131,7 +132,8 @@ function createPanel(node){
   const next=clone(node.__dataTable);writeGenerationResults(next,report);if(JSON.stringify(next)!==JSON.stringify(node.__dataTable)){save(node,next);editor.render();updateSummary();}
  };
  const presentation=isGeneric(node)?installContentPresentation({root,editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
- editor.render();return {root:workbench.host,editor,height:workbench.height,close:()=>{presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
+ generationUI=isGeneric(node)?attachGenerationColumns({editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
+ editor.render();return {root:workbench.host,editor,height:workbench.height,close:()=>{generationUI?.invalidate();presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{generationUI?.destroy();presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
 }
 
 function install(node){

@@ -18,7 +18,7 @@ export function openColumnPromptEditor({getTable,editor,fieldId,recordId,column=
   const choices=el('div',d);choices.className='dae-prompt-choices';choices.hidden=true;
   const remember=()=>{const selection=getSelection();if(selection.rangeCount&&box.contains(selection.anchorNode))range=selection.getRangeAt(0).cloneRange();};
   const insert=node=>{box.focus();if(!range||!box.contains(range.startContainer)){range=document.createRange();range.selectNodeContents(box);range.collapse(false);}range.deleteContents();range.insertNode(node);range.setStartAfter(node);range.collapse(true);getSelection().removeAllRanges();getSelection().addRange(range);remember();};
-  for(const f of before.fields.filter(f=>!f.readonly&&f.presentation!=='prompt'&&['assets','content','text','longtext','select','number','checkbox'].includes(f.type))){const choose=button('@'+f.name,()=>{
+  for(const f of before.fields.filter(f=>(!f.readonly||f.presentation==='generation')&&f.presentation!=='prompt'&&['assets','content','text','longtext','select','number','checkbox'].includes(f.type))){const choose=button('@'+f.name,()=>{
    if(range?.startContainer.nodeType===3&&range.startOffset&&range.startContainer.textContent[range.startOffset-1]==='@')range.setStart(range.startContainer,range.startOffset-1);
    const container=document.createElement('div');drawSegments(container,{kind:'column-template',version:1,segments:[{type:'column',fieldId:f.id}]},row);insert(container.firstChild);choices.hidden=true;refreshPreview();
   });choose.onpointerdown=e=>e.preventDefault();choices.append(choose);}

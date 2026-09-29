@@ -56,7 +56,7 @@ export function addRecord(table,values={},afterId=null) {
     table.records.splice(at,0,record);return record;
 }
 export function duplicateSelected(table) {
-    const records=[];for(const r of table.records){records.push(r);if(r.selected){const copy={...clone(r),id:uid()};if(copy.meta)delete copy.meta.generation;for(const f of table.fields)if(f.id===table.meta.storyboard?.bindings?.video_result||f.id===table.meta.prompt_config?.bindings?.video_result)copy.values[f.id]=[];records.push(copy);}}table.records=records;
+    const records=[];for(const r of table.records){records.push(r);if(r.selected){const copy={...clone(r),id:uid()};if(copy.meta){delete copy.meta.generation;delete copy.meta.generationColumns;}for(const f of table.fields)if(f.presentation==='generation'||f.id===table.meta.storyboard?.bindings?.video_result||f.id===table.meta.prompt_config?.bindings?.video_result)copy.values[f.id]=[];records.push(copy);}}table.records=records;
 }
 export function reorder(items,sourceId,targetId,after=false) {
     if(sourceId===targetId)return;

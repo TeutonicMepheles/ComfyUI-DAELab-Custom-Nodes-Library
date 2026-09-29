@@ -1,3 +1,4 @@
+import {addGenerationColumn} from './table_generation_model.mjs';
 import {addField,addRecord,emptyValue} from './data_table_model.mjs?v=20260930-inline4';
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-structure9';
 import {moveRows,moveColumn} from './table_structure_model.mjs';
@@ -46,7 +47,7 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
         node.setAttribute('role','dialog');node.setAttribute('aria-label','新增列');
         const title=el('strong','',target?(before?'在左侧插入列':'在右侧插入列'):'新增列');
         const name=el('input',''),type=el('select','');name.required=true;name.maxLength=100;name.value=`列 ${getTable().fields.length+1}`;name.setAttribute('aria-label','列名称');
-        for(const [value,label] of [['content','内容 · 文字或单个素材'],['text','文本'],['number','数字'],['checkbox','勾选']])type.add(new Option(label,value));
+        for(const [value,label] of [['content','内容 · 文字或单个素材'],['generation','生成'],['text','文本'],['number','数字'],['checkbox','勾选']])type.add(new Option(label,value));
         type.setAttribute('aria-label','列类型');
         const label=(text,input)=>{const item=el('label','',text);item.append(input);return item;};
         const error=el('p','table-column-error');error.setAttribute('role','status');
@@ -58,11 +59,11 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
             let id,record;
             try{change(t=>{
                 if(target&&!t.fields.some(f=>f.id===target))throw new Error('目标列已被删除，请重新选择位置');
-                const f=addField(t,{name:name.value.trim(),type:type.value,width:300,...(type.value==='content'?{maxItems:1}:{})});id=f.id;
+                const spec={name:name.value.trim(),type:type.value,width:300,...(type.value==='content'?{maxItems:1}:{})};const f=type.value==='generation'?addGenerationColumn(t,spec):addField(t,spec);id=f.id;
                 if(target)moveColumn(t,id,target,!before);
                 for(const row of t.records)row.values[id]=emptyValue(f);
                 record=t.records[0]?.id;
-            });closeColumn();if(record)focusCell(record,id);else restoreHandle('column',id);}catch(e){error.textContent=e.message;}
+            });closeColumn();if(record)focusCell(record,id);else restoreHandle('column',id);if(type.value==='generation')root.dispatchEvent(new CustomEvent('dae-generation-created',{detail:{fieldId:id}}));}catch(e){error.textContent=e.message;}
         }
         node.onsubmit=e=>{e.preventDefault();save();};
         node.onkeydown=e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();closeColumn(true);}else if(e.key==='Enter'&&e.target===name&&!e.isComposing){e.preventDefault();save();}};

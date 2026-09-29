@@ -1,11 +1,14 @@
+import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
+import {installContentPresentation} from './table_content_view.mjs?v=20260930-inline4';
+import {tableTheme} from './table_controls.mjs?v=20260930-inline4';
 import {createWorkbench,showExistingPanel} from './table_workbench.mjs';
 import {workbenchTheme} from './table_workbench_theme.mjs';
-import {storyboardTaskState,selectedTaskSummary} from './storyboard_task_state.mjs';
+import {storyboardTaskState,selectedTaskSummary} from './storyboard_task_state.mjs?v=20260930-inline4';
 import {app} from '/scripts/app.js';
-import {normalizeTable,clone,addField} from './data_table_model.mjs';
-import {createPromptEditor} from './table_prompt_editor.mjs';
-import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs';
-import {createTableEditor,tableButton as button} from './data_table_editor.mjs';
+import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20260930-inline4';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20260930-inline4';
+import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20260930-inline4';
+import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-inline4';
 import {createAssetGroups} from './data_table_groups.mjs';
 import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs';
 import {previewImport} from './daelab_storyboard_import.mjs?v=20260927-multiref';
@@ -15,7 +18,7 @@ import {removeOwnedWidgets} from './dynamic_widget_lifecycle.mjs';
 import {recoverShiftedWorkflowValues} from './storyboard_legacy_widgets.mjs';
 
 const TYPES=['DAELAB.Table','DAELAB.StoryboardImport','DAELAB.ComfyTV.GPTImageStoryboardStage'];
-const OWNER='__daelabStoryboardOwned',VERSION='20260927-prompts1';
+const OWNER='__daelabStoryboardOwned',VERSION='20260928-content4';
 const widget=(node,name)=>node.widgets?.find(w=>w.name===name);
 const isGeneric=node=>node.type==='DAELAB.Table';
 const panelName=node=>isGeneric(node)?'daelab_table_editor':'daelab_storyboard_editor';
@@ -33,7 +36,7 @@ function linkedReport(node){return node.graph?._nodes.find(n=>n.type==='DAELAB.L
 function save(node,table){
  const report=linkedReport(node);node.properties||={};const reports=node.properties.daelabTableReports||={};if(report)reports[report.project_uuid+':'+report.batch_id]=clone(report);
  for(const r of Object.values(reports).sort((a,b)=>(a.started_at||0)-(b.started_at||0)))writeGenerationResults(table,r);
- for(const row of table.records){const doc=row.values[promptField(table)];if(doc&&typeof doc==='object')doc.editorFingerprint=promptFingerprint(table,row);}
+ for(const row of table.records){const doc=row.values[promptField(table)];if(isColumnPrompt(effectivePrompt(table,row,promptField(table)))){row.meta||={};row.meta.promptEditorFingerprint=promptFingerprint(table,row);}if(doc&&typeof doc==='object'&&!isColumnPrompt(doc))doc.editorFingerprint=promptFingerprint(table,row);}
  node.__dataTable=table;if(isGeneric(node))setWidget(node,'table_data',JSON.stringify(table));else{node.__daelabStoryboardState=projectStoryboard(table);setWidget(node,'storyboard_data',serializeStoryboardTable(table));}
  node.__promptUI?.observe();
 }
@@ -61,17 +64,18 @@ function videoNode(node){
 }
 
 function createPanel(node){
- studioTheme();workbenchTheme();const root=document.createElement('div');root.className='dae-studio daelab-storyboard-panel';root.style.cssText='height:520px;min-height:520px;max-height:520px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden';
- const heading=document.createElement('header');heading.className='studio-heading';const title=document.createElement('div');const mark=document.createElement('div');mark.className='studio-eyebrow';mark.textContent='DAELAB / TABLE';const name=document.createElement('strong');name.textContent=isGeneric(node)?'多维表格':'分镜表';title.append(mark,name);heading.append(title);
+ studioTheme();workbenchTheme();tableTheme();const root=document.createElement('div');root.className='dae-ui dae-table-panel daelab-storyboard-panel';
+ const heading=document.createElement('header');heading.className='studio-heading';const title=document.createElement('div');const name=document.createElement('strong');name.textContent=isGeneric(node)?'多维表格':'分镜表';title.append(name);heading.append(title);
  const tabs=document.createElement('nav');tabs.className='studio-tabs';heading.append(tabs);root.append(heading);
- const tools=document.createElement('div');tools.className='studio-group-head';root.append(tools);
+ let tools=document.createElement('div');tools.className='studio-group-head';root.append(tools);
  let updateSummary=()=>{},promptUI=null;
- const editor=createTableEditor({getTable:()=>node.__dataTable,setTable:t=>{save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>promptUI?.invalidate()});
+ const editor=createTableEditor({displayContent:()=>isGeneric(node)&&!!root.closest('.dae-creative'),getTable:()=>node.__dataTable,setTable:t=>{save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>promptUI?.invalidate()});
  function defaults(){const batch=node.graph?._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch'&&n.inputs?.some(i=>i.name==='storyboard_json'&&node.graph.links[i.link]?.origin_id===node.id));return batch?Object.fromEntries(['model','mode','duration','resolution','ratio','sound'].map(k=>[k,widget(batch,k)?.value])):promptConfig(node.__dataTable).defaults||{};}
  function syncDefaults(){const next=defaults();if(JSON.stringify(next)!==JSON.stringify(promptConfig(node.__dataTable).defaults||{}))editor.change(t=>{t.meta.prompt_config||=clone(promptConfig(t));t.meta.prompt_config.defaults=next;});}
  node.__syncPromptDefaults=syncDefaults;
- promptUI=createPromptEditor({getTable:()=>node.__dataTable,editor,notify,getDefaults:defaults,request:async body=>{const r=await app.api.fetchApi('/daelab/storyboard/parse-prompts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error||'解析接口不可用，请重启 ComfyUI');return data;}});node.__promptUI=promptUI;
- const parseButton=button('解析选中行',()=>{syncDefaults();void promptUI.parse();},true);tools.append(parseButton);
+ const feedback=document.createElement('p');feedback.className='table-parse-feedback';feedback.setAttribute('role','status');feedback.hidden=true;
+ promptUI=createPromptEditor({getTable:()=>node.__dataTable,editor,notify,getDefaults:defaults,onStatus:state=>{feedback.textContent=state.message;feedback.dataset.error=String(Boolean(state.error));feedback.hidden=!state.message;root.setAttribute('aria-busy',String(state.busy));},request:async body=>{const r=await app.api.fetchApi('/daelab/storyboard/parse-prompts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error||'解析接口不可用，请重启 ComfyUI');return data;}});node.__promptUI=promptUI;
+ const parseButton=button('解析选中行',()=>{syncDefaults();return promptUI.parse();},true);tools.append(parseButton);
  const groups=createAssetGroups({getTable:()=>node.__dataTable,change:fn=>editor.change(fn),upload,notify});
  const tableTab=button('任务表',()=>show(false)),groupTab=button('素材组',()=>show(true));tabs.append(tableTab,groupTab);
  function show(group){editor.root.hidden=group;groups.root.hidden=!group;tableTab.setAttribute('aria-selected',String(!group));groupTab.setAttribute('aria-selected',String(group));if(group)groups.render();}
@@ -90,19 +94,18 @@ function createPanel(node){
  const updateSource=()=>source.textContent=node.__dataTable.meta.storyboard?.source_filename||'字段可增删、改名、隐藏和拖动排序';
  if(!isGeneric(node)){
   const picker=document.createElement('input');picker.type='file';picker.accept='.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.pdf';picker.hidden=true;picker.onchange=()=>{const f=picker.files[0];picker.value='';if(f)void importFile(f);};
-  tools.append(button('导入文稿',()=>picker.click()),picker);
+  editor.toolbar.append(button('导入文稿',()=>picker.click()),picker);
   root.addEventListener('dragover',e=>e.preventDefault());root.addEventListener('drop',e=>{e.preventDefault();const file=e.dataTransfer?.files?.[0];if(file&&/\.(docx|xlsx|xlsm|csv|tsv|txt|md|pdf)$/i.test(file.name))void importFile(file);});
  }
- tools.append(source);
+ source.hidden=true;root.title='';
  const run=button(isGeneric(node)?'输出表格':node.type==='DAELAB.StoryboardImport'?'输出分镜任务':'生成图片',async()=>{try{const force=widget(node,'force_run_token');if(force)setWidget(node,'force_run_token',Number(force.value||0)+1);await app.queuePrompt(0,1,[node.id]);}catch(e){notify(e.message,'error');}});
  const settings=document.createElement('details');settings.className='table-settings';const summary=document.createElement('summary');summary.textContent='设置';settings.append(summary);
- settings.append(button('字段映射',()=>{settings.open=false;mappingDialog(node,editor);}));
  if(!isGeneric(node))settings.append(button('查看文稿说明',()=>{settings.open=false;const d=editor.openDialog('文稿说明');const p=document.createElement('pre');p.style.whiteSpace='pre-wrap';p.textContent=node.__dataTable.meta.storyboard.document_notes||'这份文稿没有表外说明。';d.append(p,button('关闭',()=>d.remove()));}));
- if(node.type==='DAELAB.StoryboardImport')settings.append(button('添加逐行生成设置',()=>{editor.change(addGenerationFields);settings.open=false;notify('生成秒数和生成方式留空时沿用视频面板。首尾帧按参考素材顺序：第一张首帧，第二张尾帧。');}),run);else tools.append(run);
+ if(node.type==='DAELAB.StoryboardImport')settings.append(button('添加逐行生成设置',()=>{editor.change(addGenerationFields);settings.open=false;notify('生成秒数和生成方式留空时沿用视频面板。首尾帧按参考素材顺序：第一张首帧，第二张尾帧。');}),run);else settings.append(run);
  if(isGeneric(node))settings.append(button('添加逐行生成设置',()=>{editor.change(addGenerationFields);settings.open=false;}));
- tools.append(settings);
+ editor.toolbar.append(settings);
  let closeGeneration=null;
- const generate=button('生成选中项',async()=>{
+ const generate=button('生成视频…',async()=>{
   syncDefaults();
   const check=selectedTaskSummary(node.__dataTable);if(!check.selected){notify('请先勾选记录');return;}
   if(check.invalid){notify(`${check.invalid} 条记录待补充，请先检查标记的单元格`);show(false);editor.focusCell(check.issues[0].record,check.issues[0].field);return;}
@@ -114,19 +117,21 @@ function createPanel(node){
   if(!closeGeneration)notify('生成面板尚未就绪，请再点一次生成选中项','warn');
  },true);
  if(node.type==='DAELAB.StoryboardImport'||isGeneric(node))tools.append(generate);
- tools.append(button('视频设置',async()=>{const batch=videoNode(node);if(!batch)return;for(let i=0;i<30&&!batch.__libtvPanel?.root?.isConnected;i++)await new Promise(requestAnimationFrame);closeGeneration?.();closeGeneration=showExistingPanel(batch,batch.__libtvPanel?.root,'生成设置与队列');syncDefaults();}));
+ const mapping=button('配置字段映射',()=>mappingDialog(node,editor));editor.toolbar.prepend(mapping,button('编辑整列模板',()=>{let id=promptField(node.__dataTable);if(!node.__dataTable.fields.some(f=>f.id===id))editor.change(t=>{const f=addField(t,{name:'最终提示词',type:'json',presentation:'prompt',width:360});id=f.id;t.meta.prompt_config||={};t.meta.prompt_config.bindings||={};t.meta.prompt_config.bindings.final_prompt=id;});promptUI.editTemplate(id);}));
+ settings.append(button('视频设置',async()=>{const batch=videoNode(node);if(!batch)return;for(let i=0;i<30&&!batch.__libtvPanel?.root?.isConnected;i++)await new Promise(requestAnimationFrame);closeGeneration?.();closeGeneration=showExistingPanel(batch,batch.__libtvPanel?.root,'生成设置与队列');syncDefaults();}));
  const status=document.createElement('div');status.className='table-task-summary';status.setAttribute('role','status');
- updateSummary=()=>{parseButton.disabled=!node.__dataTable.records.some(r=>r.selected);if(isGeneric(node)&&!node.__dataTable.meta.prompt_config){status.textContent=`共 ${node.__dataTable.records.length} 条记录 · 生成前请在设置中完成字段映射`;return;}const state=selectedTaskSummary(node.__dataTable);status.replaceChildren(document.createTextNode(`已选 ${state.selected} 条 · ${state.ready} 条可生成 · ${state.invalid} 条待补充${state.active?' · '+state.active+' 条处理中':''}${state.complete?' · '+state.complete+' 条已完成':''}`));status.dataset.invalid=String(state.invalid>0);if(state.invalid)status.append(button('定位问题',()=>{show(false);editor.focusCell(state.issues[0].record,state.issues[0].field);}));generate.disabled=!state.selected;};
+ updateSummary=()=>{const selected=node.__dataTable.records.filter(r=>r.selected).length;tools.hidden=!selected;parseButton.textContent=`解析选中行 (${selected})`;mapping.textContent=node.__dataTable.meta.prompt_config?'字段映射':'配置字段映射';const configured=Boolean(node.__dataTable.meta.prompt_config||node.__dataTable.meta.storyboard);parseButton.disabled=!selected||!configured;generate.disabled=!selected||!configured;if(isGeneric(node)&&!node.__dataTable.meta.prompt_config){status.textContent=`共 ${node.__dataTable.records.length} 条记录 · 请先点击“配置字段映射”，再解析选中行`;return;}const state=selectedTaskSummary(node.__dataTable);status.replaceChildren(document.createTextNode(`已选 ${state.selected} 条 · ${state.ready} 条可生成 · ${state.invalid} 条待补充${state.active?' · '+state.active+' 条处理中':''}${state.complete?' · '+state.complete+' 条已完成':''}`));status.dataset.invalid=String(state.invalid>0);if(state.invalid)status.append(button('定位问题',()=>{show(false);editor.focusCell(state.issues[0].record,state.issues[0].field);}));generate.disabled=!state.selected;generate.dataset.primary=String(state.ready>0&&!state.invalid);parseButton.dataset.primary=String(!state.ready||Boolean(state.invalid));};
 
- const style=widget(node,'main_prompt');if(style){const input=document.createElement('input');input.setAttribute('aria-label','全局风格');input.placeholder='全局画面风格';input.value=style.value||'';input.oninput=()=>setWidget(node,'main_prompt',input.value);tools.append(input);}
- root.append(editor.root,groups.root,status);updateSource();updateSummary();
- const workbench=createWorkbench(node,root,{title:isGeneric(node)?'多维表格工作台':'分镜工作台',onClose:()=>{closeGeneration?.();promptUI.close();editor.closeDialogs();}});tabs.append(workbench.trigger);
- for(const e of ['pointerdown','pointerup','mousedown','mouseup','click','dblclick','wheel','keydown','drop'])root.addEventListener(e,stopCanvasPropagation);
+ const style=widget(node,'main_prompt');if(style){const input=document.createElement('input');input.setAttribute('aria-label','全局风格');input.placeholder='全局画面风格';input.value=style.value||'';input.oninput=()=>setWidget(node,'main_prompt',input.value);editor.toolbar.append(input);}
+ editor.toolbar.prepend(tabs);heading.append(editor.toolbar);root.append(editor.root,groups.root,status,feedback);editor.selectionActions.append(...tools.children);tools.remove();tools=editor.selectionActions;updateSource();updateSummary();
+ const workbench=createWorkbench(node,root,{title:isGeneric(node)?'多维表格工作台':'分镜工作台',onResize:()=>fit(node),onClose:()=>{closeGeneration?.();promptUI.close();editor.closeDialogs();}});tabs.append(workbench.trigger);
+ for(const e of ['pointerdown','pointerup','mousedown','mouseup','click','dblclick','wheel','keydown','drop'])root.addEventListener(e,event=>{if(e==='wheel'&&event.ctrlKey||e==='pointerdown'&&event.button===1||e==='mousedown'&&event.button===1)return;stopCanvasPropagation(event);});
  node.__storyboardResultUI=()=>{
   const report=linkedReport(node);if(!report)return;
   const next=clone(node.__dataTable);writeGenerationResults(next,report);if(JSON.stringify(next)!==JSON.stringify(node.__dataTable)){save(node,next);editor.render();updateSummary();}
  };
- editor.render();return {root:workbench.host,editor,close:()=>{promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
+ const presentation=isGeneric(node)?installContentPresentation({root,editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
+ editor.render();return {root:workbench.host,editor,height:workbench.height,close:()=>{presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
 }
 
 function install(node){
@@ -137,8 +142,8 @@ function install(node){
  hideNative(node,dataName(node));hideNative(node,'main_prompt');save(node,node.__dataTable);
  if(node.__dataTablePanel){node.__dataTablePanel.render();return;}
  removeOwnedWidgets(node,OWNER);const panel=createPanel(node);node.__dataTablePanel=panel;node.__daelabStoryboardRender=panel.render;
- const w=node.addDOMWidget(panelName(node),'custom',panel.root,{serialize:false,hideOnZoom:false,getHeight:()=>520,getMinHeight:()=>520,getValue:()=>'',setValue:()=>panel.render()});
- w[OWNER]=true;w.serialize=false;w.inputEl=panel.root;w.label=isGeneric(node)?'多维表格':'分镜表';w.computeSize=width=>[width||1080,520];w.computeLayoutSize=()=>({minHeight:520,maxHeight:520,minWidth:isGeneric(node)?720:920});
+ const w=node.addDOMWidget(panelName(node),'custom',panel.root,{serialize:false,hideOnZoom:false,getHeight:()=>panel.height(),getMinHeight:()=>panel.height(),getValue:()=>'',setValue:()=>panel.render()});
+ w[OWNER]=true;w.serialize=false;w.inputEl=panel.root;w.label=isGeneric(node)?'多维表格':'分镜表';w.computeSize=width=>[width||1080,panel.height()];w.computeLayoutSize=()=>({minHeight:panel.height(),maxHeight:panel.height(),minWidth:isGeneric(node)?720:920});
  const removed=w.onRemove?.bind(w);w.onRemove=()=>{panel.destroy();removed?.();panel.root.remove();};
  requestAnimationFrame(()=>fit(node));
 }

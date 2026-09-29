@@ -1,6 +1,7 @@
 """File-aware shell for the pure compiler; no uploads or generation."""
 from .prompt_compiler import config, source_context, parse_prompt, compile_prompt, review_prompt
 from .table_adapter import validated_table
+from .prompt_templates import effective_prompt, is_column_prompt
 from ..libtv_bridge.runtime import digest_file
 
 
@@ -60,12 +61,12 @@ def compile_table(table, local_media, defaults=None, recover_context=None):
             context = recover_context(table, row, defaults) if recover_context else None
             if context is None:
                 context = prepare_context(table, row, local_media, defaults)
-            document = row['values'].get(field)
+            document = parse_prompt(context) if 'templateSegments' in context else row['values'].get(field)
             prompt, assets = compile_prompt(document, context)
             result.append(dict(shot_id=row['id'], shot_no=str(table['records'].index(row) + 1), prompt=prompt,
                                media=[{k: a[k] for k in ('kind', 'path', 'sha256')} for a in assets],
                                generation_mode=context['mode'] or None, generation_duration=context['duration'],
-                               reviewed=True, source_context=context, editorFingerprint=document.get('editorFingerprint', '')))
+                               reviewed=True, source_context=context, editorFingerprint=row.get('meta', {}).get('promptEditorFingerprint', '') if 'templateSegments' in context else document.get('editorFingerprint', '')))
         except (ValueError, OSError, TypeError) as exc:
             raise ValueError(f"记录 {row['id']}：{exc}") from exc
     return result

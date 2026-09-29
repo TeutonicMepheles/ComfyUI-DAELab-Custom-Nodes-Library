@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from .video_references import reference_specs
+from .prompt_templates import effective_prompt, is_column_prompt, resolve_columns
 
 VERSION = 1
 MODES = {'文生视频': 'text2video', '首帧生视频': 'singleImage2video', '首尾帧': 'frames2video',
@@ -50,13 +51,27 @@ def source_context(table, row, defaults=None):
         if not isinstance(value, str):
             raise ValueError('正文/备注必须是文字')
         return value.strip()
+    template = effective_prompt(table, row)
+    if is_column_prompt(template):
+        segments, assets = resolve_columns(template, table, row)
+        settings = cfg.get('generation_fields', {})
+        mode = values.get(settings.get('mode')) or (defaults or {}).get('mode') or cfg.get('defaults', {}).get('mode') or ''
+        mode = MODES.get(mode, mode)
+        if mode and mode not in MODES.values():
+            raise ValueError('生成方式无效')
+        duration = values.get(settings.get('duration'))
+        if duration not in (None, '') and (isinstance(duration, bool) or not isinstance(duration, (int, float)) or not 0 < duration <= 3600):
+            raise ValueError('生成秒数无效')
+        for i, asset in enumerate(assets):
+            asset['role'] = ('first' if i == 0 else 'last') if mode == 'frames2video' else ('first' if mode == 'singleImage2video' else 'reference')
+        return dict(text='', notes='', assets=assets, bindings={}, groups=[[a['fieldId'], True] for a in assets], mode=mode, duration=duration, templateSegments=segments)
     prompt, notes = text('image_prompt', True), text('camera_notes')
     if not prompt:
         raise ValueError('正文为空，请补充画面描述')
     specs = reference_specs(table)
     assets, seen = [], set()
     for fid, required in specs:
-        if fid not in fields or fields[fid].get('type') != 'assets':
+        if fid not in fields or fields[fid].get('type') not in ('assets', 'content'):
             raise ValueError('素材字段已删除或类型变化，请重新映射')
         items = values.get(fid, [])
         if not isinstance(items, list) or (required and not items):
@@ -101,6 +116,10 @@ def parse_prompt(context):
         if i:
             segments.append(dict(type='text', text=' '))
         segments.append(dict(type='ref', refId=ref['refId']))
+    if 'templateSegments' in context:
+        segments = copy.deepcopy(context['templateSegments'])
+        for ref in references:
+            ref['refId'] = 'column-' + ref['fieldId']
     result = dict(version=VERSION, compilerVersion=VERSION, segments=segments, references=references,
                   sourceFingerprint=source_fingerprint(context), editOrigin='parsed')
     compile_prompt(result, context)

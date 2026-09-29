@@ -19,6 +19,16 @@ from prompt_test.libtv_bridge.media_snapshot import freeze_media, recovery_conte
 
 
 class PromptTests(unittest.TestCase):
+    def test_content_media_columns_preserve_reference_identity(self):
+        table = self.table()
+        before = source_context(table, table['records'][0])
+        for field in table['fields']:
+            if field.get('type') == 'assets':
+                field['type'] = 'content'
+        after = source_context(table, table['records'][0])
+        self.assertEqual(before['assets'], after['assets'])
+        self.assertEqual(before['groups'], after['groups'])
+
     def test_column_reference_selection_filters_real_compilation_in_both_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=pathlib.Path(tmp)/'selected.png';path.write_bytes(b'selected-only')
@@ -56,6 +66,43 @@ class PromptTests(unittest.TestCase):
         return dict(fields=[dict(id='p',type='longtext',name='正文'),dict(id='a',type='assets',name='参考'),dict(id='f',type='json',presentation='prompt',name='最终提示词')],
                     records=[dict(id='r',selected=True,values={'p':'画面\n保持段落','a':[dict(id='a1',url='/view?filename=a.png',name='同名'),dict(id='a2',url='/view?filename=a.png',name='同名')]})],
                     meta=dict(prompt_mode='reviewed',prompt_config=dict(bindings=dict(image_prompt='p',image_url='a',final_prompt='f'))))
+
+    def template_table(self):
+        t = self.table()
+        t['records'][0]['values']['a'] = t['records'][0]['values']['a'][:1]
+        t['fields'][-1]['promptTemplate'] = dict(kind='column-template', version=1, segments=[dict(type='column', fieldId='p'), dict(type='text', text=' 使用 '), dict(type='column', fieldId='a')])
+        return t
+
+    def test_column_template_resolves_each_row_and_replacement(self):
+        t=self.template_table();row=t['records'][0]
+        text,assets=compile_prompt(parse_prompt(source_context(t,row)),source_context(t,row))
+        self.assertEqual(text,'画面\n保持段落 使用 @image_1')
+        row['values']['a']=[dict(id='new',url='/view?filename=new.png')]
+        t['fields'][1]['name']='改名';t['fields'].reverse()
+        ctx=source_context(t,row);self.assertEqual(compile_prompt(parse_prompt(ctx),ctx)[1][0]['assetId'],'new')
+        other=copy.deepcopy(row);other['id']='other';other['values']['p']='第二行';other['values']['a'][0]['id']='other-image'
+        ctx=source_context(t,other);self.assertEqual(compile_prompt(parse_prompt(ctx),ctx)[0],'第二行 使用 @image_1')
+
+    def test_column_template_missing_values_and_reserved_text(self):
+        t=self.template_table();row=t['records'][0];row['values']['a']=[]
+        with self.assertRaisesRegex(ValueError,'本行缺少参考素材'):source_context(t,row)
+        t['fields']=[f for f in t['fields'] if f['id']!='a']
+        with self.assertRaisesRegex(ValueError,'引用列已删除'):source_context(t,row)
+        t=self.template_table();t['records'][0]['values']['p']='@image_1'
+        with self.assertRaisesRegex(ValueError,'保留引用'):parse_prompt(source_context(t,t['records'][0]))
+
+    def test_column_template_compile_rows_preserves_concrete_snapshot_and_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=pathlib.Path(tmp)/'a.png';path.write_bytes(b'fixture')
+            t=self.template_table();media=lambda u:dict(kind='image',path=str(path))
+            rows=compile_rows(t,media,dict(mode='image2video'))
+            self.assertEqual(rows[0]['prompt'],'画面\n保持段落 使用 @image_1')
+            frozen=copy.deepcopy(rows[0]['source_context'])
+            t['records'][0]['values']['p']='新正文'
+            self.assertEqual(compile_rows(t,media,dict(mode='image2video'))[0]['prompt'],'新正文 使用 @image_1')
+            self.assertEqual(compile_prompt(parse_prompt(frozen),frozen)[0],'画面\n保持段落 使用 @image_1')
+            t['records'][0]['values']['f']=dict(kind='column-template',version=1,segments=[dict(type='text',text='单行覆盖')])
+            self.assertEqual(compile_rows(t,media,dict(mode='text2video'))[0]['prompt'],'单行覆盖')
 
     def test_duplicate_files_are_distinct_and_ordered(self):
         t=self.table();ctx=source_context(t,t['records'][0]);doc=parse_prompt(ctx)

@@ -1,4 +1,4 @@
-import {selectedTaskSummary} from './storyboard_task_state.mjs';
+import {selectedTaskSummary} from './storyboard_task_state.mjs?v=20260930-inline4';
 import { validateResultUrl, addVideoToCanvas } from './libtv_canvas_result.mjs?v=20260925-1';
 
 const value=(node,key)=>node?.widgets?.find(w=>w.name===key)?.value;

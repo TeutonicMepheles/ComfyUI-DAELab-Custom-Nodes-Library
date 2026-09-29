@@ -1,16 +1,18 @@
 // Business-independent table model. No storyboard, ComfyUI or provider dependencies.
-import {isPrompt,validatePrompt} from './table_prompt_model.mjs';
-import {migrateVideoReferences} from './table_video_references.mjs';
-export const FIELD_TYPES = ['text','longtext','number','checkbox','select','assets','json'];
+import {isPrompt,validatePrompt} from './table_prompt_model.mjs?v=20260930-inline4';
+import {migrateVideoReferences} from './table_video_references.mjs?v=20260929-refs3';
+export const FIELD_TYPES = ['text','longtext','number','checkbox','select','assets','content','json'];
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const uid = () => globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-export function emptyValue(field) {return field.type==='assets'?[]:field.type==='checkbox'?false:field.type==='number'?null:'';}
+export function emptyValue(field) {return ['assets','content'].includes(field.type)?[]:field.type==='checkbox'?false:field.type==='number'?null:'';}
 export function convertValue(field,value) {
+    if(field.type==='content'){if(typeof value==='string')return value;return convertValue({...field,type:'assets',maxItems:1},value);}
     if(field.type==='assets') {
         if(value==null || value==='')return [];
         let items=value;
         if(typeof value==='string')items=value.trim().startsWith('[')?JSON.parse(value):value.split(/\n/).filter(Boolean).map(url=>({url,name:'素材'}));
         if(!Array.isArray(items) || items.some(a=>!a || typeof a.url!=='string'))throw new Error('素材字段需要素材列表或本地 /view 地址');
+        if(field.maxItems===1&&items.length>1)throw new Error('每个单元格最多一个图片或视频');
         return items.map(a=>{if(!a.url.startsWith('/view?'))throw new Error('请选择 Comfy 本地素材');return {...a,id:a.id||uid(),name:String(a.name||'素材')};});
     }
     if(field.type==='checkbox') {
@@ -30,20 +32,20 @@ export function normalizeTable(value={}) {
     const ids=new Set();
     const fields=(raw.fields || []).map(f=>{
         const id=String(f.id||uid());if(ids.has(id))throw new Error('字段 ID 重复');ids.add(id);
-        return {...clone(f),id,name:String(f.name||'未命名字段'),type:FIELD_TYPES.includes(f.type)?f.type:'text',hidden:Boolean(f.hidden),width:Math.min(600,Math.max(100,Number(f.width)||180))};
+        return {...clone(f),id,name:String(f.name||'未命名字段'),type:raw.meta?.material_columns&&f.type==='assets'?'content':FIELD_TYPES.includes(f.type)?f.type:'text',hidden:Boolean(f.hidden),width:Math.min(600,Math.max(100,Number(f.width)||180))};
     });
     const recordIds=new Set();
     const records=(raw.records || []).map(r=>{
         const id=String(r.id||uid());if(recordIds.has(id))throw new Error('记录 ID 重复');recordIds.add(id);
         // Preserve values for unknown/deleted fields until an explicit delete operation.
         const values=clone(r.values||{}),assetIds=new Set();
-        for(const f of fields.filter(f=>f.type==='assets'))for(const a of values[f.id]||[]){if(!a.id)a.id=uid();if(assetIds.has(a.id))throw new Error('行内素材 ID 重复，请检查复制的素材');assetIds.add(a.id);}
+        for(const f of fields.filter(f=>['assets','content'].includes(f.type)))for(const a of Array.isArray(values[f.id])?values[f.id]:[]){if(!a.id)a.id=uid();if(assetIds.has(a.id))throw new Error('行内素材 ID 重复，请检查复制的素材');assetIds.add(a.id);}
         return {...clone(r),id,selected:r.selected!==false,values};
     });
     return migrateVideoReferences({version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})});
 }
 export function addField(table,spec={}) {
-    const field={id:uid(),name:'新字段',type:'text',width:180,hidden:false,...(spec.type==='assets'?{video_reference:false}:{}),...spec};
+    const field={id:uid(),name:'新字段',type:'text',width:180,hidden:false,...(['assets','content'].includes(spec.type)?{video_reference:false}:{}),...spec};
     if(table.fields.some(f=>f.id===field.id))throw new Error('字段 ID 已存在');
     table.fields.push(field);return field;
 }
@@ -65,7 +67,9 @@ export function setValue(table,recordId,fieldId,value) {
     const field=table.fields.find(f=>f.id===fieldId),record=table.records.find(r=>r.id===recordId);
     if(!field || !record)throw new Error('字段或记录已不存在');if(field.readonly)throw new Error('此字段由数据来源更新');
     if(isPrompt(field)&&typeof value==='string'&&value){const old=record.values[fieldId];if(!old)throw new Error('请先解析再粘贴最终正文');value={...clone(old),segments:[{type:'text',text:value}],editOrigin:'edited'};}
-    record.values[fieldId]=convertValue(field,value);
+    const converted=convertValue(field,value);
+    if(['assets','content'].includes(field.type)&&Array.isArray(converted))for(const asset of converted)if(table.fields.some(f=>f.id!==fieldId&&Array.isArray(record.values[f.id])&&record.values[f.id].some(a=>a.id===asset.id)))asset.id=uid();
+    record.values[fieldId]=converted;
 }
 export function transferValue(table,from,to,mode='swap') {
     const a=table.fields.find(f=>f.id===from.field),b=table.fields.find(f=>f.id===to.field);

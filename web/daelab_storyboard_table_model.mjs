@@ -1,4 +1,4 @@
-import {SnapshotHistory} from './data_table_model.mjs';
+import {SnapshotHistory} from './data_table_model.mjs?v=20260930-inline4';
 import {normalizeStoryboard} from './daelab_storyboard_model.mjs?v=20260926-table1';
 
 export const FIELD_TYPES = Object.freeze({shot_no:'label',time_range:'time',image_prompt:'text',camera_notes:'text',image_url:'image'});

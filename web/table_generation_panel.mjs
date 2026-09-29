@@ -36,16 +36,16 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
    const mode=label('生成方式'),settings=el('section',body),status=el('p',body);status.setAttribute('role','status');
    const project=label('LibTV 目标画布 ID','input');project.value=getTable().meta.generationProject||'';
    connectionPanel(body,{get:()=>project.value,set:(key,value)=>project.value=value,capabilities:async()=>{}});
-   function fillModels(){model.replaceChildren();for(const name of GENERATION_MODELS[kind.value])model.add(new Option(name,name));model.value=draft.model;}
+   function fillModels(){model.replaceChildren();if(draft.model==='Image-2')draft.model='Lib Image';if(!GENERATION_MODELS[kind.value].includes(draft.model)){const placeholder=new Option('请选择具体模型版本','');placeholder.disabled=true;model.add(placeholder);}for(const name of GENERATION_MODELS[kind.value])model.add(new Option(name,name));model.value=GENERATION_MODELS[kind.value].includes(draft.model)?draft.model:'';}
    function drawSettings(){
     settings.replaceChildren();if(!schema)return;
     const props=schema.properties||{},config=schema.config||{};
     for(const bucket of ['settings','advancedSettings']){
      let keys=config[bucket]||[];if(!Array.isArray(keys))keys=keys[draft.mode]||[];
      for(const key of keys){const spec=props[key];if(!spec)continue;const name=spec.originalField||key;
-      const wrapper=el('label',settings,spec.title||spec.label||name),choices=spec.enum||[],input=el(choices.length?'select':'input',wrapper);input.setAttribute('aria-label',spec.title||spec.label||name);
+      const wrapper=el('label',settings,spec.displayName||spec.title||spec.label||name),choices=spec.enum||[],input=el(choices.length?'select':'input',wrapper);input.setAttribute('aria-label',spec.displayName||spec.title||spec.label||name);
       const values=choices.map(x=>typeof x==='object'?x.value:x);
-      if(choices.length)choices.forEach((x,i)=>input.add(new Option(typeof x==='object'?(x.label||x.value):String(x),String(i))));
+      if(choices.length)choices.forEach((x,i)=>input.add(new Option(typeof x==='object'?(x.displayName||x.label||x.value):String(x),String(i))));
       else {input.type=spec.type==='boolean'?'checkbox':['integer','number'].includes(spec.type)?'number':'text';if(spec.min!==undefined)input.min=spec.min;if(spec.max!==undefined)input.max=spec.max;input.step=spec.type==='integer'?'1':'any';}
       const value=draft.settings[name]??spec.default;
       if(choices.length){input.value=String(Math.max(0,values.indexOf(value)));draft.settings[name]=values[Number(input.value)];}
@@ -71,6 +71,7 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
      // Only creating a prompt through this panel may have changed its binding.
      const comparison={...current.generation,promptFieldId:JSON.parse(original).promptFieldId};
      if(JSON.stringify(comparison)!==original)throw new Error('列配置已在其他位置变化，请重新打开');
+     if(!model.value)throw new Error('请选择具体模型版本');
      if(!draft.promptFieldId)throw new Error('请选择提示词列');
      if([...settings.querySelectorAll('input')].some(i=>!i.reportValidity()))return;
      editor.change(t=>{t.fields.find(f=>f.id===fieldId).generation=structuredClone(draft);t.meta.generationProject=project.value.trim();});body.close();

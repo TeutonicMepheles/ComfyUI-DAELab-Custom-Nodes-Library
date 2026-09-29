@@ -1,9 +1,10 @@
 """Column generation reuses Bridge's persisted submission and recovery protocol."""
 import json
-import re
 from .runtime import Bridge, validate
 
-REQUESTED = {'image': ('Image-2', 'Image-2.5'),
+IMAGE_MODELS = {'Lib Image': 'lib-image-2', 'Lib Image 2.5 Pro': 'lib-image-2.5-s',
+                'Lib Image 2.5 Fast': 'lib-image-2.5-f', 'Image-2': 'lib-image-2'}
+REQUESTED = {'image': tuple(IMAGE_MODELS),
              'video': ('Seedance 2.0', 'Seedance 2.5', 'Minimax H3')}
 
 
@@ -60,15 +61,15 @@ class ColumnBridge(Bridge):
             raise ValueError('Unsupported output kind')
         super().__init__(cache, output, cli)
         self.node_type = kind
-        self.models = {name: Bridge.models.get(name, name) for name in REQUESTED[kind]}
+        self.models = dict(IMAGE_MODELS) if kind == 'image' else {name: Bridge.models[name] for name in REQUESTED[kind]}
 
     def model_info(self, model):
+        if model == 'Image-2.5':
+            raise ValueError('Image-2.5 有 Pro 和 Fast 两个版本，请在生成配置中明确选择')
         if model not in self.models:
             raise ValueError('Unsupported model')
         matches = self.cli('model', 'search', '--type', self.node_type).get('matches', [])
-        normalize = lambda text: re.sub(r'[\s_-]', '', text).lower()
-        found = [m for m in matches if m.get('modelKey') == self.models[model]
-                 or normalize(m.get('modelName', '')) == normalize(model)]
+        found = [m for m in matches if m.get('modelKey') == self.models[model]]
         if len(found) != 1:
             raise ValueError(f'{model} 当前不可用或无法唯一匹配；未替换模型，未提交生成')
         return found[0]
@@ -112,7 +113,7 @@ class ColumnBridge(Bridge):
                 if type(value) not in (int, float) or value < spec.get('min', float('-inf')) or value > spec.get('max', float('inf')):
                     raise ValueError(f'{key} 超出范围')
         count = schema.get('properties', {}).get('count', {})
-        if count.get('min', 1) > 1:
+        if isinstance(count, list) and 1 not in count or isinstance(count, dict) and count.get('min', 1) > 1:
             raise ValueError('模型不支持单个结果')
 
     def inspect_output(self, directory):

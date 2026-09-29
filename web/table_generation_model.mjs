@@ -1,7 +1,7 @@
 import {addField,uid} from './data_table_model.mjs?v=20260930-inline4';
 import {effectivePrompt,isColumnPrompt,resolveColumnPrompt} from './table_prompt_template.mjs?v=20260930-inline4';
 
-export const GENERATION_MODELS={image:['Image-2','Image-2.5'],video:['Seedance 2.0','Seedance 2.5','Minimax H3']};
+export const GENERATION_MODELS={image:['Lib Image','Lib Image 2.5 Pro','Lib Image 2.5 Fast'],video:['Seedance 2.0','Seedance 2.5','Minimax H3']};
 export const isGeneration=field=>field?.presentation==='generation';
 export const promptColumns=table=>table.fields.filter(f=>!f.readonly&&(['text','longtext'].includes(f.type)||f.presentation==='prompt'||f.type==='content'&&table.records.every(r=>typeof r.values[f.id]==='string'||!r.values[f.id]?.length)));
 export function enableColumnPrompt(table,fieldId){
@@ -13,7 +13,7 @@ export function enableColumnPrompt(table,fieldId){
  for(const row of table.records){const text=row.values[fieldId];row.values[fieldId]=typeof text==='string'&&text?{kind:'column-template',version:1,segments:[{type:'text',text}]}:'';}
 }
 export function addGenerationColumn(table,spec={}){
- const field=addField(table,{...spec,type:'content',presentation:'generation',readonly:true,maxItems:1,width:340,generation:{version:1,kind:'image',model:'Image-2',promptFieldId:'',mode:'',settings:{}}});
+ const field=addField(table,{...spec,type:'content',presentation:'generation',readonly:true,maxItems:1,width:340,generation:{version:1,kind:'image',model:'Lib Image',promptFieldId:'',mode:'',settings:{}}});
  const prompts=promptColumns(table);
  if(prompts.length===1)field.generation.promptFieldId=prompts[0].id;
  else if(!prompts.length)field.generation.promptFieldId=createGenerationPrompt(table,field.id).id;

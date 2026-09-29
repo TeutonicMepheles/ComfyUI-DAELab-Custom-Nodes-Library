@@ -18,6 +18,21 @@ SCHEMA = {'properties': {'modeType': {'items': {'image2image': [0, 2]}},
 
 
 class ColumnTests(unittest.TestCase):
+    def test_image_versions_match_stable_keys_and_count_list_is_supported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            entries = [{'modelKey': key, 'modelName': name} for name, key in generation.IMAGE_MODELS.items() if name != 'Image-2']
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'image', lambda *args: {'matches': entries})
+            self.assertEqual(bridge.model_info('Image-2')['modelKey'], 'lib-image-2')
+            self.assertEqual(bridge.model_info('Lib Image 2.5 Pro')['modelKey'], 'lib-image-2.5-s')
+            self.assertEqual(bridge.model_info('Lib Image 2.5 Fast')['modelKey'], 'lib-image-2.5-f')
+            with self.assertRaisesRegex(ValueError, 'Pro 和 Fast'):
+                bridge.model_info('Image-2.5')
+            schema = dict(SCHEMA, properties=dict(SCHEMA['properties'], count=[1, 2, 4]))
+            bridge.validate_request(schema, 'image2image', 'prompt', {}, [])
+            schema['properties']['count'] = [2, 4]
+            with self.assertRaisesRegex(ValueError, '单个结果'):
+                bridge.validate_request(schema, 'image2image', 'prompt', {}, [])
+
     def test_only_structured_references_are_translated(self):
         prompt = generation.compile_segments([{'type': 'text', 'text': 'literal @image_1 '},
             {'type': 'asset', 'index': 0}], [{'kind': 'image'}])
@@ -32,7 +47,7 @@ class ColumnTests(unittest.TestCase):
         def cli(*args):
             calls.append(args)
             if args[:2] == ('model', 'search'):
-                return {'matches': [{'modelKey': 'verified-image-key', 'modelName': 'Image-2'}]}
+                return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
             if args[0] == 'model':
                 return {'schema': SCHEMA}
             if args[:2] == ('node', 'list'):
@@ -94,7 +109,7 @@ class ColumnTests(unittest.TestCase):
                 spec.loader.exec_module(api)
                 def cli(*args):
                     if args[:2] == ('model', 'search'):
-                        return {'matches': [{'modelKey': 'verified-key', 'modelName': 'Image-2'}]}
+                        return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
                     return {'schema': SCHEMA}
                 make_bridge = lambda kind: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
                 with patch.object(api, 'bridge', make_bridge):

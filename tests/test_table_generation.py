@@ -33,6 +33,20 @@ class ColumnTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '单个结果'):
                 bridge.validate_request(schema, 'image2image', 'prompt', {}, [])
 
+    def test_video_schema_metadata_is_not_a_setting_object(self):
+        schema = {'properties': {'magic': True, 'count': [1, 2, 4],
+                  'modeType': {'items': {'frames2video': [2, 2]}},
+                  'duration': {'min': 4, 'max': 15}},
+                  'config': {'settings': ['duration']}}
+        with tempfile.TemporaryDirectory() as directory:
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video')
+            media = [{'kind': 'image'}, {'kind': 'image'}]
+            bridge.validate_request(schema, 'frames2video', 'transition', {'duration': 5}, media)
+            with self.assertRaises(ValueError):
+                bridge.validate_request(schema, 'frames2video', 'transition', {'duration': 20}, media)
+            with self.assertRaises(ValueError):
+                bridge.validate_request(schema, 'frames2video', 'transition', {'magic': True}, media)
+
     def test_only_structured_references_are_translated(self):
         prompt = generation.compile_segments([{'type': 'text', 'text': 'literal @image_1 '},
             {'type': 'asset', 'index': 0}], [{'kind': 'image'}])

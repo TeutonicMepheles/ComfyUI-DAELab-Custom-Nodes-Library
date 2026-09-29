@@ -138,7 +138,7 @@ Prefer a node-specific override if a shared thumbnail selector is also used by n
 
 ## 6. Cache and duplicate registration
 
-Frontend refreshes can keep an unchanged module URL in cache or in a module registry. When a `.mjs` model changes, version the importing URL:
+Frontend refreshes can keep an unchanged module URL in cache or in a module registry. If runtime inspection shows stale code, use the existing cache invalidation mechanism; one option is a versioned import:
 
 ```js
 import { layoutModel } from "./layout_model.mjs?v=YYYYMMDD-layout-v2";
@@ -154,39 +154,22 @@ If a new cache-busting entry file is needed, make registration safe when both UR
 
 After code changes, inspect the actual page style/module version. A successful HTTP response does not prove the running page loaded it.
 
-## 7. App Mode and serialization
+## 7. Mode state and serialization
 
-For every node exported by a DAELab package, App Mode Bypass behavior is a release gate rather than an optional compatibility check.
+Select the [owning mode contract](mode-contracts.md): business-library App Mode and standalone canvas panel availability are separate implementations.
 
-### Shared implementation contract
+For affected widgets, verify:
 
-- Use `web/app_mode_bypass.js` for observing mode changes and changing final App Mode UI state.
-- Use `web/app_mode_bypass_model.mjs` for node recognition, Active/non-Active classification, graph lookup, and App Builder input/output assignment.
-- Do not duplicate this behavior inside a node frontend. Node-specific code may collapse several native inputs into one canonical composite-panel input, but shared mode-state hiding and restoration stays in the shared files.
-- Keep every backend `NODE_CLASS_MAPPINGS` key in `DAELAB_NODE_TYPES`. When a node is added, removed, or renamed, update the exact list assertion in `tests/app_mode_bypass_model.test.mjs` in the same change.
-
-### Required behavior matrix
-
-| Transition | Required final App Mode behavior |
-| --- | --- |
-| Active (`mode = 0`) | Selected inputs or composite panel are visible and retain their original enabled/ARIA/layout state. |
-| Active -> Muted (`mode = 2`) | The affected inputs or composite panel collapse or hide. |
-| Active -> Bypassed (`mode = 4`) | The affected inputs or composite panel collapse or hide. |
-| Muted/Bypassed -> Active | Original visibility, enabled state, ARIA attributes, values, and layout return exactly once. |
-| Repeated transitions/refresh | No duplicate DOM widget, callback wrapper, or stale hidden state appears. |
-
-Also verify:
-
-- hidden native widgets retain canonical serialization slots if required;
+- hidden native widgets retain canonical serialization slots;
 - `serialize: false` DOM controls do not create `null` holes or reorder backend values;
-- links remain attached to stable widget/input names;
-- workflow reload while the node is Muted or Bypassed starts collapsed, then restores correctly when returned to Active.
+- links remain attached to stable input names;
+- reloading while Muted/Bypassed restores the inactive state, then Active restores prior visibility and interaction state exactly once.
 
-Run `node --test tests/app_mode_bypass_model.test.mjs` for registry and mode-classification coverage. Then verify the final App Mode page because browser DOM restoration is outside that model test. If widget order changes, add migration tests for legacy `widgets_values` arrays and named serialization.
+When widget order changes, cover legacy `widgets_values` arrays and named serialization. Use the relevant owning-package tests and real UI; do not impose the business library's registry or test filenames on the canvas.
 
 ## 8. Runtime measurement checklist
 
-Use the real page when possible. Measure at least:
+Use the actual ComfyUI page for acceptance. Select measurements relevant to the defect:
 
 - graph node id/type and `node.size`;
 - outer `[data-node-id]` style, including node width/height variables;
@@ -196,7 +179,7 @@ Use the real page when possible. Measure at least:
 - first and last card bounding boxes and aspect ratios;
 - console errors for failed local-module imports.
 
-Test in this order:
+For a saved-height/refresh defect, a useful reproduction sequence is:
 
 1. load a workflow that contains an oversized saved node;
 2. capture baseline measurements;

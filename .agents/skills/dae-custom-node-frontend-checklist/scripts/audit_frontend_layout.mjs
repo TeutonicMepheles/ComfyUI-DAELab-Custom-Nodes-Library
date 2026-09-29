@@ -84,10 +84,12 @@ const RULES = [
 
 function usage() {
   return [
-    "Usage: node audit_frontend_layout.mjs [path] [--json]",
+    "Usage: node audit_frontend_layout.mjs [path] [--json] [--profile auto|business|canvas|generic]",
     "",
     "Read-only scan for ComfyUI frontend sizing, lifecycle, and DAELab App Mode review points.",
     "Defaults to the current directory and scans web/ when that folder exists.",
+    "Auto selects a mode contract from package identity, owned files, or explicit repository rules.",
+    "Use an explicit profile for renamed or ambiguous checkouts. Structural checks do not prove browser behavior.",
   ].join("\n");
 }
 
@@ -244,9 +246,10 @@ function extractPythonNodeMappings(source) {
   for (const match of source.matchAll(marker)) {
     const block = findDelimitedBlock(source, match.index + match[0].length - 1, "{", "}");
     if (!block) continue;
-    const keyPattern = /^\s*["']([^"']+)["']\s*:/gm;
+    const keyPattern = /(?:^|[,\n])\s*["']([^"']+)["']\s*:/g;
     for (const keyMatch of block.text.matchAll(keyPattern)) entries.push(keyMatch[1]);
   }
+  for (const match of source.matchAll(/\bNODE_CLASS_MAPPINGS\s*\[\s*["']([^"']+)["']\s*\]\s*=/g)) entries.push(match[1]);
   return entries;
 }
 
@@ -260,19 +263,28 @@ function makeFinding(file, line, rule, severity, message, excerpt = "") {
 
 async function collectExportedNodeTypes(repository) {
   const nodesDirectory = path.join(repository, "nodes");
-  if (!await exists(nodesDirectory)) return [];
+  if (!await exists(nodesDirectory)) return { types: [], complete: false };
   const files = await walkFiles(nodesDirectory, PYTHON_EXTENSIONS);
   const types = [];
+  let complete = true;
   for (const file of files) {
     const source = await readFile(file, "utf8");
+    // A text scan cannot resolve arbitrary Python constants, imports or updates.
+    // Do not label an unobserved ID as stale when registration may be dynamic.
+    if (/\bNODE_CLASS_MAPPINGS\s*(?:\[\s*[A-Za-z_]|\.\s*update\s*\(|:\s*[^=]+?=)/.test(source)
+      || /\bNODE_CLASS_MAPPINGS\s*=\s*(?!\{)[^\s]/.test(source)) complete = false;
+    for (const match of source.matchAll(/\bNODE_CLASS_MAPPINGS\s*=\s*\{/g)) {
+      const block = findDelimitedBlock(source, match.index + match[0].length - 1, "{", "}");
+      if (!block || /(?:^|[,\n])\s*(?:[A-Za-z_]\w*\s*:|\*\*)/.test(block.text)) complete = false;
+    }
     for (const type of extractPythonNodeMappings(source)) {
       if (!types.includes(type)) types.push(type);
     }
   }
-  return types;
+  return { types, complete };
 }
 
-async function auditDaelabAppMode(target) {
+async function auditDaelabAppMode(target, profile = "auto") {
   const targetStat = await stat(target);
   if (!targetStat.isDirectory()) return { applicable: false, findings: [] };
 
@@ -280,16 +292,39 @@ async function auditDaelabAppMode(target) {
   const modelPath = path.join(target, "web", "app_mode_bypass_model.mjs");
   const testPath = path.join(target, "tests", "app_mode_bypass_model.test.mjs");
   const agentsPath = path.join(target, "AGENTS.md");
-  const [runtimeSource, modelSource, testSource, agentsSource] = await Promise.all([
+  const panelPath = path.join(target, "web", "creative_panel_state.mjs");
+  const [runtimeSource, modelSource, testSource, agentsSource, packageSource, panelSource] = await Promise.all([
     readIfPresent(runtimePath),
     readIfPresent(modelPath),
     readIfPresent(testPath),
     readIfPresent(agentsPath),
+    readIfPresent(path.join(target, "package.json")),
+    readIfPresent(panelPath),
   ]);
-  const applicable = /daelab/i.test(path.basename(target))
-    || Boolean(runtimeSource || modelSource || testSource)
-    || /DAELab[\s\S]{0,500}App mode Bypass behavior/i.test(agentsSource || "");
-  if (!applicable) return { applicable: false, findings: [] };
+  let packageName;
+  try { packageName = JSON.parse(packageSource || "{}").name; } catch { /* Identity is optional. */ }
+  const canvasIdentity = path.basename(target).toLowerCase() === "comfyui-daelab-creative-canvas"
+    || packageName === "daelab-creative-canvas"
+    || /^# Creative Canvas ownership\s*$/m.test(agentsSource || "");
+  const businessIdentity = path.basename(target).toLowerCase() === "comfyui-daelab-custom-nodes-library"
+    || runtimeSource !== null || modelSource !== null || testSource !== null
+    || (/DAELab/i.test(agentsSource || "") && /app_mode_bypass(?:_model)?\.(?:js|mjs)/.test(agentsSource || ""));
+  const contract = profile === "auto"
+    ? (canvasIdentity ? "canvas" : businessIdentity ? "business" : "generic")
+    : profile;
+  if (contract === "generic") return { applicable: false, contract, findings: [] };
+  if (contract === "canvas") {
+    const findings = [];
+    if (panelSource === null || !panelSource.trim()) {
+      findings.push(makeFinding(panelPath, 1, "missing-canvas-panel-state", "HIGH", "The canvas-owned panel availability helper is missing or empty; inspect the canvas ownership contract, not the business App Mode registry."));
+    }
+    findings.push(makeFinding(panelPath, 1, "canvas-mode-runtime-review", "REVIEW", "Verify owned panels hide while inactive, restore prior state when Active, and dispose bindings; inspect the public adapter contract when integration changes. File presence is not runtime acceptance."));
+    return {
+      applicable: true, contract, exported: [], registered: [], asserted: [],
+      structuralPass: !findings.some((finding) => finding.severity === "HIGH"),
+      runtimeVerificationRequired: true, findings,
+    };
+  }
 
   const findings = [];
   for (const [file, source, rule, label] of [
@@ -302,13 +337,17 @@ async function auditDaelabAppMode(target) {
     }
   }
 
-  const exported = await collectExportedNodeTypes(target);
+  const inventory = await collectExportedNodeTypes(target);
+  const exported = inventory.types;
   const registeredResult = modelSource ? extractDaelabNodeTypes(modelSource) : { values: [], line: 1 };
   const assertedResult = testSource ? extractCoverageAssertion(testSource) : { values: [], line: 1 };
   const registered = [...new Set(registeredResult.values)];
   const asserted = [...new Set(assertedResult.values)];
+  if (!inventory.complete) {
+    findings.push(makeFinding(path.join(target, "nodes"), 1, "backend-inventory-incomplete", "REVIEW", "Backend registration is dynamic or unavailable to the static scan. Reconcile the loaded node registry or registration source before removing any frontend ID; unobserved IDs are not proven stale."));
+  }
 
-  if (!exported.length) {
+  if (!exported.length && inventory.complete) {
     findings.push(makeFinding(path.join(target, "nodes"), 1, "backend-node-map-unreadable", "HIGH", "No backend NODE_CLASS_MAPPINGS keys were found; App Mode coverage cannot be proven."));
   }
   if (modelSource && !registered.length) {
@@ -323,7 +362,7 @@ async function auditDaelabAppMode(target) {
   if (missingFromRegistry.length) {
     findings.push(makeFinding(modelPath, registeredResult.line, "exported-node-missing-from-app-mode", "HIGH", `Exported node types missing from DAELAB_NODE_TYPES: ${missingFromRegistry.join(", ")}.`));
   }
-  if (staleRegistryEntries.length) {
+  if (staleRegistryEntries.length && inventory.complete) {
     findings.push(makeFinding(modelPath, registeredResult.line, "stale-app-mode-node-type", "HIGH", `DAELAB_NODE_TYPES entries not found in backend mappings: ${staleRegistryEntries.join(", ")}.`));
   }
   if (registered.length && asserted.length && !sameMembers(registered, asserted)) {
@@ -357,10 +396,12 @@ async function auditDaelabAppMode(target) {
 
   return {
     applicable: true,
+    contract,
     exported,
     registered,
     asserted,
-    structuralPass: !findings.some((finding) => finding.severity === "HIGH"),
+    inventoryComplete: inventory.complete,
+    structuralPass: findings.some((finding) => finding.severity === "HIGH") ? false : inventory.complete ? true : null,
     runtimeVerificationRequired: true,
     findings,
   };
@@ -375,9 +416,15 @@ function renderText(target, files, findings, appMode) {
   console.log(`Target: ${target}`);
   console.log(`Frontend files: ${files.length}`);
   console.log(`Findings: HIGH ${counts.HIGH || 0}, REVIEW ${counts.REVIEW || 0}, INFO ${counts.INFO || 0}`);
+  console.log(`Mode contract: ${appMode.contract || "generic"}`);
   if (appMode.applicable) {
-    console.log(`App Mode structural gate: ${appMode.structuralPass ? "PASS" : "FAIL"} (backend ${appMode.exported.length}, registry ${appMode.registered.length}, test ${appMode.asserted.length})`);
-    console.log("App Mode runtime gate: manual final-page Active/Muted/Bypassed restoration check required");
+    if (appMode.contract === "business") {
+      const status = appMode.structuralPass === null ? "INCOMPLETE" : appMode.structuralPass ? "PASS" : "FAIL";
+      console.log(`App Mode structural gate: ${status} (backend ${appMode.exported.length}, registry ${appMode.registered.length}, test ${appMode.asserted.length})`);
+    } else {
+      console.log(`Canvas panel helper presence: ${appMode.structuralPass ? "PASS" : "FAIL"}`);
+    }
+    console.log("Runtime gate: actual owned UI Active/Muted/Bypassed restoration check required");
   }
   console.log("");
 
@@ -405,15 +452,26 @@ async function main() {
     console.log(usage());
     return;
   }
-  const json = args.includes("--json");
-  const positional = args.filter((value) => !value.startsWith("--"));
+  let json = false;
+  let profile = "auto";
+  const positional = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--json") json = true;
+    else if (arg === "--profile") profile = args[++index];
+    else if (arg.startsWith("--profile=")) profile = arg.slice("--profile=".length);
+    else if (arg.startsWith("--")) throw new Error(`Unknown option: ${arg}`);
+    else positional.push(arg);
+  }
+  if (!["auto", "business", "canvas", "generic"].includes(profile)) throw new Error("Profile must be auto, business, canvas, or generic.");
+  if (positional.length > 1) throw new Error("Expected at most one target path.");
   const target = path.resolve(positional[0] || process.cwd());
   const files = await collectFiles(target);
   const findings = [];
   for (const file of files) {
     findings.push(...scanSource(file, await readFile(file, "utf8")));
   }
-  const appMode = await auditDaelabAppMode(target);
+  const appMode = await auditDaelabAppMode(target, profile);
   findings.push(...appMode.findings);
   if (json) {
     console.log(JSON.stringify({
@@ -421,7 +479,9 @@ async function main() {
       files: files.length,
       appMode: {
         applicable: appMode.applicable,
+        contract: appMode.contract || "generic",
         structuralPass: appMode.structuralPass ?? null,
+        inventoryComplete: appMode.inventoryComplete ?? null,
         runtimeVerificationRequired: appMode.runtimeVerificationRequired ?? false,
         exported: appMode.exported ?? [],
         registered: appMode.registered ?? [],

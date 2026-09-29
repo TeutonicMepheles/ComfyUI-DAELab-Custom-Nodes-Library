@@ -46,3 +46,9 @@ Keep model settings derived from live capabilities. Report unavailable models an
 ## Baseline
 
 Local table development contains existing uncommitted surface changes; these are preserved and excluded from this initial plan commit. The implementation branch retains existing table/@-column work beyond remote main rather than dropping those dependencies.
+
+## Prompt column fill and verified model names
+
+- The image selector includes Lib Image, Lib Image 2.5 Pro and Lib Image 2.5 Fast, matched by their verified stable LibTV keys. CLI schema/preflight checks passed without paid generation.
+- A writable prompt cell exposes “应用到整列”. It replaces every row override with the current prompt as a shared column template. Column references still resolve against each destination row; future rows inherit it. One undo restores the prior column state.
+- Validation: 15 prompt/generation tests passed. Actual ComfyUI inspection confirmed the menu, two-row fill, one-step undo, save/reload and isolation from a second table. The running backend still requires restart to load the model mapping fix; paid generation has not been tested. Full multi-viewport and long-content checks remain pending.

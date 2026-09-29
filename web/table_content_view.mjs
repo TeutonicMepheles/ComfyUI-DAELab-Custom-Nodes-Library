@@ -1,4 +1,5 @@
 import {bindInlineEditor} from './table_inline_editor.mjs?v=20260930-inline4';
+import {applyPromptToColumn} from './table_prompt_template.mjs?v=20260930-inline4';
 import {isPrompt,promptField} from './table_prompt_model.mjs?v=20260930-inline4';
 import {addField,addRecord,removeField,clone,uid,setValue,emptyValue} from './data_table_model.mjs?v=20260930-inline4';
 import {createTableButton as button} from './table_controls.mjs?v=20260930-inline4';
@@ -58,6 +59,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
             if(!many&&['content','text','longtext'].includes(f?.type))toolbar.append(button(asset?'改为文字':'编辑文字',()=>findCell()?.dispatchEvent(new Event('dae-edit-text'))),...(f.type==='content'?[button(asset?'替换图片':'添加图片',()=>findCell()?.dispatchEvent(new Event('dae-upload')))]:[]));
             if(asset&&!many){toolbar.append(button('预览',()=>preview(asset)));const a=el('a','', '下载');a.href=asset.url;a.download=asset.name||'素材';toolbar.append(a);}
             toolbar.append(button('复制',()=>editor.copySelection()));
+            if(!many&&isPrompt(f)&&!f.readonly){const fill=button('应用到整列',()=>mutate(t=>applyPromptToColumn(t,selected.field,selected.record)));fill.title='覆盖本列所有行的提示词；@列引用仍读取各自行的素材，可撤销';toolbar.append(fill);}
             toolbar.append(button(many?'清空选区':'清空',()=>mutate(t=>{for(const {row,field:f} of region.length?region:[{row:{id:selected.record},field:f}])setValue(t,row.id,f.id,emptyValue(f));})));
             toolbar.append(button('列操作',()=>{selected={kind:'column',field:selected.field};signature='';tick();}),button('表格操作',()=>{selected={kind:'table'};signature='';tick();}));
         }

@@ -54,3 +54,11 @@ export function setColumnTemplate(table,fieldId,doc,{replaceRows=false}={}) {
  if(field.generationPrompt)return;
  table.meta.prompt_config||=structuredClone(table.meta.storyboard||{});table.meta.prompt_config.bindings||={};table.meta.prompt_config.bindings.final_prompt=fieldId;table.meta.prompt_mode='reviewed';
 }
+
+// Fill the column with relationships, never with the source row's resolved media.
+export function applyPromptToColumn(table,fieldId,recordId) {
+ const field=table.fields.find(f=>f.id===fieldId),row=table.records.find(r=>r.id===recordId);
+ if(!field||field.presentation!=='prompt'||field.readonly||!row)throw new Error('请选择可编辑的提示词单元格');
+ const doc=validateColumnPrompt(toColumnPrompt(effectivePrompt(table,row,fieldId)));
+ setColumnTemplate(table,fieldId,doc,{replaceRows:true});
+}

@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
+import time
 
 MODELS = {
     "Seedance 2.5": "star-video2.5",
@@ -74,9 +76,31 @@ def digest_file(path):
 
 
 def atomic_json(path, data):
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
+    # Readers can briefly deny replacement on Windows. Each writer owns its
+    # temporary file; retry only local persistence, never a remote command.
+    path = Path(path)
+    payload = json.dumps(data, ensure_ascii=False, indent=2)
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                dir=path.parent, prefix=path.name + ".", suffix=".tmp",
+                delete=False) as stream:
+            tmp = Path(stream.name)
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        for attempt in range(7):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 6:
+                    raise
+                time.sleep(min(0.025 * (2 ** attempt), 0.4))
+    finally:
+        if tmp is not None:
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
 
 
 @contextlib.contextmanager

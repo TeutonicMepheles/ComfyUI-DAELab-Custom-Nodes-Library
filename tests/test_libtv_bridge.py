@@ -17,6 +17,44 @@ SCHEMA = {"properties": {"duration": {"min": 4, "max": 15}, "resolution": {"enum
 
 
 class BridgeTests(unittest.TestCase):
+    def test_atomic_json_retries_local_permission_error(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'job.json'
+            path.write_text('{"phase":"running"}', encoding='utf-8')
+            replace = r.os.replace
+            calls = []
+            def transient(source, target):
+                calls.append(source)
+                if len(calls) < 3:
+                    raise PermissionError(5, 'Access denied')
+                replace(source, target)
+            with patch.object(r.os, 'replace', side_effect=transient), patch.object(r.time, 'sleep'):
+                r.atomic_json(path, {'phase': 'complete'})
+            self.assertEqual(json.loads(path.read_text()), {'phase': 'complete'})
+            self.assertEqual(len(calls), 3)
+            self.assertEqual(list(Path(directory).glob('*.tmp')), [])
+
+    def test_atomic_json_permanent_failure_preserves_receipt(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'job.json'
+            path.write_text('{"phase":"running"}', encoding='utf-8')
+            with patch.object(r.os, 'replace', side_effect=PermissionError(5, 'Access denied')), patch.object(r.time, 'sleep'):
+                with self.assertRaises(PermissionError):
+                    r.atomic_json(path, {'phase': 'complete'})
+            self.assertEqual(json.loads(path.read_text()), {'phase': 'running'})
+            self.assertEqual(list(Path(directory).glob('*.tmp')), [])
+
+    def test_atomic_json_concurrent_writers_use_distinct_temps(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'job.json'
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                list(pool.map(lambda i: r.atomic_json(path, {'value': i}), range(40)))
+            self.assertIn(json.loads(path.read_text())['value'], range(40))
+            self.assertEqual(list(Path(directory).glob('*.tmp')), [])
+
     def test_create_keeps_node_key_before_link_response(self):
         from unittest.mock import patch
         from types import SimpleNamespace

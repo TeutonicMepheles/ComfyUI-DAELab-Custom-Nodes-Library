@@ -1,6 +1,6 @@
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
-import {installContentPresentation} from './table_content_view.mjs?v=20260930-inline4';
-import {tableTheme} from './table_controls.mjs?v=20260930-inline4';
+import {installContentPresentation} from './table_content_view.mjs?v=20260930-structure9';
+import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-structure9';
 import {createWorkbench,showExistingPanel} from './table_workbench.mjs';
 import {workbenchTheme} from './table_workbench_theme.mjs';
 import {storyboardTaskState,selectedTaskSummary} from './storyboard_task_state.mjs?v=20260930-inline4';
@@ -8,7 +8,7 @@ import {app} from '/scripts/app.js';
 import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20260930-inline4';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20260930-inline4';
 import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20260930-inline4';
-import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-inline4';
+import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-structure9';
 import {createAssetGroups} from './data_table_groups.mjs';
 import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs';
 import {previewImport} from './daelab_storyboard_import.mjs?v=20260927-multiref';
@@ -69,7 +69,7 @@ function createPanel(node){
  const tabs=document.createElement('nav');tabs.className='studio-tabs';heading.append(tabs);root.append(heading);
  let tools=document.createElement('div');tools.className='studio-group-head';root.append(tools);
  let updateSummary=()=>{},promptUI=null;
- const editor=createTableEditor({displayContent:()=>isGeneric(node)&&!!root.closest('.dae-creative'),getTable:()=>node.__dataTable,setTable:t=>{save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>promptUI?.invalidate()});
+ const editor=createTableEditor({nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&!!root.closest('.dae-creative'),getTable:()=>node.__dataTable,setTable:t=>{save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>promptUI?.invalidate()});
  function defaults(){const batch=node.graph?._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch'&&n.inputs?.some(i=>i.name==='storyboard_json'&&node.graph.links[i.link]?.origin_id===node.id));return batch?Object.fromEntries(['model','mode','duration','resolution','ratio','sound'].map(k=>[k,widget(batch,k)?.value])):promptConfig(node.__dataTable).defaults||{};}
  function syncDefaults(){const next=defaults();if(JSON.stringify(next)!==JSON.stringify(promptConfig(node.__dataTable).defaults||{}))editor.change(t=>{t.meta.prompt_config||=clone(promptConfig(t));t.meta.prompt_config.defaults=next;});}
  node.__syncPromptDefaults=syncDefaults;

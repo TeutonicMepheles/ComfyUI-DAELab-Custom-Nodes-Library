@@ -42,8 +42,10 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
     function geometry() {
         if (disposed || !root.isConnected) return;
         if(table.dataset.fluid==='true'&&colgroup){
-            const choice=Number(table.dataset.choiceWidth),available=Math.max(fields.length*100,shell.clientWidth-choice),total=fields.reduce((sum,f)=>sum+f.width,0);
-            fields.forEach((f,i)=>{const width=active&&i>=active.index&&i<=active.index+1?active.widths[i-active.index]:f.width;colgroup.children[i+1].style.width=available*width/total+'px';});
+            const choice=Number(table.dataset.choiceWidth),available=Math.max(fields.length*100,shell.clientWidth-choice-(root.dataset.structure?48:0)),total=fields.reduce((sum,f)=>sum+f.width,0);
+            const projected=fields.map((f,i)=>{const width=active&&i>=active.index&&i<=active.index+1?active.widths[i-active.index]:f.width;return root.dataset.structure?Math.max(160,available*width/total):available*width/total;});
+            if(root.dataset.structure)table.style.setProperty('--dae-table-min-width',(choice+48+projected.reduce((a,b)=>a+b,0))+'px');
+            projected.forEach((width,i)=>{colgroup.children[i+1].style.width=width+'px';});
         }
         const rect = root.getBoundingClientRect(), viewport = shell.getBoundingClientRect();
         const scale = rect.width / root.offsetWidth;

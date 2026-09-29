@@ -1,17 +1,18 @@
+import {attachTableStructure} from './table_structure.mjs?v=20260930-structure9';
 import {createTextSide} from './table_text_side.mjs?v=20260929-refs3';
-import {renderContentCell} from './table_content_view.mjs?v=20260930-inline4';
+import {renderContentCell} from './table_content_view.mjs?v=20260930-structure9';
 import {clone,uid,addField,removeField,addRecord,duplicateSelected,reorder,setValue,transferValue,parseTSV,pasteMatrix,encodeTSV,SnapshotHistory,emptyValue,convertValue,FIELD_TYPES} from './data_table_model.mjs?v=20260930-inline4';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
 import {conflictChoice} from './table_cell_choice.mjs';
 import {isPrompt,promptText} from './table_prompt_model.mjs?v=20260930-inline4';
-import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260929-layout3';
+import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-structure9';
 import {videoReferenceFields,setVideoReference} from './table_video_references.mjs?v=20260929-refs3';
 
 let copiedRegion=null;
 export const FIELD_LABELS={content:'内容',text:'文本',longtext:'多行文本',number:'数字',checkbox:'勾选',select:'单选',assets:'素材',json:'结构化原文'};
-export {createTableButton as tableButton} from './table_controls.mjs?v=20260930-inline4';
-import {createTableButton as tableButton,tableTheme,tableIcon} from './table_controls.mjs?v=20260930-inline4';
+export {createTableButton as tableButton} from './table_controls.mjs?v=20260930-structure9';
+import {createTableButton as tableButton,tableTheme,tableIcon} from './table_controls.mjs?v=20260930-structure9';
 const element=(tag,className,parent)=>{const e=document.createElement(tag);if(className)e.className=className;if(parent)parent.append(e);return e;};
 const MIME='application/x-daelab-table';
 
@@ -38,18 +39,18 @@ function styles(){
 export function tableDialog(title){tableTheme();const d=element('dialog','dae-ui dae-table-dialog');d.setAttribute('aria-label',title);const h=element('h3','',d);h.textContent=title;d.addEventListener('pointerdown',stopCanvasPropagation);d.oncancel=()=>d.remove();document.body.append(d);d.showModal();return d;}
 
 // The very same editor is used by every template. Integrations only supply data and upload I/O.
-export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRowState=null,renderCell=null,decorateAsset=null,onRestore=()=>{},displayContent=()=>false}) {
+export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRowState=null,renderCell=null,decorateAsset=null,onRestore=()=>{},displayContent=()=>false,nativeHistory=null}) {
  const cleanups=new Set();const onCleanup=fn=>cleanups.add(fn);const clearBindings=()=>{for(const fn of cleanups)fn();cleanups.clear();};
  const dialogs=new Set();const openDialog=title=>{const d=tableDialog(title);dialogs.add(d);return d;};const closeDialogs=()=>{textSide.closeAll();for(const d of dialogs){d.querySelectorAll('video').forEach(v=>v.pause());d.remove();}dialogs.clear();};
  styles();const owner=uid(),history=new SnapshotHistory(),root=element('section','dae-table'),toolbar=element('nav','dae-table-toolbar',root),shell=element('div','dae-table-scroll',root),footer=element('nav','dae-table-footer',root);
  const textSide=createTextSide({root});
  const expandedAssets=new Set();
- shell.dataset.storyboardScroll='true';let anchor=null,end=null,busy=false,editGroup=null,drag=null,raf=null,splitters=null;
+ shell.dataset.storyboardScroll='true';let anchor=null,end=null,busy=false,editGroup=null,drag=null,raf=null,splitters=null,structure=null;
  const fields=()=>getTable().fields.filter(f=>!f.hidden);
  const packet=e=>{try{return JSON.parse(e.dataTransfer.getData(MIME));}catch{return null;}};
- function change(fn,{render:draw=true,group=null}={}) {const before=JSON.stringify(getTable()),next=clone(getTable());fn(next);if(next.meta.material_columns)for(const f of next.fields.filter(f=>['assets','content'].includes(f.type))){f.maxItems=1;for(const r of next.records)if(Array.isArray(r.values[f.id])&&r.values[f.id].length>1)throw new Error('每个单元格最多一个图片或视频');}const after=JSON.stringify(next);history.record(before,after,group);setTable(next);if(draw)render();else updateFooter();}
+ function change(fn,{render:draw=true,group=null}={}) {const before=JSON.stringify(getTable()),next=clone(getTable());fn(next);if(next.meta.material_columns)for(const f of next.fields.filter(f=>['assets','content'].includes(f.type))){f.maxItems=1;for(const r of next.records)if(Array.isArray(r.values[f.id])&&r.values[f.id].length>1)throw new Error('每个单元格最多一个图片或视频');}const after=JSON.stringify(next);history.record(before,after,group);const boundary=nativeHistory&&displayContent()&&before!==after&&!group;if(boundary)nativeHistory.begin();try{setTable(next);if(draw)render();else updateFooter();}finally{if(boundary)nativeHistory.end();}}
  function safely(fn){try{return fn();}catch(e){notify(e.message);return null;}}
- function restore(redo=false){const value=history.restore(JSON.stringify(getTable()),redo);if(value){onRestore();setTable(value);render();}}
+ function restore(redo=false){const value=history.restore(JSON.stringify(getTable()),redo);if(value){const boundary=nativeHistory&&displayContent();if(boundary)nativeHistory.begin();try{onRestore();setTable(value);render();}finally{if(boundary)nativeHistory.end();}}}
  const undo=tableButton('撤销',()=>restore()),redo=tableButton('重做',()=>restore(true)),count=element('span','table-count');
  function updateFooter(){selectionActions.hidden=!getTable().records.some(r=>r.selected);refreshStates();undo.disabled=!history.undoStack.length;redo.disabled=!history.redoStack.length;count.textContent=`${getTable().records.filter(r=>r.selected).length} / ${getTable().records.length} 行已选`;}
  function selection(){if(!anchor||!end)return [];const t=getTable(),fs=fields(),a=t.records.findIndex(r=>r.id===anchor.record),b=t.records.findIndex(r=>r.id===end.record),c=fs.findIndex(f=>f.id===anchor.field),d=fs.findIndex(f=>f.id===end.field);if(Math.min(a,b,c,d)<0)return [];return t.records.slice(Math.min(a,b),Math.max(a,b)+1).map(row=>fs.slice(Math.min(c,d),Math.max(c,d)+1).map(field=>({row,field})));}
@@ -117,13 +118,14 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
     }catch(error){notify(error.message);}finally{busy=false;}
  }
  function render(){clearBindings();
+    structure?.dispose();structure=null;
     splitters?.dispose();splitters=null;
     const focused=document.activeElement?.closest?.('td[data-field]'),focus=focused&&root.contains(focused)?{record:focused.dataset.record,field:focused.dataset.field,start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd,editing:document.activeElement!==focused}:null;
     const scroll=[shell.scrollLeft,shell.scrollTop],t=getTable(),fs=fields();root.dataset.view=t.view;root.dataset.fieldCount=String(fs.length);root.style.setProperty('--dae-card-columns',String(Math.max(1,Math.min(3,fs.length))));view.value=t.view;root.dataset.density=t.meta.density||'comfortable';density.value=root.dataset.density;shell.replaceChildren();
     const table=element('table','',shell);table.setAttribute('role','grid');table.setAttribute('aria-label','数据表');
-    table.style.setProperty('--dae-table-width',((displayContent()?32:58)+fs.reduce((sum,f)=>sum+f.width,0))+'px');
-    const fluid=Boolean(root.closest('.dae-creative')),choiceWidth=displayContent()?32:58,totalWidth=fs.reduce((sum,f)=>sum+f.width,0);table.dataset.fluid=String(fluid);table.dataset.choiceWidth=String(choiceWidth);
-    table.style.setProperty('--dae-table-min-width',(choiceWidth+fs.length*100)+'px');
+    table.style.setProperty('--dae-table-width',((displayContent()?116:58)+fs.reduce((sum,f)=>sum+f.width,0))+'px');
+    const fluid=Boolean(root.closest('.dae-creative')),choiceWidth=displayContent()?68:58,totalWidth=fs.reduce((sum,f)=>sum+f.width,0);table.dataset.fluid=String(fluid);table.dataset.choiceWidth=String(choiceWidth);
+    table.style.setProperty('--dae-table-min-width',(choiceWidth+fs.length*100+(displayContent()?48:0))+'px');
     const cols=element('colgroup','',table);element('col','',cols).style.width=choiceWidth+'px';for(const f of fs)element('col','',cols).style.width=fluid?`${100*f.width/(totalWidth+choiceWidth)}%`:f.width+'px';
     const head=element('tr','',element('thead','',table)),selectionHead=element('th','table-choice',head),all=element('input','',selectionHead);all.type='checkbox';all.setAttribute('aria-label','选择全部记录');all.checked=!!t.records.length&&t.records.every(r=>r.selected);all.indeterminate=t.records.some(r=>r.selected)&&!all.checked;all.onchange=()=>change(n=>n.records.forEach(r=>r.selected=all.checked));
     for(const f of fs){const th=element('th','',head);th.dataset.column=f.id;if(['assets','content'].includes(f.type)&&!f.readonly){const slot=tableButton('+',()=>notify('将画布素材组输出拖到这里，按顺序填充此列；可撤销'));slot.className='dae-material-slot';slot.dataset.materialColumn=f.id;slot.setAttribute('aria-label',`${f.name} 素材输入`);slot.title='拖入素材组 · 按顺序填充此列 · 每格一个素材';slot.draggable=false;slot.ondragstart=e=>{e.preventDefault();e.stopPropagation();};th.append(slot);}th.style.width=f.width+'px';const ref=referenceButton(t,f);if(ref){th.append(ref);th.dataset.videoReference=ref.getAttribute('aria-pressed');}const title=element('span','field-title',th);const bindings=t.meta.prompt_config?.bindings||t.meta.storyboard?.bindings||{},kind=isPrompt(f)?'提示词':f.id===bindings.video_result||f.readonly&&['assets','content'].includes(f.type)?'生成结果':['assets','content'].includes(f.type)?'素材':'文本';
@@ -139,7 +141,7 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
         cell.addEventListener('mousedown',e=>{if(e.target.isContentEditable||e.target.closest('[contenteditable=true]'))return;if(e.shiftKey){e.preventDefault();choose(r.id,f.id,true);}else choose(r.id,f.id);});cell.addEventListener('focus',()=>choose(r.id,f.id));
         cell.ondragover=e=>{if(drag?.kind!=='row'&&drag?.kind!=='column')dragOver(e,cell);};cell.ondrop=e=>dropCell(e,r,f);
         const value=r.values[f.id]??emptyValue(f);
-        if(f.type==='content'||displayContent()&&['text','longtext'].includes(f.type)&&!f.readonly){draggable(cell,{kind:'cell',record:r.id,field:f.id});renderContentCell(cell,r,f,{change,upload,notify,getTable,onCleanup});}
+        if(f.type==='content'||displayContent()&&['text','longtext'].includes(f.type)&&!f.readonly){if(!displayContent())draggable(cell,{kind:'cell',record:r.id,field:f.id});renderContentCell(cell,r,f,{change,upload,notify,getTable,onCleanup});}
         else if(renderCell?.({cell,row:r,field:f,onCleanup})){}
         else if(f.type==='assets'){
           if(t.view==='cards'){const ref=referenceButton(t,f);if(ref)cell.append(ref);}
@@ -183,6 +185,7 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
     }
     if(!t.records.length){const empty=element('div','table-empty',shell);empty.textContent='暂无记录。新增记录，或通过导入工具填入数据。';}
     shell.scrollLeft=scroll[0];shell.scrollTop=scroll[1];updateFooter();mark();
+    if(displayContent()&&t.view!=='cards')structure=attachTableStructure({root,shell,table,getTable,change,notify});
     if(t.view!=='cards'&&fs.length>1)splitters=attachColumnSplitters({root,shell,table,fields:fs,change,button:tableButton});
     if(focus){const td=[...shell.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===focus.record&&e.dataset.field===focus.field);const input=focus.editing?td?.querySelector('input:not([type=file]),textarea,select'):td;if(input){input.focus({preventScroll:true});if(focus.start!=null&&input.setSelectionRange&&input.type!=='number')input.setSelectionRange(focus.start,focus.end);}}
  }
@@ -191,7 +194,8 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
  root.addEventListener('paste',e=>{if(e.target.isContentEditable||e.target.matches('.content-edit'))return;const text=e.clipboardData.getData('text/plain'),structured=e.clipboardData.getData('application/x-daelab-table-cells');if(!anchor || e.target.matches('input,textarea')&&!/[\t\n\r]/.test(text))return;e.preventDefault();safely(()=>change(t=>pasteMatrix(t,anchor.record,anchor.field,structured?JSON.parse(structured):copiedRegion?.text===text?clone(copiedRegion.matrix):parseTSV(text))));});
  root.addEventListener('keydown',e=>{
     if(e.target.isContentEditable||e.target.matches('input,textarea,select'))return;
-    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();restore(e.shiftKey);return;}
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();if(!nativeHistory||!displayContent())restore(e.shiftKey);return;}
+    if(e.target.closest('button,[role=separator]'))return;
     if(!end)return;
     const offsets={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1],Tab:[0,e.shiftKey?-1:1]};
     if(offsets[e.key]){e.preventDefault();focusNext(end.record,end.field,...offsets[e.key]);}
@@ -199,5 +203,5 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
     if(['Delete','Backspace'].includes(e.key)){e.preventDefault();safely(()=>change(t=>{for(const {row,field} of selection().flat())setValue(t,row.id,field.id,emptyValue(field));}));}
  });
  for(const event of ['pointerdown','pointerup','mousedown','mouseup','click','dblclick','wheel','keydown'])root.addEventListener(event,e=>{if(event==='wheel'&&e.ctrlKey||event==='pointerdown'&&e.button===1||event==='mousedown'&&e.button===1)return;stopCanvasPropagation(e);});
- render();return {root,toolbar,selectionActions,selection,restore,copySelection:async()=>{const matrix=selection().map(cells=>cells.map(({row,field})=>clone(row.values[field.id]??emptyValue(field)))),text=encodeTSV(matrix);await navigator.clipboard.writeText(text);copiedRegion={text,matrix};},clearSelection:()=>{anchor=null;end=null;mark();},render,change,history,openDialog,closeDialogs,openTextSide:textSide.open,collapseTextSide:textSide.hide,focusCell:(record,field)=>{const cell=[...shell.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===record&&e.dataset.field===field);cell?.focus();cell?.scrollIntoView({block:'nearest',inline:'nearest'});},destroy:()=>{clearBindings();splitters?.dispose();dragEnd();closeDialogs();textSide.destroy();}};
+ render();return {addColumn:(target=null,before=false,anchor=root)=>root.dispatchEvent(new CustomEvent('dae-add-column',{detail:{target,before,anchor}})),addRow:(target=null,before=false)=>root.dispatchEvent(new CustomEvent('dae-add-row',{detail:{target,before}})),root,toolbar,selectionActions,selection,restore,copySelection:async()=>{const matrix=selection().map(cells=>cells.map(({row,field})=>clone(row.values[field.id]??emptyValue(field)))),text=encodeTSV(matrix);await navigator.clipboard.writeText(text);copiedRegion={text,matrix};},clearSelection:()=>{anchor=null;end=null;mark();},render,change,history,openDialog,closeDialogs,openTextSide:textSide.open,collapseTextSide:textSide.hide,focusCell:(record,field)=>{const cell=[...shell.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===record&&e.dataset.field===field);cell?.focus();cell?.scrollIntoView({block:'nearest',inline:'nearest'});},destroy:()=>{clearBindings();structure?.dispose();splitters?.dispose();dragEnd();closeDialogs();textSide.destroy();}};
 }

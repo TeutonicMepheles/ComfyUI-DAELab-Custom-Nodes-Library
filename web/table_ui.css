@@ -90,9 +90,9 @@
 .dae-ui .content-cell:is(:hover,:focus-within,[data-selected=true]) .content-caption{opacity:1}
 .dae-ui .dae-table td>textarea.content-edit{position:relative!important;inset:auto!important;width:100%!important;height:180px!important;min-height:120px!important;max-height:400px;padding:14px!important;resize:vertical;box-sizing:border-box}
 .dae-ui .content-goal{font-size:12px;font-weight:400;color:var(--dae-text-muted);display:block;padding-top:3px}
-.dae-creative .dae-creative-card:has([data-content-presentation=true]){background:transparent;border-color:transparent;box-shadow:none}
-.dae-creative .dae-creative-card:has([data-content-presentation=true])[data-selected=true]{border-color:var(--dae-focus)}
-.dae-creative .dae-creative-card:has([data-content-presentation=true])>.dae-creative-heading{background:transparent;border:0;padding:8px 2px}
+.dae-creative .dae-creative-card:has([data-content-presentation=true]){background:transparent;border:0;border-radius:0;box-shadow:none}
+.dae-creative .dae-creative-card:has([data-content-presentation=true])[data-selected=true]{border:0;box-shadow:none}
+.dae-creative .dae-creative-card:has([data-content-presentation=true])>.dae-creative-heading{background:transparent;border:0;padding:8px 0}
 .dae-creative .dae-creative-card:has([data-content-presentation=true])>.dae-creative-heading>button,.dae-creative .dae-creative-card:has([data-content-presentation=true])>.dae-creative-type{display:none}
 .dae-creative .dae-table-host:has([data-content-presentation=true]){height:auto!important;min-height:0!important;max-height:none!important}
 .dae-creative [data-content-presentation=true].dae-table-panel{height:auto;min-height:0;padding:0;border:0;background:transparent;gap:0;overflow:visible}
@@ -199,7 +199,59 @@
 :is(.dae-ui,.dae-creative) .dae-table td[data-inline-editing=true]>.table-text-expand{opacity:0!important;pointer-events:none!important}
 
 /* Keep linked media highlights inside clipped media containers. */
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice{width:68px!important;min-width:68px;padding:10px 4px!important;overflow:visible}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice input{display:inline-block;accent-color:var(--dae-primary,#b8b1ff);width:16px;height:16px;margin:4px;opacity:0}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice .content-row-number{display:inline-block;position:absolute;top:16px;right:12px;opacity:1;pointer-events:none;font-size:12px;color:var(--dae-text-muted)}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .table-choice input,.dae-creative [data-content-presentation=true] .dae-table[data-structure] th.table-choice input{opacity:1}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .content-row-number{opacity:0}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] th[data-column]{padding-left:34px!important;padding-right:30px!important;cursor:default}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .field-title{padding-right:0!important;cursor:default}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .field-name{overflow:hidden;text-overflow:ellipsis}
+.dae-creative .dae-table[data-structure] button.table-move-handle,.dae-creative .dae-table[data-structure] button.table-column-menu{display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px;min-width:28px;min-height:32px;padding:4px!important;border:0!important;border-radius:6px;background:transparent!important;color:var(--dae-text-muted);opacity:0;cursor:grab;touch-action:none}
+.dae-creative .dae-table[data-structure] th>.table-move-handle{position:absolute;left:6px;top:10px}
+.dae-creative .dae-table[data-structure] .table-choice>.table-move-handle{opacity:0;vertical-align:top}
+.dae-creative .dae-table[data-structure] button.table-column-menu{position:absolute;right:6px;top:10px;cursor:pointer}
+.dae-creative .dae-table[data-structure] :is(th:hover,th:focus-within,tr:hover,tr:focus-within,tr[data-row-selected=true])>.table-move-handle,.dae-creative .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .table-choice>.table-move-handle,.dae-creative .dae-table[data-structure] th:is(:hover,:focus-within)>.table-column-menu{opacity:1}
+.dae-creative .dae-table[data-structure] .dae-material-slot{top:48px;right:8px;z-index:5}
+.dae-creative .dae-table[data-structure] :is(button,input):focus-visible{outline:2px solid var(--dae-focus);outline-offset:-2px}
+.dae-creative .dae-table[data-structure] tr[data-row-selected=true]>td,.dae-creative [data-content-presentation=true] .dae-table[data-structure] [data-column-selected=true]{background:color-mix(in srgb,var(--dae-primary,#b8b1ff) 10%,var(--dae-surface,#222));box-shadow:none}
+.dae-creative .dae-table[data-structure] tr[data-row-selected=true]>.table-choice{box-shadow:inset 3px 0 var(--dae-focus)}
+.dae-creative .dae-table[data-structure] [data-structure-moving=true]{opacity:.45}
+.dae-creative .dae-table[data-structure] .table-add-column{width:48px!important;padding:8px 4px!important;text-align:center}
+.dae-creative .dae-table[data-structure] .table-trailing-cell{width:48px!important;min-height:0;padding:0!important;background:var(--dae-surface)}
+.dae-creative .dae-table[data-structure] .table-add-column-button{width:36px;min-width:36px;min-height:36px;padding:4px!important;border:0;background:transparent;font-size:20px;color:var(--dae-text-muted)}
+.dae-creative .dae-table[data-structure] .table-add-row-cell{height:44px!important;min-height:0;padding:0!important}
+.dae-creative .dae-table[data-structure] .table-add-row{display:block;width:100%;text-align:left;padding:10px 18px!important;border:0!important;border-radius:0;background:transparent!important;color:var(--dae-text-muted);font:500 14px/24px var(--dae-font-family)}
+.dae-creative .dae-table[data-structure] :is(.table-add-row,.table-add-column-button):hover{color:var(--dae-text);background:var(--dae-surface-high)!important}
+.dae-ui.table-structure-guide{position:fixed;z-index:10040;pointer-events:none;background:var(--dae-focus,#b8b1ff)}
+.dae-ui.table-structure-guide::before,.dae-ui.table-structure-guide::after{content:'';position:absolute;width:6px;height:6px;border-radius:50%;background:inherit;left:-2px;top:-2px}
+.dae-ui.table-structure-guide[data-axis=row]::after{left:auto;right:-2px}
+.dae-ui.table-structure-guide[data-axis=column]::after{top:auto;bottom:-2px}
+.dae-ui.table-structure-ghost{position:fixed;z-index:10041;pointer-events:none;display:flex;align-items:center;gap:10px;max-width:240px;padding:10px 14px;border:1px solid var(--dae-border-control,#777);border-radius:10px;background:var(--dae-surface-high,#303030);color:var(--dae-text,#eee);box-shadow:var(--dae-elevation-overlay,0 6px 18px #0006);font:500 14px/1.5 var(--dae-font-family,sans-serif)}
+.dae-ui.table-structure-ghost img{width:44px;height:32px;object-fit:cover;border-radius:4px}
+.dae-ui.table-structure-ghost span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dae-ui:is(.table-structure-guide,.table-structure-ghost)[hidden]{display:none}
+.dae-ui.table-column-popover{position:fixed;inset:auto;margin:0;width:min(320px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;padding:20px;border:1px solid var(--dae-border-control,#777);border-radius:12px;color:var(--dae-text,#eee);background:var(--dae-surface,#222);box-shadow:var(--dae-elevation-overlay,0 8px 24px #0006);font:14px/1.6 var(--dae-font-family,sans-serif)}
+.dae-ui.table-column-popover>strong{font-size:16px}
+.dae-ui.table-column-popover label{display:flex;flex-direction:column;gap:6px;margin-top:16px;color:var(--dae-text-muted,#bbb)}
+.dae-ui.table-column-popover :is(input,select){box-sizing:border-box;width:100%;min-height:40px;min-width:0;padding:8px 10px;font:inherit;color:var(--dae-text,#eee);background:var(--dae-surface-raised,#292929);border:1px solid var(--dae-border-control,#777);border-radius:6px}
+.dae-ui.table-column-popover :focus-visible{outline:2px solid var(--dae-focus,#b8b1ff);outline-offset:2px}
+.dae-ui.table-column-popover .table-column-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.dae-ui.table-column-popover button{font:inherit;min-height:36px;padding:6px 16px;border:1px solid var(--dae-border-control,#777);border-radius:18px;color:var(--dae-text);background:var(--dae-surface-raised)}
+.dae-ui.table-column-popover button[data-primary=true]{background:var(--dae-primary-container,#494463);color:var(--dae-on-primary-container,#eee)}
+.dae-ui.table-column-popover .table-column-error{margin:8px 0 0;color:var(--dae-error,#ffb4ab)}
 :is(.dae-ui,.dae-creative) .dae-prompt-active{outline:2px solid var(--dae-focus,#9ce8c4)!important;outline-offset:-2px!important}
 :is(.dae-ui,.dae-creative) .dae-prompt-preview{line-height:28px!important}
 :is(.dae-ui,.dae-creative) .dae-prompt-ref{display:inline-flex;align-items:center;vertical-align:middle;height:24px;line-height:24px;padding:0 5px;box-sizing:border-box;font-size:inherit;font-weight:inherit}
 :is(.dae-ui,.dae-creative) .dae-table td[data-inline-editing=true]{background:transparent!important;box-shadow:none!important;outline:none!important}
+
+/* Structural add affordances stay visible independently of hover/selection. */
+.dae-creative .dae-table[data-structure] .table-add-column{position:sticky!important;right:0;z-index:7;background:var(--dae-surface-low,#222)!important;box-shadow:-1px 0 var(--dae-border,#404040)}
+.dae-creative .dae-table[data-structure] .table-add-row-cell{position:sticky!important;bottom:0;z-index:5;background:var(--dae-surface-low,#222)!important;box-shadow:0 -1px var(--dae-border,#404040)}
+.dae-creative .dae-table[data-structure] .table-add-row{position:sticky;left:0;width:max-content;min-width:120px}
+.dae-creative .dae-table[data-structure] :is(.table-add-row,.table-add-column-button){display:block!important;visibility:visible!important;opacity:1!important}
+.dae-creative .dae-table[data-structure] .table-add-column-button{margin:0 auto}
+
+/* Content tables have no second card frame or inset around their grid. */
+.dae-creative .dae-creative-card:has([data-content-presentation=true])>.dae-creative-body{padding:0;border:0;background:transparent}
+.dae-creative .dae-creative-card:has([data-content-presentation=true])[data-selected=true] .dae-table-scroll{outline:1px solid var(--dae-focus);outline-offset:0}

@@ -1,5 +1,36 @@
 # Table interaction refresh
 
+## Row and column interaction review
+
+Creative-canvas content tables use a dedicated row gutter and column drag handles.
+The editor owns selection and SnapshotHistory; `table_structure.mjs` owns pointer
+capture, insertion feedback, edge scrolling and the draft-only column popover.
+`table_structure_model.mjs` reorders existing IDs, preserving hidden field slots,
+prompt bindings, row metadata and asset identities. Native tables keep their
+existing presentation. No generation or upstream changes are involved.
+
+Accept against two real ComfyUI instances: multi-row and column reorder, cancel,
+append/insert, empty table, draft cancellation, undo/redo, save/reload, mode
+switches, long media rows, narrow layouts and canvas zoom. UI verification is
+recorded separately from model tests.
+
+### Verification, 2026-09-29
+
+- Actual ComfyUI port 8207, `Row Column Interaction Review`: two real table
+  instances; pointer row/column moves, keyboard multi-row move, draft cancel,
+  column creation, save/reopen, graph/creative mode return, and 42%/83% zoom.
+- Reused shared buttons, theme, Remix icons, column menus, splitter geometry,
+  SnapshotHistory and optional Creative Canvas history boundaries. The new
+  structure controller owns pointer lifecycle because whole-cell HTML dragging
+  conflicts with content editing and cannot provide atomic multi-row moves.
+- Native Ctrl+Z now uses the host workflow history in creative mode; explicit
+  before/after boundaries keep a new row or reorder to one undo step. Verified
+  on fresh `structure3` modules, preserving the other instance.
+- 36 table JavaScript tests pass. Screenshot: workspace
+  `output/table-structure-review/add-column.png`. No paid generation was run.
+- Not yet stress-tested: 500-row edge scrolling, touch input and empty-table
+  runtime behavior. Model checks do not replace these interaction checks.
+
 Scope: generic and storyboard tables; material-group filling is excluded.
 
 The business package owns records, selection, parsing, generation, undo and dialogs.

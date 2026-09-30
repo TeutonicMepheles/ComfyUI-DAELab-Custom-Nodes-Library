@@ -2,7 +2,6 @@
 import asyncio
 import hashlib
 import json
-import os
 import re
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, parse_qs
@@ -16,14 +15,8 @@ from .media_snapshot import freeze_media
 from .table_generation import ColumnBridge, compile_segments
 
 _tasks = {}
-def concurrency_limit():
-    try:
-        return max(1, min(8, int(os.environ.get('DAELAB_LIBTV_TABLE_CONCURRENCY', '2'))))
-    except ValueError:
-        return 2
-
-
-_queue = asyncio.Semaphore(concurrency_limit())
+TABLE_CONCURRENCY = 32
+_queue = asyncio.Semaphore(TABLE_CONCURRENCY)
 _executions = {}
 _submissions = asyncio.Lock()
 

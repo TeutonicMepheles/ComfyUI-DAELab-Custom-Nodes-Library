@@ -2,12 +2,10 @@
 import ast
 import asyncio
 import json
-import os
 import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 
 class SchedulerTests(unittest.IsolatedAsyncioTestCase):
@@ -17,11 +15,15 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.root = Path(self.directory.name)
         source = Path(__file__).resolve().parents[1] / 'nodes/libtv_bridge/table_generation_api.py'
         tree = ast.parse(source.read_text('utf-8'))
-        names = {'concurrency_limit', 'run_batch', 'submit', 'public'}
-        tree.body = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names]
+        names = {'run_batch', 'submit', 'public'}
+        tree.body = [n for n in tree.body if
+                     isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names
+                     or isinstance(n, ast.Assign) and any(
+                         isinstance(target, ast.Name) and target.id in {'TABLE_CONCURRENCY', '_queue'}
+                         for target in n.targets)]
         def save(path, state):
             path.write_text(json.dumps(state), encoding='utf-8')
-        self.api = dict(asyncio=asyncio, json=json, os=os, _queue=asyncio.Semaphore(2),
+        self.api = dict(asyncio=asyncio, json=json,
                         _tasks={}, _executions={}, _submissions=asyncio.Lock(), atomic_json=save,
                         receipt_path=lambda request_id: self.root / (request_id + '.json'))
         exec(compile(tree, str(source), 'exec'), self.api)
@@ -39,6 +41,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(.005)
 
     async def test_global_limit_stop_failure_isolation_and_cleanup(self):
+        self.api['_queue'] = asyncio.Semaphore(2)
         started = []
         release = threading.Event()
         def execute(state):
@@ -87,10 +90,28 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         await self.api['run_batch']([self.state('a'), self.state('b', 'a'), self.state('c')])
         self.assertEqual(overlap, [])
 
-    async def test_limit_configuration(self):
-        for value, expected in [('4', 4), ('0', 1), ('99', 8), ('bad', 2)]:
-            with patch.dict(os.environ, DAELAB_LIBTV_TABLE_CONCURRENCY=value):
-                self.assertEqual(self.api['concurrency_limit'](), expected)
+    async def test_fixed_32_jobs_across_batches(self):
+        started = []
+        release = threading.Event()
+        def execute(state):
+            started.append(state['requestId'])
+            if not release.wait(5):
+                raise AssertionError('workers not released')
+            return True
+        self.api['execute'] = execute
+        states = [self.state(str(i)) for i in range(40)]
+        tasks = [asyncio.create_task(self.api['run_batch'](states[:20])),
+                 asyncio.create_task(self.api['run_batch'](states[20:]))]
+        try:
+            await self.wait_for(lambda: len(started) == 32)
+            await asyncio.sleep(.03)
+            self.assertEqual(len(started), 32)
+            self.assertEqual(self.api['TABLE_CONCURRENCY'], 32)
+            self.assertEqual(sum(state['phase'] == 'waiting' for state in states), 8)
+        finally:
+            release.set()
+            await asyncio.gather(*tasks)
+        self.assertEqual(len(started), 40)
 
     async def test_out_of_order_completion_keeps_receipt_identity(self):
         release = threading.Event()

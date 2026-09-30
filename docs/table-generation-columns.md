@@ -8,9 +8,9 @@ Implemented: generation column creation, existing side-panel configuration, dire
 
 ## Parallel table generation
 
-Table generation columns share a process-wide concurrency budget, defaulting to
-two jobs. Set `DAELAB_LIBTV_TABLE_CONCURRENCY` before starting ComfyUI to change
-the limit (1–8; invalid values fall back to 2; restart required). This is the
+Table generation columns share a fixed process-wide concurrency budget of
+32 jobs. No user configuration or environment variable is needed. Restart
+ComfyUI after updating to load the scheduler. This is the
 number of independent row jobs, not the number of candidates per row. The
 standalone `DAELAB.LibTV.StoryboardBatch` node retains its existing serial path.
 
@@ -24,7 +24,7 @@ lock and paid-command reconciliation remain in place to prevent resubmission.
 
 Scheduler tests cover the global budget across batches, stop-before-start,
 failure isolation, execution aliases, out-of-order receipts, duplicate submission,
-preflight rejection and configuration. They use local mocks and do not establish
+preflight rejection and the fixed 32-job budget. They use local mocks and do not establish
 the account's actual remote concurrency allowance. No paid validation is required.
 
 2026-09-30 validation: 38 relevant Python tests and 23 table generation/prompt

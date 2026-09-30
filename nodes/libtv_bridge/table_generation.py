@@ -76,12 +76,14 @@ class ColumnBridge(Bridge):
         if info.get('modelKey') != key or not info.get('modelName') or not isinstance(info.get('schema'), dict):
             raise ValueError(f'{model} 返回的模型身份或规格不匹配；未替换模型，未提交生成')
         if info['modelName'] == key:
-            # CLI tool-spec fallback can echo the key as modelName. Node -s
-            # requires the canvas display name, not the schema display name.
-            name = {'star-video2': 'Seedance 2.0 VIP'}.get(key)
-            if not name:
-                raise ValueError(f'{model} 未返回可用于生成的模型名称；未提交生成')
-            info = dict(info, modelName=name)
+            # A schema alone does not establish a name accepted by node create.
+            refresh = getattr(self.cli, 'refresh_model_catalog', None)
+            if refresh is None:
+                raise ValueError(f'{model} 模型目录缺失，未取得可用于生成的模型名称；未提交生成')
+            catalog = refresh(self.node_type, key)
+            if catalog.get('modelKey') != key or not catalog.get('modelName') or catalog['modelName'] == key:
+                raise ValueError(f'{model} 模型目录刷新返回身份不匹配；未提交生成')
+            info = dict(info, modelName=catalog['modelName'])
         return info
 
     def capabilities(self, model):

@@ -59,6 +59,13 @@ Fixed column models resolve their exact configured `modelKey` through
 `libtv model <key>`, rather than requiring membership in `model search` output.
 The response must contain the same key, an official model name and a schema.
 Capabilities and generation reuse that schema; mismatches block submission.
+When CLI 1.1.3 echoes the key as the name, its temporary model catalog may be
+an incomplete built-in fallback cached after a network failure. The bridge
+expires only incomplete model-catalog cache envelopes, then uses an official
+`libtv model search --type <kind> <key>` to obtain the exact matching display
+name. Credentials and tool-spec caches are untouched. No display name is guessed;
+missing or ambiguous refreshed names block submission. Preparation recovery also
+refreshes the model name while preserving execution identity and reconciliation.
 CLI query failures retain the underlying error and are reported as specification
 query failures, rather than declaring the model unavailable. No alternate model
 is selected. This resolution change passes 40 relevant Python tests. After a
@@ -66,6 +73,9 @@ Manager restart, the live table capabilities route successfully returned
 Seedance 2.0 / `star-video2` with the official name `StarVideo 2.0` and its
 schema. Earlier CLI TLS failures were intermittent. The confirmation browser
 was refreshed and its two-table workflow restored; no paid job was submitted.
+Catalog-refresh correction: 44 Python tests pass. The live official CLI now
+returns all three fixed video models: Seedance 2.0 VIP (`star-video2`),
+Seedance 2.5 (`star-video2.5`) and Minimax H3 (`MiniMax-Hailuo-H3`).
 
 Business model, execution, API and UI belong to this repository. Shared canvas controls belong to the sibling Creative Canvas repository. ComfyTV is read-only.
 

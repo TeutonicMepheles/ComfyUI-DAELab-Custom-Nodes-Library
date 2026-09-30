@@ -10,7 +10,10 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
+
+_MODEL_CATALOG_LOCK = threading.Lock()
 
 MODELS = {
     "Seedance 2.5": "star-video2.5",
@@ -37,6 +40,34 @@ class CLI:
     def __init__(self, executable=None, timeout=None, cwd=None):
         self.executable = executable or os.environ.get("DAELAB_LIBTV_CLI") or shutil.which("libtv") or str(Path.home() / ".libtv" / ("libtv.exe" if os.name == "nt" else "libtv"))
         self.timeout, self.cwd = timeout, cwd
+
+    def refresh_model_catalog(self, kind, key):
+        """Invalidate only CLI catalog envelopes; never credentials or tool specs.
+
+        CLI 1.1.3 caches its incomplete built-in catalog after a remote failure.
+        A subsequent official search fetches the remote catalog again.
+        """
+        with _MODEL_CATALOG_LOCK:
+            root = Path(tempfile.gettempdir()) / 'libtv-cli/model-cache'
+            for path in root.glob('*.json'):
+                try:
+                    envelope = json.loads(path.read_text('utf-8-sig'))
+                    data = envelope.get('data', {})
+                    if not isinstance(data, dict) or not isinstance(data.get(kind), list):
+                        continue
+                    if any(row.get('modelKey') == key and row.get('modelName') != key
+                           for row in data[kind] if isinstance(row, dict)):
+                        continue
+                    if 'writtenAt' in envelope and 'ttlMs' in envelope:
+                        atomic_json(path, dict(envelope, writtenAt=0))
+                except (OSError, ValueError, TypeError):
+                    continue
+            matches = self('model', 'search', '--type', kind, key).get('matches', [])
+            found = [m for m in matches if m.get('modelKey') == key
+                     and m.get('modelName') and m['modelName'] != key]
+            if len(found) != 1:
+                raise RuntimeError('LibTV 模型目录刷新后仍缺少固定模型；请检查网络后恢复，未提交生成')
+            return found[0]
 
     def __call__(self, *args):
         # --run is synchronous; never add a timeout/retry around a paid submission.
@@ -270,7 +301,7 @@ class Bridge:
                 # Repair older preparation receipts that persisted a model key
                 # in the name field. Keep request identity and reconcile nodes
                 # before creation; never repeat an uncertain paid submission.
-                if state.get("model_name") == self.models.get(model):
+                if state.get("model_name") == self.models.get(model) or state.get("phase") == "prepare_uncertain":
                     info = self.model_info(model)
                     if info.get("modelName") == self.models.get(model):
                         raise ValueError("LibTV did not resolve a generation model name; no generation submitted")

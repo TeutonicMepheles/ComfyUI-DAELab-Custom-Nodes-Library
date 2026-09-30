@@ -18,10 +18,40 @@ SCHEMA = {'properties': {'modeType': {'items': {'image2image': [0, 2]}},
 
 
 class ColumnTests(unittest.TestCase):
+    def test_catalog_refresh_expires_only_incomplete_catalog_envelope(self):
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)/'libtv-cli/model-cache'
+            root.mkdir(parents=True)
+            catalog = root/'catalog.json'
+            specs = root/'specs.json'
+            complete = root/'complete.json'
+            runtime.atomic_json(catalog, {'writtenAt':123, 'ttlMs':300000, 'data':{'video':[]}})
+            runtime.atomic_json(specs, {'writtenAt':123, 'ttlMs':300000, 'data':{'code':0, 'data':{'tools':[]}}})
+            runtime.atomic_json(complete, {'writtenAt':123, 'ttlMs':300000, 'data':{'video':[
+                {'modelKey':'star-video2', 'modelName':'Seedance 2.0 VIP'}]}})
+            with patch.object(runtime.tempfile, 'gettempdir', return_value=directory), \
+                 patch.object(runtime.CLI, '__call__', return_value={'matches':[
+                     {'modelKey':'star-video2', 'modelName':'Seedance 2.0 VIP'}]}) as call:
+                result=runtime.CLI('libtv').refresh_model_catalog('video','star-video2')
+            self.assertEqual(result['modelName'], 'Seedance 2.0 VIP')
+            self.assertEqual(json.loads(catalog.read_text())['writtenAt'],0)
+            self.assertEqual(json.loads(specs.read_text())['writtenAt'],123)
+            self.assertEqual(json.loads(complete.read_text())['writtenAt'],123)
+            call.assert_called_once_with('model','search','--type','video','star-video2')
+
+    def test_echoed_key_without_catalog_never_guesses_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bridge=generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out','video',
+                lambda *args:{'modelKey':'star-video2','modelName':'star-video2','schema':SCHEMA})
+            with self.assertRaisesRegex(ValueError,'模型目录缺失'):
+                bridge.model_info('Seedance 2.0')
+
     def test_echoed_seedance_key_is_not_used_as_generation_name(self):
         with tempfile.TemporaryDirectory() as directory:
-            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video',
-                lambda *args: {'modelKey': 'star-video2', 'modelName': 'star-video2', 'schema': SCHEMA})
+            cli = lambda *args: {'modelKey': 'star-video2', 'modelName': 'star-video2', 'schema': SCHEMA}
+            cli.refresh_model_catalog = lambda kind, key: {'modelKey': key, 'modelName': 'Seedance 2.0 VIP'}
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', cli)
             self.assertEqual(bridge.model_info('Seedance 2.0')['modelName'], 'Seedance 2.0 VIP')
 
     def test_old_preparation_receipt_repairs_name_before_node_creation(self):
@@ -29,7 +59,7 @@ class ColumnTests(unittest.TestCase):
             created = []
             def cli(*args):
                 if args[0] == 'model':
-                    return {'modelKey': 'star-video2', 'modelName': 'star-video2', 'schema': SCHEMA}
+                    return {'modelKey': 'star-video2', 'modelName': 'Seedance 2.0 VIP', 'schema': SCHEMA}
                 if args[:2] == ('node', 'list'):
                     return {'nodes': []}
                 if args[:2] == ('node', 'create'):

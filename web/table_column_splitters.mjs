@@ -22,7 +22,7 @@ function styles() {
 .dae-column-splitters{position:absolute;pointer-events:none;overflow:hidden;z-index:6}
 .dae-column-divider{position:absolute;width:12px;transform:translateX(-50%);pointer-events:auto;cursor:col-resize;touch-action:none;outline:none}
 .dae-column-divider::before{content:'';position:absolute;left:5px;top:0;height:var(--divider-line-height);width:2px;background:var(--dae-border-control,#909090);opacity:0;pointer-events:none}
-.dae-column-splitters[data-header-hover=true] .dae-column-divider::before,.dae-column-divider:focus-visible::before,.dae-column-divider[data-dragging]::before{opacity:1}
+.dae-column-divider:hover::before,.dae-column-divider:focus-visible::before,.dae-column-divider[data-dragging]::before{opacity:1}
 .dae-table[data-view=cards] .dae-column-splitters{display:none}
 `;
     document.head.append(style);
@@ -144,12 +144,9 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
         };
         for (const event of ['mousedown','mouseup','click','dblclick','dragstart']) bar.addEventListener(event, e => {e.stopPropagation();if(event==='dragstart')e.preventDefault();});
     });
-    const hover=e=>{layer.dataset.headerHover=String(Boolean(e.target.closest('thead,.dae-column-divider')));};
-    const leave=()=>{layer.dataset.headerHover='false';};
-    root.addEventListener('pointermove',hover);root.addEventListener('pointerleave',leave);
     const observer = new ResizeObserver(schedule);
     observer.observe(root); observer.observe(shell); observer.observe(table);
     shell.addEventListener('scroll', schedule, {passive:true});
     schedule();
-    return {dispose() {disposed=true;active=null;if(frame!=null)cancelAnimationFrame(frame);observer.disconnect();root.removeEventListener('pointermove',hover);root.removeEventListener('pointerleave',leave);shell.removeEventListener('scroll',schedule);layer.remove();}};
+    return {dispose() {disposed=true;active=null;if(frame!=null)cancelAnimationFrame(frame);observer.disconnect();shell.removeEventListener('scroll',schedule);layer.remove();}};
 }

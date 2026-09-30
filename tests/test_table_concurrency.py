@@ -23,7 +23,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                          for target in n.targets)]
         def save(path, state):
             path.write_text(json.dumps(state), encoding='utf-8')
-        self.api = dict(asyncio=asyncio, json=json,
+        self.api = dict(asyncio=asyncio, json=json, time=__import__('time'), generation_failure_reason=lambda _: None,
                         _tasks={}, _executions={}, _submissions=asyncio.Lock(), atomic_json=save,
                         receipt_path=lambda request_id: self.root / (request_id + '.json'))
         exec(compile(tree, str(source), 'exec'), self.api)
@@ -89,6 +89,21 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.api['execute'] = execute
         await self.api['run_batch']([self.state('a'), self.state('b', 'a'), self.state('c')])
         self.assertEqual(overlap, [])
+
+    async def test_worker_exception_becomes_recoverable_and_other_rows_finish(self):
+        def execute(state):
+            if state['requestId'] == 'broken':
+                raise RuntimeError('worker interrupted')
+            state['phase'] = 'complete'
+            self.api['atomic_json'](self.api['receipt_path'](state['requestId']), state)
+        self.api['execute'] = execute
+        await self.api['run_batch']([self.state('broken'), self.state('ok')])
+        broken = json.loads(self.api['receipt_path']('broken').read_text())
+        self.assertEqual(broken['phase'], 'needs_recovery')
+        self.assertEqual(broken['error'], 'worker interrupted')
+        self.assertEqual(json.loads(self.api['receipt_path']('ok').read_text())['phase'], 'complete')
+        self.assertFalse(self.api['_tasks'])
+        self.assertFalse(self.api['_executions'])
 
     async def test_fixed_32_jobs_across_batches(self):
         started = []

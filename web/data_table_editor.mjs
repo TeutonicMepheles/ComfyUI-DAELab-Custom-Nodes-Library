@@ -6,7 +6,7 @@ import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
 import {conflictChoice} from './table_cell_choice.mjs';
 import {isPrompt,promptText} from './table_prompt_model.mjs?v=20260930-inline4';
-import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-header-row';
+import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-divider-hover';
 import {videoReferenceFields,setVideoReference} from './table_video_references.mjs?v=20260929-refs3';
 
 let copiedRegion=null;

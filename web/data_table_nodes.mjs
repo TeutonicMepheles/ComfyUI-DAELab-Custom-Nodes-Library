@@ -1,4 +1,4 @@
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20260930-material-output';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20260930-result-sync3';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
 import {installContentPresentation} from './table_content_view.mjs?v=20260930-material-output3';
 import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-material-output3';
@@ -9,7 +9,7 @@ import {app} from '/scripts/app.js';
 import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20260930-header-row';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20260930-inline4';
 import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20260930-inline4';
-import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-material-output3';
+import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-divider-hover';
 import {createAssetGroups} from './data_table_groups.mjs';
 import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs';
 import {previewImport} from './daelab_storyboard_import.mjs?v=20260927-multiref';

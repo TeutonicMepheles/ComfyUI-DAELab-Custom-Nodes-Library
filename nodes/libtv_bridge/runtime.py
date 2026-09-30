@@ -36,6 +36,23 @@ def json_stream(text):
     return result
 
 
+def generation_failure_reason(message):
+    """Recognize the CLI's explicit terminal/refund message, not transport errors."""
+    text = str(message).strip()
+    if ('\n' not in text and len(text) <= 500
+            and text.startswith(('视频生成失败，', '图片生成失败，', '音频生成失败，'))
+            and '积分' in text and ('返还' in text or '退还' in text)):
+        return text
+    return None
+
+
+class CLIError(RuntimeError):
+    def __init__(self, message, result=None, failure_reason=None):
+        super().__init__(message)
+        self.result = result
+        self.failure_reason = failure_reason
+
+
 class CLI:
     def __init__(self, executable=None, timeout=None, cwd=None):
         self.executable = executable or os.environ.get("DAELAB_LIBTV_CLI") or shutil.which("libtv") or str(Path.home() / ".libtv" / ("libtv.exe" if os.name == "nt" else "libtv"))
@@ -69,12 +86,58 @@ class CLI:
                 raise RuntimeError('LibTV 模型目录刷新后仍缺少固定模型；请检查网络后恢复，未提交生成')
             return found[0]
 
-    def __call__(self, *args):
+    def _stream(self, args, on_stderr):
+        """Run to completion while forwarding stderr lines (CLI progress) as they arrive."""
+        proc = subprocess.Popen([self.executable, *map(str, args)], stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+                                encoding="utf-8", errors="replace",
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), cwd=self.cwd)
+        lines = []
+
+        def pump():
+            for line in proc.stderr:
+                lines.append(line)
+                if on_stderr:
+                    with contextlib.suppress(Exception):
+                        on_stderr(line.rstrip())
+        reader = threading.Thread(target=pump, daemon=True)
+        reader.start()
+        stdout = proc.stdout.read()
+        proc.wait()
+        reader.join()
+        return subprocess.CompletedProcess(args, proc.returncode, stdout, ''.join(lines))
+
+    def __call__(self, *args, on_stderr=None):
+        # Retry only an explicit allowlist of read-only commands. In particular,
+        # never replay --run, upload, create, or node updates after uncertainty.
+        readonly = (args and args[0] == 'model' or
+                    len(args) >= 2 and args[0] == 'node' and
+                    args[1] not in ('create', 'delete') and
+                    all(args[i] in ('-p', '--project', '-g', '--group')
+                        for i in range(2, len(args), 2)))
+        for attempt in range(3):
+            try:
+                return self._call_once(*args, on_stderr=on_stderr)
+            except RuntimeError as error:
+                network = any(word in str(error).lower() for word in
+                              ('econnreset', 'etimedout', 'eai_again', 'fetch failed', 'socket disconnected'))
+                if not readonly or not network or attempt == 2:
+                    raise
+                time.sleep(attempt + 1)
+
+    def _call_once(self, *args, on_stderr=None):
         # --run is synchronous; never add a timeout/retry around a paid submission.
-        proc = subprocess.run([self.executable, *map(str, args)], capture_output=True,
-                              encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
-                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                              timeout=self.timeout, cwd=self.cwd)
+        if '--run' in args:
+            proc = self._stream(args, on_stderr)
+        else:
+            try:
+                proc = subprocess.run([self.executable, *map(str, args)], capture_output=True,
+                                  encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
+                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                                  timeout=900 if args and args[0] == 'download' else (self.timeout or 30),
+                                  cwd=self.cwd)
+            except subprocess.TimeoutExpired as error:
+                raise RuntimeError('LibTV 查询超时 ETIMEDOUT；请恢复原任务，不要重新生成') from error
         try:
             values = json_stream(proc.stdout)
         except ValueError:
@@ -83,7 +146,10 @@ class CLI:
             detail = next((v.get("data", {}).get("taskInfo", {}).get("failedReason")
                            for v in reversed(values) if isinstance(v, dict)
                            and v.get("data", {}).get("taskInfo", {}).get("failedReason")), None)
-            raise RuntimeError(detail or proc.stderr[-2000:] or "LibTV CLI failed")
+            result = next((v for v in reversed(values) if isinstance(v, dict)
+                           and isinstance(v.get('data'), dict) and v['data'].get('url')), None)
+            message = detail or proc.stderr[-2000:] or "LibTV CLI failed"
+            raise CLIError(message, result, detail or generation_failure_reason(message))
         if not values:
             if args and args[0] == "download":
                 # Official CLI prints downloaded paths, not JSON. The caller
@@ -221,9 +287,64 @@ def reference_prompt(prompt, media, keys):
                   lambda m: "{{Node " + refs[m[1]][int(m[2]) - 1] + "}}", prompt)
 
 
+RUN_PROGRESS = re.compile(r'\[run\] task=(\S+) status=(-?\d+) progress=(\d+)%')
+
+
+def remote_progress(node):
+    """Task identity and platform progress as recorded on the remote canvas node."""
+    data = node.get('data', {}) if isinstance(node, dict) else {}
+    task = data.get('taskInfo') or {}
+    return dict(taskId=node.get('taskId') or task.get('taskId'), status=task.get('status'),
+                progress=task.get('progressPercent'), url=bool(data.get('url')),
+                failedReason=task.get('failedReason'))
+
+
+def remote_stage(status):
+    # Platform status 2 only means the task finished remotely; the result is
+    # not usable until the CLI has written its URL back to the canvas node.
+    return 'writing_back' if status == 2 else 'generating'
+
+
 class Bridge:
     node_type = 'video'
     models = MODELS
+    report = None
+
+    def _report(self, stage, **info):
+        if self.report:
+            with contextlib.suppress(Exception):
+                self.report(stage, **info)
+
+    def _report_remote(self, node, source):
+        p = remote_progress(node)
+        if p['taskId'] and not p['url']:
+            self._report(remote_stage(p['status']), taskId=p['taskId'], status=p['status'],
+                         progress=p['progress'], source=source)
+        return p
+
+    def _run_watched(self, project, node_key):
+        """Wait for the synchronous CLI; progress comes from its stderr only."""
+        done, lock = threading.Event(), threading.Lock()
+
+        def forward(stage, **info):
+            with lock:
+                if not done.is_set():
+                    self._report(stage, **info)
+
+        def on_line(line):
+            match = RUN_PROGRESS.search(line)
+            if match:
+                status = int(match[2])
+                forward(remote_stage(status), taskId=match[1], status=status,
+                        progress=int(match[3]), source='cli')
+
+        try:
+            if isinstance(self.cli, CLI):
+                return self.cli('node', node_key, '-p', project, '--run', on_stderr=on_line)
+            return self.cli('node', node_key, '-p', project, '--run')
+        finally:
+            with lock:
+                done.set()
 
     def model_info(self, model):
         matches = self.cli('model', 'search', '--type', self.node_type).get('matches', [])
@@ -284,6 +405,8 @@ class Bridge:
             state = json.loads(record.read_text("utf-8")) if record.exists() else None
             if state and state["fingerprint"] != fingerprint:
                 raise ValueError("Request ID already belongs to different inputs. Use a new request_id to generate again.")
+            if state and state.get('phase') == 'failed' and state.get('platform_failure'):
+                raise CLIError(state['platform_failure'], failure_reason=state['platform_failure'])
             if state and state.get("file") and Path(state["file"]).is_file():
                 if digest_file(state["file"]) == state.get("sha256"):
                     return state
@@ -298,6 +421,7 @@ class Bridge:
                              phase="preparing", node_name="DAELab-" + key, references=[])
                 atomic_json(record, state)
             if not state.get("node_key"):
+                self._report('preparing')
                 # Repair older preparation receipts that persisted a model key
                 # in the name field. Keep request identity and reconcile nodes
                 # before creation; never repeat an uncertain paid submission.
@@ -363,24 +487,49 @@ class Bridge:
                 # Persist BEFORE the paid command. An ambiguous failure must never resubmit.
                 state["phase"] = "submitted_or_uncertain"
                 atomic_json(record, state)
+                self._report('submitting')
                 try:
-                    node = self.cli("node", state["node_key"], "-p", project, "--run")
+                    node = self._run_watched(project, state["node_key"])
                 except Exception as exc:
-                    state["error"] = str(exc)
+                    # CLI 1.1.3 keeps the result URL only in memory; a failed
+                    # nodesBatch write-back cannot be recovered by querying.
+                    state.update(error=str(exc), sync_failed='nodesBatch' in str(exc))
+                    failure = getattr(exc, 'failure_reason', None) or generation_failure_reason(exc)
+                    if failure:
+                        state.update(phase='failed', platform_failure=failure)
+                    result = getattr(exc, 'result', None)
+                    if not failure and result and result.get('nodeKey') == state['node_key']:
+                        state.update(phase='generated', remote=result)
                     atomic_json(record, state)
                     raise
+            elif state.get('phase') in ('generated', 'complete') and state.get('remote', {}).get('data', {}).get('url'):
+                # A download failure must not discard the already persisted result.
+                node = state['remote']
+                if state.get('sync_failed'):
+                    self._report('writing_back')
+                    self.cli('node', state['node_key'], '-p', project, '-u',
+                             'url=' + json.dumps(node['data']['url']))
+                    state['sync_failed'] = False
+                    atomic_json(record, state)
             else:
+                self._report('verifying')
                 node = self.cli("node", state["node_key"], "-p", project)
             data = node.get("data", {})
             task = data.get("taskInfo", {})
             state.update(task_id=node.get("taskId") or task.get("taskId"), remote=node)
             if not data.get("url"):
                 atomic_json(record, state)
+                self._report_remote(node, 'query')
                 raise RuntimeError(task.get("failedReason") or "Original task has no video yet; rerun to recover, never resubmit")
             state["phase"] = "generated"
             atomic_json(record, state)
+            self._report('downloading', taskId=state.get('task_id'), status=task.get('status'), progress=100)
             directory = self.output / key
             directory.mkdir(parents=True, exist_ok=True)
+            # A previous interrupted download may have left a partial file.
+            for stale in directory.iterdir():
+                if stale.is_file():
+                    stale.unlink()
             self.cli("download", "-p", project, "-n", state["node_key"], "-o", directory)
             file, state['width'], state['height'] = self.inspect_output(directory)
             state.update(phase="complete", file=str(file.resolve()), sha256=digest_file(file))

@@ -3,6 +3,8 @@ import asyncio
 import hashlib
 import json
 import re
+import threading
+import time
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, parse_qs
 from aiohttp import web
@@ -10,7 +12,7 @@ import folder_paths
 from server import PromptServer
 from .connection_api import local_request
 from .node import local_media
-from .runtime import atomic_json, digest_file, CLI
+from .runtime import atomic_json, digest_file, CLI, generation_failure_reason
 from .recovery import recover_generation, is_network_error
 from .media_snapshot import freeze_media
 from .table_generation import ColumnBridge, compile_segments
@@ -40,7 +42,60 @@ def receipt_path(request_id):
 
 
 def public(state):
-    return {k: state[k] for k in ('requestId', 'phase', 'error', 'result') if k in state}
+    # Older receipts stored a terminal CLI failure as needs_recovery. Correct
+    # the public status without starting a worker or touching paid task identity.
+    failure = generation_failure_reason(state.get('error', ''))
+    if state.get('phase') == 'needs_recovery' and failure:
+        state = dict(state, phase='failed', error='平台生成失败：' + failure)
+    return {k: state[k] for k in ('requestId', 'phase', 'error', 'result', 'stage', 'progress',
+                                  'taskId', 'detail', 'updatedAt') if k in state}
+
+
+STAGE_NAMES = {'preparing': '准备任务', 'submitting': '提交平台', 'generating': '平台生成',
+               'writing_back': '等待写回', 'verifying': '核对原任务', 'downloading': '下载结果'}
+
+
+def interrupted(state):
+    """Why a live-looking receipt has no worker, without implying a new submission."""
+    stage, progress = state.get('stage'), state.get('progress')
+    if stage == 'generating':
+        where = f'平台生成 {progress}% 时' if isinstance(progress, int) else '平台生成时'
+    elif stage in STAGE_NAMES:
+        where = STAGE_NAMES[stage] + '时'
+    else:
+        where = ''
+    return f'{where}任务已中断（服务重启或连接断开）；恢复原任务只查询，不重复提交'
+
+
+def diagnose(error, record):
+    """Final message for a failed execution, based on the persisted remote state."""
+    message = '网络中断，自动恢复已超时；请恢复原任务' if is_network_error(error) else str(error).splitlines()[0][:240]
+    reason = generation_failure_reason(error)
+    failed = bool(reason)
+    if record.exists():
+        original = json.loads(record.read_text('utf-8'))
+        remote = original.get('remote', {})
+        task = remote.get('data', {}).get('taskInfo', {})
+        if is_network_error(error) and original.get('phase') in ('preparing', 'prepared', 'prepare_uncertain'):
+            message = '准备任务时网络中断，尚未启用生成；请恢复原任务'
+        elif original.get('phase') == 'generated' and remote.get('data', {}).get('url'):
+            message = '生成结果地址已保存；请恢复原任务继续写回或下载，不会重新生成'
+        elif (original.get('sync_failed') or task.get('status') == 2) and not remote.get('data', {}).get('url'):
+            code = next((t.upper() for t in ('econnreset', 'etimedout', 'eai_again', 'fetch failed')
+                         if t in str(original.get('error', '')).lower()), '')
+            message = ('平台已生成，但 CLI 写回 LibTV 画布失败' + (f'（{code}）' if code else '')
+                       + '，结果地址未保存；已禁止自动重跑。请在 LibTV 画布确认该节点，或明确重新生成')
+        elif original.get('phase') == 'submitted_or_uncertain' and 'Original task has no video yet' in str(error):
+            if task.get('taskId') or remote.get('taskId'):
+                message = (f"平台进度停在 {task.get('progressPercent', 0)}%，CLI 已退出无法继续跟踪；"
+                           '恢复原任务只查询，不重复提交')
+            else:
+                message = '平台未登记该节点的生成任务；已禁止自动重跑，请确认后明确重新生成'
+        reason = task.get('failedReason') or original.get('platform_failure') or reason
+        if reason:
+            failed = True
+            message = '平台生成失败：' + str(reason)[:200]
+    return message, failed
 
 
 def check_result(state):
@@ -65,7 +120,7 @@ def prepare(item):
         state = json.loads(path.read_text('utf-8'))
         if state['fingerprint'] != fingerprint:
             raise ValueError('任务输入已变化；请恢复原输入，或明确重新生成')
-        return check_result(state)
+        return reuse_completed_input(check_result(state))
     # Workflow undo can remove a browser receipt. Reuse the last identical input
     # unless the user explicitly requested replacement of an existing result.
     lookup = paths()[0] / ('input-' + fingerprint + '.json')
@@ -98,20 +153,73 @@ def prepare(item):
     return state
 
 
+def reuse_completed_input(state):
+    """Explicit recovery from an older workflow may reuse a newer identical result.
+
+    Never replace a completed result or redirect a live paid execution. Preserve
+    the browser request ID and record which execution actually owns the file.
+    """
+    if state.get('phase') not in ('needs_recovery', 'stopped', 'failed', 'needs_input'):
+        return state
+    lookup = paths()[0] / ('input-' + state['fingerprint'] + '.json')
+    if not lookup.exists():
+        return state
+    latest_id = json.loads(lookup.read_text('utf-8')).get('requestId')
+    if not latest_id or latest_id == state['requestId']:
+        return state
+    latest_path = receipt_path(latest_id)
+    if not latest_path.exists():
+        return state
+    latest = check_result(json.loads(latest_path.read_text('utf-8')))
+    if latest.get('fingerprint') != state['fingerprint'] or latest.get('phase') != 'complete':
+        return state
+    recovered = dict(latest, requestId=state['requestId'],
+                     executionId=latest.get('executionId', latest_id))
+    atomic_json(receipt_path(state['requestId']), recovered)
+    return recovered
+
+
 def execute(state):
     data, request_id = state['input'], state['requestId']
     cfg = data['config']
+    lock = threading.Lock()
+
+    def mark(stage=None, **info):
+        # Called from the worker, CLI stderr and progress-watcher threads.
+        with lock:
+            now = int(time.time() * 1000)
+            timeline = state.setdefault('timeline', [])
+            if stage and stage != state.get('stage'):
+                timeline.append(dict(stage=stage, at=now))
+            if stage:
+                state['stage'] = stage
+            progress = info.get('progress')
+            if isinstance(progress, (int, float)) and int(progress) != state.get('progress'):
+                state['progress'] = int(progress)
+                timeline.append(dict(stage=state.get('stage'), at=now, progress=int(progress),
+                                     source=info.get('source')))
+            state['timeline'] = timeline[-60:]
+            if info.get('taskId'):
+                state['taskId'] = info['taskId']
+            if info.get('detail'):
+                state['detail'] = info['detail']
+            elif 'detail' in info:
+                state.pop('detail', None)
+            state['updatedAt'] = now
+            atomic_json(receipt_path(request_id), state)
     try:
         state['phase'] = 'running'
-        state.pop('error', None)
+        for transient in ('error', 'detail', 'progress'):
+            state.pop(transient, None)
         atomic_json(receipt_path(request_id), state)
         transport = bridge(cfg['kind'])
+        transport.report = lambda stage, **info: mark(stage, detail=None, **info)
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
         record = transport.cache / (key + '.json')
         def progress(message):
-            state.update(phase='running', error=message)
-            atomic_json(receipt_path(request_id), state)
+            state['phase'] = 'running'
+            mark(detail=message)
         def generate_original():
             saved = json.loads(receipt_path(request_id).read_text('utf-8'))
             if saved.get('phase') == 'stopped':
@@ -120,28 +228,28 @@ def execute(state):
             data['project'], execution_id, cfg['model'], cfg.get('mode', ''),
             compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
         result = recover_generation(generate_original, record, progress)
-        state.pop('error', None)
-        state.pop('errorDetail', None)
+        transport.report = None
         file = Path(result['file'])
         subfolder = file.parent.relative_to(paths()[1]).as_posix()
-        state.update(phase='complete', resultHash=digest_file(file), result=dict(kind=cfg['kind'], name=file.name,
-            url='/view?' + urlencode(dict(filename=file.name, subfolder=subfolder, type='output'))))
+        with lock:
+            for transient in ('error', 'errorDetail', 'detail'):
+                state.pop(transient, None)
+            state.update(phase='complete', resultHash=digest_file(file), result=dict(kind=cfg['kind'], name=file.name,
+                url='/view?' + urlencode(dict(filename=file.name, subfolder=subfolder, type='output'))))
+            state.setdefault('timeline', []).append(dict(stage='complete', at=int(time.time() * 1000)))
     except Exception as error:
-        state.update(phase='needs_recovery', errorDetail=str(error),
-                     error='网络中断，自动恢复已超时；请恢复原任务' if is_network_error(error) else str(error).splitlines()[0][:240])
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
-        record = bridge(cfg['kind']).cache / (key + '.json')
-        if record.exists():
-            remote = json.loads(record.read_text('utf-8')).get('remote', {})
-            if remote.get('data', {}).get('taskInfo', {}).get('status') == 2 and not remote.get('data', {}).get('url'):
-                state['error'] = '平台任务已完成，但视频结果尚未写回；请恢复原任务'
-            if remote.get('data', {}).get('taskInfo', {}).get('failedReason'):
-                state['phase'] = 'failed'
-    saved = json.loads(receipt_path(request_id).read_text('utf-8'))
-    if saved.get('phase') == 'stopped':
-        state['phase'] = 'stopped'
-    atomic_json(receipt_path(request_id), state)
+        message, failed = diagnose(error, bridge(cfg['kind']).cache / (key + '.json'))
+        with lock:
+            state.pop('detail', None)
+            state.update(phase='failed' if failed else 'needs_recovery', errorDetail=str(error)[-2000:], error=message)
+    with lock:
+        saved = json.loads(receipt_path(request_id).read_text('utf-8'))
+        if saved.get('phase') == 'stopped':
+            state['phase'] = 'stopped'
+        state['updatedAt'] = int(time.time() * 1000)
+        atomic_json(receipt_path(request_id), state)
     return state['phase'] == 'complete'
 
 
@@ -160,6 +268,12 @@ async def run_batch(states):
                 state['phase'] = 'running'
                 atomic_json(receipt_path(state['requestId']), state)
                 await asyncio.to_thread(execute, state)
+        except Exception as error:
+            # A worker failure must not leave a live-looking receipt forever.
+            saved = json.loads(receipt_path(state['requestId']).read_text('utf-8'))
+            if saved.get('phase') not in ('complete', 'stopped'):
+                saved.update(phase='needs_recovery', error=str(error).splitlines()[0][:240])
+                atomic_json(receipt_path(state['requestId']), saved)
         finally:
             entry[1] -= 1
             if not entry[1]:
@@ -173,9 +287,12 @@ async def submit(items):
         states = [await asyncio.to_thread(prepare, item) for item in items]
         pending = [s for s in states if s['phase'] != 'complete' and s['requestId'] not in _tasks]
         if pending:
+            now = int(time.time() * 1000)
             for state in pending:
                 state['phase'] = 'waiting'
                 state.pop('error', None)
+                state['updatedAt'] = now
+                state.setdefault('timeline', []).append(dict(stage='queued', at=now))
                 atomic_json(receipt_path(state['requestId']), state)
             task = asyncio.create_task(run_batch(pending))
             for state in pending:
@@ -207,7 +324,7 @@ async def handle(request):
                         atomic_json(path, state)
                     state = await asyncio.to_thread(check_result, state)
                     if state['phase'] in ('running', 'waiting') and request_id not in _tasks:
-                        state = dict(state, phase='needs_recovery', error='任务已暂停，请恢复原任务')
+                        state = dict(state, phase='needs_recovery', error=interrupted(state))
                     result['jobs'].append(public(state))
                 else:
                     result['jobs'].append(dict(requestId=request_id, phase='needs_recovery', error='任务尚未登记，请恢复提交'))

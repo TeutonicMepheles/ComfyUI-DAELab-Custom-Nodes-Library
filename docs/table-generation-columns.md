@@ -4,7 +4,33 @@ Status: implementation in progress. Product decisions confirmed by the user.
 
 ## First implementation checkpoint
 
-Implemented: generation column creation, existing side-panel configuration, direct text and same-row structured column references, image/video transport through the official CLI, per-cell task receipts, serial execution, stop-before-submission, recovery, and local result backfill. Existing text can be promoted into the shared column-template editor without losing its contents. Copying rows clears generation identities and outputs.
+Implemented: generation column creation, existing side-panel configuration, direct text and same-row structured column references, image/video transport through the official CLI, per-cell task receipts, bounded parallel execution, stop-before-submission, recovery, and local result backfill. Existing text can be promoted into the shared column-template editor without losing its contents. Copying rows clears generation identities and outputs.
+
+## Parallel table generation
+
+Table generation columns share a process-wide concurrency budget, defaulting to
+two jobs. Set `DAELAB_LIBTV_TABLE_CONCURRENCY` before starting ComfyUI to change
+the limit (1–8; invalid values fall back to 2; restart required). This is the
+number of independent row jobs, not the number of candidates per row. The
+standalone `DAELAB.LibTV.StoryboardBatch` node retains its existing serial path.
+
+The entire submitted batch is preflighted before scheduling. Each running job
+occupies a slot through generation and download. Independent jobs can finish in
+any order; the existing request/record/column IDs route results to their original
+cells. A failed row is recoverable without stopping unrelated rows. Stop only
+affects waiting jobs; already submitted jobs finish normally. Recovered receipts
+sharing an execution identity are serialized, and the persistent bridge request
+lock and paid-command reconciliation remain in place to prevent resubmission.
+
+Scheduler tests cover the global budget across batches, stop-before-start,
+failure isolation, execution aliases, out-of-order receipts, duplicate submission,
+preflight rejection and configuration. They use local mocks and do not establish
+the account's actual remote concurrency allowance. No paid validation is required.
+
+2026-09-30 validation: 38 relevant Python tests and 23 table generation/prompt
+Node tests passed on a branch based on `origin/main` (`bd9f58c`). No frontend
+code changed. The currently running desktop backend still requires a restart
+to load the scheduler; live paid parallel generation has not been exercised.
 
 The bridge shares its persistent request protocol with video nodes. Image output adds decoding verification; structured spans are replaced with LibTV `{{Node ...}}` references without rewriting literal prompt text. A server-side input index recovers a request if workflow undo removed its browser receipt. Replacing an existing result is an explicit new request.
 

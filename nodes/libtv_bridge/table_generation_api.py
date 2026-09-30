@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, parse_qs
@@ -15,7 +16,15 @@ from .media_snapshot import freeze_media
 from .table_generation import ColumnBridge, compile_segments
 
 _tasks = {}
-_queue = asyncio.Lock()
+def concurrency_limit():
+    try:
+        return max(1, min(8, int(os.environ.get('DAELAB_LIBTV_TABLE_CONCURRENCY', '2'))))
+    except ValueError:
+        return 2
+
+
+_queue = asyncio.Semaphore(concurrency_limit())
+_executions = {}
 _submissions = asyncio.Lock()
 
 
@@ -122,19 +131,26 @@ def execute(state):
 
 
 async def run_batch(states):
-    try:
-        async with _queue:
-            for state in states:
+    async def run_one(state):
+        # Restored browser receipts may share the same paid execution identity.
+        key = (state['input']['project'], state.get('executionId', state['requestId']))
+        entry = _executions.setdefault(key, [asyncio.Lock(), 0])
+        entry[1] += 1
+        try:
+            async with entry[0], _queue:
                 saved = json.loads(receipt_path(state['requestId']).read_text('utf-8'))
                 if saved['phase'] == 'stopped':
-                    continue
+                    return
+                # No await between the stop check and marking the job running.
                 state['phase'] = 'running'
                 atomic_json(receipt_path(state['requestId']), state)
-                if not await asyncio.to_thread(execute, state):
-                    break
-    finally:
-        for state in states:
+                await asyncio.to_thread(execute, state)
+        finally:
+            entry[1] -= 1
+            if not entry[1]:
+                _executions.pop(key, None)
             _tasks.pop(state['requestId'], None)
+    await asyncio.gather(*(run_one(state) for state in states))
 
 
 async def submit(items):
@@ -170,10 +186,11 @@ async def handle(request):
             for request_id in ids:
                 path = receipt_path(request_id)
                 if path.exists():
-                    state = await asyncio.to_thread(check_result, json.loads(path.read_text('utf-8')))
+                    state = json.loads(path.read_text('utf-8'))
                     if action == 'stop' and state['phase'] == 'waiting':
                         state['phase'] = 'stopped'
                         atomic_json(path, state)
+                    state = await asyncio.to_thread(check_result, state)
                     if state['phase'] in ('running', 'waiting') and request_id not in _tasks:
                         state = dict(state, phase='needs_recovery', error='任务已暂停，请恢复原任务')
                     result['jobs'].append(public(state))

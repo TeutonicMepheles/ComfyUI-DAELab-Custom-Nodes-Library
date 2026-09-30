@@ -11,7 +11,10 @@ const phaseNames={waiting:'等待提交',running:'生成中',stopped:'已停止�
 export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
  let alive=true,polling=false,submitting=false,epoch=0,lastCompletedCheck=0;
  const style=el('style',document.head);style.textContent=`
-.dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:8px;max-width:100%;flex-wrap:wrap}
+.dae-ui .generation-header-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
+.dae-ui .generation-header-row>.field-title{flex:1;min-width:0;padding-right:0!important}
+.dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}
+.dae-ui .generation-actions button{flex-shrink:0;white-space:nowrap}
 .dae-ui .generation-actions button{min-height:32px;max-width:100%;font:inherit;padding:4px 8px!important}
 .dae-ui .generation-actions .generation-settings{width:32px;min-width:32px;padding:6px!important}
 .dae-ui .generation-cell-state{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;white-space:normal;overflow-wrap:anywhere}
@@ -119,7 +122,9 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
   for(const field of getTable().fields.filter(isGeneration)){
    const header=[...editor.root.querySelectorAll('th[data-column]')].find(h=>h.dataset.column===field.id);
    if(header&&!header.querySelector('.generation-actions')){
-    const actions=el('div',header);actions.className='generation-actions';
+    const row=el('div',header);row.className='generation-header-row';
+    const title=header.querySelector('.field-title');if(title)row.append(title);
+    const actions=el('div',row);actions.className='generation-actions';
     const settings=tableIcon(button('生成配置',()=>open(field.id)),'edit-line',field.name+' · 生成配置');settings.classList.add('generation-settings');
     const run=button('生成 '+generationRows(getTable(),field.id).length+' 行',()=>generate(field.id),true);run.disabled=submitting;
     actions.append(settings,run);

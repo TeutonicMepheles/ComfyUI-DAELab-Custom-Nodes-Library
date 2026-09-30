@@ -24,3 +24,8 @@ test('swapping visible neighbors preserves hidden positions, values and stable f
     swapColumns(table,'b','a');assert.deepEqual(table,original);
     swapColumns(table,'absent','a');assert.deepEqual(table,original);
 });
+
+test('generation minimum is respected on either side of the divider',()=>{
+ assert.deepEqual(resizeColumnPair(400,200,-200,400,100),[400,200]);
+ assert.deepEqual(resizeColumnPair(200,400,200,100,400),[200,400]);
+});

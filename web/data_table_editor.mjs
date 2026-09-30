@@ -1,12 +1,12 @@
 import {attachTableStructure} from './table_structure.mjs?v=20260930-table-surfaces3';
 import {createTextSide} from './table_text_side.mjs?v=20260929-refs3';
 import {renderContentCell} from './table_content_view.mjs?v=20260930-table-surfaces3';
-import {clone,uid,addField,removeField,addRecord,duplicateSelected,reorder,setValue,transferValue,parseTSV,pasteMatrix,encodeTSV,SnapshotHistory,emptyValue,convertValue,FIELD_TYPES} from './data_table_model.mjs?v=20260930-inline4';
+import {clone,uid,addField,removeField,addRecord,duplicateSelected,reorder,setValue,transferValue,parseTSV,pasteMatrix,encodeTSV,SnapshotHistory,emptyValue,convertValue,FIELD_TYPES} from './data_table_model.mjs?v=20260930-header-row';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
 import {conflictChoice} from './table_cell_choice.mjs';
 import {isPrompt,promptText} from './table_prompt_model.mjs?v=20260930-inline4';
-import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-table-surfaces3';
+import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-header-row';
 import {videoReferenceFields,setVideoReference} from './table_video_references.mjs?v=20260929-refs3';
 
 let copiedRegion=null;

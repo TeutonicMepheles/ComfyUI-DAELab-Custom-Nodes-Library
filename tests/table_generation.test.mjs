@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeTable,duplicateSelected} from '../web/data_table_model.mjs';
-import {addGenerationColumn,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from '../web/table_generation_model.mjs';
+import {generationReceipt,recoveryJob,addGenerationColumn,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from '../web/table_generation_model.mjs';
 import {resolveColumnPrompt,setColumnTemplate} from '../web/table_prompt_template.mjs';
 const fixture=()=>normalizeTable({fields:[{id:'image',type:'content',name:'参考图'}],records:[{id:'a',selected:false,values:{image:[{id:'asset-a',url:'/view?filename=a.png',kind:'image'}]}},{id:'b',selected:false,values:{image:[{id:'asset-b',url:'/view?filename=b.png',kind:'image'}]}}]});
 test('generation creates a prompt when absent and preserves explicit selection semantics',()=>{
@@ -57,4 +57,13 @@ test('generation templates do not enable the storyboard parsing configuration',(
  setColumnTemplate(t,f.generation.promptFieldId,{kind:'column-template',version:1,segments:[{type:'text',text:'直接提交'}]});
  assert.equal(t.meta.prompt_config,undefined);assert.equal(t.meta.prompt_mode,undefined);
  assert.equal(generationInput(t,f.id,'a').segments[0].text,'直接提交');
+});
+
+test('replacement intent survives saved receipt and repeated recovery with the same identity',()=>{
+ const job={requestId:'replacement-id',input:{prompt:'unchanged'},forceNew:true};
+ const saved=JSON.parse(JSON.stringify(generationReceipt(job)));
+ const recovered=recoveryJob(saved);
+ assert.equal(recovered.forceNew,true);assert.equal(recovered.requestId,job.requestId);
+ assert.deepEqual(recoveryJob(generationReceipt(recovered)),recovered);
+ assert.equal(recoveryJob({...saved,forceNew:false}).forceNew,false);
 });

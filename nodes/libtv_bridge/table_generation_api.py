@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, parse_qs
 from aiohttp import web
 import folder_paths
 from server import PromptServer
@@ -40,6 +40,20 @@ def public(state):
     return {k: state[k] for k in ('requestId', 'phase', 'error', 'result') if k in state}
 
 
+def check_result(state):
+    """Completed receipts must still point to an available local result."""
+    if state.get('phase') != 'complete':
+        return state
+    query = parse_qs(urlsplit(state.get('result', {}).get('url', '')).query)
+    root = paths()[1].resolve()
+    file = (root / query.get('subfolder', [''])[0] / query.get('filename', [''])[0]).resolve()
+    if (query.get('type') != ['output'] or not file.is_relative_to(root)
+            or not file.is_file()
+            or state.get('resultHash') and digest_file(file) != state['resultHash']):
+        return dict(state, phase='needs_recovery', error='本地结果缺失或已变化，请恢复任务重新下载')
+    return state
+
+
 def prepare(item):
     request_id, data = item['requestId'], item['input']
     path = receipt_path(request_id)
@@ -48,7 +62,7 @@ def prepare(item):
         state = json.loads(path.read_text('utf-8'))
         if state['fingerprint'] != fingerprint:
             raise ValueError('任务输入已变化；请恢复原输入，或明确重新生成')
-        return state
+        return check_result(state)
     # Workflow undo can remove a browser receipt. Reuse the last identical input
     # unless the user explicitly requested replacement of an existing result.
     lookup = paths()[0] / ('input-' + fingerprint + '.json')
@@ -60,7 +74,7 @@ def prepare(item):
         state = dict(original, requestId=request_id,
                      executionId=original.get('executionId', original_id))
         atomic_json(path, state)
-        return state
+        return check_result(state)
     cfg = data['config']
     transport = bridge(cfg['kind'])
     if not data.get('project', '').strip():
@@ -92,7 +106,7 @@ def execute(state):
                    compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
         file = Path(result['file'])
         subfolder = file.parent.relative_to(paths()[1]).as_posix()
-        state.update(phase='complete', result=dict(kind=cfg['kind'], name=file.name,
+        state.update(phase='complete', resultHash=digest_file(file), result=dict(kind=cfg['kind'], name=file.name,
             url='/view?' + urlencode(dict(filename=file.name, subfolder=subfolder, type='output'))))
     except Exception as error:
         state.update(phase='needs_recovery', error=str(error)[-1500:])
@@ -156,7 +170,7 @@ async def handle(request):
             for request_id in ids:
                 path = receipt_path(request_id)
                 if path.exists():
-                    state = json.loads(path.read_text('utf-8'))
+                    state = await asyncio.to_thread(check_result, json.loads(path.read_text('utf-8')))
                     if action == 'stop' and state['phase'] == 'waiting':
                         state['phase'] = 'stopped'
                         atomic_json(path, state)

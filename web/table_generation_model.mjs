@@ -68,3 +68,11 @@ export function applyGenerationResult(table,fieldId,recordId,requestId,stamp,res
  catch{state.phase='stale';return false;}
  row.values[fieldId]=[{...result,id:uid()}];state.phase='complete';delete state.error;return true;
 }
+
+export function generationReceipt(job){
+ return {requestId:job.requestId,input:structuredClone(job.input),forceNew:job.forceNew===true,stamp:inputStamp(job.input),phase:'waiting'};
+}
+export function recoveryJob(receipt){
+ if(!receipt?.input)throw new Error('Original task snapshot is missing');
+ return {requestId:receipt.requestId,input:receipt.input,forceNew:receipt.forceNew===true,recovery:true};
+}

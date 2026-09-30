@@ -134,6 +134,44 @@ class ColumnTests(unittest.TestCase):
                     self.assertEqual(restored['executionId'], one['requestId'])
                     fresh = api.prepare({'requestId': 'request-333333333', 'input': data, 'forceNew': True})
                     self.assertNotIn('executionId', fresh)
+                    # Exercise the table status/submit entry points, not just Bridge.
+                    import asyncio, json
+                    from unittest.mock import AsyncMock
+                    output = root/'output'/'result.png'
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_bytes(b'original')
+                    one.update(phase='complete', result={'kind':'image', 'url':'/view?filename=result.png&type=output'})
+                    api.atomic_json(api.receipt_path(one['requestId']), one)
+                    output.unlink()
+                    class Request:
+                        method = 'POST'
+                        def __init__(self, action, body):
+                            self.match_info = {'action': action}
+                            self.body = body
+                        async def json(self):
+                            return self.body
+                    async def exercise():
+                        response = await api.handle(Request('status', {'requestIds':[one['requestId']]}))
+                        self.assertEqual(json.loads(response.text)['jobs'][0]['phase'], 'needs_recovery')
+                        with patch.object(api, 'run_batch', new_callable=AsyncMock) as run:
+                            response = await api.handle(Request('submit', {'jobs':[{'requestId':one['requestId'], 'input':data}]}))
+                            self.assertEqual(json.loads(response.text)['jobs'][0]['phase'], 'waiting')
+                            await asyncio.gather(*set(api._tasks.values()))
+                            queued = run.call_args.args[0][0]
+                            self.assertEqual(queued.get('executionId', queued['requestId']), one['requestId'])
+                            self.assertEqual(run.call_count, 1)
+                        api._tasks.clear()
+                        # Lost-before-registration replacement must bypass the completed index.
+                        api.atomic_json(api.paths()[0]/('input-'+one['fingerprint']+'.json'), {'requestId':one['requestId']})
+                        with patch.object(api, 'run_batch', new_callable=AsyncMock) as run:
+                            request_id = 'replacement-444444444'
+                            await api.handle(Request('submit', {'jobs':[{'requestId':request_id, 'input':data, 'forceNew':True}]}))
+                            await asyncio.gather(*set(api._tasks.values()))
+                            queued = run.call_args.args[0][0]
+                            self.assertEqual(queued.get('executionId', queued['requestId']), request_id)
+                            self.assertEqual(api.prepare({'requestId':request_id, 'input':data, 'forceNew':True})['requestId'], request_id)
+                        api._tasks.clear()
+                    asyncio.run(exercise())
                     with self.assertRaisesRegex(ValueError, '输入已变化'):
                         api.prepare({'requestId': one['requestId'], 'input': dict(data, project='different')})
 

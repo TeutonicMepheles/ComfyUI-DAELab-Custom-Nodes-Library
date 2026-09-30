@@ -1,6 +1,6 @@
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-table-surfaces3';
 import {connectionPanel} from './libtv_connection.mjs';
-import {GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs';
+import {generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 async function request(action,body){
  const response=await fetch('/daelab/libtv/table/'+action,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
@@ -9,7 +9,7 @@ async function request(action,body){
 }
 const phaseNames={waiting:'等待提交',running:'生成中',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
 export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
- let alive=true,polling=false,submitting=false,epoch=0;
+ let alive=true,polling=false,submitting=false,epoch=0,lastCompletedCheck=0;
  const style=el('style',document.head);style.textContent=`
 .dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:8px;max-width:100%;flex-wrap:wrap}
 .dae-ui .generation-actions button{min-height:32px;max-width:100%;font:inherit;padding:4px 8px!important}
@@ -88,13 +88,13 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
     const old=row.meta?.generationColumns?.[fieldId];
     if(['running','waiting'].includes(old?.phase))continue;
     if(recover||['needs_recovery','stopped'].includes(old?.phase)){
-     if(!old?.input)throw new Error('原任务快照缺失');jobs.push({requestId:old.requestId,input:old.input,recovery:true});continue;
+     if(!old?.input)throw new Error('原任务快照缺失');jobs.push(recoveryJob(old));continue;
     }
     try{const input=generationInput(table,fieldId,row.id);if(!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
     catch(error){if(recordId||table.records.some(r=>r.selected))throw new Error(`第 ${table.records.indexOf(row)+1} 行：${error.message}`);}
    }
    if(!jobs.length)throw new Error('没有可生成的行，请补充提示词或检查任务状态');
-   editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]={requestId:job.requestId,input:job.input,stamp:inputStamp(job.input),phase:'waiting'};}});
+   editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]=generationReceipt(job);}});
    try{await request('submit',{jobs});}catch(error){
     if(error.preflightRejected)editor.change(t=>{for(const job of jobs){const state=t.records.find(r=>r.id===job.input.recordId)?.meta?.generationColumns?.[fieldId];if(state?.requestId===job.requestId){state.phase=job.recovery?'needs_recovery':'needs_input';state.error=error.message;}}});
     notify(error.message);
@@ -103,11 +103,12 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
   }catch(error){notify(error.message);}finally{submitting=false;decorate();}
  }
  async function poll(force=false){
-  if(!alive||polling||submitting&&!force)return;const captured=epoch,jobs=[];
-  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{}))if(['waiting','running'].includes(state.phase))jobs.push({recordId:row.id,fieldId,...state});
+  if(!alive||polling||submitting&&!force)return;const captured=epoch,jobs=[],checkCompleted=force||Date.now()-lastCompletedCheck>30000;if(checkCompleted)lastCompletedCheck=Date.now();
+  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{}))if(['waiting','running'].includes(state.phase)||checkCompleted&&state.phase==='complete')jobs.push({recordId:row.id,fieldId,...state});
   if(!jobs.length)return;polling=true;
   try{const response=await request('status',{requestIds:jobs.map(j=>j.requestId)});if(!alive||captured!==epoch)return;
-   editor.change(t=>{for(const report of response.jobs){const job=jobs.find(j=>j.requestId===report.requestId),row=t.records.find(r=>r.id===job?.recordId),state=row?.meta?.generationColumns?.[job?.fieldId];if(!state||state.requestId!==report.requestId)continue;
+   const updates=response.jobs.filter(report=>{const job=jobs.find(j=>j.requestId===report.requestId);return job&&(job.phase!==report.phase||job.error!==report.error);});if(!updates.length)return;
+   editor.change(t=>{for(const report of updates){const job=jobs.find(j=>j.requestId===report.requestId),row=t.records.find(r=>r.id===job?.recordId),state=row?.meta?.generationColumns?.[job?.fieldId];if(!state||state.requestId!==report.requestId)continue;
     if(report.phase==='complete')applyGenerationResult(t,job.fieldId,job.recordId,job.requestId,job.stamp,report.result);
     else {state.phase=report.phase;state.error=report.error;}
    }});

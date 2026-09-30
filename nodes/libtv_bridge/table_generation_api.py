@@ -11,6 +11,7 @@ from server import PromptServer
 from .connection_api import local_request
 from .node import local_media
 from .runtime import atomic_json, digest_file, CLI
+from .recovery import recover_generation, is_network_error
 from .media_snapshot import freeze_media
 from .table_generation import ColumnBridge, compile_segments
 
@@ -104,14 +105,30 @@ def execute(state):
         state['phase'] = 'running'
         state.pop('error', None)
         atomic_json(receipt_path(request_id), state)
-        result = bridge(cfg['kind']).generate(data['project'], state.get('executionId', request_id), cfg['model'], cfg.get('mode', ''),
-                   compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
+        transport = bridge(cfg['kind'])
+        execution_id = state.get('executionId', request_id)
+        key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
+        record = transport.cache / (key + '.json')
+        def progress(message):
+            state.update(phase='running', error=message)
+            atomic_json(receipt_path(request_id), state)
+        def generate_original():
+            saved = json.loads(receipt_path(request_id).read_text('utf-8'))
+            if saved.get('phase') == 'stopped':
+                raise RuntimeError('任务已停止自动恢复，请恢复原任务')
+            return transport.generate(
+            data['project'], execution_id, cfg['model'], cfg.get('mode', ''),
+            compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
+        result = recover_generation(generate_original, record, progress)
+        state.pop('error', None)
+        state.pop('errorDetail', None)
         file = Path(result['file'])
         subfolder = file.parent.relative_to(paths()[1]).as_posix()
         state.update(phase='complete', resultHash=digest_file(file), result=dict(kind=cfg['kind'], name=file.name,
             url='/view?' + urlencode(dict(filename=file.name, subfolder=subfolder, type='output'))))
     except Exception as error:
-        state.update(phase='needs_recovery', error=str(error)[-1500:])
+        state.update(phase='needs_recovery', errorDetail=str(error),
+                     error='网络中断，自动恢复已超时；请恢复原任务' if is_network_error(error) else str(error).splitlines()[0][:240])
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
         record = bridge(cfg['kind']).cache / (key + '.json')
@@ -119,6 +136,9 @@ def execute(state):
             remote = json.loads(record.read_text('utf-8')).get('remote', {})
             if remote.get('data', {}).get('taskInfo', {}).get('failedReason'):
                 state['phase'] = 'failed'
+    saved = json.loads(receipt_path(request_id).read_text('utf-8'))
+    if saved.get('phase') == 'stopped':
+        state['phase'] = 'stopped'
     atomic_json(receipt_path(request_id), state)
     return state['phase'] == 'complete'
 

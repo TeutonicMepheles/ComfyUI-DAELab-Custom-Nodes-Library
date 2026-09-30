@@ -100,3 +100,7 @@ Local table development contains existing uncommitted surface changes; these are
 - The image selector includes Lib Image, Lib Image 2.5 Pro and Lib Image 2.5 Fast, matched by their verified stable LibTV keys. CLI schema/preflight checks passed without paid generation.
 - A writable prompt cell exposes “应用到整列”. It replaces every row override with the current prompt as a shared column template. Column references still resolve against each destination row; future rows inherit it. One undo restores the prior column state.
 - Validation: 15 prompt/generation tests passed. Actual ComfyUI inspection confirmed the menu, two-row fill, one-step undo, save/reload and isolation from a second table. The running backend still requires restart to load the model mapping fix; paid generation has not been tested. Full multi-viewport and long-content checks remain pending.
+
+### 网络中断自动恢复
+
+已提交或提交状态不确定的任务，在网络错误或尚无视频时自动查询原节点；采用 5、10、20、30 秒退避，最多等待 575 秒。结果下载网络失败也可恢复。不会自动重试准备阶段或再次执行 `--run`，平台明确失败立即停止。停止任务会终止后续恢复查询。并发仍为 32；恢复中的任务占用原并发位置。单元格显示简短提示，完整异常保留在本地任务回执 `errorDetail`。恢复超时后可手动恢复同一任务。

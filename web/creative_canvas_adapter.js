@@ -1,3 +1,4 @@
+import {generationMaterials} from './table_material_output.mjs';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.
 import {createMaterialTable,fillMaterialColumn} from './table_material_columns.mjs';
@@ -10,6 +11,8 @@ function register(){
     api.registerAdapter('daelab.business',{
         menu:[{label:'多维表格',type:'DAELAB.Table',icon:'layout-grid-line'}],
         materialTargets:node=>[...(node.__dataTablePanel?.root.querySelectorAll('[data-material-column]')||[])].map(element=>({element,clipElement:element.closest('.dae-table-scroll'),key:element.dataset.materialColumn,dropElements:[...element.closest('table').querySelectorAll('th[data-column],td[data-field]')].filter(cell=>(cell.dataset.column||cell.dataset.field)===element.dataset.materialColumn)})),
+        materialSources:node=>[...(node.__dataTablePanel?.root.querySelectorAll('[data-generation-source]')||[])].map(element=>({element,key:element.dataset.generationSource,label:'输出为素材组'})),
+        outputMaterials:(node,key)=>generationMaterials(node.__dataTable,key),
         acceptMaterials(node,key,collection){const editor=node.__dataTablePanel?.editor;if(!editor)throw new Error('表格尚未就绪');editor.change(t=>fillMaterialColumn(t,key,collection));},
         matches:node=>tables.includes(node.type)||node.type?.startsWith('DAELAB.LibTV.'),
         expanded:node=>tables.includes(node.type),

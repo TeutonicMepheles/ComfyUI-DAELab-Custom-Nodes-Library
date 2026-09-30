@@ -65,7 +65,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         }
     }
     function choose(e){
-        if(toolbar.contains(e.target)||e.target.closest('dialog,.table-text-side,.table-column-popover,.table-structure-control,.table-choice input'))return;
+        if(toolbar.contains(e.target)||e.target.closest('dialog,.table-text-side,.table-column-popover,.table-structure-control,.table-choice input,.generation-actions'))return;
         if(e.type==='focusin'&&!root.contains(e.target))return;
         if(!active()||!card()?.contains(e.target)){selected=null;toolbar.hidden=true;return;}
         if(e.target.closest('[data-inline-editing=true]')){selected=null;editor.clearSelection();toolbar.hidden=true;root.querySelectorAll('[data-column-selected]').forEach(e=>delete e.dataset.columnSelected);return;}

@@ -11,6 +11,8 @@ const phaseNames={waiting:'等待提交',running:'生成中',stopped:'已停止�
 export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
  let alive=true,polling=false,submitting=false,epoch=0,lastCompletedCheck=0;
  const style=el('style',document.head);style.textContent=`
+.dae-ui [data-generation-source]{display:none}
+.dae-creative .dae-ui [data-generation-source]{display:grid}
 .dae-ui .generation-header-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
 .dae-ui .generation-header-row>.field-title{flex:1;min-width:0;padding-right:0!important}
 .dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}
@@ -140,6 +142,7 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
     const active=getTable().records.map(r=>r.meta?.generationColumns?.[field.id]).filter(s=>['waiting','running'].includes(s?.phase));
     if(active.length)actions.append(button('停止后续行',async()=>{try{await request('stop',{requestIds:active.map(s=>s.requestId)});await poll(true);}catch(error){notify(error.message);}}));
     actions.append(settings);
+    const output=document.createElement('button');output.type='button';output.className='dae-material-slot';output.dataset.generationSource=field.id;output.setAttribute('aria-label','输出为素材组');output.title='拖到画布空白处输出素材组';actions.append(output);
     actions.onpointerdown=e=>e.stopPropagation();actions.ondragstart=e=>e.preventDefault();
    }
    for(const cell of editor.root.querySelectorAll('td[data-field]'))if(cell.dataset.field===field.id&&!cell.querySelector('.generation-cell-state')){

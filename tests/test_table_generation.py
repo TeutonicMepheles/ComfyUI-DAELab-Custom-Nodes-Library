@@ -18,10 +18,124 @@ SCHEMA = {'properties': {'modeType': {'items': {'image2image': [0, 2]}},
 
 
 class ColumnTests(unittest.TestCase):
+    def test_video_specs_do_not_merge_other_modes(self):
+        schema = {'properties': {
+            'modeType': {'items': {'singleImage2video': [1,1], 'videoEdit2video': [1,1]}},
+            'duration': {'min':4, 'max':30, 'originalField':'duration'},
+            'duration_auto': {'enum':[0], 'originalField':'duration'},
+            'ratio': {'enum':['16:9'], 'originalField':'ratio'},
+            'ratio_auto': {'enum':['adaptive'], 'originalField':'ratio'},
+            'sound': {'enum':['on'], 'originalField':'sound'}},
+            'config': {'settings': {'singleImage2video':['duration','ratio'],
+                                   'videoEdit2video':['duration_auto','ratio_auto']},
+                       'advancedSettings':['sound']}}
+        with tempfile.TemporaryDirectory() as directory:
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video')
+            bridge.validate_request(schema, 'singleImage2video', 'prompt',
+                                    {'duration':5, 'ratio':'16:9', 'sound':'on'}, [{'kind':'image'}])
+            for duration in (0,31):
+                with self.assertRaises(ValueError):
+                    bridge.validate_request(schema, 'singleImage2video', 'prompt',
+                                            {'duration':duration}, [{'kind':'image'}])
+            self.assertEqual(generation.setting_specs(schema,'videoEdit2video')['duration']['enum'],[0])
+
+    def test_catalog_refresh_expires_only_incomplete_catalog_envelope(self):
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)/'libtv-cli/model-cache'
+            root.mkdir(parents=True)
+            catalog = root/'catalog.json'
+            specs = root/'specs.json'
+            complete = root/'complete.json'
+            runtime.atomic_json(catalog, {'writtenAt':123, 'ttlMs':300000, 'data':{'video':[]}})
+            runtime.atomic_json(specs, {'writtenAt':123, 'ttlMs':300000, 'data':{'code':0, 'data':{'tools':[]}}})
+            runtime.atomic_json(complete, {'writtenAt':123, 'ttlMs':300000, 'data':{'video':[
+                {'modelKey':'star-video2', 'modelName':'Seedance 2.0 VIP'}]}})
+            with patch.object(runtime.tempfile, 'gettempdir', return_value=directory), \
+                 patch.object(runtime.CLI, '__call__', return_value={'matches':[
+                     {'modelKey':'star-video2', 'modelName':'Seedance 2.0 VIP'}]}) as call:
+                result=runtime.CLI('libtv').refresh_model_catalog('video','star-video2')
+            self.assertEqual(result['modelName'], 'Seedance 2.0 VIP')
+            self.assertEqual(json.loads(catalog.read_text())['writtenAt'],0)
+            self.assertEqual(json.loads(specs.read_text())['writtenAt'],123)
+            self.assertEqual(json.loads(complete.read_text())['writtenAt'],123)
+            call.assert_called_once_with('model','search','--type','video','star-video2')
+
+    def test_echoed_key_without_catalog_never_guesses_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bridge=generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out','video',
+                lambda *args:{'modelKey':'star-video2','modelName':'star-video2','schema':SCHEMA})
+            with self.assertRaisesRegex(ValueError,'模型目录缺失'):
+                bridge.model_info('Seedance 2.0')
+
+    def test_echoed_seedance_key_is_not_used_as_generation_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = lambda *args: {'modelKey': 'star-video2', 'modelName': 'star-video2', 'schema': SCHEMA}
+            cli.refresh_model_catalog = lambda kind, key: {'modelKey': key, 'modelName': 'Seedance 2.0 VIP'}
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', cli)
+            self.assertEqual(bridge.model_info('Seedance 2.0')['modelName'], 'Seedance 2.0 VIP')
+
+    def test_old_preparation_receipt_repairs_name_before_node_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            created = []
+            def cli(*args):
+                if args[0] == 'model':
+                    return {'modelKey': 'star-video2', 'modelName': 'Seedance 2.0 VIP', 'schema': SCHEMA}
+                if args[:2] == ('node', 'list'):
+                    return {'nodes': []}
+                if args[:2] == ('node', 'create'):
+                    created.append(args)
+                    raise RuntimeError('mock preparation interrupted')
+                raise AssertionError(args)
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', cli)
+            args = ('p', 'r', 'Seedance 2.0', 'text2video', 'hello', {})
+            request, fingerprint, key = bridge.request_identity(*args)
+            runtime.atomic_json(bridge.cache/(key+'.json'), dict(request=request, fingerprint=fingerprint,
+                model_name='star-video2', phase='prepare_uncertain', node_name='DAELab-'+key, references=[]))
+            with self.assertRaisesRegex(RuntimeError, 'mock preparation'):
+                bridge.generate(*args)
+            self.assertIn('model=Seedance 2.0 VIP', created[0])
+            self.assertNotIn('--run', created[0])
+
+    def test_fixed_video_models_query_exact_key_without_search(self):
+        with tempfile.TemporaryDirectory() as directory:
+            calls = []
+            def cli(*args):
+                calls.append(args)
+                self.assertNotIn('search', args)
+                return {'modelKey': args[1], 'modelName': 'Official model name', 'schema': SCHEMA}
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', cli)
+            for model in generation.REQUESTED['video']:
+                result = bridge.capabilities(model)
+                self.assertEqual(result['schema'], SCHEMA)
+                self.assertEqual(calls[-1], ('model', runtime.MODELS[model]))
+            self.assertEqual(len(calls), 3)
+
+    def test_schema_network_failure_and_mismatch_never_fall_back(self):
+        with tempfile.TemporaryDirectory() as directory:
+            calls = []
+            def failing(*args):
+                calls.append(args)
+                raise RuntimeError('ECONNRESET')
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', failing)
+            with self.assertRaisesRegex(RuntimeError, '模型规格查询失败.*ECONNRESET'):
+                bridge.generate('p', 'r', 'Seedance 2.0', '', 'prompt', {})
+            self.assertEqual(calls, [('model', 'star-video2')])
+            for response in ({'modelKey': 'star-video2-mini', 'modelName': 'Mini', 'schema': {}},
+                             {'modelKey': 'star-video2', 'modelName': 'Seedance'},
+                             {'modelKey': 'star-video2', 'schema': {}}):
+                bridge.cli = lambda *args: response
+                with self.assertRaisesRegex(ValueError, '身份或规格不匹配'):
+                    bridge.model_info('Seedance 2.0')
+
     def test_image_versions_match_stable_keys_and_count_list_is_supported(self):
         with tempfile.TemporaryDirectory() as directory:
             entries = [{'modelKey': key, 'modelName': name} for name, key in generation.IMAGE_MODELS.items() if name != 'Image-2']
-            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'image', lambda *args: {'matches': entries})
+            def cli(*args):
+                self.assertEqual(args[0], 'model')
+                entry = next(e for e in entries if e['modelKey'] == args[1])
+                return dict(entry, schema=SCHEMA)
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'image', cli)
             self.assertEqual(bridge.model_info('Image-2')['modelKey'], 'lib-image-2')
             self.assertEqual(bridge.model_info('Lib Image 2.5 Pro')['modelKey'], 'lib-image-2.5-s')
             self.assertEqual(bridge.model_info('Lib Image 2.5 Fast')['modelKey'], 'lib-image-2.5-f')
@@ -63,7 +177,7 @@ class ColumnTests(unittest.TestCase):
             if args[:2] == ('model', 'search'):
                 return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
             if args[0] == 'model':
-                return {'schema': SCHEMA}
+                return {'modelKey': 'lib-image-2', 'modelName': 'Image-2', 'schema': SCHEMA}
             if args[:2] == ('node', 'list'):
                 return {'nodes': []}
             if args[:2] == ('node', 'create'):
@@ -90,7 +204,7 @@ class ColumnTests(unittest.TestCase):
             calls = []
             def cli(*args):
                 calls.append(args)
-                return {'matches': [{'modelKey': 'other', 'modelName': 'Other model'}]}
+                return {'modelKey': 'other', 'modelName': 'Other model', 'schema': SCHEMA}
             bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'output', 'image', cli)
             with self.assertRaisesRegex(ValueError, '未替换模型'):
                 bridge.generate('project', 'request', 'Image-2', 'image2image', 'prompt', {})
@@ -124,7 +238,7 @@ class ColumnTests(unittest.TestCase):
                 def cli(*args):
                     if args[:2] == ('model', 'search'):
                         return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
-                    return {'schema': SCHEMA}
+                    return {'modelKey': 'lib-image-2', 'modelName': 'Image-2', 'schema': SCHEMA}
                 make_bridge = lambda kind: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
                 with patch.object(api, 'bridge', make_bridge):
                     data = {'project': 'p', 'config': {'kind': 'image', 'model': 'Image-2', 'mode': 'image2image', 'settings': {}},

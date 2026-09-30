@@ -1,7 +1,8 @@
+import {columnMinimumWidth} from './data_table_model.mjs';
 // Column layout only. Values and prompt bindings remain keyed by field ID.
-export function resizeColumnPair(left, right, delta) {
-    const movement = Math.max(Math.max(100 - left, right - 600),
-        Math.min(Math.min(600 - left, right - 100), Math.round(delta)));
+export function resizeColumnPair(left, right, delta, leftMin=100, rightMin=100) {
+    const movement = Math.max(Math.max(leftMin - left, right - 600),
+        Math.min(Math.min(600 - left, right - rightMin), Math.round(delta)));
     return [left + movement, right - movement];
 }
 
@@ -43,8 +44,8 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
         if (disposed || !root.isConnected) return;
         if(table.dataset.fluid==='true'&&colgroup){
             const choice=Number(table.dataset.choiceWidth),available=Math.max(fields.length*100,shell.clientWidth-choice-(root.dataset.structure?48:0)),total=fields.reduce((sum,f)=>sum+f.width,0);
-            const projected=fields.map((f,i)=>{const width=active&&i>=active.index&&i<=active.index+1?active.widths[i-active.index]:f.width;return root.dataset.structure?Math.max(160,available*width/total):available*width/total;});
-            if(root.dataset.structure)table.style.setProperty('--dae-table-min-width',(choice+48+projected.reduce((a,b)=>a+b,0))+'px');
+            const projected=fields.map((f,i)=>{const width=active&&i>=active.index&&i<=active.index+1?active.widths[i-active.index]:f.width;return root.dataset.structure?Math.max(160,columnMinimumWidth(f),available*width/total):Math.max(columnMinimumWidth(f),available*width/total);});
+            table.style.setProperty('--dae-table-min-width',(choice+(root.dataset.structure?48:0)+projected.reduce((a,b)=>a+b,0))+'px');
             projected.forEach((width,i)=>{colgroup.children[i+1].style.width=width+'px';});
         }
         const rect = root.getBoundingClientRect(), viewport = shell.getBoundingClientRect();
@@ -113,8 +114,8 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
         bar.tabIndex = 0; bar.setAttribute('role', 'separator');
         bar.setAttribute('aria-orientation', 'vertical');
         bar.setAttribute('aria-label', `调整列宽：${left.name} / ${right.name}`);
-        bar.setAttribute('aria-valuemin', String(Math.max(100, left.width + right.width - 600)));
-        bar.setAttribute('aria-valuemax', String(Math.min(600, left.width + right.width - 100)));
+        bar.setAttribute('aria-valuemin', String(Math.max(columnMinimumWidth(left), left.width + right.width - 600)));
+        bar.setAttribute('aria-valuemax', String(Math.min(600, left.width + right.width - columnMinimumWidth(right))));
         bar.setAttribute('aria-valuenow', String(left.width));
         bar.title = '拖动调整左右列宽；方向键微调，Esc 取消';
         layer.append(bar); bars.push(bar);
@@ -128,7 +129,7 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
         bar.onpointermove = e => {
             if (active?.pointer !== e.pointerId) return;
             e.preventDefault(); e.stopPropagation();
-            active.widths = resizeColumnPair(...active.original, (e.clientX - active.x) * active.ratio);
+            active.widths = resizeColumnPair(...active.original, (e.clientX - active.x) * active.ratio, columnMinimumWidth(left), columnMinimumWidth(right));
             preview(index, active.widths);
         };
         bar.onpointerup = e => { e.stopPropagation(); finish(); };
@@ -139,7 +140,7 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
             if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
             e.preventDefault(); e.stopPropagation();
             const delta = e.key === 'Home' ? -1000 : e.key === 'End' ? 1000 : (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 40 : 10);
-            commit(index, resizeColumnPair(left.width, right.width, delta));
+            commit(index, resizeColumnPair(left.width, right.width, delta, columnMinimumWidth(left), columnMinimumWidth(right)));
         };
         for (const event of ['mousedown','mouseup','click','dblclick','dragstart']) bar.addEventListener(event, e => {e.stopPropagation();if(event==='dragstart')e.preventDefault();});
     });

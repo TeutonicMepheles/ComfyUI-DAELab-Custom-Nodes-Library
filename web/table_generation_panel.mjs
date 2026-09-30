@@ -1,21 +1,52 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-table-surfaces3';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-public-layout4';
 import {connectionPanel} from './libtv_connection.mjs';
-import {generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs';
+import {generationReportNeedsApply,generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs?v=20260930-result-sync3';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 async function request(action,body){
- const response=await fetch('/daelab/libtv/table/'+action,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),action==='submit'?120000:30000);
+ try{
+ const response=await fetch('/daelab/libtv/table/'+action,{signal:controller.signal,method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
  if(response.status===404)throw new Error('生成服务尚未加载，请重启 ComfyUI 后刷新');
  const data=await response.json();if(!response.ok){const error=new Error(data.error||'生成请求失败');error.preflightRejected=data.submitted===false;throw error;}return data;
+ }catch(error){if(error.name==='AbortError')throw new Error('请求超时；原任务仍保留，请刷新任务状态，不要重复生成');throw error;}
+ finally{clearTimeout(timer);}
 }
 const phaseNames={waiting:'等待提交',running:'生成中',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
+const stageNames={preparing:'准备中',submitting:'提交平台',writing_back:'等待写回',verifying:'核对原任务',downloading:'下载中'};
+export function stageText(report,phase){
+ if(phase==='waiting'||!report?.stage)return phase==='running'?'启动中':'排队中';
+ if(report.stage==='generating')return Number.isFinite(report.progress)?`平台生成 ${report.progress}%`:'平台生成';
+ return stageNames[report.stage]||'生成中';
+}
+export function liveLabel(report,phase,now=Date.now()){
+ const age=report?.updatedAt?Math.max(0,Math.round((now-report.updatedAt)/1000)):null;
+ return [stageText(report,phase),report?.taskId&&'任务 '+report.taskId,report?.detail,age!==null&&`最近确认 ${age} 秒前`].filter(Boolean).join(' · ');
+}
 export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
  let alive=true,polling=false,submitting=false,epoch=0,lastCompletedCheck=0;
+ const live=new Map();
  const style=el('style',document.head);style.textContent=`
-.dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:8px;max-width:100%;flex-wrap:wrap}
+.dae-ui [data-generation-source]{display:none}
+[data-canvas-panel=true] .dae-ui [data-generation-source]{display:grid}
+.dae-ui .generation-header-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
+.dae-ui .generation-header-row>.field-title{flex:1;min-width:0;padding-right:0!important}
+.dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}
+.dae-ui .generation-actions button{flex-shrink:0;white-space:nowrap}
 .dae-ui .generation-actions button{min-height:32px;max-width:100%;font:inherit;padding:4px 8px!important}
-.dae-ui .generation-actions .generation-settings{width:32px;min-width:32px;padding:6px!important}
-.dae-ui .generation-cell-state{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;white-space:normal;overflow-wrap:anywhere}
+.dae-ui .generation-actions .generation-settings{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;max-height:36px!important;padding:8px!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important}
+.dae-ui .generation-actions .generation-settings:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
+.dae-ui .generation-actions .generation-settings .dae-table-icon{width:20px;height:20px;flex:none}
+.dae-ui .generation-cell-state{position:absolute;right:8px;top:8px;z-index:3;display:flex;gap:4px;align-items:center;width:max-content;padding:4px;border-radius:22px;background:var(--dae-surface,#242424);color:var(--dae-text,#fff);box-shadow:0 1px 5px #0005}
+.dae-ui .generation-cell-state :is(button,.generation-state-icon){display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:6px!important;border:0!important;border-radius:50%!important;background:transparent!important}
+.dae-ui .generation-cell-state button:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
+.dae-ui .generation-cell-state .dae-table-icon{display:block;width:20px;height:20px;background:currentColor;mask:var(--table-icon) center/contain no-repeat}
 .dae-ui .generation-cell-state[data-error=true]{color:var(--dae-error,#ffb4ab)}
+.dae-ui .generation-cell-state[data-phase=complete] .generation-state-icon{color:var(--dae-success,#98d7ad)}
+.dae-ui .generation-cell-state{max-width:calc(100% - 16px);box-sizing:border-box}
+.dae-ui .generation-stage{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px 0 2px;font:500 12px/1.5 var(--dae-font-family,inherit);font-variant-numeric:tabular-nums}
+.dae-ui .generation-progress{flex:none;margin-left:6px;box-sizing:border-box;width:20px;height:20px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:dae-generation-spin 1s linear infinite}
+@keyframes dae-generation-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.dae-ui .generation-progress{animation:none;border-style:dashed}}
 .dae-ui .generation-form{display:flex;flex-direction:column;gap:14px}
 .dae-ui .generation-form label{display:flex;flex-direction:column;gap:6px;min-width:0}
 .dae-ui .generation-form :is(input,select){box-sizing:border-box;width:100%;min-width:0;min-height:36px;font:inherit;color:var(--dae-text);background:var(--dae-surface);border:1px solid var(--dae-border-control);border-radius:6px;padding:6px}
@@ -46,7 +77,7 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
       const wrapper=el('label',settings,spec.displayName||spec.title||spec.label||name),choices=spec.enum||[],input=el(choices.length?'select':'input',wrapper);input.setAttribute('aria-label',spec.displayName||spec.title||spec.label||name);
       const values=choices.map(x=>typeof x==='object'?x.value:x);
       if(choices.length)choices.forEach((x,i)=>input.add(new Option(typeof x==='object'?(x.displayName||x.label||x.value):String(x),String(i))));
-      else {input.type=spec.type==='boolean'?'checkbox':['integer','number'].includes(spec.type)?'number':'text';if(spec.min!==undefined)input.min=spec.min;if(spec.max!==undefined)input.max=spec.max;input.step=spec.type==='integer'?'1':'any';}
+      else {input.type=spec.type==='boolean'?'checkbox':(['integer','number'].includes(spec.type)||spec.component==='slider'||typeof spec.min==='number')?'number':'text';if(spec.min!==undefined)input.min=spec.min;if(spec.max!==undefined)input.max=spec.max;input.step=spec.type==='integer'?'1':'any';}
       const value=draft.settings[name]??spec.default;
       if(choices.length){input.value=String(Math.max(0,values.indexOf(value)));draft.settings[name]=values[Number(input.value)];}
       else if(input.type==='checkbox'){input.checked=Boolean(value);draft.settings[name]=input.checked;}
@@ -80,21 +111,22 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
    fillModels();void capabilities();
   },{toggle:true});
  }
- async function generate(fieldId,recordId=null,recover=false){
-  if(submitting)return;submitting=true;
+ async function generate(fieldId,recordId=null,recover=false,fresh=false){
+  if(submitting)return;submitting=true;decorate();
   try{
    const table=getTable(),rows=recordId?table.records.filter(r=>r.id===recordId):generationRows(table,fieldId),jobs=[];
    for(const row of rows){
     const old=row.meta?.generationColumns?.[fieldId];
     if(['running','waiting'].includes(old?.phase))continue;
-    if(recover||['needs_recovery','stopped'].includes(old?.phase)){
+    if(!fresh&&(recover||['needs_recovery','stopped'].includes(old?.phase))){
      if(!old?.input)throw new Error('原任务快照缺失');jobs.push(recoveryJob(old));continue;
     }
-    try{const input=generationInput(table,fieldId,row.id);if(!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
+    // An abandoned original shares the input fingerprint; forceNew prevents reusing it.
+    try{const input=generationInput(table,fieldId,row.id);if(!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:fresh||Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
     catch(error){if(recordId||table.records.some(r=>r.selected))throw new Error(`第 ${table.records.indexOf(row)+1} 行：${error.message}`);}
    }
    if(!jobs.length)throw new Error('没有可生成的行，请补充提示词或检查任务状态');
-   editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]=generationReceipt(job);}});
+   editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]=generationReceipt(job,row.meta.generationColumns[fieldId]);}});
    try{await request('submit',{jobs});}catch(error){
     if(error.preflightRejected)editor.change(t=>{for(const job of jobs){const state=t.records.find(r=>r.id===job.input.recordId)?.meta?.generationColumns?.[fieldId];if(state?.requestId===job.requestId){state.phase=job.recovery?'needs_recovery':'needs_input';state.error=error.message;}}});
     notify(error.message);
@@ -104,40 +136,89 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
  }
  async function poll(force=false){
   if(!alive||polling||submitting&&!force)return;const captured=epoch,jobs=[],checkCompleted=force||Date.now()-lastCompletedCheck>30000;if(checkCompleted)lastCompletedCheck=Date.now();
-  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{}))if(['waiting','running'].includes(state.phase)||checkCompleted&&state.phase==='complete')jobs.push({recordId:row.id,fieldId,...state});
+  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
+   if(['waiting','running'].includes(state.phase)||checkCompleted&&['complete','needs_recovery','stopped','failed','stale'].includes(state.phase))jobs.push({recordId:row.id,fieldId,...state});
+   if(checkCompleted)for(const old of state.history||[])if(!old.result?.url)jobs.push({recordId:row.id,fieldId,...old,historical:true});
+  }
   if(!jobs.length)return;polling=true;
   try{const response=await request('status',{requestIds:jobs.map(j=>j.requestId)});if(!alive||captured!==epoch)return;
-   const updates=response.jobs.filter(report=>{const job=jobs.find(j=>j.requestId===report.requestId);return job&&(job.phase!==report.phase||job.error!==report.error);});if(!updates.length)return;
-   editor.change(t=>{for(const report of updates){const job=jobs.find(j=>j.requestId===report.requestId),row=t.records.find(r=>r.id===job?.recordId),state=row?.meta?.generationColumns?.[job?.fieldId];if(!state||state.requestId!==report.requestId)continue;
+   for(const report of response.jobs)live.set(report.requestId,report);
+   refreshLive();
+   const updates=response.jobs.filter(report=>{const job=jobs.find(j=>j.requestId===report.requestId);return job&&(job.historical?report.phase==='complete'&&report.result?.url:generationReportNeedsApply(getTable(),job,report));});if(!updates.length)return;
+   editor.change(t=>{for(const report of updates){const job=jobs.find(j=>j.requestId===report.requestId),row=t.records.find(r=>r.id===job?.recordId),state=row?.meta?.generationColumns?.[job?.fieldId];if(!state)continue;
+    if(job.historical){const old=state.history?.find(s=>s.requestId===report.requestId);if(old){old.phase=report.phase;old.result=report.result;}continue;}
+    if(state.requestId!==report.requestId)continue;
     if(report.phase==='complete')applyGenerationResult(t,job.fieldId,job.recordId,job.requestId,job.stamp,report.result);
     else {state.phase=report.phase;state.error=report.error;}
    }});
-  }catch{/* Keep recoverable identities while the server is unreachable. */}finally{polling=false;}
+  }catch(error){
+   const message='无法同步任务状态：'+error.message;
+   if(alive&&captured===epoch&&jobs.some(job=>['waiting','running'].includes(job.phase)&&job.error!==message))editor.change(t=>{for(const job of jobs){const state=t.records.find(r=>r.id===job.recordId)?.meta?.generationColumns?.[job.fieldId];if(state?.requestId===job.requestId&&['waiting','running'].includes(state.phase))state.error=message;}});
+  }finally{polling=false;}
+ }
+ function refreshLive(){
+  for(const status of editor.root.querySelectorAll('.generation-cell-state[data-request-id]')){
+   const chip=status.querySelector('.generation-stage');if(!chip)continue;
+   const phase=status.dataset.phase,report=live.get(status.dataset.requestId),text=stageText(report,phase),label=(phaseNames[phase]||'')+' · '+liveLabel(report,phase);
+   if(chip.textContent!==text)chip.textContent=text;
+   status.title=label;status.setAttribute('aria-label',label);
+   const ring=status.querySelector('.generation-progress');
+   if(ring){ring.setAttribute('aria-label',label);if(Number.isFinite(report?.progress)&&report.stage==='generating')ring.setAttribute('aria-valuenow',String(report.progress));else ring.removeAttribute('aria-valuenow');}
+  }
  }
  function decorate(){
   if(!alive)return;
+  for(const run of editor.root.querySelectorAll('[data-generation-run]'))run.disabled=submitting;
   for(const field of getTable().fields.filter(isGeneration)){
    const header=[...editor.root.querySelectorAll('th[data-column]')].find(h=>h.dataset.column===field.id);
    if(header&&!header.querySelector('.generation-actions')){
-    const actions=el('div',header);actions.className='generation-actions';
-    const settings=tableIcon(button('生成配置',()=>open(field.id)),'edit-line',field.name+' · 生成配置');settings.classList.add('generation-settings');
-    const run=button('生成 '+generationRows(getTable(),field.id).length+' 行',()=>generate(field.id),true);run.disabled=submitting;
-    actions.append(settings,run);
+    const row=el('div',header);row.className='generation-header-row';
+    const title=header.querySelector('.field-title');if(title)row.append(title);
+    const actions=el('div',row);actions.className='generation-actions';
+    const settings=tableIcon(button('生成配置',()=>open(field.id)),'settings-3-line',field.name+' · 生成配置');settings.classList.add('generation-settings');
+    const run=button('生成 '+generationRows(getTable(),field.id).length+' 行',()=>generate(field.id),true);run.dataset.generationRun=field.id;run.disabled=submitting;
+    actions.append(run);
     const active=getTable().records.map(r=>r.meta?.generationColumns?.[field.id]).filter(s=>['waiting','running'].includes(s?.phase));
     if(active.length)actions.append(button('停止后续行',async()=>{try{await request('stop',{requestIds:active.map(s=>s.requestId)});await poll(true);}catch(error){notify(error.message);}}));
+    actions.append(settings);
+    const output=document.createElement('button');output.type='button';output.className='dae-material-slot';output.dataset.generationSource=field.id;output.setAttribute('aria-label','输出为素材组');output.title='拖到画布空白处输出素材组';actions.append(output);
     actions.onpointerdown=e=>e.stopPropagation();actions.ondragstart=e=>e.preventDefault();
    }
    for(const cell of editor.root.querySelectorAll('td[data-field]'))if(cell.dataset.field===field.id&&!cell.querySelector('.generation-cell-state')){
     const row=getTable().records.find(r=>r.id===cell.dataset.record),state=row?.meta?.generationColumns?.[field.id];
-    const status=el('div',cell);status.className='generation-cell-state';status.setAttribute('role','status');status.dataset.error=String(Boolean(state?.error));
-    el('span',status,state?(phaseNames[state.phase]||state.phase)+(state.error?' · '+state.error:''):'尚未生成');
-    if(state?.phase==='stale'&&state.result)status.append(button('查看旧输入结果',()=>cell.dispatchEvent(new CustomEvent('dae-preview',{bubbles:true,detail:state.result}))));
-    if(!['waiting','running'].includes(state?.phase))status.append(button(state?.phase==='needs_recovery'?'恢复任务':state?.phase==='complete'?'重新生成':'生成此行',()=>generate(field.id,row.id,state?.phase==='needs_recovery')));
+    const preview=cell.querySelector('.content-display')||cell;
+    const phase=state?.phase||'idle',busy=['waiting','running'].includes(phase);
+    const label=(phaseNames[phase]||'尚未生成')+(state?.error?' · '+state.error:'');
+    const status=el('div',preview);status.className='generation-cell-state';status.dataset.phase=phase;status.dataset.error=String(Boolean(state?.error)&&!busy);status.setAttribute('role','status');status.setAttribute('aria-label',label);status.title=label;
+    if(busy&&state?.error?.startsWith('无法同步任务状态：')){
+     status.append(tableIcon(button(label,()=>notify(label)),'error-warning-line',label),tableIcon(button('刷新任务状态',()=>poll(true)),'restart-line','刷新任务状态'));
+    }
+    else if(busy){
+     status.dataset.requestId=state.requestId;
+     const ring=el('span',status);ring.className='generation-progress';ring.setAttribute('role','progressbar');ring.setAttribute('aria-valuemin','0');ring.setAttribute('aria-valuemax','100');ring.setAttribute('aria-label',label);
+     el('span',status,stageText(live.get(state.requestId),phase)).className='generation-stage';
+    }
+    else if(state){const indicator=tableIcon(button(label,()=>notify(label)),phase==='complete'?'check-line':'error-warning-line',label);indicator.classList.add('generation-state-icon');status.append(indicator);}
+    if(!busy){const recover=phase==='needs_recovery'||phase==='stopped',retry=Boolean(state);const actionLabel=recover?'恢复原任务':retry?'重新生成':'生成此行';status.append(tableIcon(button(actionLabel,()=>generate(field.id,row.id,recover)),retry?'restart-line':'play-line',actionLabel));
+     if(recover)status.append(tableIcon(button('放弃原任务并重新生成',()=>{const dialog=editor.openDialog('重新生成本行');el('p',dialog,'将提交一个新的付费生成任务，原任务不再查询。');dialog.append(button('确认重新生成',()=>{dialog.remove();void generate(field.id,row.id,false,true);},true),button('取消',()=>dialog.remove()));}),'play-line','放弃原任务并重新生成'));}
+    const completedHistory=[...(state?.history||[]),...(phase==='stale'&&state?.result?[state]:[])].filter(s=>s.result?.url);
+    if(completedHistory.length)status.append(tableIcon(button('已有生成结果',()=>{
+     const dialog=editor.openDialog('已有生成结果');el('p',dialog,'选择此前已完成的结果显示在本行；当前任务状态仍会保留。');
+     for(const old of completedHistory){const model=old.input?.config?.model||'原任务';dialog.append(button('使用 '+model+' · '+old.result.name,async()=>{
+      try{const response=await request('status',{requestIds:[old.requestId]}),report=response.jobs.find(s=>s.requestId===old.requestId);if(report?.phase!=='complete'||!report.result?.url)throw new Error(report?.error||'原结果暂不可用，请恢复原任务');
+       if(!alive||!dialog.isConnected)return;
+       editor.change(t=>{const current=t.records.find(r=>r.id===row.id);if(!current)return;current.values[field.id]=[{...report.result,id:crypto.randomUUID(),name:'已有结果 · '+model+' · '+report.result.name,provenance:{requestId:old.requestId,model}}];});dialog.remove();
+      }catch(error){notify(error.message);}
+     }));}dialog.append(button('关闭',()=>dialog.remove()));
+    }),'folder-image-line','已有生成结果'));
+    status.onpointerdown=e=>e.stopPropagation();status.onmousedown=e=>e.stopPropagation();status.ondblclick=e=>e.stopPropagation();
+    if(busy)refreshLive();
+
    }
   }
  }
  const observer=new MutationObserver(decorate);observer.observe(editor.root,{childList:true,subtree:true});
  const created=e=>open(e.detail.fieldId);editor.root.addEventListener('dae-generation-created',created);
  const timer=setInterval(()=>void poll(),3000);decorate();
- return {open,invalidate(){epoch++;},destroy(){alive=false;epoch++;clearInterval(timer);observer.disconnect();editor.root.removeEventListener('dae-generation-created',created);style.remove();}};
+ return {open,invalidate(){epoch++;},destroy(){alive=false;epoch++;live.clear();clearInterval(timer);observer.disconnect();editor.root.removeEventListener('dae-generation-created',created);style.remove();}};
 }

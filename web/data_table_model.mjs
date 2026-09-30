@@ -1,6 +1,7 @@
 // Business-independent table model. No storyboard, ComfyUI or provider dependencies.
 import {isPrompt,validatePrompt} from './table_prompt_model.mjs?v=20260930-inline4';
 import {migrateVideoReferences} from './table_video_references.mjs?v=20260929-refs3';
+export const columnMinimumWidth = field => field.presentation==='generation' ? 400 : 100;
 export const FIELD_TYPES = ['text','longtext','number','checkbox','select','assets','content','json'];
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const uid = () => globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -32,7 +33,7 @@ export function normalizeTable(value={}) {
     const ids=new Set();
     const fields=(raw.fields || []).map(f=>{
         const id=String(f.id||uid());if(ids.has(id))throw new Error('字段 ID 重复');ids.add(id);
-        return {...clone(f),id,name:String(f.name||'未命名字段'),type:raw.meta?.material_columns&&f.type==='assets'?'content':FIELD_TYPES.includes(f.type)?f.type:'text',hidden:Boolean(f.hidden),width:Math.min(600,Math.max(100,Number(f.width)||180))};
+        return {...clone(f),id,name:String(f.name||'未命名字段'),type:raw.meta?.material_columns&&f.type==='assets'?'content':FIELD_TYPES.includes(f.type)?f.type:'text',hidden:Boolean(f.hidden),width:Math.min(600,Math.max(columnMinimumWidth(f),Number(f.width)||180))};
     });
     const recordIds=new Set();
     const records=(raw.records || []).map(r=>{

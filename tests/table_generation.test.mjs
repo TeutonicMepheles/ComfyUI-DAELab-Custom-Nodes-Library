@@ -67,3 +67,34 @@ test('replacement intent survives saved receipt and repeated recovery with the s
  assert.deepEqual(recoveryJob(generationReceipt(recovered)),recovered);
  assert.equal(recoveryJob({...saved,forceNew:false}).forceNew,false);
 });
+
+test('complete reports repair an empty cell without phase changes and preserve material identity afterwards',async()=>{
+ const {generationReportNeedsApply}=await import('../web/table_generation_model.mjs');
+ const t=fixture(),f=addGenerationColumn(t),row=t.records[0];row.values[f.generation.promptFieldId]='prompt';
+ const job={...generationReceipt({requestId:'job',input:generationInput(t,f.id,row.id)}),recordId:row.id,fieldId:f.id,phase:'complete'};
+ row.meta={generationColumns:{[f.id]:job}};
+ const report={requestId:'job',phase:'complete',result:{kind:'video',url:'/view?filename=video.mp4'}};
+ assert.equal(generationReportNeedsApply(t,job,report),true);
+ assert.equal(applyGenerationResult(t,f.id,row.id,job.requestId,job.stamp,report.result),true);
+ const id=row.values[f.id][0].id;
+ assert.equal(generationReportNeedsApply(t,job,report),false);
+ assert.equal(row.values[f.id][0].id,id);
+ row.values[f.generation.promptFieldId]='changed';row.values[f.id]=[];
+ applyGenerationResult(t,f.id,row.id,job.requestId,job.stamp,report.result);
+ assert.equal(job.phase,'stale');assert.equal(generationReportNeedsApply(t,job,report),false);
+ const next=generationReceipt({requestId:'next',input:generationInput(t,f.id,row.id)},job);
+ assert.equal(next.history[0].requestId,'job');assert.deepEqual(next.history[0].result,report.result);
+ assert.equal(next.phase,'waiting');assert.equal(row.values[f.id].length,0);
+ row.values[f.generation.promptFieldId]='prompt';
+ assert.equal(generationReportNeedsApply(t,job,report),true);
+});
+
+test('starting a replacement keeps the original unfinished receipt for later result reconciliation',()=>{
+ const input={recordId:'r',fieldId:'f',config:{model:'Seedance 2.5'}};
+ const original=generationReceipt({requestId:'old',input});original.phase='running';
+ const next=generationReceipt({requestId:'new',input:{...input,config:{model:'Seedance 2.0'}}},original);
+ assert.equal(next.history[0].requestId,'old');assert.deepEqual(next.history[0].input,input);
+ const restored=generationReceipt(recoveryJob(next),next);
+ assert.equal(restored.history.length,1);assert.equal(restored.requestId,'new');
+ assert.equal(original.history,undefined);
+});

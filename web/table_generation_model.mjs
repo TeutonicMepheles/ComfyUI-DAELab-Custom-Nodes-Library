@@ -65,12 +65,22 @@ export function applyGenerationResult(table,fieldId,recordId,requestId,stamp,res
  const row=table.records.find(r=>r.id===recordId),state=row?.meta?.generationColumns?.[fieldId];
  if(!state||state.requestId!==requestId)return false;
  try{if(inputStamp(generationInput(table,fieldId,recordId))!==stamp){state.phase='stale';state.error='输入已变化，结果未覆盖当前单元格';state.result=result;return false;}}
- catch{state.phase='stale';return false;}
- row.values[fieldId]=[{...result,id:uid()}];state.phase='complete';delete state.error;return true;
+ catch{state.phase='stale';state.result=result;return false;}
+ row.values[fieldId]=[{...result,id:uid()}];state.result=result;state.phase='complete';delete state.error;return true;
 }
 
-export function generationReceipt(job){
- return {requestId:job.requestId,input:structuredClone(job.input),forceNew:job.forceNew===true,stamp:inputStamp(job.input),phase:'waiting'};
+export function generationReportNeedsApply(table,job,report){
+ if(report.phase!=='complete')return job.phase!==report.phase||job.error!==report.error;
+ if(job.phase==='stale'&&job.result?.url===report.result?.url){
+  try{return inputStamp(generationInput(table,job.fieldId,job.recordId))===job.stamp;}catch{return false;}
+ }
+ const row=table.records.find(r=>r.id===job.recordId);
+ return job.phase!=='complete'||Boolean(job.error)||!row?.values[job.fieldId]?.some(a=>a.url===report.result?.url);
+}
+export function generationReceipt(job,previous){
+ const history=structuredClone(previous?.history||[]);
+ if(previous?.input&&previous.requestId!==job.requestId&&!history.some(item=>item.requestId===previous.requestId))history.push({requestId:previous.requestId,input:previous.input,phase:previous.phase,...(previous.result?{result:previous.result}:{})});
+ return {requestId:job.requestId,input:structuredClone(job.input),forceNew:job.forceNew===true,stamp:inputStamp(job.input),phase:'waiting',...(history.length?{history}: {})};
 }
 export function recoveryJob(receipt){
  if(!receipt?.input)throw new Error('Original task snapshot is missing');

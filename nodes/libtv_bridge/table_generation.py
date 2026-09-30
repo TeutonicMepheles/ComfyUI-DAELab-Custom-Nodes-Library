@@ -95,8 +95,12 @@ class ColumnBridge(Bridge):
         if self.node_type == 'video':
             # Existing video checks cover references and required input modes.
             basic = dict(schema, config=dict(schema.get('config', {})))
-            basic['config']['settings'] = [key for key, spec in schema.get('properties', {}).items()
-                                           if isinstance(spec, dict)]
+            basic['config']['settings'] = []
+            for bucket in ('settings', 'advancedSettings'):
+                keys = schema.get('config', {}).get(bucket, [])
+                if isinstance(keys, dict):
+                    keys = keys.get(mode, [])
+                basic['config']['settings'].extend(keys)
             validate(basic, mode, prompt, settings, media)
         else:
             if any(m['kind'] != 'image' for m in media):

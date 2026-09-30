@@ -28,6 +28,7 @@ def recover_generation(generate, record, progress, *, sleep=time.sleep,
                     or not (pending or is_network_error(error))
                     or attempt == len(delays)):
                 raise
-            progress('原任务尚未返回视频，正在自动查询' if pending else
+            progress(('平台显示任务已完成，正在等待结果写回' if task.get('status') == 2
+                      else '原任务尚未返回视频，正在自动查询') if pending else
                      '网络中断，正在自动找回本次生成结果')
             sleep(delays[attempt])

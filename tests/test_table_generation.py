@@ -18,6 +18,27 @@ SCHEMA = {'properties': {'modeType': {'items': {'image2image': [0, 2]}},
 
 
 class ColumnTests(unittest.TestCase):
+    def test_video_specs_do_not_merge_other_modes(self):
+        schema = {'properties': {
+            'modeType': {'items': {'singleImage2video': [1,1], 'videoEdit2video': [1,1]}},
+            'duration': {'min':4, 'max':30, 'originalField':'duration'},
+            'duration_auto': {'enum':[0], 'originalField':'duration'},
+            'ratio': {'enum':['16:9'], 'originalField':'ratio'},
+            'ratio_auto': {'enum':['adaptive'], 'originalField':'ratio'},
+            'sound': {'enum':['on'], 'originalField':'sound'}},
+            'config': {'settings': {'singleImage2video':['duration','ratio'],
+                                   'videoEdit2video':['duration_auto','ratio_auto']},
+                       'advancedSettings':['sound']}}
+        with tempfile.TemporaryDirectory() as directory:
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video')
+            bridge.validate_request(schema, 'singleImage2video', 'prompt',
+                                    {'duration':5, 'ratio':'16:9', 'sound':'on'}, [{'kind':'image'}])
+            for duration in (0,31):
+                with self.assertRaises(ValueError):
+                    bridge.validate_request(schema, 'singleImage2video', 'prompt',
+                                            {'duration':duration}, [{'kind':'image'}])
+            self.assertEqual(generation.setting_specs(schema,'videoEdit2video')['duration']['enum'],[0])
+
     def test_catalog_refresh_expires_only_incomplete_catalog_envelope(self):
         import json
         with tempfile.TemporaryDirectory() as directory:

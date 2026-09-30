@@ -46,7 +46,7 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
       const wrapper=el('label',settings,spec.displayName||spec.title||spec.label||name),choices=spec.enum||[],input=el(choices.length?'select':'input',wrapper);input.setAttribute('aria-label',spec.displayName||spec.title||spec.label||name);
       const values=choices.map(x=>typeof x==='object'?x.value:x);
       if(choices.length)choices.forEach((x,i)=>input.add(new Option(typeof x==='object'?(x.displayName||x.label||x.value):String(x),String(i))));
-      else {input.type=spec.type==='boolean'?'checkbox':['integer','number'].includes(spec.type)?'number':'text';if(spec.min!==undefined)input.min=spec.min;if(spec.max!==undefined)input.max=spec.max;input.step=spec.type==='integer'?'1':'any';}
+      else {input.type=spec.type==='boolean'?'checkbox':(['integer','number'].includes(spec.type)||spec.component==='slider'||typeof spec.min==='number')?'number':'text';if(spec.min!==undefined)input.min=spec.min;if(spec.max!==undefined)input.max=spec.max;input.step=spec.type==='integer'?'1':'any';}
       const value=draft.settings[name]??spec.default;
       if(choices.length){input.value=String(Math.max(0,values.indexOf(value)));draft.settings[name]=values[Number(input.value)];}
       else if(input.type==='checkbox'){input.checked=Boolean(value);draft.settings[name]=input.checked;}
@@ -129,7 +129,7 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
    }
    for(const cell of editor.root.querySelectorAll('td[data-field]'))if(cell.dataset.field===field.id&&!cell.querySelector('.generation-cell-state')){
     const row=getTable().records.find(r=>r.id===cell.dataset.record),state=row?.meta?.generationColumns?.[field.id];
-    const status=el('div',cell);status.className='generation-cell-state';status.setAttribute('role','status');status.dataset.error=String(Boolean(state?.error));
+    const status=el('div',cell);status.className='generation-cell-state';status.setAttribute('role','status');status.dataset.error=String(Boolean(state?.error)&&!['running','waiting'].includes(state?.phase));
     el('span',status,state?(phaseNames[state.phase]||state.phase)+(state.error?' · '+state.error:''):'尚未生成');
     if(state?.phase==='stale'&&state.result)status.append(button('查看旧输入结果',()=>cell.dispatchEvent(new CustomEvent('dae-preview',{bubbles:true,detail:state.result}))));
     if(!['waiting','running'].includes(state?.phase))status.append(button(state?.phase==='needs_recovery'?'恢复任务':state?.phase==='complete'?'重新生成':'生成此行',()=>generate(field.id,row.id,state?.phase==='needs_recovery')));

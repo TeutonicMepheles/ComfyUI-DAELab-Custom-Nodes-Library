@@ -134,6 +134,8 @@ def execute(state):
         record = bridge(cfg['kind']).cache / (key + '.json')
         if record.exists():
             remote = json.loads(record.read_text('utf-8')).get('remote', {})
+            if remote.get('data', {}).get('taskInfo', {}).get('status') == 2 and not remote.get('data', {}).get('url'):
+                state['error'] = '平台任务已完成，但视频结果尚未写回；请恢复原任务'
             if remote.get('data', {}).get('taskInfo', {}).get('failedReason'):
                 state['phase'] = 'failed'
     saved = json.loads(receipt_path(request_id).read_text('utf-8'))

@@ -18,6 +18,8 @@ function register(){
         expanded:node=>tables.includes(node.type),
         resizable:node=>tables.includes(node.type),
         fullHeight:node=>tables.includes(node.type),
+        presentation:node=>node.type==='DAELAB.Table'?'content':'card',
+        selectionSurface:node=>node.type==='DAELAB.Table'?node.__dataTablePanel?.root.querySelector('.dae-table-scroll'):null,
         workspace:node=>tables.includes(node.type)&&node.type!=='DAELAB.Table',
         compactWidth:0,
         width:node=>node.type==='DAELAB.Table'?720:tables.includes(node.type)?1060:460,

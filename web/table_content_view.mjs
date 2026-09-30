@@ -2,7 +2,7 @@ import {bindInlineEditor} from './table_inline_editor.mjs?v=20260930-inline4';
 import {applyPromptToColumn} from './table_prompt_template.mjs?v=20260930-inline4';
 import {isPrompt,promptField} from './table_prompt_model.mjs?v=20260930-inline4';
 import {addField,addRecord,removeField,clone,uid,setValue,emptyValue} from './data_table_model.mjs?v=20260930-inline4';
-import {createTableButton as button} from './table_controls.mjs?v=20260930-table-surfaces3';
+import {createTableButton as button} from './table_controls.mjs?v=20260930-public-layout4';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 
@@ -36,8 +36,8 @@ cell.addEventListener('dae-upload',()=>picker.click());
 export function installContentPresentation({root,editor,getTable,notify,editPromptTemplate}){
     const toolbar=el('aside','dae-ui content-context');toolbar.setAttribute('role','toolbar');toolbar.setAttribute('aria-label','表格选中操作');toolbar.hidden=true;document.body.append(toolbar);
     let selected=null,signature='',disposed=false;
-    const card=()=>root.closest('.dae-creative-card');
-    const active=()=>!!root.closest('.dae-creative')&&root.isConnected&&!card()?.closest('[hidden]');
+    const context=()=>globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
+    const active=()=>context()?.presentation==='content'&&root.isConnected&&!!context()?.getViewport();
     const findCell=()=>[...root.querySelectorAll('td[data-field]')].find(e=>e.dataset.field===selected?.field&&e.dataset.record===selected?.record);
     const field=()=>getTable().fields.find(f=>f.id===selected?.field);
     const mutate=fn=>{try{editor.change(fn);signature='';tick();}catch(e){notify(e.message);}};
@@ -67,7 +67,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
     function choose(e){
         if(toolbar.contains(e.target)||e.target.closest('dialog,.table-text-side,.table-column-popover,.table-structure-control,.table-choice input,.generation-actions,.generation-cell-state'))return;
         if(e.type==='focusin'&&!root.contains(e.target))return;
-        if(!active()||!card()?.contains(e.target)){selected=null;toolbar.hidden=true;return;}
+        if(!active()||!context()?.contains(e.target)){selected=null;toolbar.hidden=true;return;}
         if(e.target.closest('[data-inline-editing=true]')){selected=null;editor.clearSelection();toolbar.hidden=true;root.querySelectorAll('[data-column-selected]').forEach(e=>delete e.dataset.columnSelected);return;}
         const cell=e.target.closest('td[data-field]'),th=e.target.closest('th[data-column]'),row=e.target.closest('.table-choice[data-content-row]');
         selected=cell?{kind:'cell',field:cell.dataset.field,record:cell.dataset.record}:th?{kind:'column',field:th.dataset.column}:row?{kind:'row',record:row.dataset.contentRow}:{kind:'table'};
@@ -77,11 +77,11 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         if(disposed)return;const showing=String(active());if(root.dataset.contentPresentation!==showing){root.dataset.contentPresentation=showing;editor.render();}
         root.querySelectorAll('th[data-column],td[data-field]').forEach(e=>{const chosen=selected?.kind==='column'&&(e.dataset.column||e.dataset.field)===selected.field;e.dataset.columnSelected=String(chosen);if(e.matches('th'))e.setAttribute('aria-selected',String(chosen));});
         if(root.querySelector('[data-inline-editing=true],[data-structure-dragging],[data-structure-popup]')){toolbar.hidden=true;return;}
-        if(!active()||!selected||card()?.dataset.selected==='false'||card()?.dataset.inactive==='true'){toolbar.hidden=true;return;}
+        if(!active()||!selected||!context()?.selected){toolbar.hidden=true;return;}
         const key=JSON.stringify([selected,getTable().fields,editor.selection().flat().length]);if(key!==signature){signature=key;build();}
-        let anchor=selected.kind==='cell'?findCell():selected.kind==='column'?[...root.querySelectorAll('th[data-column]')].find(e=>e.dataset.column===selected.field):card();
-        if(!anchor){selected={kind:'table'};signature='';return;}
-        toolbar.hidden=false;const r=anchor.getBoundingClientRect(),bounds=card().closest('.dae-creative').getBoundingClientRect();toolbar.style.boxSizing='border-box';toolbar.style.maxWidth=Math.max(160,Math.min(bounds.width,document.documentElement.clientWidth)-32)+'px';const h=toolbar.getBoundingClientRect().height,w=toolbar.getBoundingClientRect().width;
+        let anchor=selected.kind==='cell'?findCell():selected.kind==='column'?[...root.querySelectorAll('th[data-column]')].find(e=>e.dataset.column===selected.field):null;
+        if(!anchor&&selected.kind!=='table'){selected={kind:'table'};signature='';return;}
+        toolbar.hidden=false;const r=anchor?anchor.getBoundingClientRect():context().getBounds(),bounds=context().getViewport();toolbar.style.boxSizing='border-box';toolbar.style.maxWidth=Math.max(160,Math.min(bounds.width,document.documentElement.clientWidth)-32)+'px';const h=toolbar.getBoundingClientRect().height,w=toolbar.getBoundingClientRect().width;
         if(r.bottom<bounds.top||r.top>bounds.bottom){toolbar.hidden=true;return;}
         toolbar.style.left=Math.max(bounds.left+8,Math.min(r.left,Math.min(bounds.right,document.documentElement.clientWidth)-w-16))+'px';toolbar.style.top=Math.max(bounds.top+8,Math.min(r.top-h-10>=bounds.top?r.top-h-10:r.bottom+10,bounds.bottom-h-8))+'px';
     }

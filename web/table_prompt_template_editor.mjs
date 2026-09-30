@@ -1,4 +1,4 @@
-import {createTableButton as button} from './table_controls.mjs?v=20260930-inline4';
+import {createTableButton as button} from './table_controls.mjs?v=20260930-public-layout4';
 import {isColumnPrompt,effectivePrompt,toColumnPrompt,validateColumnPrompt,resolveColumnPrompt,setColumnTemplate} from './table_prompt_template.mjs?v=20260930-inline4';
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};
 export function readPromptSegments(box,kind='column') {

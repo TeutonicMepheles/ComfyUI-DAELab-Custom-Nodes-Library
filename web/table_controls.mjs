@@ -20,7 +20,7 @@ export function tableTheme() {
     if (document.getElementById('dae-table-ui-css')) return;
     const sheet = document.createElement('link');
     sheet.id = 'dae-table-ui-css'; sheet.rel = 'stylesheet';
-    sheet.href = new URL('./table_ui.css?v=20260930-table-surfaces3', import.meta.url).href;
+    sheet.href = new URL('./table_ui.css?v=20260930-public-layout4', import.meta.url).href;
     document.head.append(sheet);
 }
 

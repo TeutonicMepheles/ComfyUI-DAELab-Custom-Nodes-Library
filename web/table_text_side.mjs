@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-inline4';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-public-layout4';
 
 // Instance-owned, non-modal text dock. Collapsing preserves the current draft.
 export function createTextSide({root}) {

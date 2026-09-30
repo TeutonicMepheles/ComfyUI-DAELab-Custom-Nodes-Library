@@ -178,3 +178,9 @@ Template acceptance (2026-09-29):
 - Prompt lines use 28px line-height with 24px reference chips; media and labels align within the same line box.
 - Starting inline editing clears the table selection through the existing selection owner and dismisses the contextual toolbar. Editing cells have no selected background or selection border.
 - Verified in two actual ComfyUI table instances: `data-selected=false`, transparent editing background, no selection shadow, and linked asset outline offset -2px. All 33 table tests pass. Screenshots: `output/table-ui-review/inline-highlight-fix.png` and `inline-edit-deselected.png` in the ComfyUI workspace.
+
+## 公共宿主边界 · 2026-09-30
+
+本轮继续以完整本地备份 e9fe664 为业务基线，不切换旧远端 main。适配器声明 presentation 和 selectionSurface；Canvas 拥有卡片、标题、选中轮廓与视口平移。业务通过 API v1 的 getPanelContext 读取呈现、选中状态和边界，操作栏及拖动自动平移不再查询宿主 CSS 类或派发 WheelEvent。
+
+table_structure 删除逐帧末行／末列位移；表内末行、末列与横向滚动由 table_ui 自身管理。数据、生成状态、LibTV、列宽比例和结构编辑事务仍归业务库。原生两实例、模式归还／恢复、保存重载及 23%／44% 缩放检查通过；未进行付费生成。须配套当前 Canvas 公共布局接口版本更新。

@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-result-sync3';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-public-layout4';
 import {connectionPanel} from './libtv_connection.mjs';
 import {generationReportNeedsApply,generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs?v=20260930-result-sync3';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
@@ -27,7 +27,7 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
  const live=new Map();
  const style=el('style',document.head);style.textContent=`
 .dae-ui [data-generation-source]{display:none}
-.dae-creative .dae-ui [data-generation-source]{display:grid}
+[data-canvas-panel=true] .dae-ui [data-generation-source]{display:grid}
 .dae-ui .generation-header-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
 .dae-ui .generation-header-row>.field-title{flex:1;min-width:0;padding-right:0!important}
 .dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}

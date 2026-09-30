@@ -1,8 +1,8 @@
 import {bindInlineEditor} from './table_inline_editor.mjs?v=20260930-inline4';
 import {isColumnPrompt,effectivePrompt,columnValue,toColumnPrompt} from './table_prompt_template.mjs?v=20260930-inline4';
-import {openColumnPromptEditor,readPromptSegments} from './table_prompt_template_editor.mjs?v=20260930-inline4';
+import {openColumnPromptEditor,readPromptSegments} from './table_prompt_template_editor.mjs?v=20260930-public-layout4';
 import {clone} from './data_table_model.mjs?v=20260930-inline4';
-import {tableButton as button} from './data_table_editor.mjs?v=20260930-divider-hover';
+import {tableButton as button} from './data_table_editor.mjs?v=20260930-public-layout4';
 import {promptConfig,promptField,promptAssets,tableAssets,resolvePromptAsset,promptText,promptState,isPrompt,validatePrompt,applyPromptResults,PromptRequests} from './table_prompt_model.mjs?v=20260930-inline4';
 
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};

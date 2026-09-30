@@ -1,5 +1,5 @@
 import {addField,addRecord,clone,uid,removeField} from './data_table_model.mjs?v=20260930-inline4';
-import {tableButton as button} from './data_table_editor.mjs?v=20260930-divider-hover';
+import {tableButton as button} from './data_table_editor.mjs?v=20260930-public-layout4';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
 
 export function addAssetGroup(table) {

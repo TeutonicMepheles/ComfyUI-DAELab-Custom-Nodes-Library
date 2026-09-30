@@ -1,18 +1,18 @@
-import {attachTableStructure} from './table_structure.mjs?v=20260930-table-surfaces3';
-import {createTextSide} from './table_text_side.mjs?v=20260929-refs3';
-import {renderContentCell} from './table_content_view.mjs?v=20260930-table-surfaces3';
+import {attachTableStructure} from './table_structure.mjs?v=20260930-public-layout4';
+import {createTextSide} from './table_text_side.mjs?v=20260930-public-layout4';
+import {renderContentCell} from './table_content_view.mjs?v=20260930-public-layout4';
 import {clone,uid,addField,removeField,addRecord,duplicateSelected,reorder,setValue,transferValue,parseTSV,pasteMatrix,encodeTSV,SnapshotHistory,emptyValue,convertValue,FIELD_TYPES} from './data_table_model.mjs?v=20260930-header-row';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
 import {conflictChoice} from './table_cell_choice.mjs';
 import {isPrompt,promptText} from './table_prompt_model.mjs?v=20260930-inline4';
-import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-divider-hover';
+import {attachColumnSplitters} from './table_column_splitters.mjs?v=20260930-public-layout1';
 import {videoReferenceFields,setVideoReference} from './table_video_references.mjs?v=20260929-refs3';
 
 let copiedRegion=null;
 export const FIELD_LABELS={content:'内容',text:'文本',longtext:'多行文本',number:'数字',checkbox:'勾选',select:'单选',assets:'素材',json:'结构化原文'};
-export {createTableButton as tableButton} from './table_controls.mjs?v=20260930-table-surfaces3';
-import {createTableButton as tableButton,tableTheme,tableIcon} from './table_controls.mjs?v=20260930-table-surfaces3';
+export {createTableButton as tableButton} from './table_controls.mjs?v=20260930-public-layout4';
+import {createTableButton as tableButton,tableTheme,tableIcon} from './table_controls.mjs?v=20260930-public-layout4';
 const element=(tag,className,parent)=>{const e=document.createElement(tag);if(className)e.className=className;if(parent)parent.append(e);return e;};
 const MIME='application/x-daelab-table';
 
@@ -124,7 +124,7 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
     const scroll=[shell.scrollLeft,shell.scrollTop],t=getTable(),fs=fields();root.dataset.view=t.view;root.dataset.fieldCount=String(fs.length);root.style.setProperty('--dae-card-columns',String(Math.max(1,Math.min(3,fs.length))));view.value=t.view;root.dataset.density=t.meta.density||'comfortable';density.value=root.dataset.density;shell.replaceChildren();
     const table=element('table','',shell);table.setAttribute('role','grid');table.setAttribute('aria-label','数据表');
     table.style.setProperty('--dae-table-width',((displayContent()?116:58)+fs.reduce((sum,f)=>sum+f.width,0))+'px');
-    const fluid=Boolean(root.closest('.dae-creative')),choiceWidth=displayContent()?68:58,totalWidth=fs.reduce((sum,f)=>sum+f.width,0);table.dataset.fluid=String(fluid);table.dataset.choiceWidth=String(choiceWidth);
+    const fluid=Boolean(globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)),choiceWidth=displayContent()?68:58,totalWidth=fs.reduce((sum,f)=>sum+f.width,0);table.dataset.fluid=String(fluid);table.dataset.choiceWidth=String(choiceWidth);
     table.style.setProperty('--dae-table-min-width',(choiceWidth+fs.length*100+(displayContent()?48:0))+'px');
     const cols=element('colgroup','',table);element('col','',cols).style.width=choiceWidth+'px';for(const f of fs)element('col','',cols).style.width=fluid?`${100*f.width/(totalWidth+choiceWidth)}%`:f.width+'px';
     const head=element('tr','',element('thead','',table)),selectionHead=element('th','table-choice',head),all=element('input','',selectionHead);all.type='checkbox';all.setAttribute('aria-label','选择全部记录');all.checked=!!t.records.length&&t.records.every(r=>r.selected);all.indeterminate=t.records.some(r=>r.selected)&&!all.checked;all.onchange=()=>change(n=>n.records.forEach(r=>r.selected=all.checked));

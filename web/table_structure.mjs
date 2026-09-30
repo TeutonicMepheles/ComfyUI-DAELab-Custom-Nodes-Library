@@ -1,6 +1,6 @@
 import {addGenerationColumn} from './table_generation_model.mjs';
 import {addField,addRecord,emptyValue} from './data_table_model.mjs?v=20260930-inline4';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-table-surfaces3';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-public-layout4';
 import {moveRows,moveColumn} from './table_structure_model.mjs';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);node.className=cls;if(text)node.textContent=text;return node;};
@@ -82,30 +82,6 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
     const foot=table.createTFoot(),footRow=foot.insertRow(),footCell=footRow.insertCell();footCell.colSpan=headers().length+2;footCell.className='table-add-row-cell';
     const addRowButton=control('＋ 新增行',()=>addRow(),'table-add-row');
     addRowButton.replaceChildren(el('span','table-add-row-label','＋ 新增行'));footCell.append(addRowButton);
-    // Keep terminal actions inside the visible canvas intersection, even when
-    // the canvas pans a full-height table rather than scrolling its contents.
-    let pinFrame=0,columnOffset={x:0,y:0},rowOffset=0;
-    function pinActions(){
-        if(disposed)return;
-        if(root.getClientRects().length){
-            const view=root.closest('.dae-creative')?.getBoundingClientRect();
-            const bounds=shell.getBoundingClientRect(),scale=bounds.width/shell.offsetWidth||1;
-            const left=Math.max(bounds.left,view?.left||0),right=Math.min(bounds.right,view?.right||innerWidth,innerWidth);
-            const top=Math.max(bounds.top,view?.top||0),bottom=Math.min(bounds.bottom,(view?.bottom||innerHeight)-64,innerHeight-12);
-            const c=trailing.getBoundingClientRect(),f=footCell.getBoundingClientRect();
-            const naturalRight=c.right-columnOffset.x*scale,naturalTop=c.top-columnOffset.y*scale;
-            const naturalBottom=f.bottom-rowOffset*scale;
-            columnOffset={x:Math.min(0,(right-naturalRight)/scale),y:Math.max(0,(top-naturalTop)/scale)};
-            rowOffset=Math.min(0,(bottom-naturalBottom)/scale);
-            const visible=right-left>80&&bottom-top>90;
-            trailing.style.transform=visible?`translate(${columnOffset.x}px,${columnOffset.y}px)`:'';
-            footCell.style.transform=visible?`translateY(${rowOffset}px)`:'';
-            if(!visible){columnOffset={x:0,y:0};rowOffset=0;}
-        }
-        pinFrame=requestAnimationFrame(pinActions);
-    }
-    pinFrame=requestAnimationFrame(pinActions);
-
     const corner=table.querySelector('th.table-choice');corner.querySelector('input').title='选择全部行';
     for(const row of rows()){
         const id=row.dataset.recordId,number=getTable().records.findIndex(r=>r.id===id)+1,gutter=row.querySelector('.table-choice'),old=row.querySelector('.row-grip');
@@ -162,10 +138,11 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
         if(!root.getClientRects().length||root.closest('[inert],[hidden]')||JSON.stringify(getTable())!==drag.snapshot){finish(true);return;}
         const elapsed=Math.min(0.04,(now-drag.last)/1000);drag.last=now;
         if(drag.moving){
-            const r=shell.getBoundingClientRect(),edge=36,speed=(value,low,high)=>value<low+edge?-Math.min(1,(low+edge-value)/edge):value>high-edge?Math.min(1,(value-high+edge)/edge):0;
-            const dx=speed(drag.x,Math.max(0,r.left),Math.min(innerWidth,r.right))*elapsed*520,dy=speed(drag.y,Math.max(0,r.top),Math.min(innerHeight,r.bottom))*elapsed*520;
+            const context=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
+            const view=context?.getViewport(),r=shell.getBoundingClientRect(),edge=36,speed=(value,low,high)=>value<low+edge?-Math.min(1,(low+edge-value)/edge):value>high-edge?Math.min(1,(value-high+edge)/edge):0;
+            const dx=speed(drag.x,Math.max(view?.left||0,r.left),Math.min(view?.right||innerWidth,r.right))*elapsed*520,dy=speed(drag.y,Math.max(view?.top||0,r.top),Math.min(view?.bottom||innerHeight,r.bottom))*elapsed*520;
             if(drag.kind==='column')shell.scrollLeft+=dx;
-            if(drag.kind==='row'&&dy){if(shell.scrollHeight>shell.clientHeight+2)shell.scrollTop+=dy;else root.closest('.dae-creative')?.dispatchEvent(new WheelEvent('wheel',{deltaY:dy,bubbles:true,cancelable:true}));}
+            if(drag.kind==='row'&&dy){if(shell.scrollHeight>shell.clientHeight+2)shell.scrollTop+=dy;else context?.panBy(0,dy);}
             ghost.style.left=Math.min(innerWidth-ghost.offsetWidth-8,Math.max(8,drag.x+16))+'px';ghost.style.top=Math.min(innerHeight-ghost.offsetHeight-8,Math.max(8,drag.y+16))+'px';updateTarget();
         }frame=requestAnimationFrame(tick);
     }
@@ -194,5 +171,5 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
     listen(root,'lostpointercapture',()=>finish(true));
     listen(document,'keydown',e=>{if(drag&&e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(true);}},{capture:true});
     listen(window,'blur',()=>finish(true));
-    return {dispose(){disposed=true;cancelAnimationFrame(pinFrame);finish(true);closeColumn();events.abort();guide.remove();ghost.remove();delete root.dataset.structure;}};
+    return {dispose(){disposed=true;finish(true);closeColumn();events.abort();guide.remove();ghost.remove();delete root.dataset.structure;}};
 }

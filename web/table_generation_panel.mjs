@@ -169,8 +169,12 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
  function decorate(){
   if(!alive)return;
   for(const run of editor.root.querySelectorAll('[data-generation-run]'))run.disabled=submitting;
-  for(const field of getTable().fields.filter(isGeneration)){
-   const header=[...editor.root.querySelectorAll('th[data-column]')].find(h=>h.dataset.column===field.id);
+  const table=getTable(),fields=table.fields.filter(isGeneration);if(!fields.length)return;
+  const rows=new Map(table.records.map(row=>[row.id,row])),headers=new Map([...editor.root.querySelectorAll('th[data-column]')].map(h=>[h.dataset.column,h])),cells=new Map(fields.map(f=>[f.id,[]]));
+  for(const cell of editor.root.querySelectorAll('td[data-field]'))cells.get(cell.dataset.field)?.push(cell);
+  let refresh=false;
+  for(const field of fields){
+   const header=headers.get(field.id);
    if(header&&!header.querySelector('.generation-actions')){
     const row=el('div',header);row.className='generation-header-row';
     const title=header.querySelector('.field-title');if(title)row.append(title);
@@ -184,8 +188,8 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
     const output=document.createElement('button');output.type='button';output.className='dae-material-slot';output.dataset.generationSource=field.id;output.setAttribute('aria-label','输出为素材组');output.title='拖到画布空白处输出素材组';actions.append(output);
     actions.onpointerdown=e=>e.stopPropagation();actions.ondragstart=e=>e.preventDefault();
    }
-   for(const cell of editor.root.querySelectorAll('td[data-field]'))if(cell.dataset.field===field.id&&!cell.querySelector('.generation-cell-state')){
-    const row=getTable().records.find(r=>r.id===cell.dataset.record),state=row?.meta?.generationColumns?.[field.id];
+   for(const cell of cells.get(field.id))if(!cell.querySelector('.generation-cell-state')){
+    const row=rows.get(cell.dataset.record),state=row?.meta?.generationColumns?.[field.id];
     const preview=cell.querySelector('.content-display')||cell;
     const phase=state?.phase||'idle',busy=['waiting','running'].includes(phase);
     const label=(phaseNames[phase]||'尚未生成')+(state?.error?' · '+state.error:'');
@@ -212,10 +216,10 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
      }));}dialog.append(button('关闭',()=>dialog.remove()));
     }),'folder-image-line','已有生成结果'));
     status.onpointerdown=e=>e.stopPropagation();status.onmousedown=e=>e.stopPropagation();status.ondblclick=e=>e.stopPropagation();
-    if(busy)refreshLive();
-
+    if(busy)refresh=true;
    }
   }
+  if(refresh)refreshLive();
  }
  const observer=new MutationObserver(decorate);observer.observe(editor.root,{childList:true,subtree:true});
  const created=e=>open(e.detail.fieldId);editor.root.addEventListener('dae-generation-created',created);

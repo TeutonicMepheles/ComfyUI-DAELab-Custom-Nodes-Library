@@ -35,7 +35,7 @@ cell.addEventListener('dae-upload',()=>picker.click());
 // owner. This module never reads another plugin's node or private application state.
 export function installContentPresentation({root,editor,getTable,notify,editPromptTemplate}){
     const toolbar=el('aside','dae-ui content-context');toolbar.setAttribute('role','toolbar');toolbar.setAttribute('aria-label','表格选中操作');toolbar.hidden=true;document.body.append(toolbar);
-    let selected=null,signature='',disposed=false;
+    let selected=null,signature='',disposed=false,columnGrid=null,columnSelection=null;
     const context=()=>globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
     const active=()=>context()?.presentation==='content'&&root.isConnected&&!!context()?.getViewport();
     const findCell=()=>[...root.querySelectorAll('td[data-field]')].find(e=>e.dataset.field===selected?.field&&e.dataset.record===selected?.record);
@@ -67,7 +67,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
     function choose(e){
         if(toolbar.contains(e.target)||e.target.closest('dialog,.table-text-side,.table-column-popover,.table-structure-control,.table-choice input,.generation-actions,.generation-cell-state'))return;
         if(e.type==='focusin'&&!root.contains(e.target))return;
-        if(!active()||!context()?.contains(e.target)){selected=null;toolbar.hidden=true;return;}
+        if(!active()||!context()?.contains(e.target)){if(selected)editor.clearSelection();selected=null;toolbar.hidden=true;queueMicrotask(tick);return;}
         if(e.target.closest('[data-inline-editing=true]')){selected=null;editor.clearSelection();toolbar.hidden=true;root.querySelectorAll('[data-column-selected]').forEach(e=>delete e.dataset.columnSelected);return;}
         const cell=e.target.closest('td[data-field]'),th=e.target.closest('th[data-column]'),row=e.target.closest('.table-choice[data-content-row]');
         selected=cell?{kind:'cell',field:cell.dataset.field,record:cell.dataset.record}:th?{kind:'column',field:th.dataset.column}:row?{kind:'row',record:row.dataset.contentRow}:{kind:'table'};
@@ -75,10 +75,21 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
     }
     function tick(){
         if(disposed)return;const showing=String(active());if(root.dataset.contentPresentation!==showing){root.dataset.contentPresentation=showing;editor.render();}
-        root.querySelectorAll('th[data-column],td[data-field]').forEach(e=>{const chosen=selected?.kind==='column'&&(e.dataset.column||e.dataset.field)===selected.field;e.dataset.columnSelected=String(chosen);if(e.matches('th'))e.setAttribute('aria-selected',String(chosen));});
-        if(root.querySelector('[data-inline-editing=true],[data-structure-dragging],[data-structure-popup]')){toolbar.hidden=true;return;}
+        const chosen=String(showing==='true'&&!!context()?.selected);if(root.dataset.contentSelected!==chosen)root.dataset.contentSelected=chosen;
+        if(chosen==='false'&&selected){selected=null;editor.clearSelection();}
+        if(showing!=='true'){columnGrid=null;columnSelection=null;toolbar.hidden=true;return;}
+        const grid=root.querySelector('table'),column=selected?.kind==='column'?selected.field:null;
+        if(grid!==columnGrid||column!==columnSelection){
+            columnGrid=grid;columnSelection=column;
+            root.querySelectorAll('th[data-column],td[data-field]').forEach(e=>{const chosen=String(Boolean(column)&&(e.dataset.column||e.dataset.field)===column);if(e.dataset.columnSelected!==chosen)e.dataset.columnSelected=chosen;if(e.matches('th')&&e.getAttribute('aria-selected')!==chosen)e.setAttribute('aria-selected',chosen);});
+        }
         if(!active()||!selected||!context()?.selected){toolbar.hidden=true;return;}
         const key=JSON.stringify([selected,getTable().fields,editor.selection().flat().length]);if(key!==signature){signature=key;build();}
+        positionToolbar();
+    }
+    function positionToolbar(){
+        if(disposed)return;
+        if(!selected||!context()?.selected||!active()||root.querySelector('[data-inline-editing=true],[data-structure-dragging],[data-structure-popup]')){toolbar.hidden=true;return;}
         let anchor=selected.kind==='cell'?findCell():selected.kind==='column'?[...root.querySelectorAll('th[data-column]')].find(e=>e.dataset.column===selected.field):null;
         if(!anchor&&selected.kind!=='table'){selected={kind:'table'};signature='';return;}
         toolbar.hidden=false;const r=anchor?anchor.getBoundingClientRect():context().getBounds(),bounds=context().getViewport();toolbar.style.boxSizing='border-box';toolbar.style.maxWidth=Math.max(160,Math.min(bounds.width,document.documentElement.clientWidth)-32)+'px';const h=toolbar.getBoundingClientRect().height,w=toolbar.getBoundingClientRect().width;
@@ -87,9 +98,11 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
     }
     const double=e=>{if(e.target.closest('button,input,.dae-column-divider'))return;const th=e.target.closest('th[data-column]');if(th&&root.contains(th)&&active()){selected={kind:'column',field:th.dataset.column};rename();}};
     const showPreview=e=>preview(e.detail);
+    const layout=()=>{if(root.dataset.contentPresentation!=='true'&&context()?.presentation==='content')tick();else positionToolbar();};
     const escape=e=>{if(e.key==='Escape'&&!e.target.matches('input,textarea,select')){selected=null;editor.clearSelection();toolbar.hidden=true;tick();}};
     for(const type of ['pointerdown','focusin'])document.addEventListener(type,choose,true);
     document.addEventListener('keydown',escape,true);root.addEventListener('dblclick',double);root.addEventListener('dae-preview',showPreview);
+    globalThis.addEventListener('dae-canvas-layout',layout);
     const timer=setInterval(tick,100);
-    return {close(){selected=null;toolbar.hidden=true;},destroy(){disposed=true;clearInterval(timer);toolbar.remove();for(const type of ['pointerdown','focusin'])document.removeEventListener(type,choose,true);document.removeEventListener('keydown',escape,true);root.removeEventListener('dblclick',double);root.removeEventListener('dae-preview',showPreview);}};
+    return {close(){if(selected)editor.clearSelection();selected=null;toolbar.hidden=true;},destroy(){disposed=true;clearInterval(timer);toolbar.remove();for(const type of ['pointerdown','focusin'])document.removeEventListener(type,choose,true);document.removeEventListener('keydown',escape,true);root.removeEventListener('dblclick',double);root.removeEventListener('dae-preview',showPreview);globalThis.removeEventListener('dae-canvas-layout',layout);}};
 }

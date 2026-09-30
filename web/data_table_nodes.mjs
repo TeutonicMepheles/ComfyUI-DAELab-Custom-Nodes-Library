@@ -1,6 +1,6 @@
 import {attachGenerationColumns} from './table_generation_panel.mjs?v=20260930-public-layout4';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
-import {installContentPresentation} from './table_content_view.mjs?v=20260930-public-layout4';
+import {installContentPresentation} from './table_content_view.mjs?v=20261001-selection-clear';
 import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-public-layout4';
 import {createWorkbench,showExistingPanel} from './table_workbench.mjs?v=20260930-public-layout4';
 import {workbenchTheme} from './table_workbench_theme.mjs';

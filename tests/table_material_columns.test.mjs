@@ -8,14 +8,15 @@ test('two independent 2x2 tables with single media cells',()=>{
  fillMaterialColumn(a,a.fields[0].id,group(3));assert.equal(b.records.length,2);assert.equal(b.records[0].values[b.fields[0].id].length,0);
  assert.throws(()=>setValue(a,a.records[0].id,a.fields[0].id,[{url:'/view?a'},{url:'/view?b'}]),/最多一个/);
 });
-test('ordered mixed media, stable rows and other columns, exact grow/shrink and undo',()=>{
+test('ordered mixed media grows rows and preserves trailing rows, other columns and undo',()=>{
  const t=createMaterialTable(),[a,b]=t.fields,ids=t.records.map(r=>r.id);
  fillMaterialColumn(t,b.id,group(2));const other=clone(t.records[0].values[b.id]);
  const before=JSON.stringify(t),h=new SnapshotHistory();fillMaterialColumn(t,a.id,group(3));h.record(before,JSON.stringify(t));
  assert.deepEqual(t.records.slice(0,2).map(r=>r.id),ids);assert.deepEqual(t.records[0].values[b.id],other);
  assert.deepEqual(t.records.map(r=>r.values[a.id][0].kind),['image','video','image']);
  assert.deepEqual(h.restore(JSON.stringify(t)),JSON.parse(before));
- fillMaterialColumn(t,a.id,group(1));assert.equal(t.records.length,1);
+ const trailing=clone(t.records.slice(1));
+ fillMaterialColumn(t,a.id,group(1));assert.equal(t.records.length,3);assert.deepEqual(t.records.slice(1),trailing);
  assert.deepEqual(normalizeTable(JSON.stringify(t)),t);
 });
 test('invalid or missing sources do not partially overwrite cells',()=>{
@@ -24,7 +25,7 @@ test('invalid or missing sources do not partially overwrite cells',()=>{
  assert.equal(JSON.stringify(t),before);
 });
 
-test('empty group clears the rows and can be undone',()=>{const t=createMaterialTable();fillMaterialColumn(t,t.fields[0].id,group(0));assert.equal(t.records.length,0);});
+test('empty group preserves existing rows and values',()=>{const t=createMaterialTable();fillMaterialColumn(t,t.fields[0].id,group(2));const before=clone(t);fillMaterialColumn(t,t.fields[0].id,group(0));assert.deepEqual(t,before);});
 
 test('one content column mixes text and media, saves goal and round trips',()=>{
  const t=createMaterialTable(),f=t.fields[0];f.goal='image';

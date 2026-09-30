@@ -18,7 +18,6 @@ export function fillMaterialColumn(table,fieldId,collection){
     if(assets.some(a=>a.missing||!a.filename||!['image','video'].includes(a.kind)))throw new Error('素材组中有缺失或不支持的素材，未修改表格');
     const previous=table.records.map(r=>r.values[fieldId]?.[0]);
     while(table.records.length<assets.length)addRecord(table);
-    table.records.length=assets.length;
     field.maxItems=1;
     assets.forEach((asset,index)=>{
         const url='/view?'+new URLSearchParams({filename:asset.filename,subfolder:asset.subfolder||'',type:asset.type||'input'});

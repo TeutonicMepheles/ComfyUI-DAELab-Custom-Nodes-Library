@@ -1,7 +1,7 @@
 import {generationMaterials} from './table_material_output.mjs?v=20260930-existing-results';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.
-import {createMaterialTable,fillMaterialColumn} from './table_material_columns.mjs';
+import {createMaterialTable,fillMaterialColumn} from './table_material_columns.mjs?v=20261001-preserve-rows';
 import {app} from '/scripts/app.js';
 const key=Symbol.for('DAELAB.CreativeCanvas.API.v1');
 const tables=['DAELAB.Table','DAELAB.StoryboardImport','DAELAB.ComfyTV.GPTImageStoryboardStage'];

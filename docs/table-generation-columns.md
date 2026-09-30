@@ -108,3 +108,7 @@ Local table development contains existing uncommitted surface changes; these are
 参数校验按当前生成方式选择 settings 和 advancedSettings，避免 duration_auto/ratio_auto 覆盖单图模式参数。时长输入按 slider/min 识别数字类型。处理中恢复提示使用普通状态色；平台完成但缺少视频地址时提示等待结果写回。
 
 生成类型列最小宽度为 400px；图标与列名、编辑、生成和停止按钮使用单行表头。长列名省略显示，列宽拖动及窄视口布局均遵守同一宽度下限。
+
+### 预览内状态控件
+
+生成状态与操作叠放在 content-display 右上角，不增加单元格行高。waiting/running 显示不确定进度圆环（当前 CLI 没有向表格持续返回真实百分比），complete 显示勾；异常显示可点击的错误图标，完整说明保留在悬浮提示和详情。恢复与重新生成使用图标按钮，仍遵守原任务 ID 和明确重新生成语义。复用 table_controls 的共享按钮及本地 Remix 图标，并支持减少动态效果。

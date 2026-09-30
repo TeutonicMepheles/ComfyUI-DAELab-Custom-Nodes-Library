@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-gear';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-overlay';
 import {connectionPanel} from './libtv_connection.mjs';
 import {generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
@@ -19,8 +19,15 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
 .dae-ui .generation-actions .generation-settings{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;max-height:36px!important;padding:8px!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important}
 .dae-ui .generation-actions .generation-settings:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
 .dae-ui .generation-actions .generation-settings .dae-table-icon{width:20px;height:20px;flex:none}
-.dae-ui .generation-cell-state{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;white-space:normal;overflow-wrap:anywhere}
+.dae-ui .generation-cell-state{position:absolute;right:8px;top:8px;z-index:3;display:flex;gap:4px;align-items:center;width:max-content;padding:4px;border-radius:22px;background:var(--dae-surface,#242424);color:var(--dae-text,#fff);box-shadow:0 1px 5px #0005}
+.dae-ui .generation-cell-state :is(button,.generation-state-icon){display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:6px!important;border:0!important;border-radius:50%!important;background:transparent!important}
+.dae-ui .generation-cell-state button:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
+.dae-ui .generation-cell-state .dae-table-icon{display:block;width:20px;height:20px;background:currentColor;mask:var(--table-icon) center/contain no-repeat}
 .dae-ui .generation-cell-state[data-error=true]{color:var(--dae-error,#ffb4ab)}
+.dae-ui .generation-cell-state[data-phase=complete] .generation-state-icon{color:var(--dae-success,#98d7ad)}
+.dae-ui .generation-progress{box-sizing:border-box;width:20px;height:20px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:dae-generation-spin 1s linear infinite}
+@keyframes dae-generation-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.dae-ui .generation-progress{animation:none;border-style:dashed}}
 .dae-ui .generation-form{display:flex;flex-direction:column;gap:14px}
 .dae-ui .generation-form label{display:flex;flex-direction:column;gap:6px;min-width:0}
 .dae-ui .generation-form :is(input,select){box-sizing:border-box;width:100%;min-width:0;min-height:36px;font:inherit;color:var(--dae-text);background:var(--dae-surface);border:1px solid var(--dae-border-control);border-radius:6px;padding:6px}
@@ -137,10 +144,15 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
    }
    for(const cell of editor.root.querySelectorAll('td[data-field]'))if(cell.dataset.field===field.id&&!cell.querySelector('.generation-cell-state')){
     const row=getTable().records.find(r=>r.id===cell.dataset.record),state=row?.meta?.generationColumns?.[field.id];
-    const status=el('div',cell);status.className='generation-cell-state';status.setAttribute('role','status');status.dataset.error=String(Boolean(state?.error)&&!['running','waiting'].includes(state?.phase));
-    el('span',status,state?(phaseNames[state.phase]||state.phase)+(state.error?' · '+state.error:''):'尚未生成');
-    if(state?.phase==='stale'&&state.result)status.append(button('查看旧输入结果',()=>cell.dispatchEvent(new CustomEvent('dae-preview',{bubbles:true,detail:state.result}))));
-    if(!['waiting','running'].includes(state?.phase))status.append(button(state?.phase==='needs_recovery'?'恢复任务':state?.phase==='complete'?'重新生成':'生成此行',()=>generate(field.id,row.id,state?.phase==='needs_recovery')));
+    const preview=cell.querySelector('.content-display')||cell;
+    const phase=state?.phase||'idle',busy=['waiting','running'].includes(phase);
+    const label=(phaseNames[phase]||'尚未生成')+(state?.error?' · '+state.error:'');
+    const status=el('div',preview);status.className='generation-cell-state';status.dataset.phase=phase;status.dataset.error=String(Boolean(state?.error)&&!busy);status.setAttribute('role','status');status.setAttribute('aria-label',label);status.title=label;
+    if(busy){const ring=el('span',status);ring.className='generation-progress';ring.setAttribute('role','progressbar');ring.setAttribute('aria-label',label);}
+    else if(state){const indicator=tableIcon(button(label,()=>notify(label)),phase==='complete'?'check-line':'error-warning-line',label);indicator.classList.add('generation-state-icon');status.append(indicator);}
+    if(!busy){const recover=phase==='needs_recovery'||phase==='stopped',retry=Boolean(state);const actionLabel=recover?'恢复原任务':retry?'重新生成':'生成此行';status.append(tableIcon(button(actionLabel,()=>generate(field.id,row.id,recover)),retry?'restart-line':'play-line',actionLabel));}
+    status.onpointerdown=e=>e.stopPropagation();status.ondblclick=e=>e.stopPropagation();
+
    }
   }
  }

@@ -20,3 +20,5 @@ The bundled Remix Icon license applies.
 
 - `draggable.svg`: Remix Icon Editor/draggable, six-dot row/column move handle. Source: https://github.com/Remix-Design/RemixIcon/blob/master/icons/Editor/draggable.svg
 settings-3-line.svg: Remix Icon 4.6.0, settings gear; bundled from the official remixicon npm package.
+
+check-line.svg, error-warning-line.svg, restart-line.svg, play-line.svg: Remix Icon 4.6.0; generation preview status and actions.

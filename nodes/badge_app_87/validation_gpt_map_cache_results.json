@@ -1,0 +1,46 @@
+[
+  {
+    "case": "gpt_color_map",
+    "request": {
+      "version": 1,
+      "width": 1024,
+      "height": 1024,
+      "quality": "low",
+      "count": 1,
+      "seed": 87,
+      "session": "28b8bea3-1aa5-4596-bd66-8c76892a2362",
+      "nonce": "cbece74e-3c9b-40d2-bb09-93976784a9d9",
+      "case": "gpt_color_map",
+      "stage": "color_map",
+      "image": {
+        "filename": "flat.png",
+        "subfolder": "badge87-tests",
+        "type": "input"
+      }
+    },
+    "result": {
+      "prompt_id": "a2c6c08a-d3df-493a-8ec7-4e77cd5e4fbd",
+      "status": "success",
+      "seconds": 2.03,
+      "images": [
+        {
+          "filename": "gpt_color_map_00002_.png",
+          "subfolder": "Badge87\\e2e",
+          "type": "output"
+        }
+      ],
+      "report": {
+        "stage": "color_map",
+        "quality": "low",
+        "count": 1,
+        "size": [
+          1024,
+          1024
+        ],
+        "region_calls": 0
+      },
+      "error": null
+    },
+    "passed": true
+  }
+]

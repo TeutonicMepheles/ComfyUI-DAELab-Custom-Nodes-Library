@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAE Custom Node Frontend Checklist"
+  short_description: "Audit node sizing, restore stability, and owned mode behavior"
+  default_prompt: "Use $dae-custom-node-frontend-checklist to audit this node's layout and restore behavior using its owning repository's mode contract."

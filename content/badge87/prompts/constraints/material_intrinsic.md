@@ -1,0 +1,1 @@
+颜色：仅在选区内使用{{material_label}}本色（{{intrinsic_color_hex}}），保留图案和颜色区域边界。

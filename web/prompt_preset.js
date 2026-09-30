@@ -15,8 +15,12 @@ import {
     resolveLinkedBooleanValue,
     setTemplateWidgetsDisabled,
 } from "./prompt_preset_model.mjs";
+import {
+    ensureThumbnailSelectorStyles,
+    renderThumbnailGrid,
+} from "./thumbnail_selector.mjs";
 
-const UI_VERSION = "20260806-seedream5-prompt-v11";
+const UI_VERSION = "20260819-seedream5-prompt-v12";
 const SUPPORTED_NODE_NAMES = new Set([
     "SeedreamExhibitionPromptBuilder",
 ]);
@@ -201,6 +205,7 @@ function getThumbUrl(style) {
 }
 
 function ensureDomStyles() {
+    ensureThumbnailSelectorStyles();
     if (document.getElementById("gpt-image-prompt-preset-style")) return;
     const style = document.createElement("style");
     style.id = "gpt-image-prompt-preset-style";
@@ -599,34 +604,18 @@ function renderStyleDomWidget(widget, node) {
     element.replaceChildren();
 
     const thumbnails = document.createElement("div");
-    thumbnails.className = "gpt-image-preset-thumbnails";
-
-    for (const style of getStyleEntries()) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "gpt-image-preset-button";
-        button.dataset.styleId = style.id;
-        button.dataset.selected = String(style.id === selectedId);
-        button.title = style.label || style.id;
-        button.disabled = element.dataset.disabled === "true";
-
-        const image = document.createElement("img");
-        image.alt = style.label || style.id;
-        image.draggable = false;
-        image.src = getThumbUrl(style);
-
-        const label = document.createElement("span");
-        label.textContent = style.label || style.id;
-
-        button.append(image, label);
-        button.addEventListener("pointerdown", stopCanvasEvent);
-        button.addEventListener("pointerup", stopCanvasEvent);
-        button.addEventListener("click", (event) => {
-            stopCanvasEvent(event);
-            selectStyle(node, widget, style.id);
-        });
-        thumbnails.appendChild(button);
-    }
+    thumbnails.className = "gpt-image-preset-thumbnails daelab-thumbnail-grid";
+    renderThumbnailGrid({
+        container: thumbnails,
+        entries: getStyleEntries(),
+        selectedId,
+        getImageUrl: getThumbUrl,
+        onSelect: (styleId) => selectStyle(node, widget, styleId),
+        buttonClassName: "gpt-image-preset-button",
+        dataKey: "styleId",
+        disabled: element.dataset.disabled === "true",
+        stopEvent: stopCanvasEvent,
+    });
     element.appendChild(thumbnails);
 
     widget.__gptImagePromptPanelControls = null;

@@ -1,0 +1,31 @@
+{
+  "default": {
+    "color_policy": "preserve",
+    "transport": "opaque_locator_image",
+    "optical_constraints": {"preserve_base_lightness": false},
+    "validation": {
+      "enforce_visibility": true,
+      "minimum_visible_mean": 0.006,
+      "minimum_visible_p95": 0.025,
+      "maximum_raw_black_fraction": 0.5,
+      "maximum_raw_transparent_fraction": 0.05
+    }
+  },
+  "materials": {
+    "glitter": {
+      "validation": {"minimum_added_highlight_fraction": 0.002}
+    },
+    "satin_gold": {
+      "color_policy": "material_intrinsic",
+      "transport": "opaque_locator_image"
+    },
+    "satin_silver": {
+      "color_policy": "material_intrinsic",
+      "transport": "opaque_locator_image"
+    }
+  },
+  "aliases": {
+    "亚金": "satin_gold",
+    "亚银": "satin_silver"
+  }
+}

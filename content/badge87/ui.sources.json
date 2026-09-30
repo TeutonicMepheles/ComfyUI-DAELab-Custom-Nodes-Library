@@ -1,0 +1,3346 @@
+[
+  {
+    "key": "app_layout.text_001",
+    "file": "web/badge_app_layout.js",
+    "line": 218,
+    "source": "\"参考图大图\""
+  },
+  {
+    "key": "app_layout.text_002",
+    "file": "web/badge_app_layout.js",
+    "line": 228,
+    "source": "\"参考图大图查看\""
+  },
+  {
+    "key": "app_layout.text_003",
+    "file": "web/badge_app_layout.js",
+    "line": 232,
+    "source": "\"关闭大图\""
+  },
+  {
+    "key": "app_layout.text_004",
+    "file": "web/badge_app_layout.js",
+    "line": 340,
+    "source": "`需要先在控制面板开启“${tab?.title || tabId}”。`"
+  },
+  {
+    "key": "app_layout.text_005",
+    "file": "web/badge_app_layout.js",
+    "line": 383,
+    "source": "\"徽章工作流步骤\""
+  },
+  {
+    "key": "app_layout.text_006",
+    "file": "web/badge_app_layout.js",
+    "line": 387,
+    "source": "\"需要先在控制面板开启此功能。\""
+  },
+  {
+    "key": "app_layout.text_007",
+    "file": "web/badge_app_layout.js",
+    "line": 505,
+    "source": "\"控制状态正在同步，请稍候。\""
+  },
+  {
+    "key": "app_layout.text_008",
+    "file": "web/badge_app_layout.js",
+    "line": 534,
+    "source": "\"尚未生成本次参考图\""
+  },
+  {
+    "key": "app_layout.text_009",
+    "file": "web/badge_app_layout.js",
+    "line": 534,
+    "source": "\"请先选择或上传图片\""
+  },
+  {
+    "key": "app_layout.text_010",
+    "file": "web/badge_app_layout.js",
+    "line": 619,
+    "source": "\"尚未生成本次参考图\""
+  },
+  {
+    "key": "app_layout.text_011",
+    "file": "web/badge_app_layout.js",
+    "line": 620,
+    "source": "\"请先选择或上传图片\""
+  },
+  {
+    "key": "app_layout.text_012",
+    "file": "web/badge_app_layout.js",
+    "line": 623,
+    "source": "\"正在加载参考图…\""
+  },
+  {
+    "key": "app_layout.text_013",
+    "file": "web/badge_app_layout.js",
+    "line": 629,
+    "source": "\"已展开用于取色 · 点击查看无损大图\""
+  },
+  {
+    "key": "app_layout.text_014",
+    "file": "web/badge_app_layout.js",
+    "line": 630,
+    "source": "\"点击查看无损大图\""
+  },
+  {
+    "key": "app_layout.text_015",
+    "file": "web/badge_app_layout.js",
+    "line": 635,
+    "source": "\"参考图加载失败\""
+  },
+  {
+    "key": "app_layout.text_016",
+    "file": "web/badge_app_layout.js",
+    "line": 647,
+    "source": "\"当前功能已关闭，已返回控制面板。\""
+  },
+  {
+    "key": "app_layout.text_017",
+    "file": "web/badge_app_layout.js",
+    "line": 686,
+    "source": "\"正在切换工作流分支…\""
+  },
+  {
+    "key": "app_layout.text_018",
+    "file": "web/badge_app_layout.js",
+    "line": 688,
+    "source": "\"控制状态正在同步…\""
+  },
+  {
+    "key": "app_layout_model.text_001",
+    "file": "web/badge_app_layout_model.mjs",
+    "line": 227,
+    "source": "'配色参考图'"
+  },
+  {
+    "key": "app_layout_model.text_002",
+    "file": "web/badge_app_layout_model.mjs",
+    "line": 290,
+    "source": "\"已开启\""
+  },
+  {
+    "key": "app_layout_model.text_003",
+    "file": "web/badge_app_layout_model.mjs",
+    "line": 290,
+    "source": "\"已关闭\""
+  },
+  {
+    "key": "app_prototype.text_001",
+    "file": "web/badge_app_prototype.js",
+    "line": 18,
+    "source": "'调整面板后点击模拟运行。上传图片作为原型参考素材。'"
+  },
+  {
+    "key": "app_prototype.text_002",
+    "file": "web/badge_app_prototype.js",
+    "line": 34,
+    "source": "'就绪，点击生成。'"
+  },
+  {
+    "key": "app_prototype.text_004",
+    "file": "web/badge_app_prototype.js",
+    "line": 59,
+    "source": "'正在模拟流程…'"
+  },
+  {
+    "key": "app_prototype.text_005",
+    "file": "web/badge_app_prototype.js",
+    "line": 71,
+    "source": "'操作条件已变化，请重新模拟。'"
+  },
+  {
+    "key": "app_prototype.text_006",
+    "file": "web/badge_app_prototype.js",
+    "line": 88,
+    "source": "'效果图生成'"
+  },
+  {
+    "key": "app_prototype.text_007",
+    "file": "web/badge_app_prototype.js",
+    "line": 88,
+    "source": "'效果图生成'"
+  },
+  {
+    "key": "app_prototype.text_008",
+    "file": "web/badge_app_prototype.js",
+    "line": 89,
+    "source": "'标注背景与镂空区域，避免模型误判'"
+  },
+  {
+    "key": "app_prototype.text_009",
+    "file": "web/badge_app_prototype.js",
+    "line": 89,
+    "source": "'标注特殊材质的区域，默认整体为烤漆'"
+  },
+  {
+    "key": "app_prototype.text_010",
+    "file": "web/badge_app_prototype.js",
+    "line": 89,
+    "source": "'标注徽章的结构层次'"
+  },
+  {
+    "key": "app_prototype.text_011",
+    "file": "web/badge_app_prototype.js",
+    "line": 107,
+    "source": "'配置已变化，原型确认已失效，请重新模拟预览。'"
+  },
+  {
+    "key": "app_prototype.text_012",
+    "file": "web/badge_app_prototype.js",
+    "line": 117,
+    "source": "'交互原型 · 不生成图片'"
+  },
+  {
+    "key": "app_prototype.text_013",
+    "file": "web/badge_app_prototype.js",
+    "line": 119,
+    "source": "'独立于 #8.6 生成流程。局部参考图和棚拍主图由你上传；色彩分区图使用本地色彩简化预览。'"
+  },
+  {
+    "key": "app_prototype.text_014",
+    "file": "web/badge_app_prototype.js",
+    "line": 127,
+    "source": "'模拟运行'"
+  },
+  {
+    "key": "app_prototype_model.text_001",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 35,
+    "source": "'请选择一条制作路线。'"
+  },
+  {
+    "key": "app_prototype_model.text_002",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 36,
+    "source": "'请上传材质图。'"
+  },
+  {
+    "key": "app_prototype_model.text_003",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 37,
+    "source": "'高度建立已开启，请上传高度图。'"
+  },
+  {
+    "key": "app_prototype_model.text_004",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 38,
+    "source": "'请上传现有效果图。'"
+  },
+  {
+    "key": "app_prototype_model.text_005",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 39,
+    "source": "'请上传局部选区参考图。'"
+  },
+  {
+    "key": "app_prototype_model.text_006",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 40,
+    "source": "'请选择按颜色或自绘遮罩选区。'"
+  },
+  {
+    "key": "app_prototype_model.text_007",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 41,
+    "source": "'请选择纯语义或目标材质修改。'"
+  },
+  {
+    "key": "app_prototype_model.text_008",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 42,
+    "source": "'请填写局部修改描述。'"
+  },
+  {
+    "key": "app_prototype_model.text_009",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 43,
+    "source": "'请上传棚拍前主图。'"
+  },
+  {
+    "key": "app_prototype_model.text_010",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 63,
+    "source": "'请先关闭应用并模拟预览，再确认当前选区。'"
+  },
+  {
+    "key": "app_prototype_model.text_011",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 66,
+    "source": "`已模拟应用局部修改${snapshot.studio ? '及棚拍流程' : ''}。参考图保持原样。`"
+  },
+  {
+    "key": "app_prototype_model.text_012",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 66,
+    "source": "'及棚拍流程'"
+  },
+  {
+    "key": "app_prototype_model.text_013",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 69,
+    "source": "'预览步骤已模拟完成。确认选区后开启“应用局部修改”，再点模拟运行。未计算像素遮罩。'"
+  },
+  {
+    "key": "app_prototype_model.text_014",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 71,
+    "source": "`已模拟完成效果图建立${snapshot.studio ? '及棚拍流程' : ''}。未生成图片。`"
+  },
+  {
+    "key": "app_prototype_model.text_015",
+    "file": "web/badge_app_prototype_model.mjs",
+    "line": 71,
+    "source": "'及棚拍流程'"
+  },
+  {
+    "key": "build_prototype.text_001",
+    "file": "web/badge_build_prototype.js",
+    "line": 68,
+    "source": "'局部编辑目标图工作区'"
+  },
+  {
+    "key": "build_prototype.text_002",
+    "file": "web/badge_build_prototype.js",
+    "line": 68,
+    "source": "'效果图生成工作区'"
+  },
+  {
+    "key": "build_prototype.text_003",
+    "file": "web/badge_build_prototype.js",
+    "line": 80,
+    "source": "'基础提示词'"
+  },
+  {
+    "key": "build_prototype.text_004",
+    "file": "web/badge_build_prototype.js",
+    "line": 82,
+    "source": "'是否仅使用提示词'"
+  },
+  {
+    "key": "build_prototype.text_005",
+    "file": "web/badge_build_prototype.js",
+    "line": 85,
+    "source": "'是否仅使用提示词'"
+  },
+  {
+    "key": "build_prototype.text_006",
+    "file": "web/badge_build_prototype.js",
+    "line": 97,
+    "source": "'基础提示词'"
+  },
+  {
+    "key": "build_prototype.text_007",
+    "file": "web/badge_build_prototype.js",
+    "line": 107,
+    "source": "'待编辑目标图'"
+  },
+  {
+    "key": "build_prototype.text_008",
+    "file": "web/badge_build_prototype.js",
+    "line": 120,
+    "source": "'编辑对象来源'"
+  },
+  {
+    "key": "build_prototype.text_009",
+    "file": "web/badge_build_prototype.js",
+    "line": 121,
+    "source": "'生成结果'"
+  },
+  {
+    "key": "build_prototype.text_010",
+    "file": "web/badge_build_prototype.js",
+    "line": 121,
+    "source": "'上传图片'"
+  },
+  {
+    "key": "build_prototype.text_011",
+    "file": "web/badge_build_prototype.js",
+    "line": 155,
+    "source": "'上传 / 替换图片'"
+  },
+  {
+    "key": "build_prototype.text_012",
+    "file": "web/badge_build_prototype.js",
+    "line": 156,
+    "source": "'浏览已上传图片'"
+  },
+  {
+    "key": "build_prototype.text_013",
+    "file": "web/badge_build_prototype.js",
+    "line": 159,
+    "source": "'选择已上传图片'"
+  },
+  {
+    "key": "build_prototype.text_014",
+    "file": "web/badge_build_prototype.js",
+    "line": 161,
+    "source": "'选择已上传图片'"
+  },
+  {
+    "key": "build_prototype.text_015",
+    "file": "web/badge_build_prototype.js",
+    "line": 162,
+    "source": "'关闭'"
+  },
+  {
+    "key": "build_prototype.text_016",
+    "file": "web/badge_build_prototype.js",
+    "line": 164,
+    "source": "'搜索文件名'"
+  },
+  {
+    "key": "build_prototype.text_017",
+    "file": "web/badge_build_prototype.js",
+    "line": 164,
+    "source": "'搜索已上传图片'"
+  },
+  {
+    "key": "build_prototype.text_018",
+    "file": "web/badge_build_prototype.js",
+    "line": 173,
+    "source": "`${values.length} 张图片 · 点击缩略图即可使用`"
+  },
+  {
+    "key": "build_prototype.text_019",
+    "file": "web/badge_build_prototype.js",
+    "line": 173,
+    "source": "'没有匹配的图片'"
+  },
+  {
+    "key": "build_prototype.text_020",
+    "file": "web/badge_build_prototype.js",
+    "line": 186,
+    "source": "'预览不可用'"
+  },
+  {
+    "key": "build_prototype.text_021",
+    "file": "web/badge_build_prototype.js",
+    "line": 188,
+    "source": "'✓ 当前图片'"
+  },
+  {
+    "key": "build_prototype.text_022",
+    "file": "web/badge_build_prototype.js",
+    "line": 219,
+    "source": "'请先在“局部修改”中选择“上传图片”。'"
+  },
+  {
+    "key": "build_prototype.text_023",
+    "file": "web/badge_build_prototype.js",
+    "line": 220,
+    "source": "'请选择图片文件。'"
+  },
+  {
+    "key": "build_prototype.text_024",
+    "file": "web/badge_build_prototype.js",
+    "line": 228,
+    "source": "'正在上传…'"
+  },
+  {
+    "key": "build_prototype.text_025",
+    "file": "web/badge_build_prototype.js",
+    "line": 247,
+    "source": "'大图预览'"
+  },
+  {
+    "key": "build_prototype.text_026",
+    "file": "web/badge_build_prototype.js",
+    "line": 248,
+    "source": "'拖入图片，或点击上方上传'"
+  },
+  {
+    "key": "build_prototype.text_027",
+    "file": "web/badge_build_prototype.js",
+    "line": 253,
+    "source": "'大图显示方式'"
+  },
+  {
+    "key": "build_prototype.text_028",
+    "file": "web/badge_build_prototype.js",
+    "line": 256,
+    "source": "'黑白遮罩'"
+  },
+  {
+    "key": "build_prototype.text_029",
+    "file": "web/badge_build_prototype.js",
+    "line": 272,
+    "source": "'预览遮罩'"
+  },
+  {
+    "key": "build_prototype.text_030",
+    "file": "web/badge_build_prototype.js",
+    "line": 295,
+    "source": "'生成失败，请重试'"
+  },
+  {
+    "key": "build_prototype.text_031",
+    "file": "web/badge_build_prototype.js",
+    "line": 306,
+    "source": "'背景 / 镂空剔除'"
+  },
+  {
+    "key": "build_prototype.text_032",
+    "file": "web/badge_build_prototype.js",
+    "line": 306,
+    "source": "'材质分区'"
+  },
+  {
+    "key": "build_prototype.text_033",
+    "file": "web/badge_build_prototype.js",
+    "line": 306,
+    "source": "'高度建立'"
+  },
+  {
+    "key": "build_prototype.text_034",
+    "file": "web/badge_build_prototype.js",
+    "line": 315,
+    "source": "`${title}启用`"
+  },
+  {
+    "key": "build_prototype.text_035",
+    "file": "web/badge_build_prototype.js",
+    "line": 337,
+    "source": "'GPT 色彩分区图生成中…'"
+  },
+  {
+    "key": "build_prototype.text_036",
+    "file": "web/badge_build_prototype.js",
+    "line": 337,
+    "source": "`正在生成色彩分区图 ${mapProgress}%`"
+  },
+  {
+    "key": "build_prototype.text_037",
+    "file": "web/badge_build_prototype.js",
+    "line": 337,
+    "source": "'色彩分区图尚未就绪'"
+  },
+  {
+    "key": "build_prototype.text_038",
+    "file": "web/badge_build_prototype.js",
+    "line": 362,
+    "source": "'正在加载图片…'"
+  },
+  {
+    "key": "build_prototype.text_039",
+    "file": "web/badge_build_prototype.js",
+    "line": 362,
+    "source": "'尚未上传目标图 · 拖入图片，或使用右上角上传 / 图库按钮'"
+  },
+  {
+    "key": "build_prototype.text_040",
+    "file": "web/badge_build_prototype.js",
+    "line": 362,
+    "source": "'尚未上传高度图 · 拖入图片，或使用右上角上传 / 图库按钮'"
+  },
+  {
+    "key": "build_prototype.text_041",
+    "file": "web/badge_build_prototype.js",
+    "line": 362,
+    "source": "'尚未上传材质图 · 拖入图片，或使用右上角上传 / 图库按钮'"
+  },
+  {
+    "key": "build_prototype.text_042",
+    "file": "web/badge_build_prototype.js",
+    "line": 363,
+    "source": "'暂无生成结果 · 请先在“效果图生成”中生成图片'"
+  },
+  {
+    "key": "build_prototype.text_043",
+    "file": "web/badge_build_prototype.js",
+    "line": 374,
+    "source": "'图片不可用，请重新选择或上传。'"
+  },
+  {
+    "key": "build_prototype.text_044",
+    "file": "web/badge_build_prototype.js",
+    "line": 383,
+    "source": "'切回原图'"
+  },
+  {
+    "key": "build_prototype.text_045",
+    "file": "web/badge_build_prototype.js",
+    "line": 383,
+    "source": "'显示当前遮罩'"
+  },
+  {
+    "key": "build_prototype.text_046",
+    "file": "web/badge_build_prototype.js",
+    "line": 390,
+    "source": "'当前阶段配置已变化，请重新生成。'"
+  },
+  {
+    "key": "build_prototype.text_047",
+    "file": "web/badge_build_prototype.js",
+    "line": 405,
+    "source": "`描述你想生成的图片，直接发送给 ${graph.extra?.daelabBadgeExecutionV1?.version === 1 ? selectedBadgeModel(graph, 'build') : 'GPT-Image-2'}；不会附加徽章、白底等预设要求。`"
+  },
+  {
+    "key": "build_prototype.text_048",
+    "file": "web/badge_build_prototype.js",
+    "line": 406,
+    "source": "'补充描述生成要求，将置于结构化提示词之前；参考图及下方配置仍会生效。'"
+  },
+  {
+    "key": "build_prototype.text_049",
+    "file": "web/badge_build_prototype.js",
+    "line": 408,
+    "source": "'仅使用基础提示词和模型输出配置；参考图与结构化配置已保留，不参与本次生成。'"
+  },
+  {
+    "key": "build_prototype.text_050",
+    "file": "web/badge_build_prototype.js",
+    "line": 409,
+    "source": "'基础提示词可留空；作为补充描述置于结构化提示词之前，请避免与下方配置矛盾。'"
+  },
+  {
+    "key": "build_prototype.text_051",
+    "file": "web/badge_build_prototype.js",
+    "line": 411,
+    "source": "'标注背景与镂空区域，避免模型误判'"
+  },
+  {
+    "key": "build_prototype.text_052",
+    "file": "web/badge_build_prototype.js",
+    "line": 411,
+    "source": "'标注特殊材质的区域，默认整体为烤漆'"
+  },
+  {
+    "key": "build_prototype.text_053",
+    "file": "web/badge_build_prototype.js",
+    "line": 411,
+    "source": "'标注徽章的结构层次'"
+  },
+  {
+    "key": "build_prototype.text_054",
+    "file": "web/badge_build_prototype.js",
+    "line": 417,
+    "source": "'反转输出'"
+  },
+  {
+    "key": "build_prototype.text_055",
+    "file": "web/badge_build_prototype.js",
+    "line": 417,
+    "source": "'反转输出'"
+  },
+  {
+    "key": "build_prototype.text_056",
+    "file": "web/badge_build_prototype.js",
+    "line": 419,
+    "source": "'反转提取结果：已开启'"
+  },
+  {
+    "key": "build_prototype.text_057",
+    "file": "web/badge_build_prototype.js",
+    "line": 419,
+    "source": "'反转提取结果：已关闭'"
+  },
+  {
+    "key": "build_prototype.text_058",
+    "file": "web/badge_build_prototype.js",
+    "line": 431,
+    "source": "'点击禁用'"
+  },
+  {
+    "key": "build_prototype.text_059",
+    "file": "web/badge_build_prototype.js",
+    "line": 431,
+    "source": "'点击启用'"
+  },
+  {
+    "key": "build_prototype.text_060",
+    "file": "web/badge_build_prototype.js",
+    "line": 450,
+    "source": "'未选择图片'"
+  },
+  {
+    "key": "build_prototype.text_061",
+    "file": "web/badge_build_prototype.js",
+    "line": 451,
+    "source": "'未选择图片'"
+  },
+  {
+    "key": "build_prototype.text_062",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'高度建立已开启，尚未上传高度图。请在高度建立中上传图片。'"
+  },
+  {
+    "key": "build_prototype.text_063",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'高度建立已关闭；图片和分区配置已保留。'"
+  },
+  {
+    "key": "build_prototype.text_064",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'此功能已禁用，可通过旁边的开关启用'"
+  },
+  {
+    "key": "build_prototype.text_065",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'预览待更新'"
+  },
+  {
+    "key": "build_prototype.text_066",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'预览已更新'"
+  },
+  {
+    "key": "build_prototype.text_067",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'点击颜色块选色，再点击预览遮罩'"
+  },
+  {
+    "key": "build_prototype.text_068",
+    "file": "web/badge_build_prototype.js",
+    "line": 458,
+    "source": "'选择下方功能展开配置'"
+  },
+  {
+    "key": "build_prototype.text_069",
+    "file": "web/badge_build_prototype.js",
+    "line": 465,
+    "source": "'输出配置已修改，请重新生成。'"
+  },
+  {
+    "key": "build_prototype.text_070",
+    "file": "web/badge_build_prototype.js",
+    "line": 499,
+    "source": "'1. 定义修改区域'"
+  },
+  {
+    "key": "build_prototype.text_071",
+    "file": "web/badge_build_prototype.js",
+    "line": 499,
+    "source": "'按颜色选遮罩'"
+  },
+  {
+    "key": "build_prototype.text_072",
+    "file": "web/badge_build_prototype.js",
+    "line": 499,
+    "source": "'画笔 / Polygon 选区'"
+  },
+  {
+    "key": "build_prototype.text_073",
+    "file": "web/badge_build_prototype.js",
+    "line": 500,
+    "source": "'2. 描述修改内容'"
+  },
+  {
+    "key": "build_prototype.text_074",
+    "file": "web/badge_build_prototype.js",
+    "line": 500,
+    "source": "'语义描述'"
+  },
+  {
+    "key": "build_prototype.text_075",
+    "file": "web/badge_build_prototype.js",
+    "line": 500,
+    "source": "'设置区域材质'"
+  },
+  {
+    "key": "build_prototype.text_076",
+    "file": "web/badge_build_prototype.js",
+    "line": 500,
+    "source": "'预设材质 Prompt'"
+  },
+  {
+    "key": "build_prototype.text_077",
+    "file": "web/badge_build_prototype.js",
+    "line": 504,
+    "source": "'取色来源'"
+  },
+  {
+    "key": "build_prototype.text_078",
+    "file": "web/badge_build_prototype.js",
+    "line": 505,
+    "source": "'取色来源'"
+  },
+  {
+    "key": "build_prototype.text_079",
+    "file": "web/badge_build_prototype.js",
+    "line": 507,
+    "source": "'色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_080",
+    "file": "web/badge_build_prototype.js",
+    "line": 507,
+    "source": "'原图'"
+  },
+  {
+    "key": "build_prototype.text_081",
+    "file": "web/badge_build_prototype.js",
+    "line": 507,
+    "source": "'生成色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_082",
+    "file": "web/badge_build_prototype.js",
+    "line": 507,
+    "source": "'使用原图'"
+  },
+  {
+    "key": "build_prototype.text_083",
+    "file": "web/badge_build_prototype.js",
+    "line": 518,
+    "source": "'预览色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_084",
+    "file": "web/badge_build_prototype.js",
+    "line": 520,
+    "source": "'预览'"
+  },
+  {
+    "key": "build_prototype.text_085",
+    "file": "web/badge_build_prototype.js",
+    "line": 521,
+    "source": "'预览色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_086",
+    "file": "web/badge_build_prototype.js",
+    "line": 522,
+    "source": "'预览色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_087",
+    "file": "web/badge_build_prototype.js",
+    "line": 524,
+    "source": "'↻'"
+  },
+  {
+    "key": "build_prototype.text_088",
+    "file": "web/badge_build_prototype.js",
+    "line": 525,
+    "source": "'重新生成色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_089",
+    "file": "web/badge_build_prototype.js",
+    "line": 525,
+    "source": "'重新生成色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_090",
+    "file": "web/badge_build_prototype.js",
+    "line": 528,
+    "source": "'色彩分区图生成进度'"
+  },
+  {
+    "key": "build_prototype.text_091",
+    "file": "web/badge_build_prototype.js",
+    "line": 529,
+    "source": "'色彩分区图将相近颜色分开，方便选择区域；不会替换待编辑图片。'"
+  },
+  {
+    "key": "build_prototype.text_092",
+    "file": "web/badge_build_prototype.js",
+    "line": 529,
+    "source": "'色彩分区图为本地色彩简化预览（原型），用于演示取色与遮罩匹配。'"
+  },
+  {
+    "key": "build_prototype.text_093",
+    "file": "web/badge_build_prototype.js",
+    "line": 533,
+    "source": "'遮罩预览范围 '"
+  },
+  {
+    "key": "build_prototype.text_094",
+    "file": "web/badge_build_prototype.js",
+    "line": 535,
+    "source": "'材质区域预览范围'"
+  },
+  {
+    "key": "build_prototype.text_095",
+    "file": "web/badge_build_prototype.js",
+    "line": 542,
+    "source": "'按颜色编辑时，请在第 1 块的材质列表中逐行设置；画笔选区使用下方单一目标材质。'"
+  },
+  {
+    "key": "build_prototype.text_096",
+    "file": "web/badge_build_prototype.js",
+    "line": 544,
+    "source": "'返回区域材质列表'"
+  },
+  {
+    "key": "build_prototype.text_097",
+    "file": "web/badge_build_prototype.js",
+    "line": 548,
+    "source": "'预览遮罩'"
+  },
+  {
+    "key": "build_prototype.text_098",
+    "file": "web/badge_build_prototype.js",
+    "line": 579,
+    "source": "'正在编辑，暂不可切换目标'"
+  },
+  {
+    "key": "build_prototype.text_099",
+    "file": "web/badge_build_prototype.js",
+    "line": 579,
+    "source": "'请先在“效果图生成”中生成一张图片'"
+  },
+  {
+    "key": "build_prototype.text_100",
+    "file": "web/badge_build_prototype.js",
+    "line": 579,
+    "source": "'编辑当前工作流的生成结果'"
+  },
+  {
+    "key": "build_prototype.text_101",
+    "file": "web/badge_build_prototype.js",
+    "line": 592,
+    "source": "'色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_102",
+    "file": "web/badge_build_prototype.js",
+    "line": 592,
+    "source": "'原图'"
+  },
+  {
+    "key": "build_prototype.text_103",
+    "file": "web/badge_build_prototype.js",
+    "line": 604,
+    "source": "'正在准备色彩分区图…'"
+  },
+  {
+    "key": "build_prototype.text_104",
+    "file": "web/badge_build_prototype.js",
+    "line": 604,
+    "source": "`生成中 ${mapProgress}%`"
+  },
+  {
+    "key": "build_prototype.text_105",
+    "file": "web/badge_build_prototype.js",
+    "line": 604,
+    "source": "'已生成'"
+  },
+  {
+    "key": "build_prototype.text_106",
+    "file": "web/badge_build_prototype.js",
+    "line": 604,
+    "source": "'点击“生成色彩分区图”开始生成。'"
+  },
+  {
+    "key": "build_prototype.text_107",
+    "file": "web/badge_build_prototype.js",
+    "line": 604,
+    "source": "'请先上传目标图'"
+  },
+  {
+    "key": "build_prototype.text_108",
+    "file": "web/badge_build_prototype.js",
+    "line": 609,
+    "source": "'重新生成色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_109",
+    "file": "web/badge_build_prototype.js",
+    "line": 609,
+    "source": "'生成色彩分区图'"
+  },
+  {
+    "key": "build_prototype.text_110",
+    "file": "web/badge_build_prototype.js",
+    "line": 611,
+    "source": "'生成中…'"
+  },
+  {
+    "key": "build_prototype.text_111",
+    "file": "web/badge_build_prototype.js",
+    "line": 611,
+    "source": "'重新生成'"
+  },
+  {
+    "key": "build_prototype.text_112",
+    "file": "web/badge_build_prototype.js",
+    "line": 611,
+    "source": "'生成'"
+  },
+  {
+    "key": "build_prototype.text_113",
+    "file": "web/badge_build_prototype.js",
+    "line": 645,
+    "source": "'未选择图片'"
+  },
+  {
+    "key": "build_prototype.text_114",
+    "file": "web/badge_build_prototype.js",
+    "line": 646,
+    "source": "'未选择图片'"
+  },
+  {
+    "key": "build_prototype.text_115",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'选区预览待更新'"
+  },
+  {
+    "key": "build_prototype.text_116",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'选区预览已更新'"
+  },
+  {
+    "key": "build_prototype.text_117",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'使用下方手绘编辑器绘制选区'"
+  },
+  {
+    "key": "build_prototype.text_118",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'当前显示原图，正在生成色彩分区图…'"
+  },
+  {
+    "key": "build_prototype.text_119",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'当前显示原图，请点击“生成色彩分区图”后取色。'"
+  },
+  {
+    "key": "build_prototype.text_120",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'从色彩分区图取色，然后预览选区'"
+  },
+  {
+    "key": "build_prototype.text_121",
+    "file": "web/badge_build_prototype.js",
+    "line": 676,
+    "source": "'从原图取色，然后预览选区'"
+  },
+  {
+    "key": "build_prototype.text_122",
+    "file": "web/badge_build_prototype.js",
+    "line": 681,
+    "source": "'选区已确认，点击“预览遮罩”可在取色来源图与遮罩之间切换。'"
+  },
+  {
+    "key": "build_prototype.text_123",
+    "file": "web/badge_build_prototype.js",
+    "line": 681,
+    "source": "'选区已确认，点击“预览遮罩”可在取色来源图与遮罩之间切换。'"
+  },
+  {
+    "key": "build_prototype.text_124",
+    "file": "web/badge_build_prototype.js",
+    "line": 681,
+    "source": "'选区已改变，请重新查看。'"
+  },
+  {
+    "key": "build_prototype.text_125",
+    "file": "web/badge_build_prototype.js",
+    "line": 681,
+    "source": "'先选择区域；下方的修改仅作用于此选区。'"
+  },
+  {
+    "key": "build_prototype.text_126",
+    "file": "web/badge_build_prototype.js",
+    "line": 695,
+    "source": "'正在校验选区并应用修改…'"
+  },
+  {
+    "key": "build_prototype.text_127",
+    "file": "web/badge_build_prototype.js",
+    "line": 695,
+    "source": "`无法生成：${snapshot.error}`"
+  },
+  {
+    "key": "build_prototype.text_128",
+    "file": "web/badge_build_prototype.js",
+    "line": 695,
+    "source": "'点击生成将自动校验当前选区。'"
+  },
+  {
+    "key": "build_prototype.text_129",
+    "file": "web/badge_build_prototype.js",
+    "line": 696,
+    "source": "'正在模拟应用…'"
+  },
+  {
+    "key": "build_prototype.text_130",
+    "file": "web/badge_build_prototype.js",
+    "line": 696,
+    "source": "`无法生成：${snapshot.error}`"
+  },
+  {
+    "key": "build_prototype.text_131",
+    "file": "web/badge_build_prototype.js",
+    "line": 696,
+    "source": "'请先在第 1 块点击“预览遮罩”确认选区。'"
+  },
+  {
+    "key": "build_prototype.text_132",
+    "file": "web/badge_build_prototype.js",
+    "line": 696,
+    "source": "'已模拟应用修改，目标图保持原样。'"
+  },
+  {
+    "key": "build_prototype.text_133",
+    "file": "web/badge_build_prototype.js",
+    "line": 696,
+    "source": "'设置好修改内容后应用。当前为交互模拟，不生成图片。'"
+  },
+  {
+    "key": "build_prototype.text_134",
+    "file": "web/badge_build_prototype.js",
+    "line": 702,
+    "source": "` 共 ${rows} 个区域、${count} 张结果，预计 ${(rows + Number(Boolean(hasPalette))) * count} 次图像生成调用（不含分区图）。`"
+  },
+  {
+    "key": "build_prototype.text_135",
+    "file": "web/badge_build_prototype.js",
+    "line": 703,
+    "source": "'每行分别设置颜色与材质；未匹配区域保持不变。重叠像素归属最接近的颜色，同距离按列表顺序。'"
+  },
+  {
+    "key": "build_prototype.text_136",
+    "file": "web/badge_build_prototype.js",
+    "line": 713,
+    "source": "'Node schema unavailable'"
+  },
+  {
+    "key": "color_map_87.text_001",
+    "file": "web/badge_color_map_87.mjs",
+    "line": 12,
+    "source": "'请先选择目标图。'"
+  },
+  {
+    "key": "color_map_87.text_002",
+    "file": "web/badge_color_map_87.mjs",
+    "line": 29,
+    "source": "'读取分区图任务状态失败。'"
+  },
+  {
+    "key": "color_map_87.text_003",
+    "file": "web/badge_color_map_87.mjs",
+    "line": 34,
+    "source": "'分区图生成超时，请查看任务记录。'"
+  },
+  {
+    "key": "color_map_87.text_004",
+    "file": "web/badge_color_map_87.mjs",
+    "line": 35,
+    "source": "'GPT 分区图生成失败。'"
+  },
+  {
+    "key": "color_map_87.text_005",
+    "file": "web/badge_color_map_87.mjs",
+    "line": 37,
+    "source": "'GPT 分区图未返回图片。'"
+  },
+  {
+    "key": "color_map_87.text_006",
+    "file": "web/badge_color_map_87.mjs",
+    "line": 45,
+    "source": "'分区图与目标图尺寸不一致，请重新生成。'"
+  },
+  {
+    "key": "color_picker.text_001",
+    "file": "web/badge_color_picker.mjs",
+    "line": 27,
+    "source": "'选择区域颜色'"
+  },
+  {
+    "key": "color_picker.text_003",
+    "file": "web/badge_color_picker.mjs",
+    "line": 33,
+    "source": "'请输入六位色号'"
+  },
+  {
+    "key": "execution_87.text_002",
+    "file": "web/badge_execution_87.mjs",
+    "line": 15,
+    "source": "'请进入需要生成的阶段。'"
+  },
+  {
+    "key": "execution_87.text_003",
+    "file": "web/badge_execution_87.mjs",
+    "line": 24,
+    "source": "'正在提交生成任务…'"
+  },
+  {
+    "key": "execution_87.text_004",
+    "file": "web/badge_execution_87.mjs",
+    "line": 31,
+    "source": "'选区已变化，请重新点击生成。'"
+  },
+  {
+    "key": "execution_87.text_005",
+    "file": "web/badge_execution_87.mjs",
+    "line": 42,
+    "source": "'生成中…'"
+  },
+  {
+    "key": "execution_87.text_006",
+    "file": "web/badge_execution_87.mjs",
+    "line": 47,
+    "source": "`读取生成状态失败 (${response.status})`"
+  },
+  {
+    "key": "execution_87.text_007",
+    "file": "web/badge_execution_87.mjs",
+    "line": 53,
+    "source": "'等待生成超时，请查看任务队列；任务可能仍在运行。'"
+  },
+  {
+    "key": "execution_87.text_008",
+    "file": "web/badge_execution_87.mjs",
+    "line": 56,
+    "source": "'生成任务失败，请查看任务记录。'"
+  },
+  {
+    "key": "execution_87.text_009",
+    "file": "web/badge_execution_87.mjs",
+    "line": 61,
+    "source": "'配置已变化，结果保存在任务记录中，请重新生成。'"
+  },
+  {
+    "key": "execution_87.text_010",
+    "file": "web/badge_execution_87.mjs",
+    "line": 65,
+    "source": "'生成任务未返回图片。'"
+  },
+  {
+    "key": "execution_87.text_011",
+    "file": "web/badge_execution_87.mjs",
+    "line": 69,
+    "source": "'选区已验证，正在应用修改…'"
+  },
+  {
+    "key": "execution_87.text_012",
+    "file": "web/badge_execution_87.mjs",
+    "line": 69,
+    "source": "'生成完成。'"
+  },
+  {
+    "key": "execution_87.text_013",
+    "file": "web/badge_execution_87.mjs",
+    "line": 77,
+    "source": "`生成完成，共 ${images.length} 张；局部编辑默认选中第 1 张。`"
+  },
+  {
+    "key": "execution_87.text_014",
+    "file": "web/badge_execution_87.mjs",
+    "line": 77,
+    "source": "`生成完成，共 ${images.length} 张；可在局部修改中查看并选择，当前目标保持不变。`"
+  },
+  {
+    "key": "execution_87_model.text_001",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 12,
+    "source": "'Not a Badge 8.7 workflow.'"
+  },
+  {
+    "key": "execution_87_model.text_002",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 24,
+    "source": "'当前阶段输入被静音或跳过。'"
+  },
+  {
+    "key": "execution_87_model.text_003",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 32,
+    "source": "'生成个数必须为 1–8 张。'"
+  },
+  {
+    "key": "execution_87_model.text_004",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 55,
+    "source": "'请先为当前目标图生成 GPT 色彩分区图。'"
+  },
+  {
+    "key": "execution_87_model.text_005",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 64,
+    "source": "'画笔 / Polygon 正在同步当前目标图，请等待底图加载完成后重新预览选区；加载失败时可点击 Load Image 重试。'"
+  },
+  {
+    "key": "execution_87_model.text_006",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 76,
+    "source": "'请上传棚拍前主图。'"
+  },
+  {
+    "key": "execution_87_model.text_007",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 76,
+    "source": "'请上传现有效果图。'"
+  },
+  {
+    "key": "execution_87_model.text_008",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 79,
+    "source": "'请先启用棚拍。'"
+  },
+  {
+    "key": "execution_87_model.text_009",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 81,
+    "source": "'请填写棚拍提示词。'"
+  },
+  {
+    "key": "execution_87_model.text_010",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 83,
+    "source": "'Unsupported stage.'"
+  },
+  {
+    "key": "execution_87_model.text_011",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 106,
+    "source": "'#8.7 阶段执行'"
+  },
+  {
+    "key": "execution_87_model.text_012",
+    "file": "web/badge_execution_87_model.mjs",
+    "line": 107,
+    "source": "'#8.7 生成结果'"
+  },
+  {
+    "key": "execution_87_queue.text_001",
+    "file": "web/badge_execution_87_queue.mjs",
+    "line": 4,
+    "source": "'运行入口忙，请稍后重试。'"
+  },
+  {
+    "key": "execution_87_queue.text_002",
+    "file": "web/badge_execution_87_queue.mjs",
+    "line": 10,
+    "source": "'工作流已切换，请重新生成。'"
+  },
+  {
+    "key": "execution_87_queue.text_003",
+    "file": "web/badge_execution_87_queue.mjs",
+    "line": 22,
+    "source": "'任务未提交，请查看原生运行提示。'"
+  },
+  {
+    "key": "execution_88_model.text_001",
+    "file": "web/badge_execution_88_model.mjs",
+    "line": 6,
+    "source": "'Not a Badge 8.8 workflow.'"
+  },
+  {
+    "key": "execution_88_model.text_002",
+    "file": "web/badge_execution_88_model.mjs",
+    "line": 21,
+    "source": "'请添加至少一个局部材质区域。'"
+  },
+  {
+    "key": "execution_88_model.text_003",
+    "file": "web/badge_execution_88_model.mjs",
+    "line": 32,
+    "source": "'#8.8 阶段执行'"
+  },
+  {
+    "key": "execution_88_model.text_004",
+    "file": "web/badge_execution_88_model.mjs",
+    "line": 33,
+    "source": "'#8.8 生成结果'"
+  },
+  {
+    "key": "generation_model.text_001",
+    "file": "web/badge_generation_model.mjs",
+    "line": 24,
+    "source": "'宽、高必须为 1024–3840 的整数。'"
+  },
+  {
+    "key": "generation_model.text_002",
+    "file": "web/badge_generation_model.mjs",
+    "line": 25,
+    "source": "'宽、高必须为 16 的倍数。'"
+  },
+  {
+    "key": "generation_model.text_003",
+    "file": "web/badge_generation_model.mjs",
+    "line": 26,
+    "source": "'长宽比不能超过 3:1。'"
+  },
+  {
+    "key": "generation_model.text_004",
+    "file": "web/badge_generation_model.mjs",
+    "line": 28,
+    "source": "'总像素必须在 655,360–8,294,400 之间。'"
+  },
+  {
+    "key": "generation_model.text_005",
+    "file": "web/badge_generation_model.mjs",
+    "line": 70,
+    "source": "'Unsupported generation stage'"
+  },
+  {
+    "key": "generation_model.text_006",
+    "file": "web/badge_generation_model.mjs",
+    "line": 79,
+    "source": "'请选择支持的图像模型。'"
+  },
+  {
+    "key": "generation_model.text_007",
+    "file": "web/badge_generation_model.mjs",
+    "line": 80,
+    "source": "'正在读取目标图尺寸，请等待图片加载完成。'"
+  },
+  {
+    "key": "generation_model.text_008",
+    "file": "web/badge_generation_model.mjs",
+    "line": 81,
+    "source": "'高度最多六层（含顶层和 0 层），请先整理已有层级。'"
+  },
+  {
+    "key": "generation_model.text_009",
+    "file": "web/badge_generation_model.mjs",
+    "line": 82,
+    "source": "'请填写基础提示词。'"
+  },
+  {
+    "key": "generation_model.text_010",
+    "file": "web/badge_generation_model.mjs",
+    "line": 84,
+    "source": "'请先启用效果图建立路线。'"
+  },
+  {
+    "key": "generation_model.text_011",
+    "file": "web/badge_generation_model.mjs",
+    "line": 85,
+    "source": "'请上传材质图，或开启“是否仅使用提示词”。'"
+  },
+  {
+    "key": "generation_model.text_012",
+    "file": "web/badge_generation_model.mjs",
+    "line": 86,
+    "source": "'请上传高度图，或关闭高度建立。'"
+  },
+  {
+    "key": "generation_model.text_013",
+    "file": "web/badge_generation_model.mjs",
+    "line": 89,
+    "source": "'请先启用局部编辑。'"
+  },
+  {
+    "key": "generation_model.text_014",
+    "file": "web/badge_generation_model.mjs",
+    "line": 90,
+    "source": "'请上传局部编辑目标图。'"
+  },
+  {
+    "key": "generation_model.text_015",
+    "file": "web/badge_generation_model.mjs",
+    "line": 91,
+    "source": "'请选择一种选区方式。'"
+  },
+  {
+    "key": "generation_model.text_016",
+    "file": "web/badge_generation_model.mjs",
+    "line": 92,
+    "source": "'请选择一种修改方式。'"
+  },
+  {
+    "key": "generation_model.text_017",
+    "file": "web/badge_generation_model.mjs",
+    "line": 93,
+    "source": "'请填写局部修改描述。'"
+  },
+  {
+    "key": "generation_model.text_018",
+    "file": "web/badge_generation_model.mjs",
+    "line": 95,
+    "source": "'当前阶段的必要输入已被静音或跳过，请先恢复启用。'"
+  },
+  {
+    "key": "generation_panel.text_001",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 12,
+    "source": "'模型输出配置'"
+  },
+  {
+    "key": "generation_panel.text_002",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 14,
+    "source": "'生成模型'"
+  },
+  {
+    "key": "generation_panel.text_003",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 18,
+    "source": "'选择比例'"
+  },
+  {
+    "key": "generation_panel.text_004",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 38,
+    "source": "'↔'"
+  },
+  {
+    "key": "generation_panel.text_005",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 39,
+    "source": "'自定义'"
+  },
+  {
+    "key": "generation_panel.text_006",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 44,
+    "source": "'分辨率与尺寸'"
+  },
+  {
+    "key": "generation_panel.text_007",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 56,
+    "source": "'输出宽度（像素）'"
+  },
+  {
+    "key": "generation_panel.text_008",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 56,
+    "source": "'输出高度（像素）'"
+  },
+  {
+    "key": "generation_panel.text_009",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 57,
+    "source": "'按住鼠标左键左右拖动调整，每步 16 像素；也可直接输入'"
+  },
+  {
+    "key": "generation_panel.text_010",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 69,
+    "source": "'PX'"
+  },
+  {
+    "key": "generation_panel.text_011",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 76,
+    "source": "'张数'"
+  },
+  {
+    "key": "generation_panel.text_012",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 78,
+    "source": "'生成个数'"
+  },
+  {
+    "key": "generation_panel.text_013",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 78,
+    "source": "'按住鼠标左键左右拖动调整，也可直接输入（1–8 张）'"
+  },
+  {
+    "key": "generation_panel.text_014",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 88,
+    "source": "'生成'"
+  },
+  {
+    "key": "generation_panel.text_015",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 90,
+    "source": "'仅模拟当前阶段，不生成图片。'"
+  },
+  {
+    "key": "generation_panel.text_016",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 103,
+    "source": "'自定义模式直接设置宽高；选择固定比例后可切换分辨率'"
+  },
+  {
+    "key": "generation_panel.text_017",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 103,
+    "source": "'当前比例没有此分辨率预设'"
+  },
+  {
+    "key": "generation_panel.text_018",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 112,
+    "source": "`沿用目标图：${c.width} × ${c.height} PX${error ? ' · '+error : ''}`"
+  },
+  {
+    "key": "generation_panel.text_019",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 112,
+    "source": "'正在读取目标图尺寸…'"
+  },
+  {
+    "key": "generation_panel.text_020",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 112,
+    "source": "`无法生成：${error}`"
+  },
+  {
+    "key": "generation_panel.text_021",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 112,
+    "source": "`自定义 · ${c.width} × ${c.height} PX · 宽高按 16 像素步长调整`"
+  },
+  {
+    "key": "generation_panel.text_022",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 112,
+    "source": "`${c.tier} · ${c.ratio} · ${c.width} × ${c.height} PX · 选择“自定义”可编辑尺寸`"
+  },
+  {
+    "key": "generation_panel.text_023",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 113,
+    "source": "'生成中…'"
+  },
+  {
+    "key": "generation_panel.text_024",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 113,
+    "source": "'生成'"
+  },
+  {
+    "key": "generation_panel.text_025",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 120,
+    "source": "'正在生成当前阶段…'"
+  },
+  {
+    "key": "generation_panel.text_026",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 120,
+    "source": "'正在模拟当前阶段…'"
+  },
+  {
+    "key": "generation_panel.text_027",
+    "file": "web/badge_generation_panel.mjs",
+    "line": 120,
+    "source": "'仅模拟当前阶段，不生成图片。'"
+  },
+  {
+    "key": "height_board.text_001",
+    "file": "web/badge_height_board.mjs",
+    "line": 18,
+    "source": "'0 · 镂空 / 无实体'"
+  },
+  {
+    "key": "height_board.text_002",
+    "file": "web/badge_height_board.mjs",
+    "line": 18,
+    "source": "'镂空 / 无实体'"
+  },
+  {
+    "key": "height_board.text_003",
+    "file": "web/badge_height_board.mjs",
+    "line": 18,
+    "source": "'最高层'"
+  },
+  {
+    "key": "height_board.text_004",
+    "file": "web/badge_height_board.mjs",
+    "line": 18,
+    "source": "'最低层'"
+  },
+  {
+    "key": "height_board.text_005",
+    "file": "web/badge_height_board.mjs",
+    "line": 18,
+    "source": "`第 ${tier} 层`"
+  },
+  {
+    "key": "height_board.text_006",
+    "file": "web/badge_height_board.mjs",
+    "line": 37,
+    "source": "`${move ? '交换整组' : '移入颜色'} · ${groups.length} 个颜色`"
+  },
+  {
+    "key": "height_board.text_007",
+    "file": "web/badge_height_board.mjs",
+    "line": 37,
+    "source": "'交换整组'"
+  },
+  {
+    "key": "height_board.text_008",
+    "file": "web/badge_height_board.mjs",
+    "line": 37,
+    "source": "'移入颜色'"
+  },
+  {
+    "key": "height_board.text_009",
+    "file": "web/badge_height_board.mjs",
+    "line": 43,
+    "source": "'与'"
+  },
+  {
+    "key": "height_board.text_010",
+    "file": "web/badge_height_board.mjs",
+    "line": 43,
+    "source": "'移入'"
+  },
+  {
+    "key": "height_board.text_011",
+    "file": "web/badge_height_board.mjs",
+    "line": 43,
+    "source": "'交换全部颜色'"
+  },
+  {
+    "key": "height_board.text_012",
+    "file": "web/badge_height_board.mjs",
+    "line": 43,
+    "source": "'，保留已有颜色'"
+  },
+  {
+    "key": "height_board.text_013",
+    "file": "web/badge_height_board.mjs",
+    "line": 43,
+    "source": "'高度值'"
+  },
+  {
+    "key": "height_board.text_014",
+    "file": "web/badge_height_board.mjs",
+    "line": 59,
+    "source": "'标注徽章的结构层次'"
+  },
+  {
+    "key": "height_board.text_015",
+    "file": "web/badge_height_board.mjs",
+    "line": 61,
+    "source": "'高度层数（含 0 层）'"
+  },
+  {
+    "key": "height_board.text_016",
+    "file": "web/badge_height_board.mjs",
+    "line": 61,
+    "source": "'实体层数'"
+  },
+  {
+    "key": "height_board.text_017",
+    "file": "web/badge_height_board.mjs",
+    "line": 62,
+    "source": "`${board.count + (refined ? 1 : 0)} 层`"
+  },
+  {
+    "key": "height_board.text_018",
+    "file": "web/badge_height_board.mjs",
+    "line": 63,
+    "source": "'最多六层（含顶层和 0 层）。请移动颜色并删除多余中间层，整理后才能生成。'"
+  },
+  {
+    "key": "height_board.text_019",
+    "file": "web/badge_height_board.mjs",
+    "line": 64,
+    "source": "'撤销'"
+  },
+  {
+    "key": "height_board.text_020",
+    "file": "web/badge_height_board.mjs",
+    "line": 65,
+    "source": "'预览遮罩'"
+  },
+  {
+    "key": "height_board.text_021",
+    "file": "web/badge_height_board.mjs",
+    "line": 66,
+    "source": "'未分配区域 '"
+  },
+  {
+    "key": "height_board.text_022",
+    "file": "web/badge_height_board.mjs",
+    "line": 69,
+    "source": "'整组拖动：交换两层颜色；单项拖动：加入目标层'"
+  },
+  {
+    "key": "height_board.text_023",
+    "file": "web/badge_height_board.mjs",
+    "line": 75,
+    "source": "'高度值 '"
+  },
+  {
+    "key": "height_board.text_024",
+    "file": "web/badge_height_board.mjs",
+    "line": 80,
+    "source": "'高度值'"
+  },
+  {
+    "key": "height_board.text_025",
+    "file": "web/badge_height_board.mjs",
+    "line": 82,
+    "source": "'镂空区域固定为 0%'"
+  },
+  {
+    "key": "height_board.text_026",
+    "file": "web/badge_height_board.mjs",
+    "line": 82,
+    "source": "'顶层固定为 100%'"
+  },
+  {
+    "key": "height_board.text_027",
+    "file": "web/badge_height_board.mjs",
+    "line": 82,
+    "source": "'高度值'"
+  },
+  {
+    "key": "height_board.text_028",
+    "file": "web/badge_height_board.mjs",
+    "line": 88,
+    "source": "'向上插入一层'"
+  },
+  {
+    "key": "height_board.text_029",
+    "file": "web/badge_height_board.mjs",
+    "line": 88,
+    "source": "'向下插入一层'"
+  },
+  {
+    "key": "height_board.text_030",
+    "file": "web/badge_height_board.mjs",
+    "line": 89,
+    "source": "'顶层不可删除'"
+  },
+  {
+    "key": "height_board.text_031",
+    "file": "web/badge_height_board.mjs",
+    "line": 89,
+    "source": "'删除当前层'"
+  },
+  {
+    "key": "height_board.text_032",
+    "file": "web/badge_height_board.mjs",
+    "line": 89,
+    "source": "`删除${title(tier)}`"
+  },
+  {
+    "key": "height_board.text_033",
+    "file": "web/badge_height_board.mjs",
+    "line": 95,
+    "source": "'⇅'"
+  },
+  {
+    "key": "height_board.text_034",
+    "file": "web/badge_height_board.mjs",
+    "line": 95,
+    "source": "'交换本层全部颜色'"
+  },
+  {
+    "key": "height_board.text_035",
+    "file": "web/badge_height_board.mjs",
+    "line": 95,
+    "source": "`拖到另一实体层：交换两层全部颜色，${refined ? '高度值' : 'Alpha'} 保持固定`"
+  },
+  {
+    "key": "height_board.text_036",
+    "file": "web/badge_height_board.mjs",
+    "line": 95,
+    "source": "'高度值'"
+  },
+  {
+    "key": "height_board.text_037",
+    "file": "web/badge_height_board.mjs",
+    "line": 98,
+    "source": "'⋮⋮'"
+  },
+  {
+    "key": "height_board.text_038",
+    "file": "web/badge_height_board.mjs",
+    "line": 98,
+    "source": "'拖入目标层：仅移动此颜色，保留目标层已有颜色'"
+  },
+  {
+    "key": "height_board.text_039",
+    "file": "web/badge_height_board.mjs",
+    "line": 100,
+    "source": "'区域颜色'"
+  },
+  {
+    "key": "height_board.text_040",
+    "file": "web/badge_height_board.mjs",
+    "line": 101,
+    "source": "'色号'"
+  },
+  {
+    "key": "height_board.text_041",
+    "file": "web/badge_height_board.mjs",
+    "line": 104,
+    "source": "'此颜色已存在，请移动已有颜色'"
+  },
+  {
+    "key": "height_board.text_042",
+    "file": "web/badge_height_board.mjs",
+    "line": 108,
+    "source": "'阈值 '"
+  },
+  {
+    "key": "height_board.text_043",
+    "file": "web/badge_height_board.mjs",
+    "line": 110,
+    "source": "'×'"
+  },
+  {
+    "key": "height_board.text_044",
+    "file": "web/badge_height_board.mjs",
+    "line": 110,
+    "source": "`删除颜色 ${group.color}`"
+  },
+  {
+    "key": "height_board.text_045",
+    "file": "web/badge_height_board.mjs",
+    "line": 112,
+    "source": "'＋'"
+  },
+  {
+    "key": "height_board.text_046",
+    "file": "web/badge_height_board.mjs",
+    "line": 116,
+    "source": "'添加颜色'"
+  },
+  {
+    "key": "height_board.text_047",
+    "file": "web/badge_height_board.mjs",
+    "line": 116,
+    "source": "`${title(tier)}添加颜色`"
+  },
+  {
+    "key": "height_board.text_048",
+    "file": "web/badge_height_board.mjs",
+    "line": 117,
+    "source": "'暂无颜色'"
+  },
+  {
+    "key": "height_layer_v1.text_001",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 44,
+    "source": "\"高度层级设置（按层次图取色）\""
+  },
+  {
+    "key": "height_layer_v1.text_002",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 94,
+    "source": "\"颜色格式错误｜禁止排队\""
+  },
+  {
+    "key": "height_layer_v1.text_003",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 94,
+    "source": "\"配置不同步｜禁止排队\""
+  },
+  {
+    "key": "height_layer_v1.text_004",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 101,
+    "source": "`后端配置 SHA-256 ${digest}`"
+  },
+  {
+    "key": "height_layer_v1.text_005",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 106,
+    "source": "\"高度配置同步失败\""
+  },
+  {
+    "key": "height_layer_v1.text_006",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 135,
+    "source": "`无效颜色输入：${invalid.join(\", \")}。请输入完整 #RRGGBB，排队已阻止。`"
+  },
+  {
+    "key": "height_layer_v1.text_007",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 148,
+    "source": "`缺少隐藏输入 ${HEIGHT_LAYER_PROMPT_CONFIG_WIDGET_NAME}，排队已阻止。`"
+  },
+  {
+    "key": "height_layer_v1.text_008",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 156,
+    "source": "`配置不一致：${snapshot.mismatches.join(\", \")}，排队已阻止。`"
+  },
+  {
+    "key": "height_layer_v1.text_009",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 296,
+    "source": "\"高度图源区域颜色\""
+  },
+  {
+    "key": "height_layer_v1.text_010",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 343,
+    "source": "\"层次\""
+  },
+  {
+    "key": "height_layer_v1.text_011",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 346,
+    "source": "\"徽章相对高度层次\""
+  },
+  {
+    "key": "height_layer_v1.text_012",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 386,
+    "source": "`颜色 ${index + 1}`"
+  },
+  {
+    "key": "height_layer_v1.text_013",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 405,
+    "source": "\"在选中层后新增\""
+  },
+  {
+    "key": "height_layer_v1.text_014",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 414,
+    "source": "\"删除选中层\""
+  },
+  {
+    "key": "height_layer_v1.text_015",
+    "file": "web/badge_height_layer_v1.js",
+    "line": 446,
+    "source": "\"徽章高度颜色层\""
+  },
+  {
+    "key": "height_layer_v1_model.text_001",
+    "file": "web/badge_height_layer_v1_model.mjs",
+    "line": 9,
+    "source": "\"镂空（无实体）\""
+  },
+  {
+    "key": "height_layer_v1_model.text_002",
+    "file": "web/badge_height_layer_v1_model.mjs",
+    "line": 10,
+    "source": "\"最低层\""
+  },
+  {
+    "key": "height_layer_v1_model.text_003",
+    "file": "web/badge_height_layer_v1_model.mjs",
+    "line": 11,
+    "source": "\"次低层\""
+  },
+  {
+    "key": "height_layer_v1_model.text_004",
+    "file": "web/badge_height_layer_v1_model.mjs",
+    "line": 12,
+    "source": "\"中间层\""
+  },
+  {
+    "key": "height_layer_v1_model.text_005",
+    "file": "web/badge_height_layer_v1_model.mjs",
+    "line": 13,
+    "source": "\"次高层\""
+  },
+  {
+    "key": "height_layer_v1_model.text_006",
+    "file": "web/badge_height_layer_v1_model.mjs",
+    "line": 14,
+    "source": "\"最高层\""
+  },
+  {
+    "key": "image_upload.text_001",
+    "file": "web/badge_image_upload.mjs",
+    "line": 3,
+    "source": "'请选择图片文件。'"
+  },
+  {
+    "key": "image_upload.text_002",
+    "file": "web/badge_image_upload.mjs",
+    "line": 7,
+    "source": "'上传失败，请重试。'"
+  },
+  {
+    "key": "image_upload.text_003",
+    "file": "web/badge_image_upload.mjs",
+    "line": 9,
+    "source": "'上传未返回图片文件名。'"
+  },
+  {
+    "key": "material_region_v1.text_001",
+    "file": "web/badge_material_region_v1.js",
+    "line": 64,
+    "source": "\"烤漆\""
+  },
+  {
+    "key": "material_region_v1.text_002",
+    "file": "web/badge_material_region_v1.js",
+    "line": 65,
+    "source": "\"透明漆\""
+  },
+  {
+    "key": "material_region_v1.text_003",
+    "file": "web/badge_material_region_v1.js",
+    "line": 66,
+    "source": "\"亚金\""
+  },
+  {
+    "key": "material_region_v1.text_004",
+    "file": "web/badge_material_region_v1.js",
+    "line": 67,
+    "source": "\"亚银\""
+  },
+  {
+    "key": "material_region_v1.text_005",
+    "file": "web/badge_material_region_v1.js",
+    "line": 68,
+    "source": "\"闪粉\""
+  },
+  {
+    "key": "material_region_v1.text_006",
+    "file": "web/badge_material_region_v1.js",
+    "line": 69,
+    "source": "\"水钻\""
+  },
+  {
+    "key": "material_region_v1.text_007",
+    "file": "web/badge_material_region_v1.js",
+    "line": 235,
+    "source": "\"区域材质选项（悬浮可预览）\""
+  },
+  {
+    "key": "material_region_v1.text_008",
+    "file": "web/badge_material_region_v1.js",
+    "line": 338,
+    "source": "\"颜色格式错误｜禁止排队\""
+  },
+  {
+    "key": "material_region_v1.text_009",
+    "file": "web/badge_material_region_v1.js",
+    "line": 338,
+    "source": "\"配置不同步｜禁止排队\""
+  },
+  {
+    "key": "material_region_v1.text_010",
+    "file": "web/badge_material_region_v1.js",
+    "line": 346,
+    "source": "`后端配置 revision ${config.revision}，SHA-256 ${materialRegionConfigDigest(config)}`"
+  },
+  {
+    "key": "material_region_v1.text_011",
+    "file": "web/badge_material_region_v1.js",
+    "line": 389,
+    "source": "\"材质配置同步失败\""
+  },
+  {
+    "key": "material_region_v1.text_012",
+    "file": "web/badge_material_region_v1.js",
+    "line": 422,
+    "source": "`无效颜色输入：${invalid.join(\", \")}。请输入完整 #RRGGBB，排队已阻止。`"
+  },
+  {
+    "key": "material_region_v1.text_013",
+    "file": "web/badge_material_region_v1.js",
+    "line": 436,
+    "source": "`缺少隐藏输入 ${MATERIAL_REGION_PROMPT_CONFIG_WIDGET_NAME}，排队已阻止。`"
+  },
+  {
+    "key": "material_region_v1.text_014",
+    "file": "web/badge_material_region_v1.js",
+    "line": 446,
+    "source": "`配置不一致：${snapshot.mismatches.join(\", \")}，排队已阻止。`"
+  },
+  {
+    "key": "material_region_v1.text_015",
+    "file": "web/badge_material_region_v1.js",
+    "line": 589,
+    "source": "\"平面图源区域颜色\""
+  },
+  {
+    "key": "material_region_v1.text_016",
+    "file": "web/badge_material_region_v1.js",
+    "line": 634,
+    "source": "\"材质\""
+  },
+  {
+    "key": "material_region_v1.text_017",
+    "file": "web/badge_material_region_v1.js",
+    "line": 639,
+    "source": "`${entry?.label || group.material_id} 材质样片`"
+  },
+  {
+    "key": "material_region_v1.text_018",
+    "file": "web/badge_material_region_v1.js",
+    "line": 647,
+    "source": "\"区域材质；打开后悬浮选项可查看大图\""
+  },
+  {
+    "key": "material_region_v1.text_019",
+    "file": "web/badge_material_region_v1.js",
+    "line": 650,
+    "source": "\"材质只改变命中区域的表面物理特性；打开后悬浮或聚焦选项可查看材质大图。\""
+  },
+  {
+    "key": "material_region_v1.text_020",
+    "file": "web/badge_material_region_v1.js",
+    "line": 654,
+    "source": "\"⌄\""
+  },
+  {
+    "key": "material_region_v1.text_021",
+    "file": "web/badge_material_region_v1.js",
+    "line": 681,
+    "source": "\"区域色彩策略\""
+  },
+  {
+    "key": "material_region_v1.text_022",
+    "file": "web/badge_material_region_v1.js",
+    "line": 682,
+    "source": "\"默认保留平面图原色；只有目录声明固有色的材质可启用固有色。\""
+  },
+  {
+    "key": "material_region_v1.text_023",
+    "file": "web/badge_material_region_v1.js",
+    "line": 686,
+    "source": "\"保留原色\""
+  },
+  {
+    "key": "material_region_v1.text_024",
+    "file": "web/badge_material_region_v1.js",
+    "line": 689,
+    "source": "\"材质固有色\""
+  },
+  {
+    "key": "material_region_v1.text_025",
+    "file": "web/badge_material_region_v1.js",
+    "line": 704,
+    "source": "\"强度\""
+  },
+  {
+    "key": "material_region_v1.text_026",
+    "file": "web/badge_material_region_v1.js",
+    "line": 713,
+    "source": "\"区域材质强度\""
+  },
+  {
+    "key": "material_region_v1.text_027",
+    "file": "web/badge_material_region_v1.js",
+    "line": 714,
+    "source": "\"100% 为该材质的推荐强度；调整只影响选中区域，并会同步进入后端配置。\""
+  },
+  {
+    "key": "material_region_v1.text_028",
+    "file": "web/badge_material_region_v1.js",
+    "line": 767,
+    "source": "`区域 ${index + 1}`"
+  },
+  {
+    "key": "material_region_v1.text_029",
+    "file": "web/badge_material_region_v1.js",
+    "line": 768,
+    "source": "\"此颜色仅用于定位徽章平面图中的源色块\""
+  },
+  {
+    "key": "material_region_v1.text_030",
+    "file": "web/badge_material_region_v1.js",
+    "line": 802,
+    "source": "`区域 ${config.groups.indexOf(group) + 1}｜${entry?.label || group.material_id}\\n预计调用 GPT-Image-2：1 次`"
+  },
+  {
+    "key": "material_region_v1.text_031",
+    "file": "web/badge_material_region_v1.js",
+    "line": 806,
+    "source": "\"重抽选中材质区域\""
+  },
+  {
+    "key": "material_region_v1.text_032",
+    "file": "web/badge_material_region_v1.js",
+    "line": 824,
+    "source": "\"在选中区域后新增\""
+  },
+  {
+    "key": "material_region_v1.text_033",
+    "file": "web/badge_material_region_v1.js",
+    "line": 842,
+    "source": "\"删除选中区域\""
+  },
+  {
+    "key": "material_region_v1.text_034",
+    "file": "web/badge_material_region_v1.js",
+    "line": 859,
+    "source": "\"重抽选中区域（预计 1 次 GPT-Image-2 调用）\""
+  },
+  {
+    "key": "material_region_v1.text_035",
+    "file": "web/badge_material_region_v1.js",
+    "line": 871,
+    "source": "`未配置：${defaultEntry?.label || \"透明漆\"}`"
+  },
+  {
+    "key": "material_region_v1.text_036",
+    "file": "web/badge_material_region_v1.js",
+    "line": 871,
+    "source": "\"透明漆\""
+  },
+  {
+    "key": "material_region_v1.text_037",
+    "file": "web/badge_material_region_v1.js",
+    "line": 872,
+    "source": "\"未被任何源颜色规则命中的徽章前景区域统一使用透明清漆\""
+  },
+  {
+    "key": "material_region_v1.text_038",
+    "file": "web/badge_material_region_v1.js",
+    "line": 901,
+    "source": "\"徽章源颜色与材质区域映射\""
+  },
+  {
+    "key": "material_region_v1.text_039",
+    "file": "web/badge_material_region_v1.js",
+    "line": 963,
+    "source": "\"特殊材质区域（按平面图取色）\""
+  },
+  {
+    "key": "material_region_v1.text_040",
+    "file": "web/badge_material_region_v1.js",
+    "line": 1000,
+    "source": "\"特殊材质区域（按平面图取色）\""
+  },
+  {
+    "key": "material_strip.text_001",
+    "file": "web/badge_material_strip.mjs",
+    "line": 23,
+    "source": "'⋯'"
+  },
+  {
+    "key": "material_strip.text_002",
+    "file": "web/badge_material_strip.mjs",
+    "line": 23,
+    "source": "'区域更多设置'"
+  },
+  {
+    "key": "material_strip.text_003",
+    "file": "web/badge_material_strip.mjs",
+    "line": 25,
+    "source": "'颜色策略 '"
+  },
+  {
+    "key": "material_strip.text_004",
+    "file": "web/badge_material_strip.mjs",
+    "line": 57,
+    "source": "'选择目标材质'"
+  },
+  {
+    "key": "material_strip.text_005",
+    "file": "web/badge_material_strip.mjs",
+    "line": 62,
+    "source": "'正在加载材质…'"
+  },
+  {
+    "key": "material_strip.text_006",
+    "file": "web/badge_material_strip.mjs",
+    "line": 71,
+    "source": "'目标材质缩略图'"
+  },
+  {
+    "key": "material_strip.text_007",
+    "file": "web/badge_material_strip.mjs",
+    "line": 74,
+    "source": "'向左浏览材质'"
+  },
+  {
+    "key": "material_strip.text_008",
+    "file": "web/badge_material_strip.mjs",
+    "line": 74,
+    "source": "'向右浏览材质'"
+  },
+  {
+    "key": "material_strip.text_009",
+    "file": "web/badge_material_strip.mjs",
+    "line": 85,
+    "source": "'✓'"
+  },
+  {
+    "key": "material_strip.text_010",
+    "file": "web/badge_material_strip.mjs",
+    "line": 108,
+    "source": "'材质加载失败，请收起后重试。'"
+  },
+  {
+    "key": "material_strip.text_011",
+    "file": "web/badge_material_strip.mjs",
+    "line": 129,
+    "source": "'目标材质；点击展开横向缩略图列表'"
+  },
+  {
+    "key": "material_strip.text_012",
+    "file": "web/badge_material_strip.mjs",
+    "line": 130,
+    "source": "'点击选择材质，选中后自动收起'"
+  },
+  {
+    "key": "palette_reference.text_001",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 10,
+    "source": "'配色参考图'"
+  },
+  {
+    "key": "palette_reference.text_002",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 13,
+    "source": "'上传后，各生成阶段优先使用此图作为配色参考。清除后恢复使用已处理镂空和背景的平面图。'"
+  },
+  {
+    "key": "palette_reference.text_003",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 17,
+    "source": "'上传 / 替换配色参考图'"
+  },
+  {
+    "key": "palette_reference.text_004",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 18,
+    "source": "'清除配色参考图'"
+  },
+  {
+    "key": "palette_reference.text_005",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 20,
+    "source": "'当前配色参考图'"
+  },
+  {
+    "key": "palette_reference.text_006",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 31,
+    "source": "`当前配色参考：${selection.filename}`"
+  },
+  {
+    "key": "palette_reference.text_007",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 31,
+    "source": "'未上传，使用默认平面图配色。'"
+  },
+  {
+    "key": "palette_reference.text_008",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 40,
+    "source": "'正在上传…'"
+  },
+  {
+    "key": "palette_reference.text_009",
+    "file": "web/badge_palette_reference.mjs",
+    "line": 53,
+    "source": "'配色参考图加载失败，请重新上传。'"
+  },
+  {
+    "key": "reference_resize.text_001",
+    "file": "web/badge_reference_resize.mjs",
+    "line": 8,
+    "source": "'调整置顶参考区高度'"
+  },
+  {
+    "key": "reference_resize.text_002",
+    "file": "web/badge_reference_resize.mjs",
+    "line": 9,
+    "source": "'拖动调整参考区高度 · 方向键微调 · 双击恢复默认'"
+  },
+  {
+    "key": "reference_resize.text_003",
+    "file": "web/badge_reference_resize.mjs",
+    "line": 28,
+    "source": "`图片高度 ${value} 像素`"
+  },
+  {
+    "key": "relief_prompt.text_001",
+    "file": "web/badge_relief_prompt.js",
+    "line": 177,
+    "source": "\"浮雕立体程度\""
+  },
+  {
+    "key": "relief_prompt.text_002",
+    "file": "web/badge_relief_prompt.js",
+    "line": 189,
+    "source": "\"浮雕立体程度\""
+  },
+  {
+    "key": "relief_prompt.text_003",
+    "file": "web/badge_relief_prompt.js",
+    "line": 261,
+    "source": "\"徽章浮雕强度\""
+  },
+  {
+    "key": "relief_prompt_panel.text_001",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 5,
+    "source": "\"平面\""
+  },
+  {
+    "key": "relief_prompt_panel.text_002",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 5,
+    "source": "\"完全平面\""
+  },
+  {
+    "key": "relief_prompt_panel.text_003",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 6,
+    "source": "\"微\""
+  },
+  {
+    "key": "relief_prompt_panel.text_004",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 6,
+    "source": "\"微浮雕\""
+  },
+  {
+    "key": "relief_prompt_panel.text_005",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 7,
+    "source": "\"浅\""
+  },
+  {
+    "key": "relief_prompt_panel.text_006",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 7,
+    "source": "\"浅浮雕\""
+  },
+  {
+    "key": "relief_prompt_panel.text_007",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 8,
+    "source": "\"中\""
+  },
+  {
+    "key": "relief_prompt_panel.text_008",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 8,
+    "source": "\"中浮雕\""
+  },
+  {
+    "key": "relief_prompt_panel.text_009",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 9,
+    "source": "\"深\""
+  },
+  {
+    "key": "relief_prompt_panel.text_010",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 9,
+    "source": "\"深浮雕\""
+  },
+  {
+    "key": "relief_prompt_panel.text_011",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 10,
+    "source": "\"高\""
+  },
+  {
+    "key": "relief_prompt_panel.text_012",
+    "file": "web/badge_relief_prompt_panel.mjs",
+    "line": 10,
+    "source": "\"高浮雕\""
+  },
+  {
+    "key": "result_picker_87.text_001",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 8,
+    "source": "'选择局部编辑效果图'"
+  },
+  {
+    "key": "result_picker_87.text_002",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 23,
+    "source": "'暂无生成结果'"
+  },
+  {
+    "key": "result_picker_87.text_003",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 23,
+    "source": "'当前编辑：上一批结果'"
+  },
+  {
+    "key": "result_picker_87.text_004",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 23,
+    "source": "`本次生成 ${targets.results.length} 张 · 当前编辑第 ${current + 1} 张`"
+  },
+  {
+    "key": "result_picker_87.text_005",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 24,
+    "source": "' · 正在编辑，暂不可切换'"
+  },
+  {
+    "key": "result_picker_87.text_006",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 28,
+    "source": "`有 ${targets.results.length} 张新效果图 · 查看并选择`"
+  },
+  {
+    "key": "result_picker_87.text_007",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 36,
+    "source": "'效果图候选'"
+  },
+  {
+    "key": "result_picker_87.text_008",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 41,
+    "source": "'上一批结果'"
+  },
+  {
+    "key": "result_picker_87.text_009",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 41,
+    "source": "`第 ${current < 0 && targets.generated ? index : index + 1} 张`"
+  },
+  {
+    "key": "result_picker_87.text_010",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 43,
+    "source": "'，当前编辑'"
+  },
+  {
+    "key": "result_picker_87.text_011",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 43,
+    "source": "'，点击编辑'"
+  },
+  {
+    "key": "result_picker_87.text_012",
+    "file": "web/badge_result_picker_87.mjs",
+    "line": 47,
+    "source": "'（预览不可用）'"
+  },
+  {
+    "key": "result_target_87.text_001",
+    "file": "web/badge_result_target_87.mjs",
+    "line": 76,
+    "source": "'编辑目标已更新，选择编辑区域后即可生成。'"
+  },
+  {
+    "key": "result_target_87.text_002",
+    "file": "web/badge_result_target_87.mjs",
+    "line": 76,
+    "source": "'当前来源尚无图片。'"
+  },
+  {
+    "key": "selection_migration.text_001",
+    "file": "web/badge_selection_migration.mjs",
+    "line": 10,
+    "source": "'徽章选区｜画笔 / Polygon'"
+  },
+  {
+    "key": "selection_migration.text_002",
+    "file": "web/badge_selection_migration.mjs",
+    "line": 14,
+    "source": "'徽章选区｜画笔 / Polygon'"
+  },
+  {
+    "key": "selection_variant.text_001",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 67,
+    "source": "'请先应用待加载的图片'"
+  },
+  {
+    "key": "selection_variant.text_002",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 68,
+    "source": "'没有可清空的画笔笔画'"
+  },
+  {
+    "key": "selection_variant.text_003",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 68,
+    "source": "'清空画笔笔画（可撤销）'"
+  },
+  {
+    "key": "selection_variant.text_004",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 69,
+    "source": "'请先选中一个 Polygon'"
+  },
+  {
+    "key": "selection_variant.text_005",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 69,
+    "source": "'删除选中的 Polygon（可撤销）'"
+  },
+  {
+    "key": "selection_variant.text_006",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 70,
+    "source": "'请先加载目标图片'"
+  },
+  {
+    "key": "selection_variant.text_007",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 70,
+    "source": "'按当前顶点数重置或创建 Polygon（可撤销）'"
+  },
+  {
+    "key": "selection_variant.text_008",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 87,
+    "source": "'选区绘制工具'"
+  },
+  {
+    "key": "selection_variant.text_009",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 90,
+    "source": "'画笔涂抹'"
+  },
+  {
+    "key": "selection_variant.text_010",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 91,
+    "source": "'Polygon 绘制'"
+  },
+  {
+    "key": "selection_variant.text_011",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 99,
+    "source": "'笔刷 '"
+  },
+  {
+    "key": "selection_variant.text_012",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 99,
+    "source": "'笔刷直径（图像像素）'"
+  },
+  {
+    "key": "selection_variant.text_013",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 108,
+    "source": "'拖动画布涂抹选区 · Undo / Redo 撤销与重做 · Clear 清空笔画'"
+  },
+  {
+    "key": "selection_variant.text_014",
+    "file": "web/badge_selection_variant.mjs",
+    "line": 108,
+    "source": "'Shift+左键新建 Polygon · 拖动顶点或区域 · 左键点边加点 / 右键点顶点删点'"
+  },
+  {
+    "key": "material_prompt.text_001",
+    "file": "web/material_prompt.js",
+    "line": 46,
+    "source": "\"烤漆\""
+  },
+  {
+    "key": "material_prompt.text_002",
+    "file": "web/material_prompt.js",
+    "line": 47,
+    "source": "\"透明漆\""
+  },
+  {
+    "key": "material_prompt.text_003",
+    "file": "web/material_prompt.js",
+    "line": 48,
+    "source": "\"亚金\""
+  },
+  {
+    "key": "material_prompt.text_004",
+    "file": "web/material_prompt.js",
+    "line": 49,
+    "source": "\"亚银\""
+  },
+  {
+    "key": "material_prompt.text_005",
+    "file": "web/material_prompt.js",
+    "line": 50,
+    "source": "\"闪粉\""
+  },
+  {
+    "key": "material_prompt.text_006",
+    "file": "web/material_prompt.js",
+    "line": 51,
+    "source": "\"水钻\""
+  },
+  {
+    "key": "material_prompt.text_007",
+    "file": "web/material_prompt.js",
+    "line": 120,
+    "source": "\"材质选择\""
+  },
+  {
+    "key": "material_prompt.text_008",
+    "file": "web/material_prompt.js",
+    "line": 266,
+    "source": "`当前材质 · ${selectedEntry?.label || selectedId}`"
+  },
+  {
+    "key": "material_prompt.text_009",
+    "file": "web/material_prompt.js",
+    "line": 276,
+    "source": "\"‹\""
+  },
+  {
+    "key": "material_prompt.text_010",
+    "file": "web/material_prompt.js",
+    "line": 277,
+    "source": "\"向左滚动材质列表\""
+  },
+  {
+    "key": "material_prompt.text_011",
+    "file": "web/material_prompt.js",
+    "line": 281,
+    "source": "\"材质选择\""
+  },
+  {
+    "key": "material_prompt.text_012",
+    "file": "web/material_prompt.js",
+    "line": 285,
+    "source": "\"›\""
+  },
+  {
+    "key": "material_prompt.text_013",
+    "file": "web/material_prompt.js",
+    "line": 286,
+    "source": "\"向右滚动材质列表\""
+  },
+  {
+    "key": "material_prompt.text_014",
+    "file": "web/material_prompt.js",
+    "line": 332,
+    "source": "\"✓\""
+  },
+  {
+    "key": "material_prompt.text_015",
+    "file": "web/material_prompt.js",
+    "line": 461,
+    "source": "\"材质选择\""
+  },
+  {
+    "key": "material_prompt_model.text_001",
+    "file": "web/material_prompt_model.mjs",
+    "line": 4,
+    "source": "\"仅修改 Image 1 中红色覆盖标记的目标区域；红色仅是编辑区域指示色，\""
+  },
+  {
+    "key": "material_prompt_model.text_002",
+    "file": "web/material_prompt_model.mjs",
+    "line": 5,
+    "source": "\"必须在输出中完全移除，不能成为最终材质颜色。\""
+  },
+  {
+    "key": "material_prompt_model.text_003",
+    "file": "web/material_prompt_model.mjs",
+    "line": 78,
+    "source": "`${label}，当前材质`"
+  },
+  {
+    "key": "material_prompt_model.text_004",
+    "file": "web/material_prompt_model.mjs",
+    "line": 126,
+    "source": "\"材质\""
+  },
+  {
+    "key": "material_prompt_model.text_005",
+    "file": "web/material_prompt_model.mjs",
+    "line": 127,
+    "source": "\"编辑目标（可选）\""
+  },
+  {
+    "key": "material_prompt_model.text_006",
+    "file": "web/material_prompt_model.mjs",
+    "line": 128,
+    "source": "\"补充要求\""
+  },
+  {
+    "key": "compact_color_group_controls.text_001",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 35,
+    "source": "\"颜色\""
+  },
+  {
+    "key": "compact_color_group_controls.text_002",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 44,
+    "source": "`选择${label} ${color}`"
+  },
+  {
+    "key": "compact_color_group_controls.text_003",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 53,
+    "source": "`${label}十六进制值`"
+  },
+  {
+    "key": "compact_color_group_controls.text_004",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 68,
+    "source": "`请输入完整的 #RRGGBB 颜色值；当前值：${value}`"
+  },
+  {
+    "key": "compact_color_group_controls.text_005",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 120,
+    "source": "\"阈值\""
+  },
+  {
+    "key": "compact_color_group_controls.text_006",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 121,
+    "source": "\"悬浮数值后左右拖动调整。0 为严格颜色匹配；数值越大，允许的色差越大。\""
+  },
+  {
+    "key": "compact_color_group_controls.text_007",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 129,
+    "source": "\"颜色匹配阈值\""
+  },
+  {
+    "key": "compact_color_group_controls.text_008",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 130,
+    "source": "\"悬浮后左右拖动调整，也可以单击输入数值\""
+  },
+  {
+    "key": "compact_color_group_controls.text_009",
+    "file": "web/compact_color_group_controls.mjs",
+    "line": 131,
+    "source": "\"左右拖动调整；单击后可直接输入（0–255）\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_001",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 222,
+    "source": "\"蒙版\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_002",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 243,
+    "source": "\"反转颜色匹配结果\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_003",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 246,
+    "source": "\"反转匹配结果\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_004",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 280,
+    "source": "`颜色 ${index + 1}`"
+  },
+  {
+    "key": "multi_color_mask_v1.text_005",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 299,
+    "source": "\"在选中颜色后新增\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_006",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 308,
+    "source": "\"删除选中颜色\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_007",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 317,
+    "source": "\"输出\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_008",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 320,
+    "source": "\"输出蒙版\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_009",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 357,
+    "source": "\"多颜色蒙版组\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_010",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 416,
+    "source": "\"多颜色选区（按参考图取色）\""
+  },
+  {
+    "key": "multi_color_mask_v1.text_011",
+    "file": "web/multi_color_mask_v1.js",
+    "line": 448,
+    "source": "\"多颜色选区（按参考图取色）\""
+  },
+  {
+    "key": "polygon_mask.text_001",
+    "file": "web/polygon_mask.js",
+    "line": 41,
+    "source": "\"多边形编辑画布\""
+  },
+  {
+    "key": "polygon_mask.text_002",
+    "file": "web/polygon_mask.js",
+    "line": 255,
+    "source": "\"Polygon vertex count\""
+  },
+  {
+    "key": "polygon_mask.text_003",
+    "file": "web/polygon_mask.js",
+    "line": 263,
+    "source": "\"Polygon color\""
+  },
+  {
+    "key": "polygon_mask.text_004",
+    "file": "web/polygon_mask.js",
+    "line": 278,
+    "source": "\"Hex or RGB polygon color\""
+  },
+  {
+    "key": "polygon_mask.text_005",
+    "file": "web/polygon_mask.js",
+    "line": 289,
+    "source": "\"Polygon fill opacity\""
+  },
+  {
+    "key": "polygon_mask.text_006",
+    "file": "web/polygon_mask.js",
+    "line": 297,
+    "source": "\"Polygon outline width\""
+  },
+  {
+    "key": "polygon_mask.text_007",
+    "file": "web/polygon_mask.js",
+    "line": 302,
+    "source": "\"Polygon text output\""
+  },
+  {
+    "key": "polygon_mask.text_008",
+    "file": "web/polygon_mask.js",
+    "line": 303,
+    "source": "\"\\u8f93\\u5165\\u5e0c\\u671b\\u5728\\u906e\\u7f69\\u5904\\u751f\\u6210\\u7684\\u5185\\u5bb9\\uff0c\\u82e5\\u65e0\\u5219\\u7559\\u7a7a\""
+  },
+  {
+    "key": "polygon_mask.text_009",
+    "file": "web/polygon_mask.js",
+    "line": 323,
+    "source": "\"\\u9876\\u70b9\\u6570\\u91cf\""
+  },
+  {
+    "key": "polygon_mask.text_010",
+    "file": "web/polygon_mask.js",
+    "line": 325,
+    "source": "\"\\u989c\\u8272\""
+  },
+  {
+    "key": "polygon_mask.text_011",
+    "file": "web/polygon_mask.js",
+    "line": 327,
+    "source": "\"\\u586b\\u5145\\u900f\\u660e\\u5ea6\""
+  },
+  {
+    "key": "polygon_mask.text_012",
+    "file": "web/polygon_mask.js",
+    "line": 329,
+    "source": "\"\\u8f6e\\u5ed3\\u5bbd\\u5ea6\""
+  },
+  {
+    "key": "polygon_mask.text_013",
+    "file": "web/polygon_mask.js",
+    "line": 331,
+    "source": "\"\\u6587\\u672c\""
+  },
+  {
+    "key": "polygon_mask.text_014",
+    "file": "web/polygon_mask.js",
+    "line": 526,
+    "source": "\"\\u591a\\u8fb9\\u5f62\\u7f16\\u8f91\\u753b\\u5e03\""
+  },
+  {
+    "key": "polygon_mask.text_015",
+    "file": "web/polygon_mask.js",
+    "line": 550,
+    "source": "\"\\u5de6\\u952e\\u70b9\\u8fb9 / \\u53f3\\u952e\\u70b9\\u9876\\u70b9\\uff1a\\u589e / \\u5220\\u9876\\u70b9 | Shift+\\u5de6 / \\u53f3\\u952e\\uff1a\\u589e / \\u5220 Polygon\""
+  },
+  {
+    "key": "backend.error_001",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 28
+  },
+  {
+    "key": "backend.error_002",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 36
+  },
+  {
+    "key": "backend.error_003",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 38
+  },
+  {
+    "key": "backend.error_004",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 58
+  },
+  {
+    "key": "backend.error_005",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 82
+  },
+  {
+    "key": "backend.error_006",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 108
+  },
+  {
+    "key": "backend.error_007",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 137
+  },
+  {
+    "key": "backend.error_008",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 139
+  },
+  {
+    "key": "backend.error_009",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 152
+  },
+  {
+    "key": "backend.error_010",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 50
+  },
+  {
+    "key": "backend.error_011",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 62
+  },
+  {
+    "key": "backend.error_012",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 92
+  },
+  {
+    "key": "backend.error_013",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 107
+  },
+  {
+    "key": "backend.error_014",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 111
+  },
+  {
+    "key": "backend.error_015",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 149
+  },
+  {
+    "key": "backend.error_016",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 399
+  },
+  {
+    "key": "backend.error_017",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 171
+  },
+  {
+    "key": "backend.error_018",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 216
+  },
+  {
+    "key": "backend.error_019",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 290
+  },
+  {
+    "key": "backend.error_020",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 408
+  },
+  {
+    "key": "backend.error_021",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 413
+  },
+  {
+    "key": "backend.error_022",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 422
+  },
+  {
+    "key": "backend.error_023",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 212
+  },
+  {
+    "key": "backend.error_024",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 221
+  },
+  {
+    "key": "backend.error_025",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 226
+  },
+  {
+    "key": "backend.error_026",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 200
+  },
+  {
+    "key": "backend.error_027",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 203
+  },
+  {
+    "key": "backend.error_028",
+    "file": "nodes/badge_app_87/node.py",
+    "line": 297
+  },
+  {
+    "key": "polygon_mask.extra_001",
+    "file": "web/polygon_mask.js",
+    "line": 676,
+    "source": "\"Load Image\""
+  },
+  {
+    "key": "polygon_mask.extra_002",
+    "file": "web/polygon_mask.js",
+    "line": 676,
+    "source": "\"Load the connected IMAGE socket into the polygon canvas\""
+  },
+  {
+    "key": "polygon_mask.extra_003",
+    "file": "web/polygon_mask.js",
+    "line": 683,
+    "source": "\"Undo\""
+  },
+  {
+    "key": "polygon_mask.extra_004",
+    "file": "web/polygon_mask.js",
+    "line": 683,
+    "source": "\"Undo last polygon edit\""
+  },
+  {
+    "key": "polygon_mask.extra_005",
+    "file": "web/polygon_mask.js",
+    "line": 684,
+    "source": "\"Redo\""
+  },
+  {
+    "key": "polygon_mask.extra_006",
+    "file": "web/polygon_mask.js",
+    "line": 684,
+    "source": "\"Redo polygon edit\""
+  },
+  {
+    "key": "polygon_mask.extra_007",
+    "file": "web/polygon_mask.js",
+    "line": 685,
+    "source": "\"Refresh\""
+  },
+  {
+    "key": "polygon_mask.extra_008",
+    "file": "web/polygon_mask.js",
+    "line": 685,
+    "source": "\"Refresh socket image and redraw canvas\""
+  },
+  {
+    "key": "polygon_mask.extra_009",
+    "file": "web/polygon_mask.js",
+    "line": 689,
+    "source": "\"Clear\""
+  },
+  {
+    "key": "polygon_mask.extra_010",
+    "file": "web/polygon_mask.js",
+    "line": 689,
+    "source": "\"Delete selected polygon\""
+  },
+  {
+    "key": "polygon_mask.extra_011",
+    "file": "web/polygon_mask.js",
+    "line": 690,
+    "source": "\"Reset\""
+  },
+  {
+    "key": "polygon_mask.extra_012",
+    "file": "web/polygon_mask.js",
+    "line": 690,
+    "source": "\"Reset selected polygon using current vertex count\""
+  },
+  {
+    "key": "polygon_mask.extra_013",
+    "file": "web/polygon_mask.js",
+    "line": 1977,
+    "source": "\"Apply Preview\""
+  },
+  {
+    "key": "polygon_mask.extra_014",
+    "file": "web/polygon_mask.js",
+    "line": 1977,
+    "source": "\"Load Image\""
+  },
+  {
+    "key": "polygon_mask.extra_015",
+    "file": "web/polygon_mask.js",
+    "line": 2001,
+    "source": "\"Connect an IMAGE input and click Load Image\""
+  },
+  {
+    "key": "polygon_mask.extra_016",
+    "file": "web/polygon_mask.js",
+    "line": 2003,
+    "source": "\"Left-click an edge to add; right-click a vertex to delete\""
+  },
+  {
+    "key": "badge_refinement_87.extra_001",
+    "file": "web/badge_refinement_87.mjs",
+    "line": 7,
+    "source": "'GPT-Image-2.5 Sunburst'"
+  },
+  {
+    "key": "badge_refinement_87.extra_002",
+    "file": "web/badge_refinement_87.mjs",
+    "line": 8,
+    "source": "'GPT-Image-2.5 Flare'"
+  },
+  {
+    "key": "badge_refinement_87.extra_003",
+    "file": "web/badge_refinement_87.mjs",
+    "line": 9,
+    "source": "'GPT-Image-2'"
+  },
+  {
+    "key": "color_picker.heading",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"选择颜色\"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.palette",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"颜色面板\"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.hue",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"色相 \"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.hex_label",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"色号 \"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.hex_aria",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"选色色号\"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.pick",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"从参考图吸色\"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.apply",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"应用\"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  },
+  {
+    "key": "color_picker.close",
+    "file": "web/badge_color_picker.mjs",
+    "source": "\"取消\"",
+    "note": "Text leaf from original inline HTML; structure remains in code."
+  }
+]

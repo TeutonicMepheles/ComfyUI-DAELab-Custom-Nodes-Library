@@ -1,0 +1,398 @@
+{
+  "version": 0.4,
+  "last_node_id": 7,
+  "last_link_id": 5,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        310,
+        300
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "DAELab-LibTV-Demo-reference-1.png",
+        "image"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        330,
+        0
+      ],
+      "size": [
+        310,
+        300
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "DAELab-LibTV-Demo-reference-2.png",
+        "image"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "LoadImage",
+      "pos": [
+        660,
+        0
+      ],
+      "size": [
+        310,
+        300
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "DAELab-LibTV-Demo-reference-3.png",
+        "image"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "ImageBatch",
+      "pos": [
+        100,
+        400
+      ],
+      "size": [
+        280,
+        110
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBatch"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 5,
+      "type": "ImageBatch",
+      "pos": [
+        600,
+        400
+      ],
+      "size": [
+        280,
+        110
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBatch"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 6,
+      "type": "DAELAB.LibTV.VideoGenerate",
+      "pos": [
+        1080,
+        0
+      ],
+      "size": [
+        600,
+        1000
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "title": "LibTV 统一视频指令",
+      "inputs": [
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_images",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "reference_video",
+          "type": "COMFYTV_VIDEO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "comfytv_video",
+          "type": "COMFYTV_VIDEO",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "local_path",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        },
+        {
+          "name": "task_report",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.LibTV.VideoGenerate"
+      },
+      "widgets_values": [
+        "",
+        "demo-multiref-001",
+        "Seedance 2.5",
+        "mixed2video",
+        "参考 @image_1 保持蓝色陶瓷球的材质与外观，参考 @image_2 的位置与运动姿态，参考 @image_3 的构图与柔和光线。固定机位，蓝色陶瓷球在浅灰桌面缓慢滚动，运动连续自然，不添加文字，不出现人物。",
+        5,
+        "720p",
+        "16:9",
+        false,
+        "[]"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "Note",
+      "pos": [
+        0,
+        560
+      ],
+      "size": [
+        980,
+        160
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note"
+      },
+      "widgets_values": [
+        "演示：三张参考图 → 图像批次 → 一个统一视频指令节点 → 返回可编辑视频\n\n1. 三张图按左到右排列，顺序为 @image_1、@image_2、@image_3；ImageBatch 保持这个顺序。\n2. 登录 LibTV，读取/填写自己的画布 ID。输入模式选择“全能参考”。\n3. 在同一视频节点里切换 Seedance 2.0 / 2.5 / Minimax H3，设置时长、分辨率和画幅。\n4. 每次有意生成新内容先点击“新建任务编号”。同一编号只用于恢复同一请求。\n素材是此前蓝色陶瓷球演示视频的截帧；它们是输入参考，不是本轮生成结果。"
+      ],
+      "title": "Demo: three references / one video instruction"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      4,
+      1,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      5,
+      1,
+      "IMAGE"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      5,
+      0,
+      6,
+      2,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "1. Reference images -> ImageBatch",
+      "bounding": [
+        -30,
+        -60,
+        1040,
+        610
+      ],
+      "color": "#2c6472",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "2. Model / Duration / Resolution",
+      "bounding": [
+        1050,
+        -60,
+        670,
+        1110
+      ],
+      "color": "#67547c",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.44,
+      "offset": [
+        100,
+        170
+      ]
+    },
+    "linearData": {
+      "inputs": [
+        [
+          6,
+          "daelab_libtv_panel"
+        ]
+      ],
+      "outputs": [
+        6
+      ]
+    }
+  }
+}

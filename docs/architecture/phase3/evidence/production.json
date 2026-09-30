@@ -1,0 +1,29 @@
+{
+  "checks": [
+    "combined cards use independent data",
+    "local delayed generation does not affect B",
+    "keyboard card movement commits or cancels without editing node data",
+    "U02 native keyboard and disabled/busy guard",
+    "U03 invalid numbers, zero, independent values and external conflict",
+    "IME composition cannot submit early",
+    "U04 nested Escape, guarded close and focus return",
+    "overlay repeat lifecycle and removed anchor close; listener/observer counts restored",
+    "U05 local video plays and pauses on disabled/unmount; empty/error distinguish sources",
+    "U06 all states, no fabricated progress, unknown cannot retry",
+    "C06 collapse and inactive only change scoped card state",
+    "rendered theme text and control contrast targets",
+    "390px shell has no page overflow",
+    "zero page errors and no network outside independent local server"
+  ],
+  "pageErrors": [],
+  "unexpectedNetwork": [],
+  "scope": "independent showcase only; no ComfyUI/remote generation",
+  "contrast": {
+    "body": 13.873725377534734,
+    "muted": 6.7649850309182655,
+    "primary": 8.859221429732063,
+    "focus": 8.454422088294992,
+    "control": 3.33348998455305
+  },
+  "passed": true
+}

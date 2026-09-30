@@ -8,6 +8,7 @@ function hasValidPolygonState(info) {
   if (info.cleared === true) {
     return true;
   }
+  if (Array.isArray(info.brush_strokes) && info.brush_strokes.length) return true;
   if (Array.isArray(info.polygons)) {
     return info.polygons.some((polygon) => {
       const points = Array.isArray(polygon?.points) ? polygon.points : polygon;

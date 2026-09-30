@@ -1,0 +1,127 @@
+import importlib
+import json
+import sys
+import types
+import unittest
+from unittest.mock import patch
+from test_badge_app_88 import Badge88Tests, M
+
+R = importlib.import_module('badge88_test_package.nodes.badge_app_87.region_materials')
+
+class Badge87RegionsTests(unittest.TestCase):
+    def test_preserve_color_material_keeps_full_image_and_uses_locator(self):
+        import torch
+        base=torch.full((1,16,16,3),.4);mask=torch.zeros((1,16,16));mask[:,4:12,4:12]=1
+        for material in ('glitter','transparent_lacquer','baked_enamel'):
+            config={'material_id':material,'color_policy':'preserve'}
+            inputs={'prompt':'material','model.images.image_1':base}
+            R.Badge87RegionExecutor().bind_region_mask(inputs,mask,config)
+            self.assertIs(inputs['model.images.image_1'],base)
+            self.assertNotIn('model.mask',inputs)
+            self.assertTrue(torch.equal(inputs['model.images.image_2'][...,0],mask))
+            self.assertFalse(R.Badge87RegionExecutor().constraint_options(config)['preserve_base_lightness'])
+        from badge88_test_package.nodes.badge_app_87.material_policy import generation_policy
+        policy=generation_policy({'material_id':'glitter'})['validation']
+        self.assertTrue(policy['enforce_visibility'])
+        self.assertGreater(policy['minimum_added_highlight_fraction'],0)
+        self.assertLess(policy['maximum_raw_black_fraction'],1)
+
+    def test_material_switch_reuses_geometry(self):
+        import torch
+        request = self.request()
+        with patch.object(R.legacy,'load_source',return_value=self.source()):
+            a=R.prepare(request)
+            request['local_regions']['groups'][0]['material_id']='glitter'
+            b=R.prepare(request)
+            self.assertIs(a['region_geometry'], b['region_geometry'])
+            for left,right in zip(a['regions'],b['regions']):
+                self.assertTrue(torch.equal(left[0],right[0]))
+
+    def test_saved_preserve_policy_is_overridden_for_metals(self):
+        for material in ('satin_gold', 'satin_silver'):
+            request = self.request()
+            request['local_regions']['groups'][0].update(material_id=material, color_policy='preserve')
+            with patch.object(R.legacy, 'load_source', return_value=self.source()):
+                prepared = R.prepare(request)
+            _, prompt, config = prepared['regions'][0]
+            self.assertEqual(config['color_policy'], 'material_intrinsic')
+            self.assertIn('本色', prompt)
+            self.assertNotIn('材质名称不作为改色依据', prompt)
+
+    def source(self):
+        return Badge88Tests.source(self).repeat(16,axis=0).repeat(16,axis=1)
+    def request(self):
+        request = Badge88Tests.request(self)
+        request.update(workflow_version='8.7', model='gpt-image-2.5-flare', interaction_revision=2,width=1024,height=1024)
+        request['local_regions']['groups'][0].update(threshold=0,samples=['#650000'],name='外框')
+        request['local_regions']['groups'][1]['threshold']=0
+        request['local_regions']['overlap_policy']='error'
+        return request
+
+    def test_87_dispatch_preview_and_overlap_before_any_model_call(self):
+        request=self.request()
+        request['original_image']='flat.png'
+        with patch.object(R.legacy,'load_source',return_value=self.source()):
+            report=R.legacy.BadgeApp87V1().execute(json.dumps(request))['ui']['badge87_report'][0]
+            self.assertEqual(report['workflow_version'],'8.7')
+            self.assertEqual(report['region_calls'],2)
+            self.assertEqual(report['model_calls'],2)
+            self.assertFalse(report['color_finish_applied'])
+            self.assertEqual(report['model'],'gpt-image-2.5-flare')
+            request['local_regions']['groups'][0]['samples']=['#6e0000']
+            with self.assertRaisesRegex(ValueError,'重叠'): R.legacy.BadgeApp87V1().execute(json.dumps(request))
+
+    def test_87_reuses_engine_but_preserves_selected_model(self):
+        module=types.ModuleType('comfy_execution.graph_utils');nodes=[]
+        class Graph:
+            def node(self,kind,id=None,**values):
+                nodes.append((kind,id,values));return types.SimpleNamespace(out=lambda i:[id,i])
+            def finalize(self):return {}
+        module.GraphBuilder=Graph
+        request=self.request()
+        request['local_regions']['groups'][1]['material_id']='satin_gold'
+        with patch.object(R.legacy,'load_source',return_value=self.source()),patch.dict(sys.modules,{'comfy_execution.graph_utils':module}):
+            preview=R.legacy.BadgeApp87V1().execute(json.dumps(request));self.assertFalse(nodes)
+            request.update(apply=True,preview_token=preview['ui']['badge87_report'][0]['preview_token'])
+            applied=R.legacy.BadgeApp87V1().execute(json.dumps(request))
+        generators=[v for k,i,v in nodes if k=='OpenAIGPTImageNodeV2']
+        self.assertEqual(len(generators),2)
+        guides=[(i,v) for k,i,v in nodes if k=='DAELAB.Badge87IntrinsicGuideV1']
+        self.assertEqual(len(guides),2)
+        self.assertEqual(guides[1][1]['image'],['diagnostics_0_a',0])
+        diagnostics=[v for k,i,v in nodes if k=='DAELAB.Badge87MaterialDiagnosticsV1']
+        self.assertEqual(diagnostics[0]['composite'],['composite_0_a',0])
+        self.assertEqual(generators[1]['model.images.image_1'],[guides[1][0],0])
+        # Runtime input is the previous composited image, never the link list.
+        import torch
+        from badge88_test_package.nodes.badge_app_87.intrinsic_guide import Badge87IntrinsicGuide
+        previous=torch.full((1,1024,1024,3),.37)
+        mask=guides[1][1]['mask']
+        out=Badge87IntrinsicGuide().prepare(previous,mask,guides[1][1]['color'])[0]
+        self.assertTrue(torch.equal(out[mask==0],previous[mask==0]))
+        self.assertFalse(torch.equal(out[mask>.5],previous[mask>.5]))
+
+        self.assertTrue(all(v['model']=='gpt-image-2.5-flare' for v in generators))
+        self.assertTrue(all('model.images.image_1' in v and ('model.mask' in v or 'model.images.image_2' in v) for v in generators))
+        recorded=applied['ui']['badge87_report'][0]['prompt_calls']
+        self.assertEqual([r['text'] for r in recorded],[str(v['prompt']) for v in generators])
+        self.assertFalse(any(i.startswith('color_finish') for k,i,v in nodes))
+        self.assertTrue(any(i=='final_composite_0' for k,i,v in nodes))
+        self.assertEqual(M.BadgeApp88V1().generation_model(request),'gpt-image-2')
+
+    def test_metals_use_opaque_locator_with_exact_mask_geometry(self):
+        import torch
+        mask = torch.tensor([[[0., 1.], [1., 0.]]])
+        base = torch.tensor([.1, .5, .4]).view(1,1,1,3).expand(1,2,2,3)
+        inputs = {'prompt': '亚银', 'model.images.image_1': base}
+        R.Badge87RegionExecutor().bind_region_mask(inputs, mask, {'color_policy':'material_intrinsic', 'material_id':'satin_silver'})
+        self.assertTrue(torch.equal(inputs['model.images.image_1'][mask == 0], base[mask == 0]))
+        selected = inputs['model.images.image_1'][mask > 0]
+        self.assertLess(float((selected[:,0] - selected[:,1]).abs().max()), .03)
+        self.assertNotIn('model.mask', inputs)
+        self.assertEqual(inputs['model.images.image_2'].shape, (1,2,2,3))
+        for channel in range(3):
+            self.assertTrue(torch.equal(inputs['model.images.image_2'][...,channel], mask))
+        self.assertIn('不能填黑', inputs['prompt'])
+
+if __name__=='__main__':unittest.main()

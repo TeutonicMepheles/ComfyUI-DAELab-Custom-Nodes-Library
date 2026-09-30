@@ -1,0 +1,180 @@
+[
+  {
+    "prompt_id": "a2eed717-f529-441a-bc2d-20c6aa40fbe4",
+    "status": "success",
+    "request": {
+      "version": 1,
+      "stage": "local",
+      "session": "b4fb9101-79aa-5c0f-9a7d-5eac35533ffb",
+      "width": 1024,
+      "height": 1024,
+      "quality": "low",
+      "count": 1,
+      "seed": 954129408,
+      "image": {
+        "filename": "flat.png",
+        "subfolder": "",
+        "type": "input"
+      },
+      "selection": "color",
+      "use_map": false,
+      "colors": {
+        "version": 1,
+        "groups": [
+          {
+            "id": "local_region_1",
+            "color": "#aa0000",
+            "threshold": 12,
+            "invert": false
+          }
+        ],
+        "output": "combined_mask"
+      },
+      "edit_mode": "semantic",
+      "prompt": "仅修改选中区域，保持轮廓、文字、颜色和未选区域不变。",
+      "apply": false,
+      "nonce": "c4737b68-972b-4661-9902-7905c7ec2b1a"
+    },
+    "images": [
+      {
+        "filename": "local_00034_.png",
+        "subfolder": "Badge87",
+        "type": "output"
+      }
+    ]
+  },
+  {
+    "prompt_id": "e664c69f-56fd-43ca-b421-71b5aaf76069",
+    "status": "success",
+    "request": {
+      "version": 1,
+      "stage": "local",
+      "session": "b4fb9101-79aa-5c0f-9a7d-5eac35533ffb",
+      "width": 1024,
+      "height": 1024,
+      "quality": "low",
+      "count": 1,
+      "seed": 954129408,
+      "image": {
+        "filename": "flat.png",
+        "subfolder": "",
+        "type": "input"
+      },
+      "selection": "color",
+      "use_map": false,
+      "colors": {
+        "version": 1,
+        "groups": [
+          {
+            "id": "local_region_1",
+            "color": "#aa0000",
+            "threshold": 12,
+            "invert": false
+          }
+        ],
+        "output": "combined_mask"
+      },
+      "edit_mode": "semantic",
+      "prompt": "仅修改选中区域，保持轮廓、文字、颜色和未选区域不变。",
+      "apply": true,
+      "preview_token": "fe93eb311a8d260083ad307878a523acc7453d9c530dabc7992f62a2f269f930",
+      "nonce": "c01cd2e8-8574-4af8-89f1-60e645e020e0"
+    },
+    "images": [
+      {
+        "filename": "local_00035_.png",
+        "subfolder": "Badge87",
+        "type": "output"
+      }
+    ]
+  },
+  {
+    "prompt_id": "d23f04c0-27e9-46c3-819f-a6a8988c2e1a",
+    "status": "success",
+    "request": {
+      "version": 1,
+      "stage": "local",
+      "session": "b4fb9101-79aa-5c0f-9a7d-5eac35533ffb",
+      "width": 1024,
+      "height": 1024,
+      "quality": "low",
+      "count": 1,
+      "seed": 1603774545,
+      "image": {
+        "filename": "flat.png",
+        "subfolder": "",
+        "type": "input"
+      },
+      "selection": "color",
+      "use_map": false,
+      "colors": {
+        "version": 1,
+        "groups": [
+          {
+            "id": "local_region_1",
+            "color": "#aa0000",
+            "threshold": 12,
+            "invert": false
+          }
+        ],
+        "output": "combined_mask"
+      },
+      "edit_mode": "semantic",
+      "prompt": "仅修改选中区域，保持轮廓、文字、颜色和未选区域不变。",
+      "apply": false,
+      "nonce": "8df73bf9-cdf7-44c1-b1f4-bae509482b46"
+    },
+    "images": [
+      {
+        "filename": "local_00036_.png",
+        "subfolder": "Badge87",
+        "type": "output"
+      }
+    ]
+  },
+  {
+    "prompt_id": "5c7e2e22-5570-47b0-b2cb-ca989a87eb25",
+    "status": "success",
+    "request": {
+      "version": 1,
+      "stage": "local",
+      "session": "b4fb9101-79aa-5c0f-9a7d-5eac35533ffb",
+      "width": 1024,
+      "height": 1024,
+      "quality": "low",
+      "count": 1,
+      "seed": 1603774545,
+      "image": {
+        "filename": "flat.png",
+        "subfolder": "",
+        "type": "input"
+      },
+      "selection": "color",
+      "use_map": false,
+      "colors": {
+        "version": 1,
+        "groups": [
+          {
+            "id": "local_region_1",
+            "color": "#aa0000",
+            "threshold": 12,
+            "invert": false
+          }
+        ],
+        "output": "combined_mask"
+      },
+      "edit_mode": "semantic",
+      "prompt": "仅修改选中区域，保持轮廓、文字、颜色和未选区域不变。",
+      "apply": true,
+      "preview_token": "5d76a21fc712f7add68f19af92f1117f118ca1ba3b221f2f5342e726bb7441c1",
+      "nonce": "c9f271d7-5287-4713-a38a-4484111c3eb2"
+    },
+    "images": [
+      {
+        "filename": "local_00037_.png",
+        "subfolder": "Badge87",
+        "type": "output"
+      }
+    ]
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "description": "Baseline-only legacy wording normalization, including user-supplied text. Kept to preserve exact existing requests; new releases should use explicit roles without this compatibility policy.",
+  "replacements": {
+    "原平面稿": "配色参考图",
+    "原稿底色": "配色参考图底色",
+    "原稿背景": "配色参考图背景",
+    "偏离原稿": "偏离配色参考图"
+  }
+}

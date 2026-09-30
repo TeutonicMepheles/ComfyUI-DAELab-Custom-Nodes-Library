@@ -1,0 +1,31 @@
+{
+  "1": {
+    "inputs": {
+      "prompt": "Storyboard prompt supplied by DAELab",
+      "model": "gpt-image-2",
+      "model.size": "auto",
+      "model.custom_width": 1024,
+      "model.custom_height": 1024,
+      "model.background": "auto",
+      "model.quality": "low",
+      "model.images.image_1": ["3", 0],
+      "n": 1,
+      "seed": 0
+    },
+    "class_type": "OpenAIGPTImageNodeV2",
+    "_meta": {"title": "OpenAI GPT Image 2 (Comfy Credits)"}
+  },
+  "2": {
+    "inputs": {
+      "filename_prefix": "DAELAB/storyboard_gpt_image_2",
+      "images": ["1", 0]
+    },
+    "class_type": "SaveImage",
+    "_meta": {"title": "Save DAELab Storyboard Image"}
+  },
+  "3": {
+    "inputs": {"image": ""},
+    "class_type": "LoadImage",
+    "_meta": {"title": "Optional Storyboard Reference Image"}
+  }
+}

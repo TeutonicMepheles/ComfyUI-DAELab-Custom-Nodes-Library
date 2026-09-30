@@ -1,0 +1,130 @@
+{
+  "release": "badge87-studio-lighting-v3",
+  "contract_version": 1,
+  "recipes": {
+    "build": [
+      {
+        "template": "tasks/build"
+      },
+      {
+        "template": "fragments/user_request",
+        "when": "has_user_prompt"
+      },
+      {
+        "template": "references/design",
+        "when": "has_design"
+      },
+      {
+        "template": "references/height",
+        "when": "has_height"
+      },
+      {
+        "slot": "details"
+      },
+      {
+        "template": "photography/build"
+      },
+      {
+        "template": "constraints/no_extras"
+      },
+      {
+        "template": "photography/studio_lighting"
+      }
+    ],
+    "material": [
+      {
+        "template": "fragments/material_surface"
+      },
+      {
+        "slot": "color_rule"
+      },
+      {
+        "template": "fragments/material_extra",
+        "when": "has_base_prompt"
+      },
+      {
+        "template": "fragments/additional_details",
+        "when": "has_additional_details"
+      },
+      {
+        "template": "fragments/avoid"
+      }
+    ],
+    "local_material": [
+      {
+        "template": "tasks/local_material"
+      },
+      {
+        "slot": "details"
+      },
+      {
+        "template": "constraints/preserve_lighting"
+      },
+      {
+        "template": "constraints/masked_design"
+      }
+    ],
+    "local_semantic": [
+      {
+        "template": "tasks/local_semantic"
+      },
+      {
+        "template": "fragments/user_request"
+      },
+      {
+        "template": "constraints/semantic_design"
+      }
+    ],
+    "studio": [
+      {
+        "template": "photography/studio"
+      },
+      {
+        "template": "fragments/user_request"
+      },
+      {
+        "template": "constraints/studio_design"
+      },
+      {
+        "template": "photography/studio_lighting"
+      }
+    ],
+    "color_finish": [
+      {
+        "template": "tasks/color_finish"
+      },
+      {
+        "slot": "color_rule"
+      },
+      {
+        "template": "constraints/finish_design"
+      },
+      {
+        "template": "fragments/color_exception_list",
+        "when": "has_exceptions"
+      },
+      {
+        "template": "fragments/user_request",
+        "when": "has_user_prompt"
+      },
+      {
+        "slot": "color_exceptions"
+      },
+      {
+        "slot": "finish_rule"
+      },
+      {
+        "template": "photography/studio_lighting",
+        "when": "has_photography"
+      }
+    ]
+  },
+  "materials": [
+    "baked_enamel",
+    "transparent_lacquer",
+    "satin_gold",
+    "satin_silver",
+    "glitter",
+    "rhinestone"
+  ]
+}

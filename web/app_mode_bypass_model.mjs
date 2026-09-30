@@ -1,16 +1,73 @@
 export const MODE_ALWAYS = 0;
 
 export const DAELAB_NODE_TYPES = Object.freeze([
+  "DAELAB.LibTV.VideoGenerate",
+    "DAELAB.LibTV.StoryboardBatch",
+  "DAELAB.BadgeApp87V1",
+  "DAELAB.Badge87BoundaryCompositeV1",
+  "DAELAB.Badge87IntrinsicGuideV1",
+  "DAELAB.Badge87MaterialDiagnosticsV1",
+  "DAELAB.Badge87AuxiliaryImageV1",
+  "DAELAB.BadgeApp88TargetOnlyV1",
+  "DAELAB.BadgeApp88V1",
+  "DAELAB.BadgeApp87RegionAlignV1",
     "BooleanList",
     "BooleanListHierarchy",
     "BooleanListHierarchyGet",
     "BooleanGroupBypassController",
     "SeedreamExhibitionPromptBuilder",
     "GPTImage2Config",
+    "DAELAB.ComfyTV.GPTImageStoryboardStage",
+    "DAELAB.StoryboardImport",
+    "DAELAB.Table",
+    "GPTImage2MaterialPrompt",
+    "DAELabBadgeMaterialRegionV1",
+    "BadgeReliefPrompt",
+    "DAELabMultiColorMask",
+    "DAELabMultiColorMaskV1",
+    "DAELabBadgeHeightLayer",
+    "DAELabBadgeHeightLayerV1",
+    "BadgeHeightEstablishPromptBuilder",
+    "DAELAB.BadgeMaterialCanvasNormalizeV1",
+    "DAELAB.BadgeRenderSpaceMaskAlignV1",
+    "DAELAB.BadgeRoute2CanvasV1",
+    "DAELAB.BadgeEntryRouteV1",
+    "DAELAB.BadgeLocalMaskRouteV1",
+    "DAELAB.BadgeEditPromptRouteV1",
+    "DAELAB.BadgeLazyImageSwitchV1",
+    "DAELAB.BadgeColorIdMapV1",
+    "DAELAB.BadgeColorIdMapCacheStoreV1",
+    "DAELAB.BadgeLocalSelectionGuardV1",
+    "BadgeDesignCanvas",
+    "BadgeRenderPromptBuilder",
+    "BadgeMasterRegistration",
+    "BadgeEditMaskValidator",
+    "BadgeLocalEditPromptBuilder",
+    "BadgeHeightPatch",
+    "BadgeDeterministicComposite",
+    "BadgePresentationPromptBuilder",
+    "BadgeEditStateSave",
+    "BadgeEditStateLoad",
+    "BadgeHeightReferenceAlignV1",
+    "BadgeHeightLockedBaseV1",
+    "DAELAB.BadgeReliefGeometryV1",
+    "DAELAB.BadgeGPTStructureTransferV1",
+    "DAELAB.BadgeStructureConstraintV1",
+    "BadgeMaterialConstraintV1",
+    "BadgeMaterialRegionGPTChannelV1",
+    "BadgeMaterialRegionMergeV1",
+    "BadgeMaterialRegionExecutorV1",
+    "BadgeStudioCompositeV1",
+    "DAELAB.BadgeSemanticRegionGPTChannelV1",
+    "DAELAB.BadgeSemanticRegionMergeV1",
+    "DAELAB.BadgeStudioBackgroundGPTV1",
+    "DAELAB.BadgeStudioColorLockV1",
     "RMBGConfig",
     "AppModeLoadImage",
     "BBoxPromptReroute",
     "PolygonMask",
+    "DAELAB.PolygonMaskV1",
+    "DAELAB.BadgeSelectionMaskV1",
     "SAM3ComplexCollector",
 ]);
 
@@ -69,6 +126,25 @@ export function makeWidgetKey(nodeId, widgetName) {
     return `${nodeId}:${widgetName}`;
 }
 
+export function findInspectorItem(itemsByKey, key, graphId) {
+    return itemsByKey.get(key) ?? (graphId ? itemsByKey.get(`${graphId}:${key}`) : undefined);
+}
+
+export function normalizeLinearInputReference(nodeReference, widgetName) {
+    const rawReference = String(nodeReference ?? "");
+    const suffix = `:${widgetName}`;
+    const widgetKey = rawReference.endsWith(suffix)
+        ? rawReference
+        : makeWidgetKey(rawReference, widgetName);
+    const nodePath = rawReference.endsWith(suffix)
+        ? rawReference.slice(0, -suffix.length)
+        : rawReference;
+    const nodeId = nodePath.includes(":")
+        ? nodePath.slice(nodePath.lastIndexOf(":") + 1)
+        : nodePath;
+    return { nodeId, widgetKey };
+}
+
 export function createGraphTriggerWrapper(original, onModeChanged) {
     return function (event) {
         const result = original?.apply(this, arguments);
@@ -80,12 +156,15 @@ export function createGraphTriggerWrapper(original, onModeChanged) {
 }
 
 export function getSelectedInputEntries(graph) {
-    return getLinearData(graph).inputs.map(([nodeId, widgetName]) => ({
-        nodeId,
-        widgetName,
-        key: makeWidgetKey(nodeId, widgetName),
-        node: resolveNode(graph, nodeId),
-    }));
+    return getLinearData(graph).inputs.map(([nodeReference, widgetName]) => {
+        const { nodeId, widgetKey } = normalizeLinearInputReference(nodeReference, widgetName);
+        return {
+            nodeId,
+            widgetName,
+            key: widgetKey,
+            node: resolveNode(graph, nodeId),
+        };
+    });
 }
 
 export function getSelectedOutputEntries(graph) {

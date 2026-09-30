@@ -1,0 +1,2221 @@
+{
+  "file": "user/default/workflows/#8.7 - Badge Workflow.json",
+  "bindings": [
+    {
+      "key": "workflow.default_001",
+      "path": [
+        "nodes",
+        0,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_002",
+      "path": [
+        "nodes",
+        0,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_003",
+      "path": [
+        "nodes",
+        0,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_004",
+      "path": [
+        "nodes",
+        0,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_005",
+      "path": [
+        "nodes",
+        0,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_006",
+      "path": [
+        "nodes",
+        0,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_007",
+      "path": [
+        "nodes",
+        1,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_008",
+      "path": [
+        "nodes",
+        1,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_009",
+      "path": [
+        "nodes",
+        1,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_010",
+      "path": [
+        "nodes",
+        1,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_011",
+      "path": [
+        "nodes",
+        1,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_012",
+      "path": [
+        "nodes",
+        1,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_013",
+      "path": [
+        "nodes",
+        2,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_014",
+      "path": [
+        "nodes",
+        2,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_015",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_016",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_017",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_018",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        3,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_019",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        4,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_020",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        5,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_021",
+      "path": [
+        "nodes",
+        2,
+        "outputs",
+        6,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_022",
+      "path": [
+        "nodes",
+        2,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_023",
+      "path": [
+        "nodes",
+        3,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_024",
+      "path": [
+        "nodes",
+        3,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_025",
+      "path": [
+        "nodes",
+        3,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_026",
+      "path": [
+        "nodes",
+        3,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_027",
+      "path": [
+        "nodes",
+        3,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_028",
+      "path": [
+        "nodes",
+        4,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_029",
+      "path": [
+        "nodes",
+        4,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_030",
+      "path": [
+        "nodes",
+        4,
+        "inputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_031",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_032",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_033",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_034",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        3,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_035",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        4,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_036",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        5,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_037",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        6,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_038",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        7,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_039",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        8,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_040",
+      "path": [
+        "nodes",
+        4,
+        "outputs",
+        9,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_041",
+      "path": [
+        "nodes",
+        4,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_042",
+      "path": [
+        "nodes",
+        5,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_043",
+      "path": [
+        "nodes",
+        5,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_044",
+      "path": [
+        "nodes",
+        5,
+        "inputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_045",
+      "path": [
+        "nodes",
+        5,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_046",
+      "path": [
+        "nodes",
+        5,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_047",
+      "path": [
+        "nodes",
+        5,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_048",
+      "path": [
+        "nodes",
+        5,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_049",
+      "path": [
+        "nodes",
+        6,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_050",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_051",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_052",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_053",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_054",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        2,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_055",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_056",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        3,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_057",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        3,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_058",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        4,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_059",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        4,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_060",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        5,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_061",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        5,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_062",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        6,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_063",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        6,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_064",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        7,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_065",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        7,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_066",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        8,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_067",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        8,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_068",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        9,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_069",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        9,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_070",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        10,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_071",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        10,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_072",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        11,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_073",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        11,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_074",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        12,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_075",
+      "path": [
+        "nodes",
+        6,
+        "outputs",
+        12,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_076",
+      "path": [
+        "nodes",
+        6,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_077",
+      "path": [
+        "nodes",
+        7,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_078",
+      "path": [
+        "nodes",
+        7,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_079",
+      "path": [
+        "nodes",
+        7,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_080",
+      "path": [
+        "nodes",
+        7,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_081",
+      "path": [
+        "nodes",
+        7,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_082",
+      "path": [
+        "nodes",
+        7,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_083",
+      "path": [
+        "nodes",
+        8,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_084",
+      "path": [
+        "nodes",
+        8,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_085",
+      "path": [
+        "nodes",
+        8,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_086",
+      "path": [
+        "nodes",
+        8,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_087",
+      "path": [
+        "nodes",
+        8,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_088",
+      "path": [
+        "nodes",
+        9,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_089",
+      "path": [
+        "nodes",
+        9,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_090",
+      "path": [
+        "nodes",
+        9,
+        "inputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_091",
+      "path": [
+        "nodes",
+        9,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_092",
+      "path": [
+        "nodes",
+        9,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_093",
+      "path": [
+        "nodes",
+        9,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_094",
+      "path": [
+        "nodes",
+        9,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_095",
+      "path": [
+        "nodes",
+        10,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_096",
+      "path": [
+        "nodes",
+        10,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_097",
+      "path": [
+        "nodes",
+        11,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_098",
+      "path": [
+        "nodes",
+        11,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_099",
+      "path": [
+        "nodes",
+        12,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_100",
+      "path": [
+        "nodes",
+        12,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_101",
+      "path": [
+        "nodes",
+        13,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_102",
+      "path": [
+        "nodes",
+        13,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_103",
+      "path": [
+        "nodes",
+        14,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_104",
+      "path": [
+        "nodes",
+        14,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_105",
+      "path": [
+        "nodes",
+        15,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_106",
+      "path": [
+        "nodes",
+        15,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_107",
+      "path": [
+        "nodes",
+        16,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_108",
+      "path": [
+        "nodes",
+        16,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_109",
+      "path": [
+        "nodes",
+        16,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_110",
+      "path": [
+        "nodes",
+        16,
+        "outputs",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_111",
+      "path": [
+        "nodes",
+        16,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_112",
+      "path": [
+        "nodes",
+        16,
+        "outputs",
+        2,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_113",
+      "path": [
+        "nodes",
+        16,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_114",
+      "path": [
+        "nodes",
+        16,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_115",
+      "path": [
+        "nodes",
+        17,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_116",
+      "path": [
+        "nodes",
+        17,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_117",
+      "path": [
+        "nodes",
+        17,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_118",
+      "path": [
+        "nodes",
+        17,
+        "outputs",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_119",
+      "path": [
+        "nodes",
+        17,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_120",
+      "path": [
+        "nodes",
+        17,
+        "outputs",
+        2,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_121",
+      "path": [
+        "nodes",
+        17,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_122",
+      "path": [
+        "nodes",
+        17,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_123",
+      "path": [
+        "nodes",
+        18,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_124",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_125",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_126",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_127",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_128",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        2,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_129",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_130",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        3,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_131",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        3,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_132",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        4,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_133",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        4,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_134",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        5,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_135",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        5,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_136",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        6,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_137",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        6,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_138",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        7,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_139",
+      "path": [
+        "nodes",
+        18,
+        "outputs",
+        7,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_140",
+      "path": [
+        "nodes",
+        18,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_141",
+      "path": [
+        "nodes",
+        19,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_142",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_143",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_144",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_145",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_146",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        2,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_147",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_148",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        3,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_149",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        3,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_150",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        4,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_151",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        4,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_152",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        5,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_153",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        5,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_154",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        6,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_155",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        6,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_156",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        7,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_157",
+      "path": [
+        "nodes",
+        19,
+        "outputs",
+        7,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_158",
+      "path": [
+        "nodes",
+        19,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_159",
+      "path": [
+        "nodes",
+        20,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_160",
+      "path": [
+        "nodes",
+        20,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_161",
+      "path": [
+        "nodes",
+        20,
+        "inputs",
+        2,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_162",
+      "path": [
+        "nodes",
+        20,
+        "inputs",
+        3,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_163",
+      "path": [
+        "nodes",
+        20,
+        "inputs",
+        4,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_164",
+      "path": [
+        "nodes",
+        20,
+        "inputs",
+        5,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_165",
+      "path": [
+        "nodes",
+        20,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_166",
+      "path": [
+        "nodes",
+        20,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_167",
+      "path": [
+        "nodes",
+        20,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_168",
+      "path": [
+        "nodes",
+        21,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_169",
+      "path": [
+        "nodes",
+        22,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_170",
+      "path": [
+        "nodes",
+        23,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_171",
+      "path": [
+        "nodes",
+        23,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_172",
+      "path": [
+        "nodes",
+        24,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_173",
+      "path": [
+        "nodes",
+        24,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_174",
+      "path": [
+        "nodes",
+        25,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_175",
+      "path": [
+        "nodes",
+        25,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_176",
+      "path": [
+        "nodes",
+        25,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_177",
+      "path": [
+        "nodes",
+        25,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_178",
+      "path": [
+        "nodes",
+        25,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_179",
+      "path": [
+        "nodes",
+        25,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_180",
+      "path": [
+        "nodes",
+        26,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_181",
+      "path": [
+        "nodes",
+        26,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_182",
+      "path": [
+        "nodes",
+        26,
+        "inputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_183",
+      "path": [
+        "nodes",
+        26,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_184",
+      "path": [
+        "nodes",
+        26,
+        "outputs",
+        1,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_185",
+      "path": [
+        "nodes",
+        26,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_186",
+      "path": [
+        "nodes",
+        27,
+        "inputs",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_187",
+      "path": [
+        "nodes",
+        27,
+        "inputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_188",
+      "path": [
+        "nodes",
+        27,
+        "outputs",
+        0,
+        "localized_name"
+      ]
+    },
+    {
+      "key": "workflow.default_189",
+      "path": [
+        "nodes",
+        27,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_190",
+      "path": [
+        "nodes",
+        28,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_191",
+      "path": [
+        "groups",
+        0,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_192",
+      "path": [
+        "groups",
+        1,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_193",
+      "path": [
+        "groups",
+        2,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_194",
+      "path": [
+        "groups",
+        3,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_195",
+      "path": [
+        "groups",
+        4,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_196",
+      "path": [
+        "groups",
+        5,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_197",
+      "path": [
+        "groups",
+        6,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_198",
+      "path": [
+        "groups",
+        7,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_199",
+      "path": [
+        "groups",
+        8,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_200",
+      "path": [
+        "groups",
+        9,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_201",
+      "path": [
+        "groups",
+        10,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_202",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "tabs",
+        0,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_203",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "tabs",
+        1,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_204",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "tabs",
+        2,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_205",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "tabs",
+        3,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_206",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "build",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_207",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "build",
+        0,
+        "items",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_208",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "build",
+        0,
+        "items",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_209",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "build",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_210",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_211",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_212",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        1,
+        "items",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_213",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        1,
+        "items",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_214",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        2,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_215",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        3,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_216",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        3,
+        "items",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_217",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        3,
+        "items",
+        1,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_218",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "local",
+        4,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_219",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "quickControls",
+        "studio",
+        0,
+        "label"
+      ]
+    },
+    {
+      "key": "workflow.default_220",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "referenceSources",
+        0,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_221",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "referenceSources",
+        1,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_222",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "referenceSources",
+        2,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_223",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "referenceSources",
+        3,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_224",
+      "path": [
+        "extra",
+        "daelabAppLayoutV1",
+        "referenceSources",
+        4,
+        "title"
+      ]
+    },
+    {
+      "key": "workflow.default_225",
+      "path": [
+        "extra",
+        "daelabBadgePrototypeV1",
+        "description"
+      ]
+    },
+    {
+      "key": "studio.prompt.default_value",
+      "path": [
+        "nodes",
+        24,
+        "widgets_values",
+        0
+      ]
+    },
+    {
+      "key": "studio.prompt.default_value",
+      "path": [
+        "nodes",
+        24,
+        "widgets_values_named",
+        "value"
+      ]
+    }
+  ]
+}

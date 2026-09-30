@@ -85,6 +85,11 @@ web/my_custom_node.js
 if (nodeData.name !== "MyCustomNode") return;
 ```
 
+所有节点还必须遵守以下两项前端规则：
+
+1. 节点进入 Bypass、Mute 或其他非 Active 模式后，其输入或组合面板必须在最终应用模式界面中自动折叠；恢复 Active 后必须恢复原界面状态。统一复用 `web/app_mode_bypass.js` 与 `web/app_mode_bypass_model.mjs`，不要为单个节点重复实现显隐逻辑。新增或重命名节点时，必须同步更新 `web/app_mode_bypass_model.mjs` 中的 `DAELAB_NODE_TYPES`，并更新 `tests/app_mode_bypass_model.test.mjs` 的覆盖断言和行为测试。
+2. 设计任何交互功能前，必须先检索 `web/`、`nodes/` 和 `tests/` 中已有的控件、组合面板、状态模型与交互模式，优先通过导入、扩展、参数化或抽取共享模块来复用。只有现有控件确实无法满足需求时才新增控件；若功能明显重叠，应先提取公共实现，禁止复制出另一套平行逻辑。交付说明中应写明评估并复用了哪些现有控件，或说明必须新增控件的原因。
+
 文档截图、流程图和示意图不要放进 `web/`，应放到对应节点目录的 `assets/`：
 
 ```text
@@ -126,7 +131,7 @@ cd C:\Users\Golajah\Documents\ComfyUI
 .\.venv\Scripts\python.exe -m compileall .\custom_nodes\ComfyUI-DAELab-Custom-Nodes-Library
 ```
 
-再进行导入验证，确认新节点 ID 出现在 `NODE_CLASS_MAPPINGS` 中。最后重启 ComfyUI Desktop，确认节点可搜索、可创建、可保存到工作流。
+再进行导入验证，确认新节点 ID 出现在 `NODE_CLASS_MAPPINGS` 和 `DAELAB_NODE_TYPES` 中。最后重启 ComfyUI Desktop，确认节点可搜索、可创建、可保存到工作流，并验证节点 Bypass 后应用模式输入自动折叠、恢复 Active 后重新显示。
 
 ## 7. 提交与同步
 

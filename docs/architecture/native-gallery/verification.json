@@ -1,0 +1,28 @@
+{
+  "assetListIsolatedForScreenshots": true,
+  "checks": [
+    "seven existing registered nodes load in creative mode; no new UI implementation",
+    "table-to-batch and local-video-to-frame graph links preserved",
+    "native LibTV panels edit independently",
+    "native ComfyTV local video preview plays; no generation execution",
+    "creative mode exit and reentry preserve seven cards"
+  ],
+  "errors": [],
+  "blockedGenerationRequests": [],
+  "server": "http://127.0.0.1:8000",
+  "passed": true,
+  "workflow": "examples\\creative_canvas\\Creative Canvas Controls.json",
+  "nodeTypes": [
+    "DAELAB.Table",
+    "DAELAB.LibTV.VideoGenerate",
+    "DAELAB.LibTV.VideoGenerate",
+    "DAELAB.LibTV.StoryboardBatch",
+    "ComfyTV.AssetImageLoaderStage",
+    "ComfyTV.AssetVideoLoaderStage",
+    "ComfyTV.VideoExtractFrameStage"
+  ],
+  "media": {
+    "image": "/view?filename=daelab-gallery-mountain.png&subfolder=daelab-gallery&type=input",
+    "video": "/view?filename=daelab-gallery-motion.webm&subfolder=daelab-gallery&type=input"
+  }
+}

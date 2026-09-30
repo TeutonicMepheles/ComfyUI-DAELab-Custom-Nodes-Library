@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Badge 8.7 · Layout Studio</title>
+  <link rel="stylesheet" href="/vendor/grapes.min.css"><link rel="stylesheet" href="/editor.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark">D</span><div><strong>Layout Studio <small>8.7</small></strong><span class="sub">DAELab · 本地界面编辑工具</span></div></div>
+    <div class="toolbar">
+      <button id="undo" title="撤销">↶ 撤销</button><button id="redo" title="重做">↷ 重做</button>
+      <select id="viewport" aria-label="预览宽度"><option value="">自适应</option><option value="768px">768 px</option><option value="390px">390 px</option></select>
+      <button id="preview">布局预览</button><button id="html">下载 HTML</button><button id="save">保存工程</button><button id="load">导入工程</button>
+      <button id="export" class="primary">导出布局资源</button>
+    </div>
+  </header>
+  <div class="context"><span class="dot"></span><b>局部修改</b><span id="source">正在读取当前工作流…</span><span class="badge">独立编辑 · 原工作流只读</span></div>
+  <main>
+    <aside class="left"><h2>页面结构</h2><p>选择区块或内部控件。拖动图层可调整顺序。</p><div id="layers"></div><div class="help"><b>编辑范围</b><p>尺寸、文字、间距、分栏和视觉样式。</p><p>遮罩和图片区域是占位预览；不会上传图片或调用生成。</p><button id="reset">恢复源布局</button></div></aside>
+    <section class="canvas"><div class="canvas-caption"><span>LOCAL EDIT / 局部修改</span><span>双击文字编辑 · 拖动调整布局</span></div><div id="editor"></div></section>
+    <aside class="right"><h2>选中元素</h2><div id="selection">选择画布中的元素</div><div id="traits"></div><h2>尺寸与样式</h2><div id="styles"></div></aside>
+  </main>
+  <footer><span id="status" role="status">正在启动编辑器…</span><span>工程仅保存在本浏览器或下载文件中</span></footer>
+  <input id="file" type="file" accept="application/json,.json" hidden>
+  <dialog id="reset-dialog" style="height:auto;max-width:430px;padding:24px"><h2>恢复源布局</h2><p>这会替换当前浏览器草稿。重要方案请先保存工程。</p><div style="display:flex;gap:12px;justify-content:flex-end"><button id="cancel-reset">取消</button><button id="confirm-reset">恢复</button></div></dialog>
+  <dialog id="preview-dialog"><div class="preview-bar"><strong>布局预览</strong><span>静态外观预览 · 不执行业务操作</span><button id="close-preview">关闭</button></div><iframe id="preview-frame" title="布局预览" sandbox=""></iframe></dialog>
+  <script src="/vendor/grapes.min.js"></script><script type="module" src="/app.mjs"></script>
+</body></html>

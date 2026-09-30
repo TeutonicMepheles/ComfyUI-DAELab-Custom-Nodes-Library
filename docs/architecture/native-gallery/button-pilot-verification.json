@@ -1,0 +1,22 @@
+{
+  "checks": [
+    "request IDs remain independent",
+    "card shared action works",
+    "async action blocks repeated clicks",
+    "async completion restores button",
+    "exit removes creative binding",
+    "mode roundtrip restores exact original handler 0",
+    "mode roundtrip restores exact original handler 1",
+    "mode roundtrip restores exact original handler 2",
+    "graph mode styles remain unchanged",
+    "binding is idempotent",
+    "release during async restores original state",
+    "stale completion cannot modify new binding",
+    "rejection clears busy state",
+    "native keyboard activation",
+    "serialized workflow reload restores shared buttons"
+  ],
+  "sharedButtons": 14,
+  "errors": [],
+  "prompts": []
+}

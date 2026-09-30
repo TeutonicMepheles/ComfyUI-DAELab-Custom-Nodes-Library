@@ -68,15 +68,18 @@ class ColumnBridge(Bridge):
             raise ValueError('Image-2.5 有 Pro 和 Fast 两个版本，请在生成配置中明确选择')
         if model not in self.models:
             raise ValueError('Unsupported model')
-        matches = self.cli('model', 'search', '--type', self.node_type).get('matches', [])
-        found = [m for m in matches if m.get('modelKey') == self.models[model]]
-        if len(found) != 1:
-            raise ValueError(f'{model} 当前不可用或无法唯一匹配；未替换模型，未提交生成')
-        return found[0]
+        key = self.models[model]
+        try:
+            info = self.cli('model', key)
+        except RuntimeError as error:
+            raise RuntimeError(f'{model} 模型规格查询失败；未替换模型，未提交生成：{error}') from error
+        if info.get('modelKey') != key or not info.get('modelName') or not isinstance(info.get('schema'), dict):
+            raise ValueError(f'{model} 返回的模型身份或规格不匹配；未替换模型，未提交生成')
+        return info
 
     def capabilities(self, model):
         info = self.model_info(model)
-        schema = self.cli('model', info['modelKey'])['schema']
+        schema = info['schema']
         return dict(model=model, kind=self.node_type, schema=schema)
 
     def validate_request(self, schema, mode, prompt, settings, media):

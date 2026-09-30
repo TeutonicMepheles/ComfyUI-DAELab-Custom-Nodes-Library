@@ -55,6 +55,18 @@ Outstanding acceptance gates:
 
 ## Ownership and correctness
 
+Fixed column models resolve their exact configured `modelKey` through
+`libtv model <key>`, rather than requiring membership in `model search` output.
+The response must contain the same key, an official model name and a schema.
+Capabilities and generation reuse that schema; mismatches block submission.
+CLI query failures retain the underlying error and are reported as specification
+query failures, rather than declaring the model unavailable. No alternate model
+is selected. This resolution change passes 40 relevant Python tests. After a
+Manager restart, the live table capabilities route successfully returned
+Seedance 2.0 / `star-video2` with the official name `StarVideo 2.0` and its
+schema. Earlier CLI TLS failures were intermittent. The confirmation browser
+was refreshed and its two-table workflow restored; no paid job was submitted.
+
 Business model, execution, API and UI belong to this repository. Shared canvas controls belong to the sibling Creative Canvas repository. ComfyTV is read-only.
 
 Persist column configuration and record/column/request identities. Snapshot prompt, references and parameters before submission. Recover existing remote jobs after uncertain outcomes rather than resubmitting. Keep stale responses from overwriting edited, deleted or reloaded records. Download failures must not cause another generation.

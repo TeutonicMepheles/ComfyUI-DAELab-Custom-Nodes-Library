@@ -259,7 +259,9 @@ class Bridge:
             if not state:
                 model_info = self.model_info(model)
                 name = model_info["modelName"]
-                schema = self.cli("model", name)["schema"]
+                schema = model_info.get("schema")
+                if schema is None:
+                    schema = self.cli("model", name)["schema"]
                 self.validate_request(schema, mode, prompt, settings, media)
                 state = dict(request=request, fingerprint=fingerprint, model_name=name,
                              phase="preparing", node_name="DAELab-" + key, references=[])

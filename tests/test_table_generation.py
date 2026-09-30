@@ -18,10 +18,45 @@ SCHEMA = {'properties': {'modeType': {'items': {'image2image': [0, 2]}},
 
 
 class ColumnTests(unittest.TestCase):
+    def test_fixed_video_models_query_exact_key_without_search(self):
+        with tempfile.TemporaryDirectory() as directory:
+            calls = []
+            def cli(*args):
+                calls.append(args)
+                self.assertNotIn('search', args)
+                return {'modelKey': args[1], 'modelName': 'Official model name', 'schema': SCHEMA}
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', cli)
+            for model in generation.REQUESTED['video']:
+                result = bridge.capabilities(model)
+                self.assertEqual(result['schema'], SCHEMA)
+                self.assertEqual(calls[-1], ('model', runtime.MODELS[model]))
+            self.assertEqual(len(calls), 3)
+
+    def test_schema_network_failure_and_mismatch_never_fall_back(self):
+        with tempfile.TemporaryDirectory() as directory:
+            calls = []
+            def failing(*args):
+                calls.append(args)
+                raise RuntimeError('ECONNRESET')
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', failing)
+            with self.assertRaisesRegex(RuntimeError, '模型规格查询失败.*ECONNRESET'):
+                bridge.generate('p', 'r', 'Seedance 2.0', '', 'prompt', {})
+            self.assertEqual(calls, [('model', 'star-video2')])
+            for response in ({'modelKey': 'star-video2-mini', 'modelName': 'Mini', 'schema': {}},
+                             {'modelKey': 'star-video2', 'modelName': 'Seedance'},
+                             {'modelKey': 'star-video2', 'schema': {}}):
+                bridge.cli = lambda *args: response
+                with self.assertRaisesRegex(ValueError, '身份或规格不匹配'):
+                    bridge.model_info('Seedance 2.0')
+
     def test_image_versions_match_stable_keys_and_count_list_is_supported(self):
         with tempfile.TemporaryDirectory() as directory:
             entries = [{'modelKey': key, 'modelName': name} for name, key in generation.IMAGE_MODELS.items() if name != 'Image-2']
-            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'image', lambda *args: {'matches': entries})
+            def cli(*args):
+                self.assertEqual(args[0], 'model')
+                entry = next(e for e in entries if e['modelKey'] == args[1])
+                return dict(entry, schema=SCHEMA)
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'image', cli)
             self.assertEqual(bridge.model_info('Image-2')['modelKey'], 'lib-image-2')
             self.assertEqual(bridge.model_info('Lib Image 2.5 Pro')['modelKey'], 'lib-image-2.5-s')
             self.assertEqual(bridge.model_info('Lib Image 2.5 Fast')['modelKey'], 'lib-image-2.5-f')
@@ -63,7 +98,7 @@ class ColumnTests(unittest.TestCase):
             if args[:2] == ('model', 'search'):
                 return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
             if args[0] == 'model':
-                return {'schema': SCHEMA}
+                return {'modelKey': 'lib-image-2', 'modelName': 'Image-2', 'schema': SCHEMA}
             if args[:2] == ('node', 'list'):
                 return {'nodes': []}
             if args[:2] == ('node', 'create'):
@@ -90,7 +125,7 @@ class ColumnTests(unittest.TestCase):
             calls = []
             def cli(*args):
                 calls.append(args)
-                return {'matches': [{'modelKey': 'other', 'modelName': 'Other model'}]}
+                return {'modelKey': 'other', 'modelName': 'Other model', 'schema': SCHEMA}
             bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'output', 'image', cli)
             with self.assertRaisesRegex(ValueError, '未替换模型'):
                 bridge.generate('project', 'request', 'Image-2', 'image2image', 'prompt', {})
@@ -124,7 +159,7 @@ class ColumnTests(unittest.TestCase):
                 def cli(*args):
                     if args[:2] == ('model', 'search'):
                         return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
-                    return {'schema': SCHEMA}
+                    return {'modelKey': 'lib-image-2', 'modelName': 'Image-2', 'schema': SCHEMA}
                 make_bridge = lambda kind: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
                 with patch.object(api, 'bridge', make_bridge):
                     data = {'project': 'p', 'config': {'kind': 'image', 'model': 'Image-2', 'mode': 'image2image', 'settings': {}},

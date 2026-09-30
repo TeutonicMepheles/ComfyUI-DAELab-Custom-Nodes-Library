@@ -1,4 +1,4 @@
-import {tableDialog,tableButton} from './data_table_editor.mjs?v=20260930-inline4';
+import {tableDialog,tableButton} from './data_table_editor.mjs?v=20260930-divider-hover';
 import {isNodeAvailableInAppMode} from './app_mode_bypass_model.mjs';
 
 // Move the existing UI, preserving its state, handlers and undo history.

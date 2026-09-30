@@ -1,4 +1,4 @@
-import {generationMaterials} from './table_material_output.mjs';
+import {generationMaterials} from './table_material_output.mjs?v=20260930-existing-results';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.
 import {createMaterialTable,fillMaterialColumn} from './table_material_columns.mjs';

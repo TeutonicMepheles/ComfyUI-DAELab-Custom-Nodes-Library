@@ -10,6 +10,12 @@ function fixture(){
 test('output follows row order and preserves task/material provenance',()=>{
  const t=fixture();t.records.reverse();const out=generationMaterials(t,'g');assert.deepEqual(out.assets.map(a=>a.id),['c','b','a']);assert.equal(out.assets[0].provenance.recordId,'c');assert.equal(out.assets[0].provenance.requestId,'c');assert.equal(out.skipped,0);
 });
-test('pending, failed and stale previews cannot become material output',()=>{
- const t=fixture();t.records[0].meta.generationColumns.g.phase='running';t.records[1].meta.generationColumns.g.phase='failed';t.records[2].values.p='edited';const out=generationMaterials(t,'g');assert.equal(out.ready,false);assert.equal(out.skipped,3);assert.deepEqual(out.assets,[]);
+test('existing results remain outputtable regardless of task phase or changed inputs',()=>{
+ const t=fixture();t.records[0].meta.generationColumns.g.phase='running';t.records[1].meta.generationColumns.g.phase='failed';t.records[2].values.p='edited';
+ const out=generationMaterials(t,'g');assert.equal(out.ready,true);assert.equal(out.skipped,0);assert.deepEqual(out.assets.map(a=>a.id),['a','b','c']);
+ delete t.records[0].meta.generationColumns;t.fields[1].generation.promptFieldId='deleted';assert.equal(generationMaterials(t,'g').assets.length,3);
+});
+test('only rows without usable image or video results are skipped',()=>{
+ const t=fixture();t.records[0].values.g=[];t.records[1].values.g=[{kind:'text',url:'/view?filename=b.png&type=output'}];t.records[2].values.g[0].kind='video';
+ const out=generationMaterials(t,'g');assert.equal(out.skipped,2);assert.deepEqual(out.assets.map(a=>a.id),['c']);t.records[2].values.g=[];assert.equal(generationMaterials(t,'g').ready,false);
 });

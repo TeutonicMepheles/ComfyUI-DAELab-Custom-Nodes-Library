@@ -1,6 +1,6 @@
 import {addGenerationColumn} from './table_generation_model.mjs';
 import {addField,addRecord,emptyValue} from './data_table_model.mjs?v=20260930-inline4';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-structure9';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-table-surfaces3';
 import {moveRows,moveColumn} from './table_structure_model.mjs';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);node.className=cls;if(text)node.textContent=text;return node;};
@@ -80,7 +80,8 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
     const col=el('col','');col.style.width='48px';table.querySelector('colgroup').append(col);
     for(const row of rows())row.append(el('td','table-trailing-cell'));
     const foot=table.createTFoot(),footRow=foot.insertRow(),footCell=footRow.insertCell();footCell.colSpan=headers().length+2;footCell.className='table-add-row-cell';
-    footCell.append(control('＋ 新增行',()=>addRow(),'table-add-row'));
+    const addRowButton=control('＋ 新增行',()=>addRow(),'table-add-row');
+    addRowButton.replaceChildren(el('span','table-add-row-label','＋ 新增行'));footCell.append(addRowButton);
     // Keep terminal actions inside the visible canvas intersection, even when
     // the canvas pans a full-height table rather than scrolling its contents.
     let pinFrame=0,columnOffset={x:0,y:0},rowOffset=0;
@@ -114,22 +115,25 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
     for(const header of headers()){
         header.draggable=false;header.ondragover=header.ondrop=null;
         const id=header.dataset.column,field=getTable().fields.find(f=>f.id===id);
-        header.prepend(makeHandle('column',id,`移动列 ${field.name}`));
-        const old=header.querySelector('.field-settings');old?.remove();
-        const menu=control('列操作',()=>{header.querySelector('.field-title')?.focus();root.dispatchEvent(new CustomEvent('dae-column-menu',{bubbles:true,detail:{field:id}}));},'table-column-menu');
-        tableIcon(menu,'arrow-down-line',`${field.name} 列操作`);header.append(menu);
+        header.tabIndex=0;header.setAttribute('aria-label',`${field.name}，点击选择整列，拖动调整顺序`);
+        header.querySelector('.field-title')?.removeAttribute('tabindex');
+        header.querySelector('.field-settings')?.remove();
+        bindHandle(header,'column',id);
     }
     function makeHandle(kind,id,label){
         const handle=control('',()=>{},'table-move-handle');tableIcon(handle,'draggable',label);
-        handle.dataset.structureKind=kind;handle.dataset.structureId=id;handle.title=label+' · 拖动，或 Alt + 方向键';handle.draggable=false;
-        listen(handle,'pointerdown',e=>start(e,kind,id,handle));
+        bindHandle(handle,kind,id);return handle;
+    }
+    function bindHandle(handle,kind,id){
+        handle.dataset.structureKind=kind;handle.dataset.structureId=id;handle.title='拖动调整顺序，或 Alt + 方向键';handle.draggable=false;
+        listen(handle,'pointerdown',e=>{if(kind==='column'&&e.target.closest('button,input,select,a,[role=separator]'))return;start(e,kind,id,handle);});
         listen(handle,'keydown',e=>{
             const keys=kind==='row'?['ArrowUp','ArrowDown']:['ArrowLeft','ArrowRight'];
             if(!e.altKey||!keys.includes(e.key))return;e.preventDefault();e.stopPropagation();
             const t=getTable(),items=kind==='row'?t.records:t.fields.filter(f=>!f.hidden),ids=kind==='row'&&items.find(r=>r.id===id)?.selected?items.filter(r=>r.selected).map(r=>r.id):[id];
             const direction=e.key===keys[0]?-1:1,positions=items.flatMap((item,i)=>ids.includes(item.id)?[i]:[]),at=direction<0?Math.min(...positions)-1:Math.max(...positions)+1,target=items[at];
             if(target){change(next=>kind==='row'?moveRows(next,ids,target.id,direction>0):moveColumn(next,id,target.id,direction>0));restoreHandle(kind,id);}
-        });return handle;
+        });
     }
     const guide=el('div','dae-ui table-structure-guide'),ghost=el('div','dae-ui table-structure-ghost');guide.hidden=ghost.hidden=true;document.body.append(guide,ghost);
     function start(e,kind,id,handle){

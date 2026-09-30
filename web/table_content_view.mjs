@@ -2,7 +2,7 @@ import {bindInlineEditor} from './table_inline_editor.mjs?v=20260930-inline4';
 import {applyPromptToColumn} from './table_prompt_template.mjs?v=20260930-inline4';
 import {isPrompt,promptField} from './table_prompt_model.mjs?v=20260930-inline4';
 import {addField,addRecord,removeField,clone,uid,setValue,emptyValue} from './data_table_model.mjs?v=20260930-inline4';
-import {createTableButton as button} from './table_controls.mjs?v=20260930-inline4';
+import {createTableButton as button} from './table_controls.mjs?v=20260930-table-surfaces3';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 
@@ -71,10 +71,11 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         if(e.target.closest('[data-inline-editing=true]')){selected=null;editor.clearSelection();toolbar.hidden=true;root.querySelectorAll('[data-column-selected]').forEach(e=>delete e.dataset.columnSelected);return;}
         const cell=e.target.closest('td[data-field]'),th=e.target.closest('th[data-column]'),row=e.target.closest('.table-choice[data-content-row]');
         selected=cell?{kind:'cell',field:cell.dataset.field,record:cell.dataset.record}:th?{kind:'column',field:th.dataset.column}:row?{kind:'row',record:row.dataset.contentRow}:{kind:'table'};
-        if(selected.kind!=='cell')editor.clearSelection();signature='';queueMicrotask(tick);
+        if(selected.kind==='column')editor.selectColumn(selected.field);else if(selected.kind!=='cell')editor.clearSelection();signature='';queueMicrotask(tick);
     }
     function tick(){
         if(disposed)return;const showing=String(active());if(root.dataset.contentPresentation!==showing){root.dataset.contentPresentation=showing;editor.render();}
+        root.querySelectorAll('th[data-column],td[data-field]').forEach(e=>{const chosen=selected?.kind==='column'&&(e.dataset.column||e.dataset.field)===selected.field;e.dataset.columnSelected=String(chosen);if(e.matches('th'))e.setAttribute('aria-selected',String(chosen));});
         if(root.querySelector('[data-inline-editing=true],[data-structure-dragging],[data-structure-popup]')){toolbar.hidden=true;return;}
         if(!active()||!selected||card()?.dataset.selected==='false'||card()?.dataset.inactive==='true'){toolbar.hidden=true;return;}
         const key=JSON.stringify([selected,getTable().fields,editor.selection().flat().length]);if(key!==signature){signature=key;build();}
@@ -83,16 +84,12 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         toolbar.hidden=false;const r=anchor.getBoundingClientRect(),bounds=card().closest('.dae-creative').getBoundingClientRect();toolbar.style.boxSizing='border-box';toolbar.style.maxWidth=Math.max(160,Math.min(bounds.width,document.documentElement.clientWidth)-32)+'px';const h=toolbar.getBoundingClientRect().height,w=toolbar.getBoundingClientRect().width;
         if(r.bottom<bounds.top||r.top>bounds.bottom){toolbar.hidden=true;return;}
         toolbar.style.left=Math.max(bounds.left+8,Math.min(r.left,Math.min(bounds.right,document.documentElement.clientWidth)-w-16))+'px';toolbar.style.top=Math.max(bounds.top+8,Math.min(r.top-h-10>=bounds.top?r.top-h-10:r.bottom+10,bounds.bottom-h-8))+'px';
-        root.querySelectorAll('[data-column-selected]').forEach(e=>delete e.dataset.columnSelected);
-        if(selected.kind==='column')root.querySelectorAll('th[data-column],td[data-field]').forEach(e=>e.dataset.columnSelected=String((e.dataset.column||e.dataset.field)===selected.field));
     }
     const double=e=>{if(e.target.closest('button,input,.dae-column-divider'))return;const th=e.target.closest('th[data-column]');if(th&&root.contains(th)&&active()){selected={kind:'column',field:th.dataset.column};rename();}};
     const showPreview=e=>preview(e.detail);
-    const columnMenu=e=>{selected={kind:'column',field:e.detail.field};signature='';tick();};
-    root.addEventListener('dae-column-menu',columnMenu);
-    const escape=e=>{if(e.key==='Escape'&&!e.target.matches('input,textarea,select')){selected=null;toolbar.hidden=true;}};
+    const escape=e=>{if(e.key==='Escape'&&!e.target.matches('input,textarea,select')){selected=null;editor.clearSelection();toolbar.hidden=true;tick();}};
     for(const type of ['pointerdown','focusin'])document.addEventListener(type,choose,true);
     document.addEventListener('keydown',escape,true);root.addEventListener('dblclick',double);root.addEventListener('dae-preview',showPreview);
     const timer=setInterval(tick,100);
-    return {close(){selected=null;toolbar.hidden=true;},destroy(){disposed=true;clearInterval(timer);toolbar.remove();for(const type of ['pointerdown','focusin'])document.removeEventListener(type,choose,true);document.removeEventListener('keydown',escape,true);root.removeEventListener('dblclick',double);root.removeEventListener('dae-preview',showPreview);root.removeEventListener('dae-column-menu',columnMenu);}};
+    return {close(){selected=null;toolbar.hidden=true;},destroy(){disposed=true;clearInterval(timer);toolbar.remove();for(const type of ['pointerdown','focusin'])document.removeEventListener(type,choose,true);document.removeEventListener('keydown',escape,true);root.removeEventListener('dblclick',double);root.removeEventListener('dae-preview',showPreview);}};
 }

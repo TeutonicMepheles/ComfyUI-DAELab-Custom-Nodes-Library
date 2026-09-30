@@ -79,9 +79,6 @@
 @container(max-width:700px){.dae-table-panel .dae-table[data-view=cards] tr{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container(max-width:480px){.dae-table-panel .dae-table[data-view=cards] tr{grid-template-columns:1fr}}
 .dae-table-panel .dae-table[data-view=cards][data-field-count="1"] tr{grid-template-columns:1fr}
-/* The column target stays inside the sticky header so scrolling never clips it. */
-.dae-ui .dae-material-slot{display:none}
-.dae-creative .dae-ui .dae-material-slot{display:grid;margin:0 auto 8px}
 .content-row-number{display:none}
 .dae-ui .content-display{position:relative;min-height:120px;width:100%;overflow:hidden;border-radius:8px}
 .dae-ui .content-display img,.dae-ui .content-display video{display:block;width:100%;height:auto;max-height:420px;object-fit:contain}
@@ -107,8 +104,6 @@
 .dae-creative [data-content-presentation=true] .table-choice input{display:none}
 .dae-creative [data-content-presentation=true] .content-row-number{display:block;opacity:0;font-size:12px;cursor:pointer}
 .dae-creative [data-content-presentation=true] tr:hover .content-row-number{opacity:1}
-.dae-creative [data-content-presentation=true] .dae-material-slot{position:absolute;top:4px;right:8px;margin:0;opacity:0}
-.dae-creative [data-content-presentation=true] th:is(:hover,:focus-within,[data-column-selected=true]) .dae-material-slot,.dae-creative[data-connecting=true] [data-content-presentation=true] .dae-material-slot{opacity:1}
 .dae-creative [data-content-presentation=true] .field-title{padding-right:34px;color:var(--dae-text);font-size:14px}
 .dae-creative [data-content-presentation=true] [data-column-selected=true]{box-shadow:inset 0 0 0 1px var(--dae-focus)}
 .dae-creative [data-content-presentation=true] .dae-table .table-assets{width:100%!important}
@@ -200,19 +195,16 @@
 
 /* Keep linked media highlights inside clipped media containers. */
 .dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice{width:68px!important;min-width:68px;padding:10px 4px!important;overflow:visible}
-.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice input{display:inline-block;accent-color:var(--dae-primary,#b8b1ff);width:16px;height:16px;margin:4px;opacity:0}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice input{display:inline-block;accent-color:var(--dae-primary,#b8b1ff);position:absolute;right:12px;top:18px;width:16px;height:16px;margin:0!important;opacity:0}
 .dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-choice .content-row-number{display:inline-block;position:absolute;top:16px;right:12px;opacity:1;pointer-events:none;font-size:12px;color:var(--dae-text-muted)}
 .dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .table-choice input,.dae-creative [data-content-presentation=true] .dae-table[data-structure] th.table-choice input{opacity:1}
 .dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .content-row-number{opacity:0}
-.dae-creative [data-content-presentation=true] .dae-table[data-structure] th[data-column]{padding-left:34px!important;padding-right:30px!important;cursor:default}
-.dae-creative [data-content-presentation=true] .dae-table[data-structure] .field-title{padding-right:0!important;cursor:default}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] th[data-column]{padding-left:18px!important;padding-right:18px!important;cursor:grab;user-select:none;touch-action:none}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .field-title{padding-right:0!important;cursor:inherit}
 .dae-creative [data-content-presentation=true] .dae-table[data-structure] .field-name{overflow:hidden;text-overflow:ellipsis}
-.dae-creative .dae-table[data-structure] button.table-move-handle,.dae-creative .dae-table[data-structure] button.table-column-menu{display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px;min-width:28px;min-height:32px;padding:4px!important;border:0!important;border-radius:6px;background:transparent!important;color:var(--dae-text-muted);opacity:0;cursor:grab;touch-action:none}
-.dae-creative .dae-table[data-structure] th>.table-move-handle{position:absolute;left:6px;top:10px}
-.dae-creative .dae-table[data-structure] .table-choice>.table-move-handle{opacity:0;vertical-align:top}
-.dae-creative .dae-table[data-structure] button.table-column-menu{position:absolute;right:6px;top:10px;cursor:pointer}
-.dae-creative .dae-table[data-structure] :is(th:hover,th:focus-within,tr:hover,tr:focus-within,tr[data-row-selected=true])>.table-move-handle,.dae-creative .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .table-choice>.table-move-handle,.dae-creative .dae-table[data-structure] th:is(:hover,:focus-within)>.table-column-menu{opacity:1}
-.dae-creative .dae-table[data-structure] .dae-material-slot{top:48px;right:8px;z-index:5}
+.dae-creative .dae-table[data-structure] button.table-move-handle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px;min-width:28px;min-height:32px;padding:4px!important;border:0!important;border-radius:6px;background:transparent!important;color:var(--dae-text-muted);opacity:0;cursor:grab;touch-action:none}
+.dae-creative .dae-table[data-structure] .table-choice>.table-move-handle{position:absolute;left:4px;top:10px;margin:0;opacity:0}
+.dae-creative .dae-table[data-structure] :is(th:hover,th:focus-within,tr:hover,tr:focus-within,tr[data-row-selected=true])>.table-move-handle,.dae-creative .dae-table[data-structure] :is(tr:hover,tr:focus-within,tr[data-row-selected=true]) .table-choice>.table-move-handle{opacity:1}
 .dae-creative .dae-table[data-structure] :is(button,input):focus-visible{outline:2px solid var(--dae-focus);outline-offset:-2px}
 .dae-creative .dae-table[data-structure] tr[data-row-selected=true]>td,.dae-creative [data-content-presentation=true] .dae-table[data-structure] [data-column-selected=true]{background:color-mix(in srgb,var(--dae-primary,#b8b1ff) 10%,var(--dae-surface,#222));box-shadow:none}
 .dae-creative .dae-table[data-structure] tr[data-row-selected=true]>.table-choice{box-shadow:inset 3px 0 var(--dae-focus)}
@@ -221,7 +213,7 @@
 .dae-creative .dae-table[data-structure] .table-trailing-cell{width:48px!important;min-height:0;padding:0!important;background:var(--dae-surface)}
 .dae-creative .dae-table[data-structure] .table-add-column-button{width:36px;min-width:36px;min-height:36px;padding:4px!important;border:0;background:transparent;font-size:20px;color:var(--dae-text-muted)}
 .dae-creative .dae-table[data-structure] .table-add-row-cell{height:44px!important;min-height:0;padding:0!important}
-.dae-creative .dae-table[data-structure] .table-add-row{display:block;width:100%;text-align:left;padding:10px 18px!important;border:0!important;border-radius:0;background:transparent!important;color:var(--dae-text-muted);font:500 14px/24px var(--dae-font-family)}
+.dae-creative .dae-table[data-structure] .table-add-row{display:block;width:100%;text-align:left;padding:10px 18px!important;border:0!important;border-radius:0!important;background:transparent!important;color:var(--dae-text-muted);font:500 14px/24px var(--dae-font-family)}
 .dae-creative .dae-table[data-structure] :is(.table-add-row,.table-add-column-button):hover{color:var(--dae-text);background:var(--dae-surface-high)!important}
 .dae-ui.table-structure-guide{position:fixed;z-index:10040;pointer-events:none;background:var(--dae-focus,#b8b1ff)}
 .dae-ui.table-structure-guide::before,.dae-ui.table-structure-guide::after{content:'';position:absolute;width:6px;height:6px;border-radius:50%;background:inherit;left:-2px;top:-2px}
@@ -248,10 +240,37 @@
 /* Structural add affordances stay visible independently of hover/selection. */
 .dae-creative .dae-table[data-structure] .table-add-column{position:sticky!important;right:0;z-index:7;background:var(--dae-surface-low,#222)!important;box-shadow:-1px 0 var(--dae-border,#404040)}
 .dae-creative .dae-table[data-structure] .table-add-row-cell{position:sticky!important;bottom:0;z-index:5;background:var(--dae-surface-low,#222)!important;box-shadow:0 -1px var(--dae-border,#404040)}
-.dae-creative .dae-table[data-structure] .table-add-row{position:sticky;left:0;width:max-content;min-width:120px}
+.dae-creative .dae-table[data-structure] .table-add-row{position:relative;left:0;width:100%;min-width:0;box-sizing:border-box}
 .dae-creative .dae-table[data-structure] :is(.table-add-row,.table-add-column-button){display:block!important;visibility:visible!important;opacity:1!important}
 .dae-creative .dae-table[data-structure] .table-add-column-button{margin:0 auto}
 
 /* Content tables have no second card frame or inset around their grid. */
 .dae-creative .dae-creative-card:has([data-content-presentation=true])>.dae-creative-body{padding:0;border:0;background:transparent}
 .dae-creative .dae-creative-card:has([data-content-presentation=true])[data-selected=true] .dae-table-scroll{outline:1px solid var(--dae-focus);outline-offset:0}
+.dae-creative .dae-table[data-structure] th[data-column]:focus-visible{outline:2px solid var(--dae-primary);outline-offset:-3px}
+.dae-creative .dae-table[data-structure] th[data-structure-moving=true]{cursor:grabbing}
+
+.dae-creative .dae-table[data-structure] .table-add-row:focus-visible{outline-offset:-3px!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] th.table-choice input{top:50%;transform:translateY(-50%)}
+
+.dae-creative .dae-table[data-structure] .table-add-row-label{position:sticky;left:18px}
+
+/* Content is recessed; headers and structural actions share one raised surface.
+   Selection is stronger on the header than on the corresponding content cells. */
+.dae-creative [data-content-presentation=true] .dae-table[data-structure]{
+  --table-content-surface:var(--dae-surface-low);
+  --table-control-surface:var(--dae-surface-raised);
+  --table-control-hover:var(--dae-surface-high);
+  --table-selected-content:color-mix(in srgb,var(--dae-accent) 12%,var(--dae-surface-low));
+  --table-selected-header:var(--dae-primary-container);
+}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] td[data-field]{background:var(--table-content-surface)}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(th,.table-choice,.table-add-row-cell,.table-trailing-cell){background:var(--table-control-surface)!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(th[data-column],.table-choice):is(:hover,:focus-within){background:var(--table-control-hover)!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-add-column{padding:0!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] .table-add-column-button{width:100%;height:56px;border:0!important;border-radius:0!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(.table-add-row,.table-add-column-button){background:var(--table-control-surface)!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(.table-add-row,.table-add-column-button):is(:hover,:focus-visible):not(:disabled){background:var(--table-control-hover)!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(.table-add-row,.table-add-column-button):active:not(:disabled){background:var(--dae-secondary-container)!important}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(tr[data-row-selected=true]>td[data-field],td[data-column-selected=true],td[data-selected=true]){background:var(--table-selected-content);box-shadow:inset 0 0 0 1px var(--dae-focus)}
+.dae-creative [data-content-presentation=true] .dae-table[data-structure] :is(tr[data-row-selected=true]>.table-choice,th[data-column-selected=true]){background:var(--table-selected-header)!important;color:var(--dae-on-primary-container)}

@@ -1,7 +1,7 @@
 import {attachGenerationColumns} from './table_generation_panel.mjs';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
-import {installContentPresentation} from './table_content_view.mjs?v=20260930-structure9';
-import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-structure9';
+import {installContentPresentation} from './table_content_view.mjs?v=20260930-table-surfaces3';
+import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-table-surfaces3';
 import {createWorkbench,showExistingPanel} from './table_workbench.mjs';
 import {workbenchTheme} from './table_workbench_theme.mjs';
 import {storyboardTaskState,selectedTaskSummary} from './storyboard_task_state.mjs?v=20260930-inline4';
@@ -9,7 +9,7 @@ import {app} from '/scripts/app.js';
 import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20260930-inline4';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20260930-inline4';
 import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20260930-inline4';
-import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-structure9';
+import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20260930-table-surfaces3';
 import {createAssetGroups} from './data_table_groups.mjs';
 import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs';
 import {previewImport} from './daelab_storyboard_import.mjs?v=20260927-multiref';

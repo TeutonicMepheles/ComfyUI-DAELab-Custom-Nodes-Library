@@ -1,4 +1,4 @@
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20260930-header-row';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20260930-gear';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20260930-inline4';
 import {installContentPresentation} from './table_content_view.mjs?v=20260930-table-surfaces3';
 import {tableTheme,tableHistory} from './table_controls.mjs?v=20260930-table-surfaces3';

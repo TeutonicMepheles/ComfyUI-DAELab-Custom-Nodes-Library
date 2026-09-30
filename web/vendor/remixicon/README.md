@@ -19,3 +19,4 @@ The bundled Remix Icon license applies.
 2026-09-28: Added Media/image-line.svg, Media/video-line.svg, Design/scissors-cut-line.svg and Design/layout-grid-line.svg from the same official repository for the four-item creative node menu.
 
 - `draggable.svg`: Remix Icon Editor/draggable, six-dot row/column move handle. Source: https://github.com/Remix-Design/RemixIcon/blob/master/icons/Editor/draggable.svg
+settings-3-line.svg: Remix Icon 4.6.0, settings gear; bundled from the official remixicon npm package.

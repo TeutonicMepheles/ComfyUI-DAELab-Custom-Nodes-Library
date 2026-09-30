@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-table-surfaces3';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-gear';
 import {connectionPanel} from './libtv_connection.mjs';
 import {generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
@@ -16,7 +16,9 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
 .dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}
 .dae-ui .generation-actions button{flex-shrink:0;white-space:nowrap}
 .dae-ui .generation-actions button{min-height:32px;max-width:100%;font:inherit;padding:4px 8px!important}
-.dae-ui .generation-actions .generation-settings{width:32px;min-width:32px;padding:6px!important}
+.dae-ui .generation-actions .generation-settings{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;max-height:36px!important;padding:8px!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important}
+.dae-ui .generation-actions .generation-settings:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
+.dae-ui .generation-actions .generation-settings .dae-table-icon{width:20px;height:20px;flex:none}
 .dae-ui .generation-cell-state{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;white-space:normal;overflow-wrap:anywhere}
 .dae-ui .generation-cell-state[data-error=true]{color:var(--dae-error,#ffb4ab)}
 .dae-ui .generation-form{display:flex;flex-direction:column;gap:14px}
@@ -125,11 +127,12 @@ export function attachGenerationColumns({editor,getTable,notify,editPromptTempla
     const row=el('div',header);row.className='generation-header-row';
     const title=header.querySelector('.field-title');if(title)row.append(title);
     const actions=el('div',row);actions.className='generation-actions';
-    const settings=tableIcon(button('生成配置',()=>open(field.id)),'edit-line',field.name+' · 生成配置');settings.classList.add('generation-settings');
+    const settings=tableIcon(button('生成配置',()=>open(field.id)),'settings-3-line',field.name+' · 生成配置');settings.classList.add('generation-settings');
     const run=button('生成 '+generationRows(getTable(),field.id).length+' 行',()=>generate(field.id),true);run.disabled=submitting;
-    actions.append(settings,run);
+    actions.append(run);
     const active=getTable().records.map(r=>r.meta?.generationColumns?.[field.id]).filter(s=>['waiting','running'].includes(s?.phase));
     if(active.length)actions.append(button('停止后续行',async()=>{try{await request('stop',{requestIds:active.map(s=>s.requestId)});await poll(true);}catch(error){notify(error.message);}}));
+    actions.append(settings);
     actions.onpointerdown=e=>e.stopPropagation();actions.ondragstart=e=>e.preventDefault();
    }
    for(const cell of editor.root.querySelectorAll('td[data-field]'))if(cell.dataset.field===field.id&&!cell.querySelector('.generation-cell-state')){

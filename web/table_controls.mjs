@@ -28,6 +28,6 @@ export function tableIcon(button, name, label) {
     button.title = label; button.setAttribute('aria-label', label);
     if (!shared) { button.textContent = label; return button; }
     const icon = document.createElement('span');icon.className='dae-table-icon';icon.setAttribute('aria-hidden','true');
-    icon.style.setProperty('--table-icon', `url("${name==='draggable'?new URL('./vendor/remixicon/draggable.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
+    icon.style.setProperty('--table-icon', `url("${['draggable','settings-3-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
     button.replaceChildren(icon); return button;
 }

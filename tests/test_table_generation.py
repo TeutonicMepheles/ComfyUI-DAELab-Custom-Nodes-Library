@@ -18,6 +18,34 @@ SCHEMA = {'properties': {'modeType': {'items': {'image2image': [0, 2]}},
 
 
 class ColumnTests(unittest.TestCase):
+    def test_echoed_seedance_key_is_not_used_as_generation_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video',
+                lambda *args: {'modelKey': 'star-video2', 'modelName': 'star-video2', 'schema': SCHEMA})
+            self.assertEqual(bridge.model_info('Seedance 2.0')['modelName'], 'Seedance 2.0 VIP')
+
+    def test_old_preparation_receipt_repairs_name_before_node_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            created = []
+            def cli(*args):
+                if args[0] == 'model':
+                    return {'modelKey': 'star-video2', 'modelName': 'star-video2', 'schema': SCHEMA}
+                if args[:2] == ('node', 'list'):
+                    return {'nodes': []}
+                if args[:2] == ('node', 'create'):
+                    created.append(args)
+                    raise RuntimeError('mock preparation interrupted')
+                raise AssertionError(args)
+            bridge = generation.ColumnBridge(Path(directory)/'cache', Path(directory)/'out', 'video', cli)
+            args = ('p', 'r', 'Seedance 2.0', 'text2video', 'hello', {})
+            request, fingerprint, key = bridge.request_identity(*args)
+            runtime.atomic_json(bridge.cache/(key+'.json'), dict(request=request, fingerprint=fingerprint,
+                model_name='star-video2', phase='prepare_uncertain', node_name='DAELab-'+key, references=[]))
+            with self.assertRaisesRegex(RuntimeError, 'mock preparation'):
+                bridge.generate(*args)
+            self.assertIn('model=Seedance 2.0 VIP', created[0])
+            self.assertNotIn('--run', created[0])
+
     def test_fixed_video_models_query_exact_key_without_search(self):
         with tempfile.TemporaryDirectory() as directory:
             calls = []

@@ -267,6 +267,15 @@ class Bridge:
                              phase="preparing", node_name="DAELab-" + key, references=[])
                 atomic_json(record, state)
             if not state.get("node_key"):
+                # Repair older preparation receipts that persisted a model key
+                # in the name field. Keep request identity and reconcile nodes
+                # before creation; never repeat an uncertain paid submission.
+                if state.get("model_name") == self.models.get(model):
+                    info = self.model_info(model)
+                    if info.get("modelName") == self.models.get(model):
+                        raise ValueError("LibTV did not resolve a generation model name; no generation submitted")
+                    state["model_name"] = info["modelName"]
+                    atomic_json(record, state)
                 try:
                     # Read back after a preparation failure; creation never includes --run.
                     existing = self.cli("node", "list", "-p", project).get("nodes", [])

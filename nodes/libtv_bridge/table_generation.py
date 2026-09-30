@@ -75,6 +75,13 @@ class ColumnBridge(Bridge):
             raise RuntimeError(f'{model} 模型规格查询失败；未替换模型，未提交生成：{error}') from error
         if info.get('modelKey') != key or not info.get('modelName') or not isinstance(info.get('schema'), dict):
             raise ValueError(f'{model} 返回的模型身份或规格不匹配；未替换模型，未提交生成')
+        if info['modelName'] == key:
+            # CLI tool-spec fallback can echo the key as modelName. Node -s
+            # requires the canvas display name, not the schema display name.
+            name = {'star-video2': 'Seedance 2.0 VIP'}.get(key)
+            if not name:
+                raise ValueError(f'{model} 未返回可用于生成的模型名称；未提交生成')
+            info = dict(info, modelName=name)
         return info
 
     def capabilities(self, model):

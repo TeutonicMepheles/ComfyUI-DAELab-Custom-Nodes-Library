@@ -7,7 +7,7 @@ import { connectionPanel, connectionRequest, compatibleValues, fallbackCapabilit
 // DAELab-owned adaptation of ComfyTV's StageParamsPanel grouping and theme.
 // No dependency on the upstream Vue application or its node registrations.
 import { studioTheme } from './daelab_studio_theme.mjs';
-import { batchControls, showBatchReport } from './libtv_batch_panel.mjs?v=20260927-ux1';
+import { batchControls, showBatchReport } from './libtv_batch_panel.mjs?v=20261001-frame-tags-dedup';
 const BATCH_TYPE = 'DAELAB.LibTV.StoryboardBatch';
 const TYPE = "DAELAB.LibTV.VideoGenerate";
 const PANEL = "daelab_libtv_panel";

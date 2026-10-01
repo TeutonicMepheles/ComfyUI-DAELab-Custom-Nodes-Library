@@ -20,14 +20,14 @@ export function tableTheme() {
     if (document.getElementById('dae-table-ui-css')) return;
     const sheet = document.createElement('link');
     sheet.id = 'dae-table-ui-css'; sheet.rel = 'stylesheet';
-    sheet.href = new URL('./table_ui.css?v=20261001-selection-clear', import.meta.url).href;
+    sheet.href = new URL('./table_ui.css?v=20261001-remove-cell-expand', import.meta.url).href;
     document.head.append(sheet);
 }
 
 export function tableIcon(button, name, label) {
     button.title = label; button.setAttribute('aria-label', label);
-    if (!shared && !['check-line','error-warning-line','restart-line','play-line','folder-image-line'].includes(name)) { button.textContent = label; return button; }
+    if (!shared && !['check-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)) { button.textContent = label; return button; }
     const icon = document.createElement('span');icon.className='dae-table-icon';icon.setAttribute('aria-hidden','true');
-    icon.style.setProperty('--table-icon', `url("${['draggable','settings-3-line','check-line','error-warning-line','restart-line','play-line','folder-image-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
+    icon.style.setProperty('--table-icon', `url("${['draggable','settings-3-line','check-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
     button.replaceChildren(icon); return button;
 }

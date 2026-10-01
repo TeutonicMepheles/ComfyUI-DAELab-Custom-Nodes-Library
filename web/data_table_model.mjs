@@ -1,13 +1,14 @@
 // Business-independent table model. No storyboard, ComfyUI or provider dependencies.
-import {isPrompt,validatePrompt} from './table_prompt_model.mjs?v=20260930-inline4';
+import {isPrompt,validatePrompt} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
+import {isColumnPrompt,validateColumnPrompt,bindColumnAssets,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {migrateVideoReferences} from './table_video_references.mjs?v=20260929-refs3';
-export const columnMinimumWidth = field => field.presentation==='generation' ? 400 : 100;
+export const COLUMN_MINIMUM_WIDTH=100;
 export const FIELD_TYPES = ['text','longtext','number','checkbox','select','assets','content','json'];
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const uid = () => globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 export function emptyValue(field) {return ['assets','content'].includes(field.type)?[]:field.type==='checkbox'?false:field.type==='number'?null:'';}
 export function convertValue(field,value) {
-    if(field.type==='content'){if(typeof value==='string')return value;return convertValue({...field,type:'assets',maxItems:1},value);}
+    if(field.type==='content'){if(typeof value==='string')return value;if(isColumnPrompt(value))return clone(validateColumnPrompt(value));return convertValue({...field,type:'assets',maxItems:field.readonly?field.maxItems:undefined},value);}
     if(field.type==='assets') {
         if(value==null || value==='')return [];
         let items=value;
@@ -33,7 +34,10 @@ export function normalizeTable(value={}) {
     const ids=new Set();
     const fields=(raw.fields || []).map(f=>{
         const id=String(f.id||uid());if(ids.has(id))throw new Error('字段 ID 重复');ids.add(id);
-        return {...clone(f),id,name:String(f.name||'未命名字段'),type:raw.meta?.material_columns&&f.type==='assets'?'content':FIELD_TYPES.includes(f.type)?f.type:'text',hidden:Boolean(f.hidden),width:Math.min(600,Math.max(columnMinimumWidth(f),Number(f.width)||180))};
+        const field={...clone(f),id,name:String(f.name||'未命名字段'),type:raw.meta?.material_columns&&f.type==='assets'?'content':FIELD_TYPES.includes(f.type)?f.type:'text',hidden:Boolean(f.hidden),width:Math.min(600,Math.max(COLUMN_MINIMUM_WIDTH,Number(f.width)||180))};
+        if(field.type==='content'&&!field.readonly)delete field.maxItems;
+        if(isColumnPrompt(field.promptTemplate))field.promptTemplate=toColumnPrompt(field.promptTemplate);
+        return field;
     });
     const recordIds=new Set();
     const records=(raw.records || []).map(r=>{
@@ -41,6 +45,7 @@ export function normalizeTable(value={}) {
         // Preserve values for unknown/deleted fields until an explicit delete operation.
         const values=clone(r.values||{}),assetIds=new Set();
         for(const f of fields.filter(f=>['assets','content'].includes(f.type)))for(const a of Array.isArray(values[f.id])?values[f.id]:[]){if(!a.id)a.id=uid();if(assetIds.has(a.id))throw new Error('行内素材 ID 重复，请检查复制的素材');assetIds.add(a.id);}
+        for(const f of fields)if(isColumnPrompt(values[f.id]))values[f.id]=toColumnPrompt(values[f.id],{values});
         return {...clone(r),id,selected:r.selected!==false,values};
     });
     return migrateVideoReferences({version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})});
@@ -67,7 +72,10 @@ export function reorder(items,sourceId,targetId,after=false) {
 export function setValue(table,recordId,fieldId,value) {
     const field=table.fields.find(f=>f.id===fieldId),record=table.records.find(r=>r.id===recordId);
     if(!field || !record)throw new Error('字段或记录已不存在');if(field.readonly)throw new Error('此字段由数据来源更新');
-    if(isPrompt(field)&&typeof value==='string'&&value){const old=record.values[fieldId];if(!old)throw new Error('请先解析再粘贴最终正文');value={...clone(old),segments:[{type:'text',text:value}],editOrigin:'edited'};}
+    if(isPrompt(field)&&typeof value==='string'&&value){
+        const old=record.values[fieldId]||toColumnPrompt('');
+        value={...clone(old),segments:[{type:'text',text:value}],editOrigin:'edited'};
+    }
     const converted=convertValue(field,value);
     if(['assets','content'].includes(field.type)&&Array.isArray(converted))for(const asset of converted)if(table.fields.some(f=>f.id!==fieldId&&Array.isArray(record.values[f.id])&&record.values[f.id].some(a=>a.id===asset.id)))asset.id=uid();
     record.values[fieldId]=converted;
@@ -83,6 +91,8 @@ export function transferValue(table,from,to,mode='swap') {
     const av=clone(source.values[a.id]??emptyValue(a)),bv=clone(target.values[b.id]??emptyValue(b));
     // Validate both destinations before changing either cell (notably select options).
     const nextTarget=convertValue(b,av),nextSource=mode==='swap'?convertValue(a,bv):emptyValue(a);
+    if(Array.isArray(av))bindColumnAssets(table,from.record,from.field);
+    if(Array.isArray(bv))bindColumnAssets(table,to.record,to.field);
     source.values[a.id]=nextSource;target.values[b.id]=nextTarget;
 }
 export function parseTSV(text) {

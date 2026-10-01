@@ -91,6 +91,19 @@ class PromptTests(unittest.TestCase):
         t=self.template_table();t['records'][0]['values']['p']='@image_1'
         with self.assertRaisesRegex(ValueError,'保留引用'):parse_prompt(source_context(t,t['records'][0]))
 
+    def test_column_template_material_ordinals(self):
+        t = self.template_table()
+        row = t['records'][0]
+        row['values']['a'].append(dict(id='second', url='/view?filename=second.png'))
+        t['fields'][-1]['promptTemplate']['segments'] = [dict(type='column', fieldId='a', assetIndex=i) for i in (1, 0, 1)]
+        context = source_context(t, row)
+        text, assets = compile_prompt(parse_prompt(context), context)
+        self.assertEqual(text, '@image_1@image_2@image_1')
+        self.assertEqual([a['assetId'] for a in assets], ['second', row['values']['a'][0]['id']])
+        row['values']['a'].pop()
+        with self.assertRaisesRegex(ValueError, '本行缺少第 2 个素材'):
+            source_context(t, row)
+
     def test_column_template_compile_rows_preserves_concrete_snapshot_and_override(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=pathlib.Path(tmp)/'a.png';path.write_bytes(b'fixture')

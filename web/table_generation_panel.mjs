@@ -1,228 +1,326 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20260930-public-layout4';
+import {modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
+import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261002-table-module-responsibilities';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261002-generation-pause';
 import {connectionPanel} from './libtv_connection.mjs';
-import {generationReportNeedsApply,generationReceipt,recoveryJob,GENERATION_MODELS,isGeneration,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from './table_generation_model.mjs?v=20260930-result-sync3';
+import {GENERATION_MODELS,LOCAL_VIDEO_MODEL,isGeneration,rowGenerationConfig,setRowGenerationConfig,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationFrameRoles,generationFrames,generationFrameTagKey,syncGenerationFrameTags,syncGenerationPromptMode,syncGenerationPromptSource,generationConfigField,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {effectivePrompt,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
+import {columnReferenceOptions,createReferenceMenu,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
+import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261002-duration-tick-alignment';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
-async function request(action,body){
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),action==='submit'?120000:30000);
- try{
- const response=await fetch('/daelab/libtv/table/'+action,{signal:controller.signal,method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
- if(response.status===404)throw new Error('生成服务尚未加载，请重启 ComfyUI 后刷新');
- const data=await response.json();if(!response.ok){const error=new Error(data.error||'生成请求失败');error.preflightRejected=data.submitted===false;throw error;}return data;
- }catch(error){if(error.name==='AbortError')throw new Error('请求超时；原任务仍保留，请刷新任务状态，不要重复生成');throw error;}
- finally{clearTimeout(timer);}
-}
-const phaseNames={waiting:'等待提交',running:'生成中',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
-const stageNames={preparing:'准备中',submitting:'提交平台',writing_back:'等待写回',verifying:'核对原任务',downloading:'下载中'};
-export function stageText(report,phase){
- if(phase==='waiting'||!report?.stage)return phase==='running'?'启动中':'排队中';
- if(report.stage==='generating')return Number.isFinite(report.progress)?`平台生成 ${report.progress}%`:'平台生成';
- return stageNames[report.stage]||'生成中';
-}
-export function liveLabel(report,phase,now=Date.now()){
- const age=report?.updatedAt?Math.max(0,Math.round((now-report.updatedAt)/1000)):null;
- return [stageText(report,phase),report?.taskId&&'任务 '+report.taskId,report?.detail,age!==null&&`最近确认 ${age} 秒前`].filter(Boolean).join(' · ');
-}
 export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
- let alive=true,polling=false,submitting=false,epoch=0,lastCompletedCheck=0;
- const live=new Map();
+ let alive=true;
+ const configPanels=new Map();
+ const frameStamps=new WeakMap();
+ const settingBars=new WeakMap();
  const style=el('style',document.head);style.textContent=`
 .dae-ui [data-generation-source]{display:none}
 [data-canvas-panel=true] .dae-ui [data-generation-source]{display:grid}
 .dae-ui .generation-header-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
-.dae-ui .generation-header-row>.field-title{flex:1;min-width:0;padding-right:0!important}
-.dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}
-.dae-ui .generation-actions button{flex-shrink:0;white-space:nowrap}
+.dae-ui .generation-header-row>.field-title{flex:1;min-width:24px;padding-right:0!important}
+.dae-ui .generation-actions{display:flex;gap:4px;align-items:center;margin-top:0;flex:0 1 auto;min-width:0;max-width:100%;flex-wrap:nowrap;white-space:nowrap}
+.dae-ui .generation-actions button{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dae-ui .generation-actions button{min-height:32px;max-width:100%;font:inherit;padding:4px 8px!important}
 .dae-ui .generation-actions .generation-settings{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;max-height:36px!important;padding:8px!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important}
 .dae-ui .generation-actions .generation-settings:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
 .dae-ui .generation-actions .generation-settings .dae-table-icon{width:20px;height:20px;flex:none}
-.dae-ui .generation-cell-state{position:absolute;right:8px;top:8px;z-index:3;display:flex;gap:4px;align-items:center;width:max-content;padding:4px;border-radius:22px;background:var(--dae-surface,#242424);color:var(--dae-text,#fff);box-shadow:0 1px 5px #0005}
-.dae-ui .generation-cell-state :is(button,.generation-state-icon){display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:6px!important;border:0!important;border-radius:50%!important;background:transparent!important}
-.dae-ui .generation-cell-state button:is(:hover,:focus-visible){background:var(--dae-surface-high,#383838)!important}
-.dae-ui .generation-cell-state .dae-table-icon{display:block;width:20px;height:20px;background:currentColor;mask:var(--table-icon) center/contain no-repeat}
-.dae-ui .generation-cell-state[data-error=true]{color:var(--dae-error,#ffb4ab)}
-.dae-ui .generation-cell-state[data-phase=complete] .generation-state-icon{color:var(--dae-success,#98d7ad)}
-.dae-ui .generation-cell-state{max-width:calc(100% - 16px);box-sizing:border-box}
-.dae-ui .generation-stage{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px 0 2px;font:500 12px/1.5 var(--dae-font-family,inherit);font-variant-numeric:tabular-nums}
-.dae-ui .generation-progress{flex:none;margin-left:6px;box-sizing:border-box;width:20px;height:20px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:dae-generation-spin 1s linear infinite}
-@keyframes dae-generation-spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.dae-ui .generation-progress{animation:none;border-style:dashed}}
-.dae-ui .generation-form{display:flex;flex-direction:column;gap:14px}
+.dae-ui :is(td,th)[data-prompt-source-preview=true]{outline:2px solid var(--dae-focus,#b8c4ff);outline-offset:-2px;background:var(--table-selected-content,var(--dae-secondary-container,#3c4054))!important;box-shadow:inset 0 0 0 1px var(--dae-focus,#b8c4ff)!important}
+.dae-ui th[data-prompt-source-preview=true]{background:var(--table-selected-header,var(--dae-secondary-container,#3c4054))!important;color:var(--dae-on-primary-container)!important}
+${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:column;gap:14px}
+.dae-ui .generation-form>[hidden]{display:none!important}
 .dae-ui .generation-form label{display:flex;flex-direction:column;gap:6px;min-width:0}
 .dae-ui .generation-form :is(input,select){box-sizing:border-box;width:100%;min-width:0;min-height:36px;font:inherit;color:var(--dae-text);background:var(--dae-surface);border:1px solid var(--dae-border-control);border-radius:6px;padding:6px}
 .dae-ui .generation-form [role=status]{white-space:pre-wrap;overflow-wrap:anywhere}
-`;
+.dae-ui .dae-prompt-ref[data-frame-role=first]{background:#544323;color:#ffe0a1}
+.dae-ui .dae-prompt-ref[data-frame-role=last]{background:#49395f;color:#e5caff}
+.dae-ui .dae-prompt-ref[data-frame-role][data-invalid=true]{background:#542e36;color:#ffd1d1}
+.dae-ui .generation-prompt-hint{margin:0;font-size:12px;color:var(--dae-text-muted)}
+`+promptSettingsStyle;
  const findField=id=>getTable().fields.find(f=>f.id===id);
- function open(fieldId){
+ let frameMenu=null,frameAnchor=null,settingsMenu=null,promptSourceMenu=null,promptSourceTimer=null;
+ let promptSourceCells=[];
+ const frameConfig=(fieldId,row,promptFieldId)=>{const owner=generationConfigField(getTable(),fieldId,promptFieldId);const defaults=configPanels.get(owner?.id)?.draft||owner?.generation;return rowGenerationConfig(row,owner?.id,promptFieldId?{...defaults,promptFieldId}:defaults);};
+ const tasks=attachGenerationTasks({editor,getTable,notify,getConfig:frameConfig,async prepareGeneration(fieldId,recordId){
+   const owner=generationConfigField(getTable(),fieldId),panel=configPanels.get(owner.id),targets=recordId?getTable().records.filter(r=>r.id===recordId):generationRows(getTable(),fieldId);
+   if(panel&&(panel.draft.promptFieldId!==owner.generation.promptFieldId||targets.some(row=>rowGenerationConfig(row,owner.id,panel.draft)===panel.draft)))await panel.apply();
+ }});
+ function previewPromptSource(fieldId){
+  for(const cell of promptSourceCells)delete cell.dataset.promptSourcePreview;
+  promptSourceCells=fieldId?[...editor.root.querySelectorAll(`th[data-column="${CSS.escape(fieldId)}"],td[data-field="${CSS.escape(fieldId)}"]`)]:[];
+  for(const cell of promptSourceCells)cell.dataset.promptSourcePreview='true';
+ }
+ function closePromptSources(){promptSourceMenu?.close();}
+ function leavePromptSources(){clearTimeout(promptSourceTimer);promptSourceTimer=setTimeout(closePromptSources,180);}
+ function choosePromptSource(fieldId,anchor){
+  clearTimeout(promptSourceTimer);
+  if(promptSourceMenu?.anchor===anchor)return;
+  closePromptSources();closeSettings();closeFrames();
   const field=findField(fieldId);if(!field)return;
-  editor.openTextSide('generation',fieldId,field.name+' · 生成配置',body=>{
-   body.classList.add('generation-form');let schema=null,sequence=0;
-   const draft=structuredClone(field.generation),original=JSON.stringify(field.generation);
+  const menu=createSettingsPopover(anchor,'提示词来源',()=>{clearTimeout(promptSourceTimer);previewPromptSource(null);if(promptSourceMenu===menu)promptSourceMenu=null;});promptSourceMenu=menu;
+  menu.root.onpointerenter=()=>clearTimeout(promptSourceTimer);menu.root.onpointerleave=leavePromptSources;
+  menu.root.onfocusin=()=>clearTimeout(promptSourceTimer);
+  const source=frameConfig(fieldId).promptFieldId,columns=promptColumns(getTable());
+  for(const column of columns){
+   const option=button(column.name,()=>{
+    try{
+     if(!promptColumns(getTable()).some(item=>item.id===column.id))throw new Error('该列已不能作为提示词来源，请重新选择');
+     closePromptSources();
+     editor.change(t=>{t.fields.find(item=>item.id===fieldId).generation.promptFieldId=column.id;},{render:false});
+     configPanels.get(fieldId)?.setPromptSource(column.id);
+     syncFrameTags();refreshFrameTokens();refreshSettingBars();
+    }catch(error){notify(error.message);}
+   });
+   option.setAttribute('aria-pressed',String(column.id===source));
+   option.onpointerenter=()=>previewPromptSource(column.id);option.onfocus=()=>previewPromptSource(column.id);menu.root.append(option);
+  }
+  if(!columns.length)el('p',menu.root,'请先添加提示词列');
+  previewPromptSource(source);
+ }
+ function refreshDefaultHeaders(sources){
+  for(const header of editor.root.querySelectorAll('th[data-column]')){
+   const entry=sources.get(header.dataset.column);let row=header.querySelector('[data-generation-prompt-header]');
+   if(!entry){if(row){const title=row.querySelector('.field-title');if(title)header.insertBefore(title,row);row.remove();}continue;}
+   if(!row){row=el('div',header);row.className='generation-header-row';row.dataset.generationPromptHeader='true';const title=header.querySelector('.field-title');if(title)row.append(title);const actions=el('div',row);actions.className='generation-actions';actions.onpointerdown=e=>e.stopPropagation();actions.ondragstart=e=>e.preventDefault();}
+   const {field}=entry,actions=row.querySelector('.generation-actions');let control=actions.firstElementChild;
+   if(control?.dataset.generationDefaults!==field.id){actions.replaceChildren();control=tableIcon(button('列默认配置',()=>open(field.id)),'settings-3-line','列默认配置');control.classList.add('generation-settings');control.dataset.generationDefaults=field.id;actions.append(control);}
+   const title=field.name+' · 列默认配置';control.title=title;control.setAttribute('aria-label',title);
+  }
+ }
+ function refreshSettingBars(){
+  const table=getTable(),sources=new Map(),rows=new Map(table.records.map(row=>[row.id,row]));
+  for(const target of table.fields.filter(isGeneration)){const field=generationConfigField(table,target.id),config=frameConfig(field.id);if(!sources.has(config.promptFieldId))sources.set(config.promptFieldId,{field,config});}
+  refreshDefaultHeaders(sources);
+  for(const cell of editor.root.querySelectorAll('td[data-field]')){
+   const entry=sources.get(cell.dataset.field),row=rows.get(cell.dataset.record);let state=settingBars.get(cell);
+   if(!entry){if(state){state.root.remove();settingBars.delete(cell);delete cell.dataset.generationSettings;cell.style.removeProperty('--generation-settings-height');}continue;}
+   const {field,config}=entry;
+   if(state?.fieldId!==field.id){state?.root.remove();const root=el('div',cell),bar=createPromptSettingsBar((key,anchor)=>void chooseSetting(field.id,cell.dataset.record,key,anchor));root.className='generation-prompt-settings-list';root.append(bar.root);state={root,bar,fieldId:field.id};settingBars.set(cell,state);cell.dataset.generationSettings='true';}
+   state.bar.update(rowGenerationConfig(row,field.id,config),field.name);
+   cell.style.setProperty('--generation-settings-height','38px');
+  }
+ }
+ function closeSettings(){settingsMenu?.close();}
+ async function chooseSetting(fieldId,recordId,key,anchor){
+  if(settingsMenu?.anchor===anchor){closeSettings();return;}closeSettings();closeFrames();closePromptSources();
+  const spec=PROMPT_SETTINGS_TEMPLATE.find(item=>item.key===key),field=findField(fieldId),row=()=>getTable().records.find(r=>r.id===recordId);if(!field||!row())return;
+  const currentConfig=()=>frameConfig(fieldId,row());
+  const menu=createSettingsPopover(anchor,key==='duration'?'选择视频时长':spec.label,()=>{if(settingsMenu===menu)settingsMenu=null;});settingsMenu=menu;
+  const content=el('div',menu.root),status=el('p',menu.root);if(key==='size'||key==='duration')content.className='generation-settings-fields';status.setAttribute('role','status');
+  const draft=structuredClone(currentConfig());let baseline=JSON.stringify(currentConfig()),schema=null,schemaError='',busy=false;
+  const active=()=>alive&&settingsMenu===menu&&Boolean(findField(fieldId)&&row());
+  const current=()=>{if(JSON.stringify(currentConfig())!==baseline)throw new Error('配置已变化，请重新打开选择面板');};
+  const resetButton=tableIcon(button('恢复列默认配置',()=>{
+   if(busy||!active())return;
+   try{current();editor.change(t=>{const settings=t.records.find(r=>r.id===recordId).meta.generationSettings[draft.promptFieldId];delete settings[fieldId];},{render:false});menu.close();syncFrameTags();refreshFrameTokens();refreshSettingBars();}
+   catch(error){if(active())status.textContent=error.message;}
+  }),'restart-line','恢复列默认配置');resetButton.classList.add('generation-settings-reset');
+  if(row().meta?.generationSettings?.[draft.promptFieldId]?.[fieldId])menu.root.querySelector('strong').after(resetButton);
+  async function commit(update,reset=false){
+   if(busy)return;busy=true;menu.root.setAttribute('aria-busy','true');content.querySelectorAll('button,input,select').forEach(input=>input.disabled=true);
+   try{
+    current();const next=structuredClone(draft);update(next);
+    if(reset){
+     status.textContent='正在读取模型选项…';
+     if(!schema||next.kind!==draft.kind||next.model!==draft.model){try{const caps=await modelCapabilities(next);schema=caps.schema;schemaError='';}catch(error){schema={};schemaError=error.message;}if(!active())return;}
+     if(!next.mode)next.mode=Object.keys(schema.properties?.modeType?.items||{})[0]||(next.kind==='video'?'text2video':'');
+     for(const setting of generationSettingSpecs(schema,next.mode))if(next.settings[setting.name]===undefined&&setting.default!==undefined)next.settings[setting.name]=structuredClone(setting.default);
+    }
+    if(!active())return;current();
+    editor.change(t=>setRowGenerationConfig(t.records.find(r=>r.id===recordId),fieldId,next),{render:false});
+    if(!resetButton.isConnected)menu.root.querySelector('strong').after(resetButton);
+    baseline=JSON.stringify(currentConfig());Object.assign(draft,structuredClone(next));syncFrameTags();refreshFrameTokens();refreshSettingBars();
+    const warning=schemaError?'已保存，但未能确认模型兼容性：'+schemaError:generationSettingWarning(next,schema||{});
+    if(key==='size'||key==='duration')status.textContent=warning;else menu.close();
+    if(warning)notify(warning);
+   }catch(error){if(active())status.textContent=error.message;}
+   finally{busy=false;if(active()){menu.root.removeAttribute('aria-busy');content.querySelectorAll('button,input,select').forEach(input=>input.disabled=false);}}
+  }
+  function choices(items,value,select){
+   for(const [id,label] of items){const control=button(label,()=>{if(id===value){menu.close();return;}void commit(next=>select(next,id),true);});control.setAttribute('aria-pressed',String(id===(key==='mode'?generationModeChoice(value):value)));content.append(control);}
+   (content.querySelector('[aria-pressed=true]')||content.querySelector('button'))?.focus({preventScroll:true});
+  }
+  if(key==='kind')choices([['video','视频生成'],['image','图片生成']],draft.kind,(next,id)=>{next.kind=id;next.model=GENERATION_MODELS[id][0];next.mode='';next.settings={};});
+  else if(key==='model')choices(GENERATION_MODELS[draft.kind].map(name=>[name,name]),draft.model,(next,id)=>{next.model=id;if(next.kind==='video'&&typeof next.settings.duration==='number')next.settings.duration=Math.min(next.settings.duration,id===LOCAL_VIDEO_MODEL?15:30);});
+  else {
+   status.textContent='正在读取模型选项…';
+   try{const caps=await modelCapabilities(draft);schema=caps.schema;}catch(error){schema={};schemaError=error.message;}
+   if(!active())return;
+   try{
+    current();status.textContent=schemaError?'未能确认模型兼容性，仍可选择：'+schemaError:'';
+    if(key==='mode')choices(generationModes(schema,draft.kind).map(id=>[id,generationModeLabels[id]||id||'默认']),draft.mode,(next,id)=>{next.mode=id;});
+    else {
+     const specs=promptSettingSpecs(schema,draft.mode,key,draft.settings);
+     if(!specs.length&&!schemaError)status.textContent='当前模型不使用此项参数';
+     for(const item of specs){const edit=structuredClone(draft);content.append(createGenerationSetting(item,edit,()=>void commit(next=>{if(edit.settings[item.name]===undefined)delete next.settings[item.name];else next.settings[item.name]=edit.settings[item.name];}),true));}
+     content.querySelector('input,select')?.focus({preventScroll:true});
+    }
+   }catch(error){if(active())status.textContent=error.message;}
+  }
+ }
+ function closeFrames(){frameAnchor?.removeAttribute('aria-controls');frameMenu?.root.remove();frameMenu=null;frameAnchor=null;document.removeEventListener('pointerdown',outsideFrames,true);document.removeEventListener('keydown',frameKeys,true);document.removeEventListener('scroll',placeFrames,true);window.removeEventListener('resize',placeFrames);}
+ const outsideFrames=e=>{if(frameMenu&&!frameMenu.root.contains(e.target)&&!frameAnchor?.contains(e.target))closeFrames();};
+ const frameKeys=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();const anchor=frameAnchor;closeFrames();anchor?.focus({preventScroll:true});}else if(frameMenu?.keydown(e.key)){e.preventDefault();e.stopPropagation();}else if(['Backspace','Delete'].includes(e.key))closeFrames();};
+ function placeFrames(){if(!frameMenu)return;if(!frameAnchor?.isConnected){closeFrames();return;}const r=frameAnchor.getBoundingClientRect(),menu=frameMenu.root;menu.style.left=Math.max(8,Math.min(r.left,innerWidth-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(r.bottom+8,innerHeight-menu.offsetHeight-8))+'px';frameMenu.layout();}
+ function changeFrames(fieldId,recordId,update,role=null,promptFieldId=null){
+  const table=getTable(),current=table.records.find(r=>r.id===recordId),config=frameConfig(fieldId,current,promptFieldId);if(!current||!config)return;
+  const initial=Object.fromEntries(readFrames(table,current,fieldId,config).filter(item=>item.asset).map(item=>[item.role,{assetId:item.asset.id,fieldId:item.asset.fieldId}]));let inserted=false;
+  editor.change(t=>{const row=t.records.find(r=>r.id===recordId);row.meta||={};row.meta.generationFrames||={};const frames=row.meta.generationFrames[fieldId]||initial;update(frames);row.meta.generationFrames[fieldId]=frames;
+   if(role&&!effectivePrompt(t,row,config.promptFieldId)?.segments?.some(s=>s.type==='frame'&&s.generationFieldId===fieldId&&s.role===role)){const doc=toColumnPrompt(effectivePrompt(t,row,config.promptFieldId),row);doc.segments.unshift({type:'frame',generationFieldId:fieldId,role});row.values[config.promptFieldId]=doc;inserted=true;}
+  },{render:false});
+  if(inserted)editor.refreshCells(recordId,config.promptFieldId);else refreshFrameTokens();
+
+ }
+ function chooseFrame(fieldId,recordId,role,anchor){
+  closeSettings();closeFrames();const promptFieldId=anchor.closest('[data-field]')?.dataset.field,table=getTable(),row=table.records.find(r=>r.id===recordId),config=frameConfig(fieldId,row,promptFieldId);if(!row||!config)return;
+  const image=option=>option.asset.kind!=='video'&&option.asset.kind!=='audio';
+  const options=columnReferenceOptions(table,row).filter(f=>f.id!==fieldId).flatMap(f=>{if(f.asset)return image(f)?[f]:[];const children=f.children.filter(image);return children.length===1?[children[0]]:children.length?[{...f,children}]:[];});
+  if(!options.length){notify('本行没有可引用的图片');return;}
+  const key=generationFrameTagKey(config);frameAnchor=anchor;
+  frameMenu=createReferenceMenu({options,onLayout:placeFrames,onChoose:option=>{
+   closeFrames();const currentConfig=frameConfig(fieldId,getTable().records.find(r=>r.id===recordId),promptFieldId);if(!currentConfig||generationFrameTagKey(currentConfig)!==key)return;
+   changeFrames(fieldId,recordId,frames=>frames[role]={assetId:option.asset.id,fieldId:option.id},role,promptFieldId);
+   if(anchor.isConnected&&anchor.dataset.frameRole){const current=getTable().records.find(r=>r.id===recordId);if(current)updateFrameToken(anchor,current);}
+  }});
+  document.body.append(frameMenu.root);anchor.setAttribute('aria-controls',frameMenu.root.id);placeFrames();
+  document.addEventListener('pointerdown',outsideFrames,true);document.addEventListener('keydown',frameKeys,true);document.addEventListener('scroll',placeFrames,{capture:true,passive:true});window.addEventListener('resize',placeFrames);
+ }
+ function readFrames(table,row,fieldId,config){
+  const roles=generationFrameRoles(config);
+  try{return row?generationFrames(table,row,fieldId,config):roles.map(role=>({role}));}catch{return roles.map(role=>({role}));}
+ }
+ function frameLabel(row,item){return item.error?'引用失效':item.asset?'@'+materialReferenceLabel(item.asset,row.values[item.asset.fieldId].findIndex(a=>a.id===item.asset.id)):'@ 选择图片';}
+ function updateFrameToken(token,row){
+  const fieldId=token.dataset.generationFieldId,source=token.closest('[data-field]')?.dataset.field,current=frameConfig(fieldId,row,source),config=current&&{...current};
+  if(config&&source&&source!==frameConfig(fieldId,row)?.promptFieldId){const roles=(effectivePrompt(getTable(),row,source)?.segments||[]).filter(s=>s.type==='frame'&&s.generationFieldId===fieldId).map(s=>s.role);config.kind='video';config.mode=roles.includes('last')?'frames2video':'singleImage2video';}
+  const item=config?readFrames(getTable(),row,fieldId,config).find(f=>f.role===token.dataset.frameRole):null;
+  const name=token.dataset.frameRole==='first'?'首帧':'尾帧',label=name+'：'+frameLabel(row,item||{error:'生成方式已变化'});
+  const stamp=JSON.stringify([label,item?.asset?.url,item?.error]);if(frameStamps.get(token)===stamp)return;frameStamps.set(token,stamp);
+  token.textContent=label;token.title=item?.error||label;token.dataset.invalid=String(!item||Boolean(item.error));
+  if(item?.asset){const img=el('img');img.className='dae-ref-thumb';img.src=item.asset.url;img.alt='';img.draggable=false;token.prepend(img);}
+ }
+ function renderFrame(segment,row){
+  const token=el('span');token.className='dae-prompt-ref';token.contentEditable='false';token.tabIndex=0;token.dataset.frameRole=segment.role;token.dataset.generationFieldId=segment.generationFieldId;
+  updateFrameToken(token,row);
+  token.setAttribute('aria-haspopup','menu');
+  token.onpointerdown=e=>{if(e.button===0){e.preventDefault();e.stopPropagation();}};
+  token.onclick=e=>{e.preventDefault();e.stopPropagation();chooseFrame(segment.generationFieldId,row.id,segment.role,token);};
+  token.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();chooseFrame(segment.generationFieldId,row.id,segment.role,token);}};
+  return token;
+ }
+ function syncFrameTags(){
+  const table=getTable(),pending=[],sources=new Set(promptColumns(table).map(f=>f.id));
+  for(const field of new Set(table.fields.filter(isGeneration).map(f=>generationConfigField(table,f.id))))for(const row of table.records){
+   const config=frameConfig(field.id,row),roles=generationFrameRoles(config),previous=row.meta?.generationFrameTags?.[field.id];
+   if((!roles.length||sources.has(config.promptFieldId))&&(previous||roles.length)&&previous!==generationFrameTagKey(config))pending.push({fieldId:field.id,recordId:row.id,config});
+  }
+  if(!pending.length)return;
+  const types=new Map(table.fields.map(f=>[f.id,f.type])),changed=new Map();
+  editor.change(t=>{for(const {fieldId,recordId,config} of pending)for(const id of syncGenerationFrameTags(t,fieldId,config,recordId)){if(!changed.has(id))changed.set(id,new Set());changed.get(id).add(recordId);}},{render:false});
+  for(const [id,rows] of changed){if(types.get(id)!==findField(id)?.type)editor.refreshCells(null,id);else for(const recordId of rows)editor.refreshCells(recordId,id);}
+ }
+ function refreshFrameTokens(){
+  const rows=new Map(getTable().records.map(row=>[row.id,row]));
+  for(const token of editor.root.querySelectorAll('.dae-prompt-ref[data-frame-role]')){const row=rows.get(token.closest('[data-record]')?.dataset.record);if(row)updateFrameToken(token,row);}
+ }
+ function open(fieldId){
+  fieldId=generationConfigField(getTable(),fieldId)?.id||fieldId;
+  closeSettings();closePromptSources();
+  const field=findField(fieldId);if(!field)return;
+  editor.openTextSide('generation',fieldId,field.name+' · 列默认配置',body=>{
+   body.classList.add('generation-form');el('p',body,'这里设置列默认值；提示词单元格底栏可独立修改，已单独配置的格子不受默认值修改影响。').className='generation-prompt-hint';let schema=null,sequence=0;
+   const draft=structuredClone(field.generation);let original=JSON.stringify(field.generation),pendingCapabilities=null;
    const label=(name,tag='select')=>{const wrapper=el('label',body,name),input=el(tag,wrapper);input.setAttribute('aria-label',name);return input;};
    const kind=label('生成类型');for(const [v,n] of [['image','图片'],['video','视频']])kind.add(new Option(n,v));kind.value=draft.kind;
    const model=label('模型'),prompt=label('提示词列');
    function fillPrompts(){prompt.replaceChildren(new Option('请选择提示词列',''));for(const f of promptColumns(getTable()))prompt.add(new Option(f.name,f.id));prompt.value=draft.promptFieldId;}
-   fillPrompts();prompt.onchange=()=>draft.promptFieldId=prompt.value;
-   body.append(button('新建空白提示词列',()=>{editor.change(t=>{draft.promptFieldId=createGenerationPrompt(t,fieldId).id;});fillPrompts();}));
+   fillPrompts();
+   function refreshDefaults(){syncFrameTags();refreshFrameTokens();refreshSettingBars();}
+   prompt.onchange=()=>{const source=prompt.value;editor.change(t=>{t.fields.find(f=>f.id===fieldId).generation={...structuredClone(draft),promptFieldId:source};},{render:false});body.close();open(fieldId);};
+   body.append(button('新建空白提示词列',()=>{editor.change(t=>{draft.promptFieldId=createGenerationPrompt(t,fieldId).id;});fillPrompts();refreshDefaults();}));
    const mode=label('生成方式'),settings=el('section',body),status=el('p',body);status.setAttribute('role','status');
    const project=label('LibTV 目标画布 ID','input');project.value=getTable().meta.generationProject||'';
-   connectionPanel(body,{get:()=>project.value,set:(key,value)=>project.value=value,capabilities:async()=>{}});
+   const connection=el('section',body);connectionPanel(connection,{get:()=>project.value,set:(key,value)=>project.value=value,capabilities:async()=>{}});
    function fillModels(){model.replaceChildren();if(draft.model==='Image-2')draft.model='Lib Image';if(!GENERATION_MODELS[kind.value].includes(draft.model)){const placeholder=new Option('请选择具体模型版本','');placeholder.disabled=true;model.add(placeholder);}for(const name of GENERATION_MODELS[kind.value])model.add(new Option(name,name));model.value=GENERATION_MODELS[kind.value].includes(draft.model)?draft.model:'';}
    function drawSettings(){
     settings.replaceChildren();if(!schema)return;
-    const props=schema.properties||{},config=schema.config||{};
-    for(const bucket of ['settings','advancedSettings']){
-     let keys=config[bucket]||[];if(!Array.isArray(keys))keys=keys[draft.mode]||[];
-     for(const key of keys){const spec=props[key];if(!spec)continue;const name=spec.originalField||key;
-      const wrapper=el('label',settings,spec.displayName||spec.title||spec.label||name),choices=spec.enum||[],input=el(choices.length?'select':'input',wrapper);input.setAttribute('aria-label',spec.displayName||spec.title||spec.label||name);
-      const values=choices.map(x=>typeof x==='object'?x.value:x);
-      if(choices.length)choices.forEach((x,i)=>input.add(new Option(typeof x==='object'?(x.displayName||x.label||x.value):String(x),String(i))));
-      else {input.type=spec.type==='boolean'?'checkbox':(['integer','number'].includes(spec.type)||spec.component==='slider'||typeof spec.min==='number')?'number':'text';if(spec.min!==undefined)input.min=spec.min;if(spec.max!==undefined)input.max=spec.max;input.step=spec.type==='integer'?'1':'any';}
-      const value=draft.settings[name]??spec.default;
-      if(choices.length){input.value=String(Math.max(0,values.indexOf(value)));draft.settings[name]=values[Number(input.value)];}
-      else if(input.type==='checkbox'){input.checked=Boolean(value);draft.settings[name]=input.checked;}
-      else if(value!==undefined){input.value=value;draft.settings[name]=value;}
-      input.onchange=()=>{if(!input.checkValidity())return;if(input.type==='checkbox')draft.settings[name]=input.checked;else draft.settings[name]=choices.length?values[Number(input.value)]:input.type==='number'?Number(input.value):input.value;};
-     }
-    }
+    for(const spec of generationSettingSpecs(schema,draft.mode))settings.append(createGenerationSetting(spec,draft,refreshSettingBars));
    }
+
    async function capabilities(){
+    refreshDefaults();
+    const local=draft.model===LOCAL_VIDEO_MODEL;project.parentElement.hidden=local;connection.hidden=local;
     const token=++sequence;schema=null;settings.replaceChildren();mode.replaceChildren();status.textContent='正在读取模型选项…';
-    try{const caps=await request('capabilities?'+new URLSearchParams({kind:draft.kind,model:draft.model}));if(!alive||!body.isConnected||token!==sequence)return;
+    try{const caps=await modelCapabilities(draft);if(!alive||!body.isConnected||token!==sequence)return;
      schema=caps.schema;let modes=Object.keys(schema.properties?.modeType?.items||{});if(draft.kind==='video'&&!modes.includes('text2video'))modes.unshift('text2video');if(!modes.length)modes=[''];
-     const names={text2video:'文生视频',singleImage2video:'首帧生视频',frames2video:'首尾帧',image2video:'多图参考',mixed2video:'混合参考',text2image:'文生图',image2image:'参考图生图'};
-     for(const m of modes)mode.add(new Option(names[m]||m||'默认',m));if(!modes.includes(draft.mode))draft.mode=modes[0];mode.value=draft.mode;drawSettings();status.textContent='参考素材由提示词中的 @列 读取本行内容。首尾帧按引用出现顺序。';
+
+     for(const m of new Set(modes.map(generationModeChoice)))mode.add(new Option(generationModeLabels[m]||m||'默认',m));if(!modes.includes(draft.mode))draft.mode=modes[0];mode.value=generationModeChoice(draft.mode);drawSettings();refreshDefaults();status.textContent=local?'使用本机 FL 模型生成带声音的视频，按行排队。在表格中点击首尾帧标签选择同行图片；不支持视频参考。默认 768×448、约 2 秒，可调整。':'参考素材请在表格提示词中通过 @ 或首尾帧标签选择。';
     }catch(error){if(token===sequence&&body.isConnected)status.textContent=error.message;}
    }
-   kind.onchange=()=>{draft.kind=kind.value;draft.model=GENERATION_MODELS[draft.kind][0];draft.settings={};draft.mode='';fillModels();void capabilities();};
-   model.onchange=()=>{draft.model=model.value;draft.settings={};draft.mode='';void capabilities();};
-   mode.onchange=()=>{draft.mode=mode.value;draft.settings={};drawSettings();};
-   body.append(button('重新读取模型选项',capabilities),button('保存配置',()=>{
-    try{const current=findField(fieldId);if(!current)throw new Error('生成列已删除');
+   const loadCapabilities=()=>pendingCapabilities=capabilities();
+   kind.onchange=()=>{draft.kind=kind.value;draft.model=GENERATION_MODELS[draft.kind][0];draft.settings={};draft.mode='';fillModels();void loadCapabilities();};
+   model.onchange=()=>{draft.model=model.value;draft.settings={};draft.mode='';void loadCapabilities();};
+   mode.onchange=()=>{draft.mode=mode.value;draft.settings={};drawSettings();refreshDefaults();};
+   async function applyConfig(){
+     while(pendingCapabilities){const pending=pendingCapabilities;await pending;if(pending===pendingCapabilities)break;}
+     if(!alive||!body.isConnected)throw new Error('配置面板已关闭，请重新打开');
+     const current=findField(fieldId);if(!current)throw new Error('生成列已删除');
      // Only creating a prompt through this panel may have changed its binding.
      const comparison={...current.generation,promptFieldId:JSON.parse(original).promptFieldId};
      if(JSON.stringify(comparison)!==original)throw new Error('列配置已在其他位置变化，请重新打开');
      if(!model.value)throw new Error('请选择具体模型版本');
-     if(!draft.promptFieldId)throw new Error('请选择提示词列');
-     if([...settings.querySelectorAll('input')].some(i=>!i.reportValidity()))return;
-     editor.change(t=>{t.fields.find(f=>f.id===fieldId).generation=structuredClone(draft);t.meta.generationProject=project.value.trim();});body.close();
+     if(!schema)throw new Error(status.textContent||'请重新读取模型选项');
+     if(!promptColumns(getTable()).some(f=>f.id===draft.promptFieldId))throw new Error('请选择提示词列作为来源');
+     const inputs=[...settings.querySelectorAll('input,select')];
+     if(inputs.some(i=>!i.reportValidity()))throw new Error('请检查生成参数');
+     for(const input of inputs)input.onchange();
+     const config=JSON.stringify(draft),projectId=project.value.trim();
+     if(JSON.stringify(current.generation)!==config||(getTable().meta.generationProject||'')!==projectId){
+      editor.change(t=>{t.fields.find(f=>f.id===fieldId).generation=structuredClone(draft);t.meta.generationProject=projectId;},{render:false});
+     }
+     original=config;
+   }
+   configPanels.set(fieldId,{draft,apply:applyConfig,setPromptSource(sourceId){if(generationConfigField(getTable(),fieldId)?.id!==fieldId){body.close();open(fieldId);return;}draft.promptFieldId=sourceId;fillPrompts();refreshDefaults();}});
+   body.append(button('重新读取模型选项',loadCapabilities),button('保存配置',async()=>{
+    try{await applyConfig();body.close();
     }catch(error){status.textContent=error.message;}
    },true),button('编辑提示词模板',()=>{if(draft.promptFieldId){editor.change(t=>enableColumnPrompt(t,draft.promptFieldId));editPromptTemplate(draft.promptFieldId);}}));
-   fillModels();void capabilities();
-  },{toggle:true});
- }
- async function generate(fieldId,recordId=null,recover=false,fresh=false){
-  if(submitting)return;submitting=true;decorate();
-  try{
-   const table=getTable(),rows=recordId?table.records.filter(r=>r.id===recordId):generationRows(table,fieldId),jobs=[];
-   for(const row of rows){
-    const old=row.meta?.generationColumns?.[fieldId];
-    if(['running','waiting'].includes(old?.phase))continue;
-    if(!fresh&&(recover||['needs_recovery','stopped'].includes(old?.phase))){
-     if(!old?.input)throw new Error('原任务快照缺失');jobs.push(recoveryJob(old));continue;
-    }
-    // An abandoned original shares the input fingerprint; forceNew prevents reusing it.
-    try{const input=generationInput(table,fieldId,row.id);if(!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:fresh||Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
-    catch(error){if(recordId||table.records.some(r=>r.selected))throw new Error(`第 ${table.records.indexOf(row)+1} 行：${error.message}`);}
-   }
-   if(!jobs.length)throw new Error('没有可生成的行，请补充提示词或检查任务状态');
-   editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]=generationReceipt(job,row.meta.generationColumns[fieldId]);}});
-   try{await request('submit',{jobs});}catch(error){
-    if(error.preflightRejected)editor.change(t=>{for(const job of jobs){const state=t.records.find(r=>r.id===job.input.recordId)?.meta?.generationColumns?.[fieldId];if(state?.requestId===job.requestId){state.phase=job.recovery?'needs_recovery':'needs_input';state.error=error.message;}}});
-    notify(error.message);
-   }
-   await poll(true);
-  }catch(error){notify(error.message);}finally{submitting=false;decorate();}
- }
- async function poll(force=false){
-  if(!alive||polling||submitting&&!force)return;const captured=epoch,jobs=[],checkCompleted=force||Date.now()-lastCompletedCheck>30000;if(checkCompleted)lastCompletedCheck=Date.now();
-  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
-   if(['waiting','running'].includes(state.phase)||checkCompleted&&['complete','needs_recovery','stopped','failed','stale'].includes(state.phase))jobs.push({recordId:row.id,fieldId,...state});
-   if(checkCompleted)for(const old of state.history||[])if(!old.result?.url)jobs.push({recordId:row.id,fieldId,...old,historical:true});
-  }
-  if(!jobs.length)return;polling=true;
-  try{const response=await request('status',{requestIds:jobs.map(j=>j.requestId)});if(!alive||captured!==epoch)return;
-   for(const report of response.jobs)live.set(report.requestId,report);
-   refreshLive();
-   const updates=response.jobs.filter(report=>{const job=jobs.find(j=>j.requestId===report.requestId);return job&&(job.historical?report.phase==='complete'&&report.result?.url:generationReportNeedsApply(getTable(),job,report));});if(!updates.length)return;
-   editor.change(t=>{for(const report of updates){const job=jobs.find(j=>j.requestId===report.requestId),row=t.records.find(r=>r.id===job?.recordId),state=row?.meta?.generationColumns?.[job?.fieldId];if(!state)continue;
-    if(job.historical){const old=state.history?.find(s=>s.requestId===report.requestId);if(old){old.phase=report.phase;old.result=report.result;}continue;}
-    if(state.requestId!==report.requestId)continue;
-    if(report.phase==='complete')applyGenerationResult(t,job.fieldId,job.recordId,job.requestId,job.stamp,report.result);
-    else {state.phase=report.phase;state.error=report.error;}
-   }});
-  }catch(error){
-   const message='无法同步任务状态：'+error.message;
-   if(alive&&captured===epoch&&jobs.some(job=>['waiting','running'].includes(job.phase)&&job.error!==message))editor.change(t=>{for(const job of jobs){const state=t.records.find(r=>r.id===job.recordId)?.meta?.generationColumns?.[job.fieldId];if(state?.requestId===job.requestId&&['waiting','running'].includes(state.phase))state.error=message;}});
-  }finally{polling=false;}
- }
- function refreshLive(){
-  for(const status of editor.root.querySelectorAll('.generation-cell-state[data-request-id]')){
-   const chip=status.querySelector('.generation-stage');if(!chip)continue;
-   const phase=status.dataset.phase,report=live.get(status.dataset.requestId),text=stageText(report,phase),label=(phaseNames[phase]||'')+' · '+liveLabel(report,phase);
-   if(chip.textContent!==text)chip.textContent=text;
-   status.title=label;status.setAttribute('aria-label',label);
-   const ring=status.querySelector('.generation-progress');
-   if(ring){ring.setAttribute('aria-label',label);if(Number.isFinite(report?.progress)&&report.stage==='generating')ring.setAttribute('aria-valuenow',String(report.progress));else ring.removeAttribute('aria-valuenow');}
-  }
+   fillModels();void loadCapabilities();
+   body.addEventListener('dae-text-side-show',refreshDefaults);body.onCleanup(()=>configPanels.delete(fieldId));refreshDefaults();
+  });
  }
  function decorate(){
+  if(promptSourceMenu&&!promptSourceMenu.anchor.isConnected)closePromptSources();
+  if(settingsMenu&&!settingsMenu.anchor.isConnected)closeSettings();
   if(!alive)return;
-  for(const run of editor.root.querySelectorAll('[data-generation-run]'))run.disabled=submitting;
-  const table=getTable(),fields=table.fields.filter(isGeneration);if(!fields.length)return;
-  const rows=new Map(table.records.map(row=>[row.id,row])),headers=new Map([...editor.root.querySelectorAll('th[data-column]')].map(h=>[h.dataset.column,h])),cells=new Map(fields.map(f=>[f.id,[]]));
-  for(const cell of editor.root.querySelectorAll('td[data-field]'))cells.get(cell.dataset.field)?.push(cell);
-  let refresh=false;
+  if(frameAnchor&&!frameAnchor.isConnected)closeFrames();
+
+  const fields=getTable().fields.filter(isGeneration);syncFrameTags();refreshFrameTokens();refreshSettingBars();
+  const headers=new Map([...editor.root.querySelectorAll('th[data-column]')].map(h=>[h.dataset.column,h]));
   for(const field of fields){
    const header=headers.get(field.id);
    if(header&&!header.querySelector('.generation-actions')){
     const row=el('div',header);row.className='generation-header-row';
     const title=header.querySelector('.field-title');if(title)row.append(title);
     const actions=el('div',row);actions.className='generation-actions';
-    const settings=tableIcon(button('生成配置',()=>open(field.id)),'settings-3-line',field.name+' · 生成配置');settings.classList.add('generation-settings');
-    const run=button('生成 '+generationRows(getTable(),field.id).length+' 行',()=>generate(field.id),true);run.dataset.generationRun=field.id;run.disabled=submitting;
-    actions.append(run);
-    const active=getTable().records.map(r=>r.meta?.generationColumns?.[field.id]).filter(s=>['waiting','running'].includes(s?.phase));
-    if(active.length)actions.append(button('停止后续行',async()=>{try{await request('stop',{requestIds:active.map(s=>s.requestId)});await poll(true);}catch(error){notify(error.message);}}));
-    actions.append(settings);
+    const run=button('生成 '+generationRows(getTable(),field.id).length+' 行',()=>findField(frameConfig(field.id)?.promptFieldId)?tasks.generate(field.id):open(field.id),true);run.dataset.generationRun=field.id;run.disabled=tasks.submitting;
+    const source=tableIcon(button('选择提示词列',()=>choosePromptSource(field.id,source)),'edit-line','选择提示词列');source.classList.add('generation-settings');source.setAttribute('aria-haspopup','dialog');
+    source.onpointerenter=()=>choosePromptSource(field.id,source);source.onpointerleave=leavePromptSources;
+    actions.append(source,run);
     const output=document.createElement('button');output.type='button';output.className='dae-material-slot';output.dataset.generationSource=field.id;output.setAttribute('aria-label','输出为素材组');output.title='拖到画布空白处输出素材组';actions.append(output);
     actions.onpointerdown=e=>e.stopPropagation();actions.ondragstart=e=>e.preventDefault();
    }
-   for(const cell of cells.get(field.id))if(!cell.querySelector('.generation-cell-state')){
-    const row=rows.get(cell.dataset.record),state=row?.meta?.generationColumns?.[field.id];
-    const preview=cell.querySelector('.content-display')||cell;
-    const phase=state?.phase||'idle',busy=['waiting','running'].includes(phase);
-    const label=(phaseNames[phase]||'尚未生成')+(state?.error?' · '+state.error:'');
-    const status=el('div',preview);status.className='generation-cell-state';status.dataset.phase=phase;status.dataset.error=String(Boolean(state?.error)&&!busy);status.setAttribute('role','status');status.setAttribute('aria-label',label);status.title=label;
-    if(busy&&state?.error?.startsWith('无法同步任务状态：')){
-     status.append(tableIcon(button(label,()=>notify(label)),'error-warning-line',label),tableIcon(button('刷新任务状态',()=>poll(true)),'restart-line','刷新任务状态'));
-    }
-    else if(busy){
-     status.dataset.requestId=state.requestId;
-     const ring=el('span',status);ring.className='generation-progress';ring.setAttribute('role','progressbar');ring.setAttribute('aria-valuemin','0');ring.setAttribute('aria-valuemax','100');ring.setAttribute('aria-label',label);
-     el('span',status,stageText(live.get(state.requestId),phase)).className='generation-stage';
-    }
-    else if(state){const indicator=tableIcon(button(label,()=>notify(label)),phase==='complete'?'check-line':'error-warning-line',label);indicator.classList.add('generation-state-icon');status.append(indicator);}
-    if(!busy){const recover=phase==='needs_recovery'||phase==='stopped',retry=Boolean(state);const actionLabel=recover?'恢复原任务':retry?'重新生成':'生成此行';status.append(tableIcon(button(actionLabel,()=>generate(field.id,row.id,recover)),retry?'restart-line':'play-line',actionLabel));
-     if(recover)status.append(tableIcon(button('放弃原任务并重新生成',()=>{const dialog=editor.openDialog('重新生成本行');el('p',dialog,'将提交一个新的付费生成任务，原任务不再查询。');dialog.append(button('确认重新生成',()=>{dialog.remove();void generate(field.id,row.id,false,true);},true),button('取消',()=>dialog.remove()));}),'play-line','放弃原任务并重新生成'));}
-    const completedHistory=[...(state?.history||[]),...(phase==='stale'&&state?.result?[state]:[])].filter(s=>s.result?.url);
-    if(completedHistory.length)status.append(tableIcon(button('已有生成结果',()=>{
-     const dialog=editor.openDialog('已有生成结果');el('p',dialog,'选择此前已完成的结果显示在本行；当前任务状态仍会保留。');
-     for(const old of completedHistory){const model=old.input?.config?.model||'原任务';dialog.append(button('使用 '+model+' · '+old.result.name,async()=>{
-      try{const response=await request('status',{requestIds:[old.requestId]}),report=response.jobs.find(s=>s.requestId===old.requestId);if(report?.phase!=='complete'||!report.result?.url)throw new Error(report?.error||'原结果暂不可用，请恢复原任务');
-       if(!alive||!dialog.isConnected)return;
-       editor.change(t=>{const current=t.records.find(r=>r.id===row.id);if(!current)return;current.values[field.id]=[{...report.result,id:crypto.randomUUID(),name:'已有结果 · '+model+' · '+report.result.name,provenance:{requestId:old.requestId,model}}];});dialog.remove();
-      }catch(error){notify(error.message);}
-     }));}dialog.append(button('关闭',()=>dialog.remove()));
-    }),'folder-image-line','已有生成结果'));
-    status.onpointerdown=e=>e.stopPropagation();status.onmousedown=e=>e.stopPropagation();status.ondblclick=e=>e.stopPropagation();
-    if(busy)refresh=true;
-   }
   }
-  if(refresh)refreshLive();
+  tasks.decorate(headers);
  }
  const observer=new MutationObserver(decorate);observer.observe(editor.root,{childList:true,subtree:true});
- const created=e=>open(e.detail.fieldId);editor.root.addEventListener('dae-generation-created',created);
- const timer=setInterval(()=>void poll(),3000);decorate();
- return {open,invalidate(){epoch++;},destroy(){alive=false;epoch++;live.clear();clearInterval(timer);observer.disconnect();editor.root.removeEventListener('dae-generation-created',created);style.remove();}};
+ const promptInput=refreshSettingBars;editor.root.addEventListener('input',promptInput);
+ decorate();
+ return {open,renderFrame,syncPromptChanges(table,before){
+  for(const field of table.fields.filter(isGeneration)){
+   syncGenerationPromptSource(table,before,field.generation);const panel=configPanels.get(field.id);
+   const draftChanged=panel&&syncGenerationPromptSource(table,before,panel.draft);
+   if(draftChanged)queueMicrotask(()=>{if(configPanels.get(field.id)===panel)panel.setPromptSource(panel.draft.promptFieldId);});
+  }
+  syncGenerationConfigOwners(table,before);
+  for(const field of new Set(table.fields.filter(isGeneration).map(f=>generationConfigField(table,f.id))))syncGenerationPromptMode(table,before,field.id,configPanels.get(field.id)?.draft||field.generation);
+ },invalidate(){tasks.invalidate();closeFrames();closeSettings();closePromptSources();},destroy(){alive=false;tasks.destroy();closeFrames();closeSettings();closePromptSources();clearTimeout(promptSourceTimer);configPanels.clear();observer.disconnect();editor.root.removeEventListener('input',promptInput);style.remove();}};
 }

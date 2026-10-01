@@ -1,4 +1,4 @@
-import {isColumnPrompt,validateColumnPrompt,effectivePrompt,resolveColumnPrompt,columnPromptStamp} from './table_prompt_template.mjs?v=20260930-inline4';
+import {isColumnPrompt,validateColumnPrompt,effectivePrompt,resolveColumnPrompt,columnPromptStamp,columnValue} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 // Pure shared contract; no ComfyUI, DOM or provider calls.
 import {videoReferenceFields,videoReferenceSpecs} from './table_video_references.mjs?v=20260929-refs3';
 const clone=v=>JSON.parse(JSON.stringify(v));
@@ -35,7 +35,7 @@ export function validatePrompt(doc){
 }
 export function promptText(doc,t,row){
  if(!doc)doc=effectivePrompt(t,row,promptField(t));
- if(isColumnPrompt(doc))return doc.segments.map(s=>s.type==='text'?s.text:'@'+(t.fields.find(f=>f.id===s.fieldId)?.name||'已删除列')).join('');
+ if(isColumnPrompt(doc))return doc.segments.map(s=>{if(s.type==='frame')return '';if(s.type==='text')return s.text;try{const value=columnValue(t,row,s.fieldId,s.assetIndex,s.assetId);return '@'+value.field.name+(value.asset?` · ${value.asset.kind==='video'?'视频':'图片'}${value.assetIndex+1} · ${value.asset.name}`:'');}catch{return '@失效引用';}}).join('');
  const refs=new Map((doc?.references||[]).map(r=>[r.refId,r]));
  return (doc?.segments||[]).map(s=>s.type==='text'?s.text:'@'+(resolvePromptAsset(t,row,refs.get(s.refId))?.name||'失效引用')).join('');
 }

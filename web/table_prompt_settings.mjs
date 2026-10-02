@@ -18,8 +18,8 @@ function sizeLabel(settings){
 }
 export function promptSettingsItems(config){
  const settings=config.settings||{},video=config.kind==='video';
- const labels={kind:video?'视频生成':'图片生成',model:config.model||'选择模型',mode:generationModeLabels[config.mode]||config.mode||'选择方式',size:sizeLabel(settings),duration:video?(settings.duration!=null&&settings.duration!==''?`${settings.duration}s`:'设置时长'):'—'};
- return PROMPT_SETTINGS_TEMPLATE.map(item=>({...item,icon:item.key==='kind'&&!video?'image-line':item.icon,text:labels[item.key],disabled:item.key==='duration'&&!video}));
+ const labels={kind:video?'视频生成':'图片生成',model:config.model||'选择模型',mode:generationModeLabels[config.mode]||config.mode||'选择方式',size:sizeLabel(settings),duration:settings.duration!=null&&settings.duration!==''?`${settings.duration}s`:'设置时长'};
+ return PROMPT_SETTINGS_TEMPLATE.map(item=>({...item,icon:item.key==='kind'&&!video?'image-line':item.icon,text:labels[item.key],hidden:item.key==='duration'&&!video}));
 }
 export function createPromptSettingsBar(onActivate){
  const root=document.createElement('div');root.className='generation-prompt-settings';root.setAttribute('role','group');
@@ -32,8 +32,8 @@ export function createPromptSettingsBar(onActivate){
  for(const event of ['pointerdown','mousedown','dblclick','keydown'])root.addEventListener(event,e=>e.stopPropagation());
  return {root,update(config,name){
   const next=JSON.stringify([config,name]);if(next===signature)return;signature=next;root.setAttribute('aria-label',name+' · 生成设置（当前单元格）');
-  for(const item of promptSettingsItems(config)){const {control,icon,label}=controls.get(item.key);const title=item.disabled?'图片生成不使用时长':`${name} · ${item.label}：${item.text}（只修改当前单元格）`;
-   label.textContent=item.text;control.disabled=item.disabled;control.title=title;control.setAttribute('aria-label',title);icon.style.setProperty('--table-icon',`url("${new URL('./vendor/remixicon/'+item.icon+'.svg',import.meta.url).href}")`);
+  for(const item of promptSettingsItems(config)){const {control,icon,label}=controls.get(item.key);const title=`${name} · ${item.label}：${item.text}（只修改当前单元格）`;
+   label.textContent=item.text;control.hidden=item.hidden;control.title=title;control.setAttribute('aria-label',title);icon.style.setProperty('--table-icon',`url("${new URL('./vendor/remixicon/'+item.icon+'.svg',import.meta.url).href}")`);
   }
  }};
 }

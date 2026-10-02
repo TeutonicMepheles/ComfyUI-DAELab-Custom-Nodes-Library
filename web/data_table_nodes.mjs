@@ -1,6 +1,6 @@
 import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {createMaterialTable} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261002-table-module-responsibilities';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261002-image-hide-duration';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {installContentPresentation} from './table_context_menu.mjs?v=20261002-table-module-responsibilities';
 import {tableTheme,tableHistory} from './table_controls.mjs?v=20261002-generation-pause';

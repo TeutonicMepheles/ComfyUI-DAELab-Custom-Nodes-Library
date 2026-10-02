@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
-const source=readFileSync(new URL('../web/table_generation_panel.mjs',import.meta.url),'utf8');
-const requestSource=source.slice(source.indexOf('async function request('),source.indexOf('const phaseNames='));
+const source=readFileSync(new URL('../web/table_generation_api.mjs',import.meta.url),'utf8');
+const tasks=readFileSync(new URL('../web/table_generation_tasks.mjs',import.meta.url),'utf8');
+const requestSource=source.slice(source.indexOf('export async function request(')).replaceAll('export async function','async function');
 test('an unresponsive status request aborts and releases its timer without submitting again',async()=>{
  let abort,cleared=false,calls=0;
  const context=vm.createContext({AbortController,setTimeout:fn=>{abort=fn;return 1;},clearTimeout:()=>{cleared=true;},fetch:(_url,{signal})=>{
@@ -22,7 +23,7 @@ test('a definite preflight rejection preserves submitted=false and clears its ti
  await assert.rejects(context.request('submit',{jobs:[]}),error=>error.preflightRejected===true);
  assert.equal(cleared,true);
 });
-const labelSource=source.slice(source.indexOf('const stageNames='),source.indexOf('export function attachGenerationColumns')).replaceAll('export function','function');
+const labelSource=tasks.slice(tasks.indexOf('const stageNames='),tasks.indexOf('export const generationTaskStyle')).replaceAll('export function','function');
 test('live stage text separates platform progress from local completion',()=>{
  const context=vm.createContext({});vm.runInContext(labelSource+';this.stageText=stageText;this.liveLabel=liveLabel;',context);
  const {stageText,liveLabel}=context;

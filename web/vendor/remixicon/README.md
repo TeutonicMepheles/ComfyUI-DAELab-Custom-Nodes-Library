@@ -22,3 +22,12 @@ The bundled Remix Icon license applies.
 settings-3-line.svg: Remix Icon 4.6.0, settings gear; bundled from the official remixicon npm package.
 
 check-line.svg, error-warning-line.svg, restart-line.svg, play-line.svg: Remix Icon 4.6.0; generation preview status and actions.
+
+2026-10-01: Prompt settings toolbar icons, from the official v4.6.0 sources under the bundled license:
+
+- https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Others/box-3-line.svg
+- https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Media/film-line.svg
+- https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Media/aspect-ratio-line.svg
+- https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/System/time-line.svg
+
+2026-10-02: pause-fill.svg reused from the local Creative Canvas Remix Icon bundle for generation pause controls.

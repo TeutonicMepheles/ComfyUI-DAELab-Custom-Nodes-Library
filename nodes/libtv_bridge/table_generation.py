@@ -93,6 +93,8 @@ class ColumnBridge(Bridge):
 
     def validate_request(self, schema, mode, prompt, settings, media):
         if self.node_type == 'video':
+            if settings.get('duration', 0) > 30:
+                raise ValueError('视频时长最多 30 秒')
             # Existing video checks cover references and required input modes.
             basic = dict(schema, config=dict(schema.get('config', {})))
             basic['config']['settings'] = []

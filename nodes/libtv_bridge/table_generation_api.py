@@ -16,10 +16,13 @@ from .runtime import atomic_json, digest_file, CLI, generation_failure_reason
 from .recovery import recover_generation, is_network_error
 from .media_snapshot import freeze_media
 from .table_generation import ColumnBridge, compile_segments
+from .table_local_video import LOCAL_MODEL, LocalVideo, LocalVideoFailure, LocalVideoPaused
 
 _tasks = {}
+_local_runs = {}
 TABLE_CONCURRENCY = 32
 _queue = asyncio.Semaphore(TABLE_CONCURRENCY)
+_local_queue = asyncio.Semaphore(1)
 _executions = {}
 _submissions = asyncio.Lock()
 
@@ -30,7 +33,11 @@ def paths():
     return root, Path(folder_paths.get_output_directory())
 
 
-def bridge(kind):
+def bridge(kind, model=None):
+    if model == LOCAL_MODEL:
+        if kind != 'video':
+            raise ValueError('本地 H3 仅用于视频生成')
+        return LocalVideo()
     root, output = paths()
     return ColumnBridge(root / 'bridge', output / 'daelab/libtv/table', kind)
 
@@ -42,6 +49,9 @@ def receipt_path(request_id):
 
 
 def public(state):
+    control = _local_runs.get(state['requestId'])
+    if state.get('phase') == 'running' and control and control.pause_requested.is_set():
+        state = dict(state, phase='pausing')
     # Older receipts stored a terminal CLI failure as needs_recovery. Correct
     # the public status without starting a worker or touching paid task identity.
     failure = generation_failure_reason(state.get('error', ''))
@@ -108,6 +118,8 @@ def check_result(state):
     if (query.get('type') != ['output'] or not file.is_relative_to(root)
             or not file.is_file()
             or state.get('resultHash') and digest_file(file) != state['resultHash']):
+        if state['input']['config']['model'] == LOCAL_MODEL:
+            return dict(state, phase='failed', error='本地视频缺失或已变化，请重新生成')
         return dict(state, phase='needs_recovery', error='本地结果缺失或已变化，请恢复任务重新下载')
     return state
 
@@ -134,8 +146,8 @@ def prepare(item):
         atomic_json(path, state)
         return check_result(state)
     cfg = data['config']
-    transport = bridge(cfg['kind'])
-    if not data.get('project', '').strip():
+    transport = bridge(cfg['kind'], cfg['model'])
+    if cfg['model'] != LOCAL_MODEL and not data.get('project', '').strip():
         raise ValueError('请选择 LibTV 目标画布')
     assets = data.get('assets', [])
     if len(assets) > 32:
@@ -212,7 +224,7 @@ def execute(state):
         for transient in ('error', 'detail', 'progress'):
             state.pop(transient, None)
         atomic_json(receipt_path(request_id), state)
-        transport = bridge(cfg['kind'])
+        transport = _local_runs[request_id] if cfg['model'] == LOCAL_MODEL else bridge(cfg['kind'], cfg['model'])
         transport.report = lambda stage, **info: mark(stage, detail=None, **info)
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
@@ -227,7 +239,7 @@ def execute(state):
             return transport.generate(
             data['project'], execution_id, cfg['model'], cfg.get('mode', ''),
             compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
-        result = recover_generation(generate_original, record, progress)
+        result = generate_original() if cfg['model'] == LOCAL_MODEL else recover_generation(generate_original, record, progress)
         transport.report = None
         file = Path(result['file'])
         subfolder = file.parent.relative_to(paths()[1]).as_posix()
@@ -237,10 +249,18 @@ def execute(state):
             state.update(phase='complete', resultHash=digest_file(file), result=dict(kind=cfg['kind'], name=file.name,
                 url='/view?' + urlencode(dict(filename=file.name, subfolder=subfolder, type='output'))))
             state.setdefault('timeline', []).append(dict(stage='complete', at=int(time.time() * 1000)))
+    except LocalVideoPaused:
+        with lock:
+            for transient in ('error', 'errorDetail', 'detail', 'progress'):
+                state.pop(transient, None)
+            state['phase'] = 'paused'
     except Exception as error:
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
-        message, failed = diagnose(error, bridge(cfg['kind']).cache / (key + '.json'))
+        if cfg['model'] == LOCAL_MODEL:
+            message, failed = str(error).splitlines()[0][:500], isinstance(error, (LocalVideoFailure, ValueError))
+        else:
+            message, failed = diagnose(error, bridge(cfg['kind']).cache / (key + '.json'))
         with lock:
             state.pop('detail', None)
             state.update(phase='failed' if failed else 'needs_recovery', errorDetail=str(error)[-2000:], error=message)
@@ -260,18 +280,21 @@ async def run_batch(states):
         entry = _executions.setdefault(key, [asyncio.Lock(), 0])
         entry[1] += 1
         try:
-            async with entry[0], _queue:
+            budget = _local_queue if state['input']['config']['model'] == LOCAL_MODEL else _queue
+            async with entry[0], budget:
                 saved = json.loads(receipt_path(state['requestId']).read_text('utf-8'))
-                if saved['phase'] == 'stopped':
+                if saved['phase'] in ('stopped', 'paused'):
                     return
-                # No await between the stop check and marking the job running.
+                # Register local control before handing execution to the worker.
+                if state['input']['config']['model'] == LOCAL_MODEL:
+                    _local_runs[state['requestId']] = LocalVideo()
                 state['phase'] = 'running'
                 atomic_json(receipt_path(state['requestId']), state)
                 await asyncio.to_thread(execute, state)
         except Exception as error:
             # A worker failure must not leave a live-looking receipt forever.
             saved = json.loads(receipt_path(state['requestId']).read_text('utf-8'))
-            if saved.get('phase') not in ('complete', 'stopped'):
+            if saved.get('phase') not in ('complete', 'stopped', 'paused'):
                 saved.update(phase='needs_recovery', error=str(error).splitlines()[0][:240])
                 atomic_json(receipt_path(state['requestId']), saved)
         finally:
@@ -279,12 +302,16 @@ async def run_batch(states):
             if not entry[1]:
                 _executions.pop(key, None)
             _tasks.pop(state['requestId'], None)
+            _local_runs.pop(state['requestId'], None)
     await asyncio.gather(*(run_one(state) for state in states))
 
 
 async def submit(items):
     async with _submissions:
         states = [await asyncio.to_thread(prepare, item) for item in items]
+        finishing = [_tasks[s['requestId']] for s in states if s['phase'] == 'paused' and s['requestId'] in _tasks]
+        if finishing:
+            await asyncio.gather(*finishing, return_exceptions=True)
         pending = [s for s in states if s['phase'] != 'complete' and s['requestId'] not in _tasks]
         if pending:
             now = int(time.time() * 1000)
@@ -294,10 +321,39 @@ async def submit(items):
                 state['updatedAt'] = now
                 state.setdefault('timeline', []).append(dict(stage='queued', at=now))
                 atomic_json(receipt_path(state['requestId']), state)
-            task = asyncio.create_task(run_batch(pending))
             for state in pending:
-                _tasks[state['requestId']] = task
+                _tasks[state['requestId']] = asyncio.create_task(run_batch([state]))
         return {'jobs': [public(s) for s in states]}
+
+
+async def pause_jobs(ids):
+    async with _submissions:
+        cancelled = []
+        cloud_running = False
+        for request_id in ids:
+            path = receipt_path(request_id)
+            if not path.exists():
+                continue
+            state = json.loads(path.read_text('utf-8'))
+            if state['phase'] == 'waiting':
+                state.update(phase='paused', updatedAt=int(time.time() * 1000))
+                atomic_json(path, state)
+                task = _tasks.get(request_id)
+                if task:
+                    task.cancel()
+                    cancelled.append((request_id, task))
+            elif state['phase'] == 'running':
+                control = _local_runs.get(request_id)
+                if control:
+                    control.pause()
+                elif request_id in _tasks:
+                    cloud_running = True
+        if cancelled:
+            await asyncio.gather(*(task for _, task in cancelled), return_exceptions=True)
+            for request_id, task in cancelled:
+                if _tasks.get(request_id) is task:
+                    _tasks.pop(request_id)
+        return cloud_running
 
 
 async def handle(request):
@@ -307,14 +363,19 @@ async def handle(request):
         action = request.match_info['action']
         if action == 'capabilities' and request.method == 'GET':
             kind, model = request.query['kind'], request.query['model']
-            transport = bridge(kind)
-            transport.cli = CLI(timeout=25)
+            transport = bridge(kind, model)
+            if model != LOCAL_MODEL:
+                transport.cli = CLI(timeout=25)
             result = await asyncio.to_thread(transport.capabilities, model)
-        elif action in ('status', 'stop') and request.method == 'POST':
+        elif action in ('status', 'pause', 'stop') and request.method == 'POST':
             ids = (await request.json())['requestIds']
             if not isinstance(ids, list) or len(ids) > 500:
                 raise ValueError('Invalid task list')
             result = {'jobs': []}
+            for request_id in ids:
+                receipt_path(request_id)
+            if action == 'pause' and await pause_jobs(ids):
+                result['notice'] = '已暂停等待中的任务；云端已提交的任务将继续完成'
             for request_id in ids:
                 path = receipt_path(request_id)
                 if path.exists():
@@ -324,7 +385,9 @@ async def handle(request):
                         atomic_json(path, state)
                     state = await asyncio.to_thread(check_result, state)
                     if state['phase'] in ('running', 'waiting') and request_id not in _tasks:
-                        state = dict(state, phase='needs_recovery', error=interrupted(state))
+                        state = await asyncio.to_thread(check_result, json.loads(path.read_text('utf-8')))
+                        if state['phase'] in ('running', 'waiting') and request_id not in _tasks:
+                            state = dict(state, phase='needs_recovery', error=interrupted(state))
                     result['jobs'].append(public(state))
                 else:
                     result['jobs'].append(dict(requestId=request_id, phase='needs_recovery', error='任务尚未登记，请恢复提交'))

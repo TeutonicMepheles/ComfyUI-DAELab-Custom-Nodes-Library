@@ -1,6 +1,6 @@
-import {columnMinimumWidth} from './data_table_model.mjs';
+import {COLUMN_MINIMUM_WIDTH} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 // Column layout only. Values and prompt bindings remain keyed by field ID.
-export function resizeColumnPair(left, right, delta, leftMin=100, rightMin=100) {
+export function resizeColumnPair(left, right, delta, leftMin=COLUMN_MINIMUM_WIDTH, rightMin=COLUMN_MINIMUM_WIDTH) {
     const movement = Math.max(Math.max(leftMin - left, right - 600),
         Math.min(Math.min(600 - left, right - rightMin), Math.round(delta)));
     return [left + movement, right - movement];
@@ -43,8 +43,15 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
     function geometry() {
         if (disposed || !root.isConnected) return;
         if(table.dataset.fluid==='true'&&colgroup){
-            const choice=Number(table.dataset.choiceWidth),available=Math.max(fields.length*100,shell.clientWidth-choice-(root.dataset.structure?48:0)),total=fields.reduce((sum,f)=>sum+f.width,0);
-            const projected=fields.map((f,i)=>{const width=active&&i>=active.index&&i<=active.index+1?active.widths[i-active.index]:f.width;return root.dataset.structure?Math.max(160,columnMinimumWidth(f),available*width/total):Math.max(columnMinimumWidth(f),available*width/total);});
+            const choice=Number(table.dataset.choiceWidth),minimum=root.dataset.structure?160:COLUMN_MINIMUM_WIDTH;
+            const available=Math.max(fields.length*minimum,shell.clientWidth-choice-(root.dataset.structure?48:0));
+            const weights=fields.map((f,i)=>active&&i>=active.index&&i<=active.index+1?active.widths[i-active.index]:f.width),projected=weights.map(()=>0),pending=new Set(weights.map((_,i)=>i));
+            let remaining=available;
+            while(pending.size){
+                const total=[...pending].reduce((sum,i)=>sum+weights[i],0),limited=[...pending].filter(i=>remaining*weights[i]/total<minimum);
+                if(!limited.length){for(const i of pending)projected[i]=remaining*weights[i]/total;break;}
+                for(const i of limited){projected[i]=minimum;remaining-=minimum;pending.delete(i);}
+            }
             table.style.setProperty('--dae-table-min-width',(choice+(root.dataset.structure?48:0)+projected.reduce((a,b)=>a+b,0))+'px');
             projected.forEach((width,i)=>{colgroup.children[i+1].style.width=width+'px';});
         }
@@ -114,8 +121,8 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
         bar.tabIndex = 0; bar.setAttribute('role', 'separator');
         bar.setAttribute('aria-orientation', 'vertical');
         bar.setAttribute('aria-label', `调整列宽：${left.name} / ${right.name}`);
-        bar.setAttribute('aria-valuemin', String(Math.max(columnMinimumWidth(left), left.width + right.width - 600)));
-        bar.setAttribute('aria-valuemax', String(Math.min(600, left.width + right.width - columnMinimumWidth(right))));
+        bar.setAttribute('aria-valuemin', String(Math.max(COLUMN_MINIMUM_WIDTH, left.width + right.width - 600)));
+        bar.setAttribute('aria-valuemax', String(Math.min(600, left.width + right.width - COLUMN_MINIMUM_WIDTH)));
         bar.setAttribute('aria-valuenow', String(left.width));
         bar.title = '拖动调整左右列宽；方向键微调，Esc 取消';
         layer.append(bar); bars.push(bar);
@@ -129,7 +136,7 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
         bar.onpointermove = e => {
             if (active?.pointer !== e.pointerId) return;
             e.preventDefault(); e.stopPropagation();
-            active.widths = resizeColumnPair(...active.original, (e.clientX - active.x) * active.ratio, columnMinimumWidth(left), columnMinimumWidth(right));
+            active.widths = resizeColumnPair(...active.original, (e.clientX - active.x) * active.ratio, COLUMN_MINIMUM_WIDTH, COLUMN_MINIMUM_WIDTH);
             preview(index, active.widths);
         };
         bar.onpointerup = e => { e.stopPropagation(); finish(); };
@@ -140,7 +147,7 @@ export function attachColumnSplitters({root, shell, table, fields, change}) {
             if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
             e.preventDefault(); e.stopPropagation();
             const delta = e.key === 'Home' ? -1000 : e.key === 'End' ? 1000 : (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 40 : 10);
-            commit(index, resizeColumnPair(left.width, right.width, delta, columnMinimumWidth(left), columnMinimumWidth(right)));
+            commit(index, resizeColumnPair(left.width, right.width, delta, COLUMN_MINIMUM_WIDTH, COLUMN_MINIMUM_WIDTH));
         };
         for (const event of ['mousedown','mouseup','click','dblclick','dragstart']) bar.addEventListener(event, e => {e.stopPropagation();if(event==='dragstart')e.preventDefault();});
     });

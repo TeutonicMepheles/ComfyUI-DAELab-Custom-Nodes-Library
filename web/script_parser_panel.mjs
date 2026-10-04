@@ -1,12 +1,12 @@
-import {createTableEditor} from './data_table_editor.mjs?v=20261004-script3';
+import {createTableEditor} from './data_table_editor.mjs?v=20261004-pr24-parser';
 import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs';
-import {createPromptEditor} from './table_prompt_editor.mjs?v=20260930-public-layout4';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20260930-public-layout4';
-import {installContentPresentation} from './table_content_view.mjs?v=20260930-public-layout4';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20261004-pr24-parser';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261004-pr24-parser';
+import {installContentPresentation} from './table_context_menu.mjs?v=20261004-pr24-parser';
 import {createWorkbench} from './table_workbench.mjs';
 import {workbenchTheme} from './table_workbench_theme.mjs';
 import {studioTheme} from './daelab_studio_theme.mjs';
-import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261004-script4';
+import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261004-pr24-parser';
 
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};
 function select(parent,label,options,value,onChange){const wrap=el('label',parent,label),s=el('select',wrap);s.setAttribute('aria-label',label);for(const [v,n] of options)s.add(new Option(n,v));s.value=value??'';s.onchange=()=>onChange(s.value);return s;}
@@ -33,13 +33,13 @@ export function createScriptParserPanel({node,app,getTable,setTable,notify}){
   const body=new FormData();body.append('image',file,crypto.randomUUID()+'.'+file.name.split('.').at(-1));body.append('type','input');body.append('subfolder','DAELAB/script-parser');
   const r=await app.api.fetchApi('/upload/image',{method:'POST',body});if(!r.ok)throw new Error('素材上传失败');const a=await r.json();return '/view?'+new URLSearchParams({filename:a.name,subfolder:a.subfolder||'',type:a.type||'input'});
  }
- const editor=createTableEditor({getTable,setTable:t=>{assertTransition(getTable(),t);setTable(t);promptUI?.observe();},
+ const editor=createTableEditor({getTable,setTable:t=>{assertTransition(getTable(),t);generation?.syncPromptChanges(t,getTable());setTable(t);promptUI?.observe();},
   validateChange:assertTransition,textPanelHost:()=>root.closest('dialog[open]')||document.body,upload:uploadAsset,notify,nativeHistory:tableHistory(app),
   displayContent:()=>globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)?.presentation==='content',
   renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),
   onRestore:()=>{invalidate();promptUI?.invalidate();generation?.invalidate();message('已恢复历史版本；已有草稿需重新归一后确认');}});
  root.append(editor.root);
- promptUI=createPromptEditor({getTable,editor,notify,request:()=>{throw new Error('请在文档预览中归类原文');}});
+ promptUI=createPromptEditor({renderFrame:(segment,row)=>generation?.renderFrame(segment,row),getTable,editor,notify,request:()=>{throw new Error('请在文档预览中归类原文');}});
  presentation=installContentPresentation({root,editor,getTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)});
  generation=attachGenerationColumns({editor,getTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)});
  const picker=el('input',importBar);picker.type='file';picker.accept='.docx';picker.hidden=true;picker.setAttribute('aria-label','上传 DOCX 文档');

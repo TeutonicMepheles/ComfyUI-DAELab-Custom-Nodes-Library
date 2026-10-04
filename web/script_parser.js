@@ -1,6 +1,6 @@
 import {app} from '/scripts/app.js';
-import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261004-script4';
-import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261004-script4';
+import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261004-pr24-parser2';
+import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261004-pr24-parser';
 import {generationMaterials} from './table_material_output.mjs';
 const TYPE='DAELAB.ScriptParser',widget=node=>node.widgets?.find(w=>w.name==='table_data');
 const notify=(message,severity='info')=>app.extensionManager?.toast?.add?.({severity,summary:'分镜解析器',detail:message,life:8000});

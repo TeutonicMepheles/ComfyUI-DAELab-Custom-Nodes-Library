@@ -47,6 +47,13 @@ class ScriptContractTests(unittest.TestCase):
         self.assertEqual(rows[0]['prompt'], '原始画面')
         self.assertEqual(rows[0]['media'], [])
 
+    def test_multiple_images_in_one_cell_preserve_projection_order(self):
+        table = self.table()
+        table['records'][0]['values']['a'].append(dict(id='a2', url='/view?filename=a2.png'))
+        result = storyboard_projection(table)
+        self.assertEqual(result['shots'][0]['additional_reference_images'],
+                         ['/view?filename=a2.png', '/view?filename=b.png'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,12 +24,12 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         def save(path, state):
             path.write_text(json.dumps(state), encoding='utf-8')
         self.api = dict(asyncio=asyncio, json=json, time=__import__('time'), generation_failure_reason=lambda _: None,
-                        _tasks={}, _executions={}, _submissions=asyncio.Lock(), atomic_json=save,
+                        LOCAL_MODEL='local-test', _local_runs={}, _tasks={}, _executions={}, _submissions=asyncio.Lock(), atomic_json=save,
                         receipt_path=lambda request_id: self.root / (request_id + '.json'))
         exec(compile(tree, str(source), 'exec'), self.api)
 
     def state(self, name, execution=None):
-        state = dict(requestId=name, phase='waiting', input={'project': 'p'})
+        state = dict(requestId=name, phase='waiting', input={'project': 'p', 'config': {'model':'cloud-test'}})
         if execution:
             state['executionId'] = execution
         self.api['atomic_json'](self.api['receipt_path'](name), state)

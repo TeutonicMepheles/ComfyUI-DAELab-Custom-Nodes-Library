@@ -9,12 +9,6 @@ def confirmed_table(value):
         raise ValueError('任务表超过 500 行或 64 列，未截断')
     if table.get('meta', {}).get('script_parser', {}).get('version') != 1:
         raise ValueError('需要已确认的分镜解析表格')
-    fields = {f['id']: f for f in table['fields']}
-    for row in table['records']:
-        for fid, field in fields.items():
-            value = row['values'].get(fid)
-            if field.get('type') in ('content', 'assets') and isinstance(value, list) and len(value) > 1:
-                raise ValueError('每个参考或结果单元格只能保存一个素材')
     return table
 
 

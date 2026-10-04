@@ -13,7 +13,7 @@ spec.loader.exec_module(recovery)
 tree = ast.parse((ROOT / 'table_generation_api.py').read_text('utf-8'))
 tree.body = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in {'diagnose', 'interrupted', 'public'}
              or isinstance(n, ast.Assign) and any(getattr(t, 'id', '') == 'STAGE_NAMES' for t in n.targets)]
-api = dict(json=json, is_network_error=recovery.is_network_error)
+api = dict(_local_runs={}, json=json, is_network_error=recovery.is_network_error)
 runtime_tree = ast.parse((ROOT / 'runtime.py').read_text('utf-8'))
 runtime_tree.body = [n for n in runtime_tree.body if isinstance(n, ast.FunctionDef) and n.name == 'generation_failure_reason']
 exec(compile(runtime_tree, 'runtime.py', 'exec'), api)

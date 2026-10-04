@@ -3,7 +3,7 @@ import {clone,uid,normalizeTable} from './data_table_model.mjs';
 
 export const ROLE_LABELS={shot_no:'镜号',time_range:'时间',scene:'画面',narration:'旁白',subtitle:'字幕',notes:'备注',chapter:'章节',reference:'参考说明',other:'其他原文'};
 export const KIND_LABELS={task:'任务',title:'标题 / 章节',header:'表头',blank:'空白',review:'待确认'};
-const ACTIVE=new Set(['waiting','running','queued','preparing','submitting','recovering']);
+const ACTIVE=new Set(['waiting','running','queued','preparing','submitting','recovering','pausing']);
 export const hasActiveGeneration=table=>table.records.some(r=>Object.values(r.meta?.generationColumns||{}).some(s=>ACTIVE.has(s.phase)));
 export function assertLimits(table){
  if(table.records.length>500||table.fields.length>64)throw new Error(`任务表 ${table.records.length} 行 / ${table.fields.length} 列，超过 500 行或 64 列限制，未提交`);
@@ -27,7 +27,7 @@ export function emptyScriptTable(){
  const bindings=Object.fromEntries(Object.keys(ROLE_LABELS).map(r=>[r,'sp-'+r]));Object.assign(bindings,{source:'sp-source',original:'sp-original',issues:'sp-issues'});
  for(const kind of ['image','video']){
   fields.push({id:`sp-${kind}-prompt`,name:kind==='image'?'图片提示词':'视频提示词',type:'json',presentation:'prompt',generationPrompt:true,width:300,promptTemplate:{kind:'column-template',version:1,segments:[{type:'column',fieldId:bindings.scene}]}},
-   {id:`sp-${kind}-result`,name:kind==='image'?'图片结果':'视频结果',type:'content',presentation:'generation',readonly:true,maxItems:1,width:300,generation:{version:1,kind,model:kind==='image'?'Lib Image':'Seedance 2.5',promptFieldId:`sp-${kind}-prompt`,mode:'',settings:{}}});
+   {id:`sp-${kind}-result`,name:kind==='image'?'图片结果':'视频结果',type:'content',presentation:'generation',readonly:true,width:300,generation:{version:1,kind,model:kind==='image'?'Lib Image':'Seedance 2.5',promptFieldId:`sp-${kind}-prompt`,mode:'',settings:{}}});
  }
  return {version:1,fields,records:[],view:'table',meta:{material_columns:true,video_reference_version:1,script_parser:{version:1,bindings,reference_fields:[],documents:[]}}};
 }
@@ -35,6 +35,8 @@ export function readScriptTable(raw){
  if(!raw)return emptyScriptTable();
  const table=normalizeTable(raw);
  if(table.meta.script_parser?.version!==1)throw new Error('不支持的解析器数据版本');
+ // Keep existing field and media identities; only lift the old cardinality cap.
+ for(const f of table.fields)if(f.type==='content')delete f.maxItems;
  return assertLimits(table);
 }
 export function initialChoices(inventory){
@@ -55,11 +57,11 @@ export function importTasks(current,normalized,{mode='append',allowUnresolved=fa
   const f=table.fields.find(f=>f.id===fid);
   if(!f||(['source','original'].includes(role)?f.type!=='json':!['text','longtext','select'].includes(f.type)))throw new Error(`${ROLE_LABELS[role]||role} 字段已删除或类型冲突，请恢复后追加`);
  }
- const maxImages=Math.max(0,...incoming.map(r=>r.images.length));
- for(let i=0;i<maxImages;i++){
+ const hasImages=incoming.some(r=>r.images.length);
+ for(let i=0;i<(hasImages?1:0);i++){
   let fid=meta.reference_fields[i];
   if(fid){const f=table.fields.find(f=>f.id===fid);if(!f||!['assets','content'].includes(f.type))throw new Error(`参考 ${i+1} 列缺失或类型冲突`);}
-  else{fid=uid();meta.reference_fields.push(fid);const position=table.fields.findIndex(f=>f.id==='sp-image-prompt');table.fields.splice(position<0?table.fields.length:position,0,{id:fid,name:`参考 ${i+1}`,type:'content',maxItems:1,video_reference:false,width:240});}
+  else{fid=uid();meta.reference_fields.push(fid);const position=table.fields.findIndex(f=>f.id==='sp-image-prompt');table.fields.splice(position<0?table.fields.length:position,0,{id:fid,name:'参考图',type:'content',video_reference:false,width:300});}
  }
  if(table.records.length+incoming.length>500||table.fields.length>64)throw new Error(`追加后 ${table.records.length+incoming.length} 行 / ${table.fields.length} 列，超过 500 行或 64 列限制`);
  for(const task of incoming){
@@ -70,7 +72,7 @@ export function importTasks(current,normalized,{mode='append',allowUnresolved=fa
   for(const [i,occurrence] of task.images.entries()){
    const asset=normalized.assets[occurrence.asset_id];
    if(!asset?.url||asset.error)throw new Error(`${task.row_id} ${occurrence.id} 图片准备失败，未提交`);
-   values[meta.reference_fields[i]]=[{id:uid(),url:asset.url,kind:'image',name:`${task.row_id} · 参考 ${i+1}`,filename:asset.filename,subfolder:asset.subfolder,type:'input',provenance:{document_id:normalized.document_id,occurrence_id:occurrence.id,source_cell:occurrence.cell_id,asset_id:asset.id}}];
+   (values[meta.reference_fields[0]]||=[]).push({id:uid(),url:asset.url,kind:'image',name:`${task.row_id} · 参考 ${i+1}`,filename:asset.filename,subfolder:asset.subfolder,type:'input',provenance:{document_id:normalized.document_id,occurrence_id:occurrence.id,source_cell:occurrence.cell_id,asset_id:asset.id}});
   }
   table.records.push({id:uid(),selected:false,values,meta:{script_source:source}});
  }

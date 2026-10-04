@@ -27,10 +27,11 @@ test('results match original identity and snapshot; modified prompt never gets o
  assert.equal(applyGenerationResult(t,f.id,row.id,'request',stamp,{url:'/view?filename=result.png'}),false);
  assert.equal(row.values[f.id].length,0);assert.equal(row.meta.generationColumns[f.id].phase,'stale');
 });
-test('only completed generation results can be used by downstream column references',()=>{
+test('retained generation results remain usable while a replacement is running',()=>{
  const t=fixture(),f=addGenerationColumn(t),row=t.records[0],doc={kind:'column-template',version:1,segments:[{type:'column',fieldId:f.id}]};
  row.values[f.id]=[{id:'result',url:'/view?filename=result.png'}];row.meta={generationColumns:{[f.id]:{phase:'running'}}};
- assert.throws(()=>resolveColumnPrompt(doc,t,row),/尚未完成/);
+ assert.equal(resolveColumnPrompt(doc,t,row).assets[0].id,'result');
+ row.values[f.id]=[];assert.throws(()=>resolveColumnPrompt(doc,t,row),/缺少参考素材/);row.values[f.id]=[{id:'result',url:'/view?filename=result.png'}];
  row.meta.generationColumns[f.id].phase='complete';assert.equal(resolveColumnPrompt(doc,t,row).assets[0].id,'result');
  const reload=normalizeTable(JSON.stringify(t));assert.equal(resolveColumnPrompt(doc,reload,reload.records[0]).assets[0].id,'result');
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyScriptTable,importTasks,ParserRequests,assertTransition} from '../web/script_parser_model.mjs';
+import {emptyScriptTable,readScriptTable,importTasks,ParserRequests,assertTransition} from '../web/script_parser_model.mjs';
 
 function imported(n=1){return {document_id:'doc1',filename:'one.docx',assets:{},unassigned:[],audit:[],paragraphs:[],tables:[],tasks:Array.from({length:n},(_,i)=>({source_key:`doc1:t1/r${i+1}`,row_id:`t1/r${i+1}`,table_id:'t1',values:{scene:'原文',notes:'备注',shot_no:''},sources:{},chapter:'章节',context:[],original_cells:[],images:[],issues:['缺原始镜号']}))};}
 test('append preserves edited records/results/IDs and skips same source',()=>{
@@ -11,9 +11,9 @@ test('append counts existing plus incoming; rejects without mutating',()=>{
  const first=importTasks(emptyScriptTable(),imported(500)).table,other=imported();other.tasks[0].source_key='new';const before=JSON.stringify(first);
  assert.throws(()=>importTasks(first,other),/500/);assert.equal(JSON.stringify(first),before);
 });
-test('repeated binary appears in two distinct reference columns with distinct instance IDs',()=>{
+test('repeated binary appears twice in one cell in source order with distinct instance IDs',()=>{
  const n=imported();n.assets.a={id:'a',url:'/view?a',filename:'a.png'};n.tasks[0].images=[{id:'o1',asset_id:'a'},{id:'o2',asset_id:'a'}];
- const t=importTasks(emptyScriptTable(),n).table,ids=t.meta.script_parser.reference_fields;assert.equal(ids.length,2);assert.notEqual(t.records[0].values[ids[0]][0].id,t.records[0].values[ids[1]][0].id);
+ const t=importTasks(emptyScriptTable(),n).table,ids=t.meta.script_parser.reference_fields;assert.equal(ids.length,1);const items=t.records[0].values[ids[0]];assert.equal(items.length,2);assert.notEqual(items[0].id,items[1].id);assert.deepEqual(items.map(a=>a.provenance.occurrence_id),['o1','o2']);assert.deepEqual(readScriptTable(JSON.stringify(t)).records,JSON.parse(JSON.stringify(t.records)));
 });
 test('missing media or field type conflict prevents partial commit',()=>{
  const t=emptyScriptTable(),n=imported();n.tasks[0].images=[{id:'bad',asset_id:'missing'}];assert.throws(()=>importTasks(t,n),/图片准备/);assert.equal(t.records.length,0);
@@ -25,8 +25,11 @@ test('new file revision does not overwrite original and warns',()=>{
 test('replace and history cannot bypass active job structural guard',()=>{
  const t=importTasks(emptyScriptTable(),imported()).table;t.records[0].meta.generationColumns={x:{phase:'waiting'}};
  assert.throws(()=>importTasks(t,imported(),{mode:'replace'}),/禁止替换/);assert.throws(()=>assertTransition(t,emptyScriptTable()),/任务结构/);
+ t.records[0].meta.generationColumns.x.phase='pausing';assert.throws(()=>importTasks(t,imported(),{mode:'replace'}),/禁止替换/);
 });
 test('async stale, edit, cancel, destroy and independent instance guards',()=>{
  const a=new ParserRequests(),b=new ParserRequests(),x=a.begin('before'),y=b.begin('before');assert.equal(a.valid(x,'edited'),false);a.invalidate();assert.equal(a.valid(x,'before'),false);assert.equal(b.valid(y,'before'),true);b.destroy();assert.equal(b.valid(y,'before'),false);
  assert.equal(a.owns(x),false);const latest=a.begin('new');assert.equal(a.owns(x),false);assert.equal(a.owns(latest),true);assert.equal(b.owns(y),false);
 });
+
+test('parser panel resolves shared module exports after table integration',async()=>{const panel=await import('../web/script_parser_panel.mjs');assert.equal(typeof panel.createScriptParserPanel,'function');});

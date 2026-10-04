@@ -118,8 +118,8 @@ def parse_prompt(context):
         segments.append(dict(type='ref', refId=ref['refId']))
     if 'templateSegments' in context:
         segments = copy.deepcopy(context['templateSegments'])
-        for ref in references:
-            ref['refId'] = 'column-' + ref['fieldId']
+        for ref, asset in zip(references, context['assets']):
+            ref['refId'] = asset['refId']
     result = dict(version=VERSION, compilerVersion=VERSION, segments=segments, references=references,
                   sourceFingerprint=source_fingerprint(context), editOrigin='parsed')
     compile_prompt(result, context)

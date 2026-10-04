@@ -1,5 +1,5 @@
 import {conflictChoice} from './table_cell_choice.mjs';
-import {FIELD_TYPES,reorderShot,transferCell,setCell} from './daelab_storyboard_table_model.mjs?v=20260926-table1';
+import {FIELD_TYPES,reorderShot,transferCell,setCell} from './daelab_storyboard_table_model.mjs?v=20261001-frame-tags-dedup';
 import {localImageFromDrop} from './badge_image_drop_87.mjs?v=20260926-table1';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 

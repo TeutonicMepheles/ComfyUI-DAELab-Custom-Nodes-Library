@@ -4,6 +4,16 @@ Status: implementation in progress. Product decisions confirmed by the user.
 
 ## First implementation checkpoint
 
+First/last-frame markers are inline prompt segments rendered with the existing `@` chip class, thumbnails, sizing, ellipsis and Backspace/Delete behavior. Only their colors differ. Both the table and generation panel edit the same segments; deleted markers stay deleted after refresh, and their frame bindings are no longer submitted. Selecting a frame again restores its marker. Mode changes initialize the corresponding markers; the frame metadata retains image identity. Frontend and backend prompt resolution exclude these markers from model text.
+
+Starting a new generation applies the current column panel draft, including a collapsed panel and the latest parameter input, without requiring Save. Explicit recovery continues to use the original task snapshot. UI acceptance remains with the user.
+
+Clicking an inline frame chip opens the shared same-row image menu at that chip without opening the configuration panel. The same picker handles panel cards. Updating an existing chip changes its binding and preview in place; restoring a deleted chip refreshes only its prompt cell.
+
+The prompt panel shows one first-frame picker or a first/last-frame pair according to the video mode. Pickers reuse the same-row reference menu and persist image IDs per row and generation column; existing inline references provide the initial frame order until a frame is explicitly selected. Explicit frame selections determine input order, support swapping/clearing, and reject missing or out-of-row images. Completed results append to the cell, deduplicated by task ID or result URL; adding historical results uses the same path. Generation-column material export includes all results in row and cell order. Existing completed images remain referenceable during a subsequent generation. These UI changes have not been exercised; the user is handling acceptance.
+
+Local MiniMax H3 FL is available as a separate video model in generation settings. It uses the installed INT8 FL model, NVFP4 text encoder, INT8 video VAE, audio VAE, and optional 8-step LoRA through ComfyUI's native queue. No LibTV account or project is required. Text, first-frame and first/last-frame modes accept zero, one and two image references respectively; video/audio reference inputs require a different model and are rejected. Defaults are 768×448, approximately 2 seconds at 24 fps, 8-step acceleration, and tiled video decoding. Local row jobs run serially and share the existing receipts, recovery and cell writeback. Recovery queries the original native prompt ID and never silently resubmits a lost job. This integration has not been exercised with an actual generation; restart ComfyUI and refresh the browser to load it.
+
 Implemented: generation column creation, existing side-panel configuration, direct text and same-row structured column references, image/video transport through the official CLI, per-cell task receipts, bounded parallel execution, stop-before-submission, recovery, and local result backfill. Existing text can be promoted into the shared column-template editor without losing its contents. Copying rows clears generation identities and outputs.
 
 ## Parallel table generation
@@ -98,7 +108,7 @@ Local table development contains existing uncommitted surface changes; these are
 ## Prompt column fill and verified model names
 
 - The image selector includes Lib Image, Lib Image 2.5 Pro and Lib Image 2.5 Fast, matched by their verified stable LibTV keys. CLI schema/preflight checks passed without paid generation.
-- A writable prompt cell exposes “应用到整列”. It replaces every row override with the current prompt as a shared column template. Column references still resolve against each destination row; future rows inherit it. One undo restores the prior column state.
+- A writable prompt cell exposes “应用到整列”. It replaces every row override with the current prompt as a shared column template. It also copies the source cell’s effective generation settings into independent snapshots for all existing rows and associated generation columns. Later default-setting changes do not affect these snapshots; new rows still inherit generation defaults. Column references still resolve against each destination row; future rows inherit the prompt template. One undo restores the prior column state.
 - Validation: 15 prompt/generation tests passed. Actual ComfyUI inspection confirmed the menu, two-row fill, one-step undo, save/reload and isolation from a second table. The running backend still requires restart to load the model mapping fix; paid generation has not been tested. Full multi-viewport and long-content checks remain pending.
 
 ### 网络中断自动恢复
@@ -107,7 +117,7 @@ Local table development contains existing uncommitted surface changes; these are
 
 参数校验按当前生成方式选择 settings 和 advancedSettings，避免 duration_auto/ratio_auto 覆盖单图模式参数。时长输入按 slider/min 识别数字类型。处理中恢复提示使用普通状态色；平台完成但缺少视频地址时提示等待结果写回。
 
-生成类型列最小宽度为 400px；图标与列名、编辑、生成和停止按钮使用单行表头。长列名省略显示，列宽拖动及窄视口布局均遵守同一宽度下限。
+生成列遵循普通列宽规则，不再设置专用 400px 下限；按可用空间与列宽比例分配，某列触及通用下限时重新分配其余空间。表头保留生成与停止入口，长文字可省略。列默认配置按钮放在对应提示词列表头；更改提示词列绑定时同步移动入口。
 
 ### CLI 写回与终态错误边界（2026-09-30）
 
@@ -132,3 +142,19 @@ Local table development contains existing uncommitted surface changes; these are
 - 14 项前端生成/请求测试、59 项后端表格与 CLI 测试通过。实际 ComfyUI 两个表格实例均从空单元格自动补回视频，覆盖已有 complete 状态不变及 needs_recovery 转 complete；播放与图形/创作画布模式切换后正常。
 - 原工作流五行均有可解码视频：第 2、3 行恢复此前 Seedance 2.5 结果并保留原模型标记；第 1、4 行的新 Seedance 2.0 任务经正常表格链路自动回填，第 5 行独立 CLI 生成下载成功后，经同输入回执恢复回填，保留实际 executionId。
 - 默认连接与显式本机代理下各 3 次 CLI 只读查询均成功，不能据此断定网络根因。第 5 行最后一次长任务显式使用本机已有代理成功写回；此设置仅作用于该独立进程，未修改系统代理，也未硬编码到产品。CLI 未输出地址的 ECONNRESET 边界仍未根治，不能以平台 100% 或单次成功宣称永久解决。
+
+### 提示词单元格独立生成配置
+
+- 底部设置栏修改仅作用于当前提示词格和对应生成列，保存于行元数据的 generationSettings[promptFieldId][generationFieldId]；首次修改复制列默认参数，后续默认值变动不覆盖它。浮层可恢复列默认。
+- 右侧配置作为列默认值；未单独配置的格子继续继承。批量提交逐行读取实际模型、方式、尺寸及时长；本地模型校验、首尾帧标签和生成结果的输入比对使用同一行配置。恢复原任务仍读取原回执快照。
+- 复用原浮层、参数控件、表格持久化与撤销；配置仅增加少量文本参数，不复制媒体或预加载模型。模式变化只刷新受影响行的标签，首次把文字列升级为提示词时才刷新该列。
+
+### 表头快速选择提示词来源
+
+- 生成列表头的提示词图标支持悬停或点击展开来源选择，复用原选择浮层，只列出可作为提示词的文字列。
+- 悬停或键盘聚焦选项时临时高亮对应列，点击后保存绑定并同步已打开的配置面板；关闭浮层清除预览高亮。操作可撤销。
+
+### 首尾帧标签与模式联动
+
+- 切换提示词来源列只同步新来源列，保留原列的首尾帧标签及同行素材绑定；原列标签仍可显示和选择图片。
+- 当前提示词格删除尾帧、保留首帧时，该格配置改为首帧模式；全部帧标签删除时改为文生视频，底栏同步更新。显式改变模式仍由模式设置同步标签，避免反向覆盖；沿用现有行配置和撤销通道。

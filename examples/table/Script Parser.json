@@ -1,0 +1,77 @@
+{
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.ScriptParser",
+      "pos": [
+        80,
+        100
+      ],
+      "size": [
+        1060,
+        640
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "table_data",
+          "name": "table_data",
+          "type": "STRING",
+          "widget": {
+            "name": "table_data"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "table_json",
+          "name": "table_json",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "storyboard_json",
+          "name": "storyboard_json",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "分镜剧本解析器",
+      "properties": {
+        "Node name for S&R": "DAELAB.ScriptParser"
+      },
+      "widgets_values": [
+        ""
+      ]
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "linearData": {
+      "inputs": [
+        [
+          1,
+          "daelab_script_parser"
+        ]
+      ],
+      "outputs": [
+        1
+      ]
+    }
+  },
+  "version": 0.4
+}

@@ -1,4 +1,4 @@
-import {createTableEditor} from './data_table_editor.mjs?v=20261004-pr24-parser';
+import {createTableEditor} from './data_table_editor.mjs?v=20261007-parser-review';
 import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20261004-pr24-parser';
 import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261004-pr24-parser';
@@ -6,7 +6,7 @@ import {installContentPresentation} from './table_context_menu.mjs?v=20261004-pr
 import {createWorkbench} from './table_workbench.mjs';
 import {workbenchTheme} from './table_workbench_theme.mjs';
 import {studioTheme} from './daelab_studio_theme.mjs';
-import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261004-pr24-parser';
+import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261007-parser-review';
 
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};
 function select(parent,label,options,value,onChange){const wrap=el('label',parent,label),s=el('select',wrap);s.setAttribute('aria-label',label);for(const [v,n] of options)s.add(new Option(n,v));s.value=value??'';s.onchange=()=>onChange(s.value);return s;}

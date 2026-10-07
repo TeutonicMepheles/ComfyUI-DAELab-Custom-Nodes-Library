@@ -12,11 +12,20 @@ export function assertLimits(table){
  for(const r of table.records){if(!r.id||records.has(r.id))throw new Error('任务 ID 缺失或重复');records.add(r.id);}
  return table;
 }
-export function assertTransition(current,next){
+export function assertTransition(current,next,{restoring=false}={}){
  assertLimits(next);
  if(hasActiveGeneration(current)){
   const identity=t=>JSON.stringify([t.meta.script_parser?.documents?.map(d=>d.document_id),t.records.map(r=>r.id)]);
   if(identity(current)!==identity(next))throw new Error('任务正在排队、运行或恢复，暂不能替换、删除或撤销任务结构');
+  const rows=new Map(next.records.map(r=>[r.id,r]));
+  for(const row of current.records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
+   if(!ACTIVE.has(state.phase))continue;
+   const target=rows.get(row.id)?.meta?.generationColumns?.[fieldId];
+   // Receipts bind remote work to its row; normal polling may change the phase,
+   // but history must not roll an active receipt back to a terminal snapshot.
+   const receipt=s=>JSON.stringify([s.requestId,s.stamp,s.input,s.forceNew===true]);
+   if(!target||receipt(state)!==receipt(target)||(restoring&&state.phase!==target.phase))throw new Error('任务正在排队、运行或恢复，暂不能撤销或替换生成任务凭据');
+  }
  }
 }
 export function emptyScriptTable(){

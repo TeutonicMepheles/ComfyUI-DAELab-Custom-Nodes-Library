@@ -92,6 +92,33 @@ class ScriptDocumentTest(unittest.TestCase):
         text=m.text_content(m.xml(('<w:p xmlns:w="'+m.NS['w']+'"><w:r><w:t>A</w:t><w:tab/><w:t>B</w:t><w:br/><w:t>C</w:t></w:r><w:del><w:r><w:t>deleted</w:t></w:r></w:del></w:p>').encode()))
         self.assertEqual(text,'A\tB\nC')
 
+    def test_deleted_images_are_excluded_from_final_view_and_assets(self):
+        for image in ('<a:blip r:embed="r1"/>',
+                      '<v:imagedata xmlns:v="'+m.NS['v']+'" r:id="r1"/>'):
+            with self.subTest(image=image):
+                deleted = '<w:del><w:r><w:t>deleted</w:t>'+image+'</w:r></w:del>'
+                scene = '<w:tc><w:p><w:r><w:t>visible</w:t></w:r>'+deleted+'</w:p></w:tc>'
+                payload = doc('<w:tbl>'+HEADER+row(cell('1'), scene)+'</w:tbl><w:p>'+deleted+'</w:p>')
+                d, blobs = m.parse_docx(payload)
+                n = self.normalize(d)
+                self.assertEqual(n['tasks'][0]['values']['scene'], 'visible')
+                self.assertEqual(n['tasks'][0]['images'], [])
+                self.assertEqual(n['unassigned'], [])
+                self.assertEqual(d['occurrences'], [])
+                self.assertEqual(d['assets'], {})
+                self.assertEqual(blobs, {})
+                self.assertEqual(d['tables'][0]['rows'][1]['images'], [])
+
+    def test_visible_and_inserted_images_keep_order_around_deleted_revision(self):
+        image = '<w:r><a:blip r:embed="r1"/></w:r>'
+        scene = '<w:tc><w:p><w:r><w:t>visible</w:t></w:r>'+image+'<w:del>'+image+'</w:del><w:ins>'+image+'</w:ins></w:p></w:tc>'
+        d = self.parse('<w:tbl>'+HEADER+row(cell('1'), scene)+'</w:tbl>')
+        task = self.normalize(d)['tasks'][0]
+        self.assertEqual([i['id'] for i in task['images']], ['image-1', 'image-2'])
+        self.assertEqual([i['order'] for i in task['images']], [0, 1])
+        self.assertEqual(d['tables'][0]['rows'][1]['cells'][1]['images'], ['image-1', 'image-2'])
+        self.assertEqual(len(d['assets']), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

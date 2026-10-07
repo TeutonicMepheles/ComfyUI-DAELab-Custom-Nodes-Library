@@ -1,12 +1,12 @@
 import {app} from '/scripts/app.js';
-import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261004-pr24-parser2';
-import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261004-pr24-parser';
+import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261007-parser-review';
+import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {generationMaterials} from './table_material_output.mjs';
 const TYPE='DAELAB.ScriptParser',widget=node=>node.widgets?.find(w=>w.name==='table_data');
 const notify=(message,severity='info')=>app.extensionManager?.toast?.add?.({severity,summary:'分镜解析器',detail:message,life:8000});
 function install(node){
  if(!node.graph)return;const data=widget(node);if(!data)return;
- let table;try{table=readScriptTable(data.value);if(node.__scriptTable)assertTransition(node.__scriptTable,table);}catch(e){notify(e.message,'error');if(node.__scriptTable)data.value=JSON.stringify(node.__scriptTable);return;}
+ let table;try{table=readScriptTable(data.value);if(node.__scriptTable)assertTransition(node.__scriptTable,table,{restoring:true});}catch(e){notify(e.message,'error');if(node.__scriptTable)data.value=JSON.stringify(node.__scriptTable);return;}
  node.__scriptTable=table;data.value=JSON.stringify(table);data.hidden=true;data.options={...data.options,hidden:true,canvasOnly:true};data.computeSize=()=>[0,-4];data.computeLayoutSize=()=>({minHeight:0,maxHeight:0,minWidth:0});data.draw=()=>{};for(const el of [data.element,data.inputEl])if(el?.style)el.style.display='none';
  if(node.__scriptPanel){node.__scriptPanel.render();return;}
  const panel=createScriptParserPanel({node,app,getTable:()=>node.__scriptTable,setTable:next=>{node.__scriptTable=next;data.value=JSON.stringify(next);data.callback?.(data.value,app.canvas,node);node.graph?.setDirtyCanvas?.(true,true);},notify});node.__scriptPanel=panel;

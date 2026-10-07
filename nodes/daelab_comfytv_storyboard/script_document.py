@@ -179,6 +179,9 @@ def parse_docx(payload, filename='document.docx'):
             if e.tag not in (q('a:blip'), q('v:imagedata')):
                 continue
             chain = list(_ancestors(e, parents))
+            # Match text_content's final-view policy for tracked deletions.
+            if any(parent.tag == q('w:del') for parent in chain):
+                continue
             cell = next((cell_owners[p] for p in chain if p in cell_owners), None)
             row = next((row_owners[p] for p in chain if p in row_owners), None)
             floating = any(p.tag == q('wp:anchor') for p in chain)

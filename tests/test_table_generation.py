@@ -228,7 +228,12 @@ class ColumnTests(unittest.TestCase):
             connection.local_request = lambda request: True
             node = types.ModuleType(PACKAGE + '.node')
             node.local_media = lambda url: None
-            replacements = {'folder_paths': folders, 'server': server,
+            local_video = types.ModuleType(PACKAGE + '.table_local_video')
+            local_video.LOCAL_MODEL = 'local-test'
+            local_video.LocalVideo = object
+            local_video.LocalVideoFailure = type('LocalVideoFailure', (RuntimeError,), {})
+            local_video.LocalVideoPaused = type('LocalVideoPaused', (RuntimeError,), {})
+            replacements = {PACKAGE+'.table_local_video': local_video, 'folder_paths': folders, 'server': server,
                 PACKAGE+'.connection_api': connection, PACKAGE+'.node': node}
             with patch.dict(sys.modules, replacements):
                 spec = importlib.util.spec_from_file_location(PACKAGE+'.table_generation_api',
@@ -239,7 +244,7 @@ class ColumnTests(unittest.TestCase):
                     if args[:2] == ('model', 'search'):
                         return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
                     return {'modelKey': 'lib-image-2', 'modelName': 'Image-2', 'schema': SCHEMA}
-                make_bridge = lambda kind: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
+                make_bridge = lambda kind, model=None: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
                 with patch.object(api, 'bridge', make_bridge):
                     data = {'project': 'p', 'config': {'kind': 'image', 'model': 'Image-2', 'mode': 'image2image', 'settings': {}},
                             'segments': [{'type': 'text', 'text': 'prompt'}], 'assets': []}

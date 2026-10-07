@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import {normalizeTable,clone,addRecord,setValue,SnapshotHistory} from '../web/data_table_model.mjs';
 import {promptState,promptFingerprint,PromptRequests,applyPromptResults} from '../web/table_prompt_model.mjs';
 import {effectivePrompt,resolveColumnPrompt,setColumnTemplate,toColumnPrompt,applyPromptToColumn} from '../web/table_prompt_template.mjs';
+const columnDoc=doc=>({...doc,segments:doc.segments.map(s=>s.fieldId==='image'?{...s,assetIndex:0}:s)});
 const doc={kind:'column-template',version:1,segments:[{type:'column',fieldId:'text'},{type:'text',text:' 使用 '},{type:'column',fieldId:'image'},{type:'text',text:' 再次 '},{type:'column',fieldId:'image'}]};
 test('fill from a cell replaces every override, keeps same-row references and supports one undo',()=>{
  const t=fixture(),history=new SnapshotHistory();t.records[0].values.prompt=clone(doc);t.records[1].values.prompt={kind:'column-template',version:1,segments:[{type:'text',text:'旧覆盖'}]};t.records[1].selected=false;
  const before=JSON.stringify(t);applyPromptToColumn(t,'prompt','one');history.record(before,JSON.stringify(t));
  for(const row of t.records){assert.equal(row.values.prompt,'');assert.equal(resolveColumnPrompt(effectivePrompt(t,row,'prompt'),t,row).assets[0].id,row.values.image[0].id);}
  const restored=history.restore(JSON.stringify(t));assert.deepEqual(restored,JSON.parse(before));
- const reloaded=normalizeTable(JSON.stringify(t));assert.deepEqual(effectivePrompt(reloaded,addRecord(reloaded),'prompt'),doc);
+ const reloaded=normalizeTable(JSON.stringify(t));assert.deepEqual(effectivePrompt(reloaded,addRecord(reloaded),'prompt'),columnDoc(doc));
 });
 test('fill uses inherited content and rejects empty or deleted source without changing the table',()=>{
- const t=fixture();setColumnTemplate(t,'prompt',doc);applyPromptToColumn(t,'prompt','two');assert.deepEqual(t.fields.find(f=>f.id==='prompt').promptTemplate,doc);
+ const t=fixture();setColumnTemplate(t,'prompt',doc);applyPromptToColumn(t,'prompt','two');assert.deepEqual(t.fields.find(f=>f.id==='prompt').promptTemplate,columnDoc(doc));
  const before=JSON.stringify(t);assert.throws(()=>applyPromptToColumn(t,'prompt','deleted'));assert.equal(JSON.stringify(t),before);
  t.fields.find(f=>f.id==='prompt').promptTemplate=null;const empty=JSON.stringify(t);assert.throws(()=>applyPromptToColumn(t,'prompt','one'),/为空/);assert.equal(JSON.stringify(t),empty);
 });
@@ -28,4 +29,4 @@ test('ordinals resolve per row, preserve order and distinguish references within
  for(const row of restored.records){const resolved=resolveColumnPrompt(effectivePrompt(restored,row,'prompt'),restored,row);assert.deepEqual(resolved.assets.map(a=>a.id),[row.values.image[1].id,row.values.image[0].id]);assert.equal(resolved.references.length,2);assert.equal(resolved.segments[0].refId,resolved.segments[2].refId);assert.notEqual(resolved.segments[0].refId,resolved.segments[1].refId);}
 });
 test('in-flight changes and fingerprints follow template/value edits; parsing cannot freeze dynamic template',()=>{const t=fixture();setColumnTemplate(t,'prompt',doc);const requests=new PromptRequests(),token=requests.begin(t,['one']),before=promptFingerprint(t,t.records[0]);t.records[0].values.text='更新';assert.notEqual(promptFingerprint(t,t.records[0]),before);assert.equal(requests.matches(t,token,'one'),false);const next=requests.begin(t,['two']);setColumnTemplate(t,'prompt',{...doc,segments:[{type:'text',text:'更新模板'}]});assert.equal(requests.matches(t,next,'two'),false);applyPromptResults(t,[{recordId:'one',document:{version:1,compilerVersion:1,segments:[],references:[]}}]);assert.equal(t.records[0].values.prompt,undefined);});
-test('legacy conversion binds field identity, never image name or index',()=>{assert.deepEqual(toColumnPrompt({segments:[{type:'ref',refId:'x'}],references:[{refId:'x',fieldId:'image',assetId:'old'}]}).segments,[{type:'column',fieldId:'image'}]);});
+test('legacy conversion retains stable media identity',()=>{assert.deepEqual(toColumnPrompt({segments:[{type:'ref',refId:'x'}],references:[{refId:'x',fieldId:'image',assetId:'old'}]}).segments,[{type:'column',fieldId:'image',assetId:'old'}]);});

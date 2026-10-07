@@ -1,7 +1,7 @@
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261002-generation-pause';
 
 // Instance-owned, non-modal text dock. Collapsing preserves the current draft.
-export function createTextSide({root}) {
+export function createTextSide({root,getHost=()=>document.body}) {
     const panels=new Map();let active=null;
     const owner={};const otherOpened=e=>{if(e.detail!==owner)hide();};
     document.addEventListener('dae-table-text-open',otherOpened);
@@ -19,13 +19,14 @@ export function createTextSide({root}) {
             const header=document.createElement('header'),heading=document.createElement('strong');heading.textContent=title;
             const control=button('折叠文本面板',collapse);
             tableIcon(control,'arrow-left-right-line','折叠文本面板');header.append(heading,control);
-            const body=document.createElement('div');body.className='table-text-side-body';pane.append(header,body);document.body.append(pane);
+            const body=document.createElement('div');body.className='table-text-side-body';pane.append(header,body);getHost().append(pane);
             panel={key,record,field,pane,body,id:pane.id};panels.set(key,panel);
             const cleanups=[];body.onCleanup=fn=>cleanups.push(fn);
             body.close=()=>{if(active===panel)hide();for(const dispose of cleanups.splice(0))dispose();pane.remove();panels.delete(key);};
             pane.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'&&!e.defaultPrevented){e.preventDefault();collapse();}});
             active=panel;build(body);
         }
+        const host=getHost();if(panel.pane.parentNode!==host)host.append(panel.pane);
         active=panel;panel.pane.hidden=false;
         panel.body.dispatchEvent(new Event('dae-text-side-show'));
         panel.body.querySelector('textarea,[contenteditable=true]')?.focus({preventScroll:true});

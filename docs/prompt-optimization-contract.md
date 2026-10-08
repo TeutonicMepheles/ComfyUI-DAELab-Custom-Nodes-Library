@@ -14,6 +14,7 @@
 - `estimate({rows:[snapshot],skipped:[{recordId,reason}],model,maxOutputTokens})` → quote `{quoteId,snapshotDigest,status,price,inputTokens,expectedOutputTokens,maxOutputTokens,estimatedCredits,budgetUpperCredits,expiresAt,reason}`。status=`ready|unavailable|expired`；时间 Unix 毫秒。价格携带来源、版本与计价单位。
 - `lease({target:{documentId,tableId},instanceId,leaseId?})` → `{leaseId,expiresAt}`。同视图续租；不同活动控制器不能同时控制。租约丢失只保留查询。
 - `submit({quoteId,batchId,rows:[{requestId,snapshot}],leaseId,budgetCredits})` → batch；只建立持久化 queued 行。重复身份同内容幂等，不同内容冲突。
+- K2 补充：unknown 后的新请求另传 `acknowledgeUnknownRequestIds:[旧requestId]`；仅由 UI 明确确认“可能重复计费”后提供。普通 retry/recover 不隐含该确认。`retry({acknowledgeUnknown})` 只准备新估算，用户再点开始才提交。
 - `query/recover({batchId})` → batch `{batchId,rows,stopped,paused}`。行包含 `{requestId,snapshot,status,remoteResponseId,suggestion:{status,text,reason}?,error?,actualCredits:null|number,costEvidence?}`。recover 只能查询已有 ID，不创建响应。
 - `permit({batchId,requestId,leaseId,snapshotDigest,revision,requestSeq})` → `{permitId,expiresAt}`。C 紧接当前表格同步检查后请求，许可短时有效且只能消费一次。
 - `advance({batchId,requestId,leaseId,permitId})` → batch。B 在同一锁中校验许可/租约/停止/预算，先落盘 submitting 再调用。单批最多一行在途。无许可不能发送。

@@ -9,6 +9,7 @@ export const DEFAULT_REQUIREMENTS='提升清晰度和可执行性，消除重复
 export const NAMESPACE='daelabPromptOptimizationV1';
 const copy=v=>structuredClone(v);
 const uuid=()=>crypto.randomUUID();
+const workflowIdentities=new Map();
 export function canonical(value){
  if(Array.isArray(value))return '['+value.map(v=>canonical(v??null)).join(',')+']';
  if(value&&typeof value==='object')return '{'+Object.keys(value).filter(k=>value[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}';
@@ -16,15 +17,20 @@ export function canonical(value){
 }
 export async function digest(value){const bytes=new TextEncoder().encode(typeof value==='string'?value:canonical(value));return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');}
 export function ensureIdentity(graph,node,{duplicate=false}={}){
- graph.extra||={};graph.extra[NAMESPACE]||={version:1,documentId:uuid(),nativeWorkflowId:graph.id};node.properties||={};
+ graph.extra||={};const remembered=workflowIdentities.get(graph.id);
+ graph.extra[NAMESPACE]||=remembered?copy(remembered.document):{version:1,documentId:uuid(),nativeWorkflowId:graph.id};node.properties||={};
+ if(!duplicate&&!node.properties[NAMESPACE]&&remembered?.tables.has(node.id))node.properties[NAMESPACE]=copy(remembered.tables.get(node.id));
  if(duplicate||!node.properties[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};
+ if(graph.id){const record=remembered||{document:copy(graph.extra[NAMESPACE]),tables:new Map()};record.tables.set(node.id,copy(node.properties[NAMESPACE]));workflowIdentities.set(graph.id,record);}
  return {documentId:graph.extra[NAMESPACE].documentId,tableId:node.properties[NAMESPACE].tableId};
 }
 export function forkDocumentIdentity(graph){graph.extra||={};graph.extra[NAMESPACE]={version:1,documentId:uuid()};for(const node of graph._nodes||[])if(node.properties?.[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};}
 // Native 1.52.7 Save As / Duplicate generates graphData.id before this public hook.
 // An unchanged serialized file retains that ID; names and file paths never decide ownership.
 export function prepareWorkflowIdentity(data){
- data.extra||={};const old=data.extra[NAMESPACE];
+ data.extra||={};const remembered=workflowIdentities.get(data.id);
+ if(!data.extra[NAMESPACE]&&remembered){data.extra[NAMESPACE]=copy(remembered.document);for(const node of data.nodes||[])if(!node.properties?.[NAMESPACE]&&remembered.tables.has(node.id)){node.properties||={};node.properties[NAMESPACE]=copy(remembered.tables.get(node.id));}}
+ const old=data.extra[NAMESPACE];
  if(old?.nativeWorkflowId&&data.id&&old.nativeWorkflowId!==data.id){
   data.extra[NAMESPACE]={version:1,documentId:uuid(),nativeWorkflowId:data.id};
   for(const node of data.nodes||[])if(node.properties?.[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};
@@ -38,6 +44,7 @@ export function inspectTarget(table,recordId,fieldId){
  const field=table.fields.find(f=>f.id===fieldId),row=table.records.find(r=>r.id===recordId);
  if(!editable(field)||!row)throw new Error('目标行或可编辑提示词列已删除');
  const original=effectivePrompt(table,row,fieldId);
+ if(original==null||original==='')throw new Error('提示词为空');
  if(typeof original==='string'){if(!original.trim())throw new Error('提示词为空');}
  else if(isColumnPrompt(original))validateColumnPrompt(original);else validatePrompt(original);
  const segments=typeof original==='string'?[{type:'text',text:original}]:original.segments;
@@ -97,7 +104,7 @@ export async function freezeSnapshot(table,target,revisions,{model='gpt-4.1-mini
 }
 
 export function displaySuggestion(frozen,text){
- let display=text;for(let i=0;i<frozen.local.mapping.length;i++){const token=frozen.local.mapping[i].token,context=frozen.wire.input.reference_context[i];display=display.split(token).join('@'+context.label);}
+ let display=text;for(let i=0;i<frozen.wire.input.protected_tokens.length;i++){const token=frozen.wire.input.protected_tokens[i],context=frozen.wire.input.reference_context[i];display=display.split(token).join('@'+context.label);}
  return display;
 }
 export function restoreSuggestion(frozen,text,{status='completed'}={}){

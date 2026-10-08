@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {preserveGenerationHistory} from '../web/table_generation_history.mjs';
+import {assertTransition} from '../web/script_parser_model.mjs';
+const table=(phase,text,assets=[])=>({fields:[{id:'p',type:'text'},{id:'g',presentation:'generation'}],records:[{id:'r',values:{p:text,g:assets},meta:{generationColumns:{g:{phase,requestId:'remote',stamp:'frozen',input:{prompt:'original'}}}}}],meta:{}});
+test('completed media receipt/result never rolls back when older text is undone',()=>{const old=table('running','原文'),live=table('complete','优化后',[{id:'asset',url:'/view?filename=result.png'}]);const restored=preserveGenerationHistory(live,structuredClone(old));assert.equal(restored.records[0].values.p,'原文');assert.equal(restored.records[0].meta.generationColumns.g.phase,'complete');assert.deepEqual(restored.records[0].values.g,live.records[0].values.g);assertTransition(live,restored,{restoring:true});});
+test('active receipts remain current while text undo/redo remains possible',()=>{const old=table('complete','原文'),live=table('running','优化后',[{id:'retained',url:'/view?filename=old.png'}]);live.records[0].meta.generationColumns.g.requestId='new-request';const restored=preserveGenerationHistory(live,structuredClone(old));assertTransition(live,restored,{restoring:true});assert.equal(restored.records[0].meta.generationColumns.g.requestId,'new-request');assert.deepEqual(restored.records[0].values.g,live.records[0].values.g);});
+test('history overlay does not bypass active row deletion restrictions',()=>{const live=table('running','text'),next=structuredClone(live);next.records=[];preserveGenerationHistory(live,next);assert.throws(()=>assertTransition(live,next,{restoring:true}),/任务/);});

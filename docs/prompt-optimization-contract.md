@@ -16,6 +16,7 @@
 - `submit({quoteId,batchId,rows:[{requestId,snapshot}],leaseId,budgetCredits})` → batch；只建立持久化 queued 行。重复身份同内容幂等，不同内容冲突。
 - K2 补充：unknown 后的新请求另传 `acknowledgeUnknownRequestIds:[旧requestId]`；仅由 UI 明确确认“可能重复计费”后提供。普通 retry/recover 不隐含该确认。`retry({acknowledgeUnknown})` 只准备新估算，用户再点开始才提交。
 - `query/recover({batchId})` → batch `{batchId,rows,stopped,paused}`。行包含 `{requestId,snapshot,status,remoteResponseId,suggestion:{status,text,reason}?,error?,actualCredits:null|number,costEvidence?}`。recover 只能查询已有 ID，不创建响应。
+- K3：`query({target:{documentId,tableId}})` 只读返回 `{contractVersion:1,batches:[{batchId,scope,fieldId,recordId?,rowCount,statusCounts,paused,stopped,updatedAt}]}`，不轮询、不续租、不改变账本。用于工作流历史回退查询引用后仍可按稳定身份发现任务；不返回鉴权、完整请求或远端 ID。
 - `permit({batchId,requestId,leaseId,snapshotDigest,revision,requestSeq})` → `{permitId,expiresAt}`。C 紧接当前表格同步检查后请求，许可短时有效且只能消费一次。
 - `advance({batchId,requestId,leaseId,permitId})` → batch。B 在同一锁中校验许可/租约/停止/预算，先落盘 submitting 再调用。单批最多一行在途。无许可不能发送。
 - `stop({batchId,leaseId})` → batch。只停止本批未发请求，无退款/取消远端承诺。

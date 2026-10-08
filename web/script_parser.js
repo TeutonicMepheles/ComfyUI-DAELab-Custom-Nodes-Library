@@ -1,3 +1,4 @@
+import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs';
 import {attachPromptOptimization} from './prompt_optimization_controller.mjs';
 import {app} from '/scripts/app.js';
@@ -8,7 +9,7 @@ const TYPE='DAELAB.ScriptParser',widget=node=>node.widgets?.find(w=>w.name==='ta
 const notify=(message,severity='info')=>app.extensionManager?.toast?.add?.({severity,summary:'分镜解析器',detail:message,life:8000});
 function install(node){
  if(!node.graph)return;const duplicate=node.graph._nodes?.some(n=>n!==node&&n.properties?.[NAMESPACE]?.tableId&&n.properties[NAMESPACE].tableId===node.properties?.[NAMESPACE]?.tableId);ensureIdentity(node.graph,node,{duplicate});const data=widget(node);if(!data)return;
- let table;try{table=readScriptTable(data.value);if(node.__scriptTable)assertTransition(node.__scriptTable,table,{restoring:true});}catch(e){notify(e.message,'error');if(node.__scriptTable)data.value=JSON.stringify(node.__scriptTable);return;}
+ let table;try{table=readScriptTable(data.value);if(node.__scriptTable){preserveGenerationHistory(node.__scriptTable,table);assertTransition(node.__scriptTable,table,{restoring:true});}}catch(e){notify(e.message,'error');if(node.__scriptTable)data.value=JSON.stringify(node.__scriptTable);return;}
  node.__scriptTable=table;data.value=JSON.stringify(table);data.hidden=true;data.options={...data.options,hidden:true,canvasOnly:true};data.computeSize=()=>[0,-4];data.computeLayoutSize=()=>({minHeight:0,maxHeight:0,minWidth:0});data.draw=()=>{};for(const el of [data.element,data.inputEl])if(el?.style)el.style.display='none';
  if(node.__scriptPanel){node.__scriptPanel.render();return;}
  const panel=createScriptParserPanel({node,app,getTable:()=>node.__scriptTable,setTable:next=>{node.__scriptTable=next;data.value=JSON.stringify(next);data.callback?.(data.value,app.canvas,node);node.graph?.setDirtyCanvas?.(true,true);},notify});node.__scriptPanel=panel;

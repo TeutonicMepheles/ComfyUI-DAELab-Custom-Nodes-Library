@@ -1,3 +1,4 @@
+import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs';
 import {attachPromptOptimization} from './prompt_optimization_controller.mjs';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
@@ -148,7 +149,7 @@ function install(node){
  const duplicate=node.graph._nodes?.some(n=>n!==node&&n.properties?.[NAMESPACE]?.tableId&&n.properties[NAMESPACE].tableId===node.properties?.[NAMESPACE]?.tableId);ensureIdentity(node.graph,node,{duplicate});
  if(node.type==='DAELAB.ComfyTV.GPTImageStoryboardStage')recoverShiftedWorkflowValues(node);
  const raw=widget(node,dataName(node))?.value;
- try{const next=isGeneric(node)?(raw?normalizeTable(raw):createMaterialTable()):readStoryboard(raw);if(node.__dataTable)assertTransition(node.__dataTable,next,{restoring:true});node.__dataTable=next;}catch(e){notify(`表格未加载：${e.message}`,'error');return;}
+ try{const next=isGeneric(node)?(raw?normalizeTable(raw):createMaterialTable()):readStoryboard(raw);if(node.__dataTable){preserveGenerationHistory(node.__dataTable,next);assertTransition(node.__dataTable,next,{restoring:true});}node.__dataTable=next;}catch(e){notify(`表格未加载：${e.message}`,'error');return;}
  syncGenerationConfigOwners(node.__dataTable);
  hideNative(node,dataName(node));hideNative(node,'main_prompt');save(node,node.__dataTable);
  if(node.__dataTablePanel){node.__dataTablePanel.render();return;}

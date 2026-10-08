@@ -8,30 +8,50 @@ import urllib.request
 
 SOURCE = 'https://docs.comfy.org/tutorials/partner-nodes/pricing'
 MODEL = 'gpt-4.1-mini'
+# Non-reasoning models only. Verified 2026-10-08 against the official model
+# reference. Native availability and Partner credit pricing are checked live.
+MODEL_LIMITS = {name: {'maxOutputTokens': 32768, 'contextTokens': 1047576,
+    'source': 'https://developers.openai.com/api/docs/models/' + name,
+    'checkedAt': '2026-10-08'} for name in ('gpt-4.1-mini', 'gpt-4.1', 'gpt-4.1-nano')}
 
 
 class OfficialPricing:
     def __init__(self):
         self.cached = None
+        self.lock = asyncio.Lock()
 
     def _load(self):
         # The documentation markdown is a public, non-billable price source.
         with urllib.request.urlopen(SOURCE + '.md', timeout=20) as response:
             text = response.read(2_000_000).decode('utf-8')
-        match = re.search(r'\|\s*gpt-4\.1-mini\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|', text)
-        if not match or 'Input credits / 1M' not in text:
+        if 'Input credits / 1M' not in text:
             raise ValueError('官方价格结构已改变，暂无法估算')
-        values = [float(v) for v in match.groups()]
-        if not all(math.isfinite(v) and v > 0 for v in values):
-            raise ValueError('官方价格无效')
-        return {'source': SOURCE + '#chat', 'model': MODEL, 'unit': 'credits/1M tokens',
-            'input': values[0], 'output': values[1], 'version': hashlib.sha256(match.group().encode()).hexdigest(),
-            'checkedAt': int(time.time() * 1000)}
+        prices = {}
+        checked = int(time.time() * 1000)
+        for model in MODEL_LIMITS:
+            match = re.search(r'\|\s*' + re.escape(model) + r'\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|', text)
+            if not match:
+                continue
+            values = [float(v) for v in match.groups()]
+            if not all(math.isfinite(v) and v > 0 for v in values):
+                continue
+            prices[model] = {'source': SOURCE + '#chat', 'model': model, 'unit': 'credits/1M tokens',
+                'input': values[0], 'output': values[1], 'version': hashlib.sha256(match.group().encode()).hexdigest(),
+                'checkedAt': checked, 'fetchedAt': checked}
+        return {'checkedAt': checked, 'prices': prices}
 
-    async def get(self):
-        if not self.cached or self.cached['checkedAt'] < time.time() * 1000 - 300000:
-            self.cached = await asyncio.to_thread(self._load)
-        return dict(self.cached)
+    async def get(self, model=MODEL):
+        async with self.lock:
+            if not self.cached or self.cached['checkedAt'] < time.time() * 1000 - 300000:
+                try:
+                    self.cached = await asyncio.to_thread(self._load)
+                except Exception:
+                    # Missing prices fail closed; avoid three repeated network
+                    # timeouts while assembling the three-model selector.
+                    self.cached = {'checkedAt': int(time.time() * 1000), 'prices': {}}
+        if model not in self.cached['prices']:
+            raise ValueError('此模型没有可信官方积分价格')
+        return dict(self.cached['prices'][model])
 
 
 def tokens(snapshot, instructions):

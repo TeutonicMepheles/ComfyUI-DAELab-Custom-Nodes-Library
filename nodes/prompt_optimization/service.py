@@ -10,7 +10,7 @@ import time
 import uuid
 from pathlib import Path
 from .instructions import INSTRUCTIONS, INSTRUCTION_VERSION, INSTRUCTION_DIGEST, INPUT_VERSION
-from .pricing import OfficialPricing, MODEL, tokens, cost
+from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, tokens, cost
 from .transport import NativeTransport, TransportError, native_capabilities
 
 ACTIVE = {'queued', 'preparing', 'submitting', 'submitted', 'polling'}
@@ -53,7 +53,7 @@ def validate_snapshot(s):
     for key in ('revision', 'requestSeq'):
         if not isinstance(s[key], int) or s[key] < 0:
             raise ValueError('修订无效')
-    if s['model'] != MODEL or not isinstance(s['maxOutputTokens'], int) or not 32 <= s['maxOutputTokens'] <= 4096:
+    if s['model'] not in MODEL_LIMITS or not isinstance(s['maxOutputTokens'], int) or not 32 <= s['maxOutputTokens'] <= MODEL_LIMITS[s['model']]['maxOutputTokens']:
         raise ValueError('模型或输出预算不受支持，请重新选择')
     inp = s['input']
     if list(inp) != ['purpose', 'optimization_requirements', 'prompt_text', 'protected_tokens', 'reference_context']:
@@ -161,28 +161,44 @@ class Service:
         return next((r for r in batch['rows'] if r['requestId'] == identifier), None)
 
     async def capabilities(self, payload=None):
-        available = MODEL in self.models()
+        selected = (payload or {}).get('model', MODEL)
+        native_models = self.models()
+        choices = []
+        for model, limits in MODEL_LIMITS.items():
+            try:
+                rate = await self.pricing.get(model)
+            except Exception:
+                rate = None
+            choices.append(dict(id=model, label=model, available=model in native_models and bool(rate),
+                reason='' if model in native_models and rate else '当前原生节点或官方积分价格不可用',
+                price=rate, **limits))
+        available = selected in native_models and selected in MODEL_LIMITS
         price, reason = None, ''
         try:
-            price = await self.pricing.get()
+            price = await self.pricing.get(selected)
         except Exception:
             reason = '暂无法取得可信官方积分价格'
         if not available:
             reason = '当前服务原生 OpenAIChatNode 不支持所选模型'
-        return dict(contractVersion=1, models=[dict(id=MODEL, label=MODEL, available=available)],
+        return dict(contractVersion=1, models=choices,
             defaultModel=MODEL, instructionVersion=INSTRUCTION_VERSION, instructionDigest=INSTRUCTION_DIGEST,
             inputVersion=INPUT_VERSION, available=available and bool(price), reason=reason, price=price,
             tokenAlgorithm='utf8-byte-conservative-v1; framing +32; approximate, not actual usage')
 
     async def estimate(self, p):
-        cap = await self.capabilities()
-        if not cap['available'] or p.get('model', MODEL) != MODEL:
+        selected = p.get('model', p['rows'][0]['model'] if p.get('rows') else MODEL)
+        cap = await self.capabilities({'model': selected})
+        if not cap['available']:
             return dict(contractVersion=1, status='unavailable', reason=cap['reason'] or '请重新选择模型')
         rows = p['rows']
         if not rows or len(rows) > 10000:
             raise ValueError('没有可优化行或范围过大')
         for s in rows:
             validate_snapshot(s)
+            if s['model'] != selected:
+                raise ValueError('范围中包含不同模型，请重新估算')
+            if tokens(s, INSTRUCTIONS)[0] + s['maxOutputTokens'] > MODEL_LIMITS[selected]['contextTokens']:
+                raise ValueError('完整输入与输出预算超出此模型上下文限制')
         if len({table_key(s['target']) for s in rows}) != 1 or len({canonical(s['target']) for s in rows}) != len(rows):
             raise ValueError('范围必须属于同一表格，且目标不能重复')
         price = cap['price']
@@ -209,6 +225,11 @@ class Service:
             old = self.leases.get(key)
             if old and old['expiresAt'] > now() and old['instanceId'] != p['instanceId']:
                 raise ValueError('此表格已由另一个视图控制')
+            if old and (old['expiresAt'] <= now() or old['instanceId'] != p['instanceId']):
+                for batch in self.ledger.all('batch'):
+                    if batch['tableKey'] == key and any(r['status'] in ('queued', 'preparing') for r in batch['rows']):
+                        batch['paused'] = True
+                        self.save(batch)
             lease = dict(leaseId=old['leaseId'] if old and old['instanceId'] == p['instanceId'] else uid(),
                 instanceId=p['instanceId'], expiresAt=now() + 15000)
             self.leases[key] = lease
@@ -218,7 +239,8 @@ class Service:
         q = self.ledger.get('quote', quote_id)
         if not q or q['expiresAt'] <= now() or q['snapshotDigest'] != digest(rows):
             raise ValueError('估算已失效或快照已改变，请重新估算')
-        if MODEL not in self.models() or (await self.pricing.get())['version'] != q['price']['version']:
+        selected = rows[0]['model']
+        if selected not in self.models() or (await self.pricing.get(selected))['version'] != q['price']['version']:
             raise ValueError('模型或价格已改变，请重新估算')
         if not isinstance(budget, (int, float)) or not math.isfinite(budget) or budget < q['budgetUpperCredits']:
             raise ValueError('确认预算不足，请检查输出预算上界')
@@ -356,6 +378,10 @@ class Service:
     async def query(self, p, auth=None):
         async with self.lock:
             batch = self.batch(p['batchId'])
+            lease = self.leases.get(batch['tableKey'])
+            if (not lease or lease['expiresAt'] <= now()) and any(r['status'] in ('queued', 'preparing') for r in batch['rows']):
+                batch['paused'] = True
+                self.save(batch)
             for row in batch['rows']:
                 running = self.workers.get(row['requestId'])
                 if auth and row['status'] in ('submitted', 'polling') and row.get('remoteResponseId') and (not running or running.done()):

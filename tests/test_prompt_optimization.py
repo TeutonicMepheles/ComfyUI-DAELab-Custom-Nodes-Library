@@ -21,7 +21,7 @@ from promptopt.pricing import tokens
 
 class Price:
     version = 'test-rate'
-    async def get(self):
+    async def get(self, model='gpt-4.1-mini'):
         return dict(version=self.version, input=84.4, output=337.6, source='fixture', unit='credits/1M tokens')
 
 
@@ -240,6 +240,32 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         await self.s.skip(dict(batchId='batch1',requestId='batch1-r0',leaseId=self.lease['leaseId'],reason='view changed'))
         with self.assertRaises(ValueError):
             await self.s.advance(p)
+
+    async def test_expired_lease_renewal_requires_explicit_continue(self):
+        batch, _, q = await self.batch()
+        for lease in self.s.leases.values(): lease['expiresAt']=0
+        self.lease = await self.s.lease(dict(target=snapshot()['target'],instanceId='view1'))
+        self.assertTrue((await self.s.query(dict(batchId='batch1')))['paused'])
+        with self.assertRaisesRegex(ValueError,'当前不能'):
+            await self.permit(batch)
+        await self.s.continue_batch(dict(batchId='batch1',quoteId=q['quoteId'],leaseId=self.lease['leaseId'],budgetCredits=q['budgetUpperCredits']))
+        await self.advance(self.s.batch('batch1'))
+        await self.done()
+        self.assertEqual(len(self.t.posts),1)
+
+    async def test_models_intersection_and_no_fallback(self):
+        self.s.models=lambda:['gpt-4.1','gpt-4.1-nano','gpt-5']
+        cap=await self.s.capabilities()
+        self.assertFalse(cap['available'])
+        self.assertEqual([m['id'] for m in cap['models'] if m['available']],['gpt-4.1','gpt-4.1-nano'])
+        s=snapshot()
+        self.assertEqual((await self.s.estimate(dict(rows=[s])))['status'],'unavailable')
+        s['model']='gpt-4.1'
+        s['snapshotDigest']=digest(s)
+        self.assertEqual((await self.s.estimate(dict(rows=[s],model='gpt-4.1')))['status'],'ready')
+        s['maxOutputTokens']=32769
+        with self.assertRaisesRegex(ValueError,'输出预算'):
+            await self.s.estimate(dict(rows=[s],model='gpt-4.1'))
 
 
 class ValidationTests(unittest.TestCase):

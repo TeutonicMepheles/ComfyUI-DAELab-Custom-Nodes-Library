@@ -17,6 +17,26 @@ TOKEN_ALGORITHM = 'utf8-byte-conservative-v2; two messages; framing +64; approxi
 MODEL_LIMITS = {name: {'maxOutputTokens': 32768, 'contextTokens': 1047576,
     'source': 'https://developers.openai.com/api/docs/models/' + name,
     'checkedAt': '2026-10-08'} for name in ('gpt-4.1-mini', 'gpt-4.1', 'gpt-4.1-nano')}
+DEEPSEEK_SOURCE = 'https://api-docs.deepseek.com/quick_start/pricing/'
+DEEPSEEK_RATES = {'deepseek-flash': (0.3, 1.2), 'deepseek-v4-pro': (1.32, 3.96)}
+MODEL_LIMITS.update({name: {'maxOutputTokens': 393216, 'contextTokens': 1000000,
+    'source': DEEPSEEK_SOURCE, 'checkedAt': '2026-10-08'} for name in DEEPSEEK_RATES})
+
+
+def provider_for(model):
+    if model in DEEPSEEK_RATES:
+        return 'deepseek'
+    if model in MODEL_LIMITS:
+        return 'comfy'
+    raise ValueError('模型不受支持，请重新选择')
+
+
+def deepseek_price(model):
+    input_rate, output_rate = DEEPSEEK_RATES[model]
+    return dict(provider='deepseek', currency='USD', model=model, input=input_rate, output=output_rate,
+        source=DEEPSEEK_SOURCE, unit='USD/1M tokens', checkedAt='2026-10-08',
+        version=f'deepseek-peak-no-cache-2026-10-08:{model}:{input_rate}:{output_rate}',
+        basis='固定峰值、输入不命中缓存的保守费率；实际账单未知，官方费率可能调整')
 
 
 class OfficialPricing:
@@ -50,6 +70,7 @@ class OfficialPricing:
             if not all(math.isfinite(v) and v > 0 for v in values):
                 continue
             prices[model] = {'source': SOURCE + '#chat', 'model': model, 'unit': 'credits/1M tokens',
+                'provider': 'comfy', 'currency': 'credits',
                 'input': values[0], 'output': values[1], 'version': hashlib.sha256(match.group().encode()).hexdigest(),
                 'checkedAt': checked, 'fetchedAt': checked}
         return {'checkedAt': checked, 'prices': prices}
@@ -78,4 +99,5 @@ def tokens(snapshot, instructions):
 
 
 def cost(count, output, price):
-    return round((count * price['input'] + output * price['output']) / 1_000_000, 6)
+    amount = count * price['input'] + output * price['output']
+    return math.ceil(amount) / 1_000_000 if price.get('currency') == 'USD' else round(amount / 1_000_000, 6)

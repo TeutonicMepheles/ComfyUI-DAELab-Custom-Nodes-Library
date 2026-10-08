@@ -1,9 +1,9 @@
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
-import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs';
-import {attachPromptOptimization} from './prompt_optimization_controller.mjs';
+import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261008-deepseek-api-r3';
+import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261008-deepseek-api-r3';
 import {app} from '/scripts/app.js';
-import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261007-parser-review';
+import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261008-deepseek-api-r3';
 import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {generationMaterials} from './table_material_output.mjs';
 const TYPE='DAELAB.ScriptParser',widget=node=>node.widgets?.find(w=>w.name==='table_data');

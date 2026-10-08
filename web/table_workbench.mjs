@@ -1,4 +1,4 @@
-import {tableDialog,tableButton} from './data_table_editor.mjs?v=20261002-selection-paste';
+import {tableDialog,tableButton} from './data_table_editor.mjs?v=20261008-deepseek-api-r3';
 import {isNodeAvailableInAppMode} from './app_mode_bypass_model.mjs';
 
 // Move the existing UI, preserving its state, handlers and undo history.

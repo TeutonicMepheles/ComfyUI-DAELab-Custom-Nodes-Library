@@ -55,3 +55,51 @@ test('disabled submission explains inactive mode and clears explanation on resto
     const reason=find(panel.root,e=>e.className==='prompt-opt-warning'&&e.textContent?.includes('Active'));assert.equal(reason.hidden,false);
     f.update({inactiveReason:'',quote:{status:'ready',estimatedCredits:1,expiresAt:Date.now()+5000},permissions:{canSubmit:true}});assert.equal(reason.hidden,true);panel.destroy();
 });
+
+test('USD quotes and historical usage costs never render as Comfy credits or actual bills',()=>{
+ assert.match(optimizationQuoteLabel({status:'ready',estimatedCredits:0.002,price:{currency:'USD'}}),/0\.002 美元（USD）/);
+ assert.match(optimizationQuoteLabel({status:'ready',estimatedCredits:2}),/2 积分/);
+ const f=fixture();f.update({model:'deepseek-flash',provider:'deepseek',models:[{id:'deepseek-flash',provider:'deepseek'},{id:'gpt-4.1-mini',provider:'comfy'}],quote:{status:'ready',estimatedCredits:0.002,budgetUpperCredits:0.01,price:{currency:'USD'}},batchId:'b',batchProvider:'comfy',batchModel:'gpt-4.1-mini',batchCurrency:'credits',rows:[{requestId:'old',provider:'comfy',currency:'credits',actualCredits:0.5},{requestId:'new',provider:'deepseek',currency:'USD',actualCredits:99,usageCostUSD:0.003}]});
+ const panel=createPromptOptimizationPanel(f),model=find(panel.root,e=>e['aria-label']==='润色模型');
+ assert.deepEqual(model.children.map(e=>e.value),['deepseek-flash']);
+ const text=root=>[root.textContent||'',...root.children.map(text)].join('\n');const displayed=text(panel.root);
+ assert.match(displayed,/0\.002 美元（USD）/);assert.match(displayed,/实际消耗：0\.5 积分/);
+ assert.match(displayed,/用量保守估算：0\.003 美元（USD）；实际账单未知/);assert.doesNotMatch(displayed,/99 积分|实际消耗：.*美元/);
+ assert.match(displayed,/现有批次：ComfyUI Partner.*积分/);panel.destroy();
+});
+
+test('page key input is password-only, cleared after save and when dock hides',()=>{
+ const f=fixture(),saved=[];f.controller.setDeepSeekKey=key=>{saved.push(key);f.update({pageDeepSeekKeyConfigured:true});return true;};f.controller.clearDeepSeekKey=()=>{f.update({pageDeepSeekKeyConfigured:false});return false;};
+ f.update({model:'deepseek-flash',provider:'deepseek',models:[{id:'deepseek-flash',provider:'deepseek'}]});
+ const panel=createPromptOptimizationPanel(f),input=find(panel.root,e=>e['aria-label']==='DeepSeek API 密钥'),save=find(panel.root,e=>e.textContent==='保存到本页会话'),clear=find(panel.root,e=>e.textContent==='清除本页密钥');
+ assert.equal(input.type,'password');assert.equal(input.autocomplete,'off');input.value='test-private-key';
+ save.onclick({preventDefault(){},stopPropagation(){}});assert.deepEqual(saved,['test-private-key']);assert.equal(input.value,'');
+ assert.ok(!JSON.stringify(f.controller.getState()).includes('test-private-key'));assert.equal(clear.disabled,false);
+ input.value='unsaved-key';f.container.dispatchEvent(new Event('dae-text-side-hide'));assert.equal(input.value,'');
+ clear.onclick({preventDefault(){},stopPropagation(){}});assert.equal(clear.disabled,true);panel.destroy();
+});
+
+test('DeepSeek pricing preserves date precision and unknown recovery explicitly stays local',()=>{
+ const f=fixture();f.update({batchId:'b',batchProvider:'deepseek',rows:[{requestId:'r',status:'unknown',provider:'deepseek'}],quote:{status:'ready',estimatedCredits:0.001,price:{currency:'USD',checkedAt:'2026-10-08',basis:'按缓存未命中输入单价估算'}}});
+ const panel=createPromptOptimizationPanel(f),text=root=>[root.textContent||'',...root.children.map(text)].join('\n'),displayed=text(panel.root);
+ assert.match(displayed,/估算口径：按缓存未命中输入单价估算/);assert.match(displayed,/费率核对：2026-10-08。/);assert.doesNotMatch(displayed,/8:00|08:00|北京时间/);
+ assert.match(displayed,/DeepSeek 查询仅查看本地记录，无法取回丢失的远端响应/);panel.destroy();
+});
+
+test('provider and model stay selectable during quote-only busy while actual task locks remain',()=>{
+ const f=fixture();f.update({busy:true,permissions:{canChangeProvider:true}});const panel=createPromptOptimizationPanel(f);
+ const provider=find(panel.root,e=>e['aria-label']==='服务提供方'),model=find(panel.root,e=>e['aria-label']==='润色模型');
+ assert.equal(provider.disabled,false);assert.equal(model.disabled,false);
+ f.update({permissions:{canChangeProvider:false}});assert.equal(provider.disabled,true);assert.equal(model.disabled,true);panel.destroy();
+});
+
+test('shared async button cleanup cannot overwrite final controller button permissions',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const f=fixture();let release;
+ f.controller.estimate=async()=>{f.update({busy:true,permissions:{canEstimate:false,canSubmit:false}});await new Promise(resolve=>release=resolve);f.update({busy:false,quote:{status:'ready',estimatedCredits:1,expiresAt:Date.now()+10000},permissions:{canEstimate:true,canSubmit:true}});};
+ const panel=createPromptOptimizationPanel(f),estimate=find(panel.root,e=>e.textContent==='更新估算'),start=find(panel.root,e=>e.textContent==='开始优化');
+ const sharedClick=async()=>{const result=estimate.onclick({preventDefault(){},stopPropagation(){}}),disabled=estimate.disabled;estimate.disabled=true;try{await result;}finally{estimate.disabled=disabled;}};
+ const pending=sharedClick();assert.equal(estimate.disabled,true);release();await pending;
+ assert.equal(estimate.disabled,true,'Fixture reproduces shared button restoring disabled captured after action started');
+ t.mock.timers.tick(0);assert.equal(estimate.disabled,false);assert.equal(start.disabled,false);
+ panel.destroy();t.mock.timers.tick(0);
+});

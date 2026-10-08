@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261002-generation-pause';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261008-deepseek-api-r3';
 
 // Instance-owned, non-modal text dock. Collapsing preserves the current draft.
 export function createTextSide({root,getHost=()=>document.body}) {

@@ -1,5 +1,13 @@
 # 提示词优化验收进度
 
+## 2026-10-08 自有 DeepSeek API 可选接入
+
+按用户“先给一个走自己 DeepSeek API 的可选项”增加独立直连通道；保留 ComfyUI Partner。支持 `deepseek-flash` / `deepseek-v4-pro`、本页内存密钥或服务器环境密钥、USD 参考估算、旧批次冻结提供方与币种。缺钥提交前拦截，POST 不重试，未知结果不自动重发，凭据不进入工作流或账本。使用与局限见 [DeepSeek 接入说明](prompt-optimization-deepseek.md)。
+
+最终界面版本 `20261008-deepseek-api-r3`：52 项 Python 服务测试及 131 项相关 JS 测试通过。C8193 双表实例、Flash/Pro 独立设置、保存刷新、假密钥保存/清除/刷新丢弃、旧 Comfy 积分显示、900×600 长内容滚动、原生图形/创作画布与 Active/Bypass 恢复完成实际验证。真实 UI 发现的报价按钮恢复和模式恢复残留禁用已修复并补回归。证据 `c/evidence/deepseek-option-r3.jpg`、`deepseek-narrow-r3.jpg`、`deepseek-old-comfy-cost.jpg` 和 `deepseek-option-acceptance.md`。
+
+本轮新增付费 POST 为 **0**；账本仍为 16 批次、20 行、6 unknown、已知实际 2.02 积分，DeepSeek 行为 0。没有真实 DeepSeek Key，故仅工程与界面接入通过，模型效果和实际账单未验证；未将原 M6 标为通过，未切换生产 8000。
+
 ## 2026-10-08 20:20 用户明确重试后的最新状态
 
 用户在获知阻塞后要求“再重试一下”。本次仅新增一次Q07同输入mini请求，单次上界0.835560，未扩为整轮重发。初次停在原生工作空间授权；保存刷新后继续同一个preparing任务，20:18:23实际POST一次，20:18:34连接api.comfy.org:443失败，无远端ID/费用回执，unknown。日志操作`POST_proxy_openai_v1_responses_try1_399978c5`仅一个，两个日志分别是开始与错误。

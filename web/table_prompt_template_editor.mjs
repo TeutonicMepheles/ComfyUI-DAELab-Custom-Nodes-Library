@@ -1,4 +1,4 @@
-import {createTableButton as button} from './table_controls.mjs?v=20261002-generation-pause';
+import {createTableButton as button} from './table_controls.mjs?v=20261008-deepseek-api-r3';
 import {deletePromptReference} from './table_inline_editor.mjs?v=20261001-table-perf';
 import {columnReferenceOptions,createReferenceMenu} from './table_reference_menu.mjs?v=20261001-table-perf';
 import {isColumnPrompt,effectivePrompt,toColumnPrompt,validateColumnPrompt,resolveColumnPrompt,setColumnTemplate} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';

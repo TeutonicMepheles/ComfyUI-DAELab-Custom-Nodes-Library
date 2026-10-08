@@ -11,8 +11,9 @@ import uuid
 from pathlib import Path
 from .instructions import INSTRUCTIONS, INSTRUCTION_VERSION, INSTRUCTION_DIGEST, INPUT_VERSION
 from .context_copy import context_copy_reason
-from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, TOKEN_ALGORITHM, tokens, cost
+from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, TOKEN_ALGORITHM, tokens, cost, provider_for, deepseek_price
 from .transport import NativeTransport, TransportError, native_capabilities
+from .deepseek import DeepSeekTransport, key_configured, resolve_key, safe_usage
 
 ACTIVE = {'queued', 'preparing', 'submitting', 'submitted', 'polling'}
 INFLIGHT = {'submitting', 'submitted', 'polling'}
@@ -139,9 +140,10 @@ class Ledger:
 
 
 class Service:
-    def __init__(self, root, *, transport=None, pricing=None, models=None):
+    def __init__(self, root, *, transport=None, pricing=None, models=None, deepseek_transport=None):
         self.ledger = Ledger(root)
         self.transport = transport or NativeTransport()
+        self.deepseek_transport = deepseek_transport or DeepSeekTransport()
         self.pricing = pricing or OfficialPricing()
         self.models = models or native_capabilities
         self.lock = asyncio.Lock()
@@ -149,7 +151,9 @@ class Service:
         for batch in self.ledger.all('batch'):
             batch['paused'] = True
             for row in batch['rows']:
-                if row['status'] == 'submitting' and not row.get('remoteResponseId'):
+                if provider_for(row['snapshot']['model']) == 'deepseek' and row['status'] in INFLIGHT:
+                    row.update(status='unknown', error='DeepSeek 无远端任务查询；服务中断后仅保留本地记录，禁止自动重发')
+                elif row['status'] == 'submitting' and not row.get('remoteResponseId'):
                     row.update(status='unknown', error='服务中断，提交结果未知；禁止自动重发，可能已产生费用')
                 elif row['status'] in INFLIGHT:
                     row['status'] = 'submitted' if row.get('remoteResponseId') else 'unknown'
@@ -175,25 +179,31 @@ class Service:
         native_models = self.models()
         choices = []
         for model, limits in MODEL_LIMITS.items():
+            provider = provider_for(model)
             try:
-                rate = await self.pricing.get(model)
+                # A DeepSeek estimate never waits for Partner pricing/network.
+                rate = await self.rate(model) if provider == 'deepseek' or selected not in ('deepseek-flash', 'deepseek-v4-pro') else None
             except Exception:
                 rate = None
-            choices.append(dict(id=model, label=model, available=model in native_models and bool(rate),
-                reason='' if model in native_models and rate else '当前原生节点或官方积分价格不可用',
+            supported = provider == 'deepseek' or model in native_models
+            ready = supported and (bool(rate) or selected in ('deepseek-flash', 'deepseek-v4-pro'))
+            choices.append(dict(id=model, label=model, provider=provider, available=ready,
+                reason='' if ready else '当前原生节点或官方积分价格不可用',
                 price=rate, **limits))
-        available = selected in native_models and selected in MODEL_LIMITS
-        price, reason = None, ''
-        try:
-            price = await self.pricing.get(selected)
-        except Exception:
-            reason = '暂无法取得可信官方积分价格'
-        if not available:
-            reason = '当前服务原生 OpenAIChatNode 不支持所选模型'
+        current = next((choice for choice in choices if choice['id'] == selected), None)
+        price = current['price'] if current else None
+        available = bool(current and current['available'] and price)
+        reason = current['reason'] if current else '模型不受支持，请重新选择'
         return dict(contractVersion=1, models=choices,
             defaultModel=MODEL, instructionVersion=INSTRUCTION_VERSION, instructionDigest=INSTRUCTION_DIGEST,
-            inputVersion=INPUT_VERSION, available=available and bool(price), reason=reason, price=price,
+            inputVersion=INPUT_VERSION, available=available, reason=reason, price=price,
+            deepseekKeyConfigured=key_configured(),
             tokenAlgorithm=TOKEN_ALGORITHM)
+
+    async def rate(self, model):
+        if provider_for(model) == 'deepseek':
+            return deepseek_price(model)
+        return dict(await self.pricing.get(model), provider='comfy', currency='credits')
 
     async def estimate(self, p):
         selected = p.get('model', p['rows'][0]['model'] if p.get('rows') else MODEL)
@@ -215,6 +225,7 @@ class Service:
         counts = [tokens(s, INSTRUCTIONS) for s in rows]
         upper = sum(cost(i, s['maxOutputTokens'], price) for s, (i, _) in zip(rows, counts))
         q = dict(contractVersion=1, quoteId=uid(), snapshotDigest=digest(rows), status='ready', price=price,
+            provider=price['provider'], currency=price['currency'],
             inputTokens=sum(i for i, _ in counts), expectedOutputTokens=sum(o for _, o in counts),
             maxOutputTokens=sum(s['maxOutputTokens'] for s in rows),
             estimatedCredits=round(sum(cost(i, o, price) for i, o in counts), 6), budgetUpperCredits=round(upper, 6),
@@ -255,10 +266,13 @@ class Service:
         if not q or q['expiresAt'] <= now() or q['snapshotDigest'] != digest(rows):
             raise ValueError('估算已失效或快照已改变，请重新估算')
         selected = rows[0]['model']
-        if selected not in self.models() or (await self.pricing.get(selected))['version'] != q['price']['version']:
+        if (provider_for(selected) == 'comfy' and selected not in self.models()) or (await self.rate(selected))['version'] != q['price']['version']:
             raise ValueError('模型或价格已改变，请重新估算')
         if not isinstance(budget, (int, float)) or not math.isfinite(budget) or budget < q['budgetUpperCredits']:
             raise ValueError('确认预算不足，请检查输出预算上界')
+        # Quotes written before provider support are native credits quotes.
+        provider = provider_for(selected)
+        q['price'] = dict(q['price'], provider=provider, currency='USD' if provider == 'deepseek' else 'credits')
         return q
 
     async def submit(self, p):
@@ -294,6 +308,7 @@ class Service:
                         raise ValueError('前次提交结果未知，可能已扣费；须明确确认重复收费风险后以新请求 ID 重新优化')
             batch = dict(contractVersion=1, batchId=p['batchId'], tableKey=table_key(snapshots[0]['target']),
                 quoteId=q['quoteId'], submissionDigest=fingerprint, budgetCredits=p['budgetCredits'],
+                price=copy.deepcopy(q['price']), provider=q['price']['provider'], currency=q['price']['currency'],
                 range=copy.deepcopy(scope), preflightSkipped=copy.deepcopy(q.get('skipped', [])),
                 stopped=False, paused=False, rows=[dict(requestId=r['requestId'], snapshot=copy.deepcopy(r['snapshot']),
                     status='queued', remoteResponseId=None, actualCredits=None) for r in rows])
@@ -320,8 +335,17 @@ class Service:
         async with self.lock:
             batch = self.batch(p['batchId'])
             self.check_lease(batch, p['leaseId'])
-            permit = self.permits.pop(p['permitId'], None)
             row = self.row(batch, p['requestId'])
+            if not row:
+                raise ValueError('找不到此优化行')
+            provider = provider_for(row['snapshot']['model'])
+            if p.get('provider', provider) != provider:
+                raise ValueError('服务商与冻结模型不一致，请重新估算')
+            # Resolve credentials before consuming the one-shot permit or writing
+            # submitting. Keep only this provider's credentials in worker memory.
+            worker_auth = {'deepseekKey': resolve_key(auth)} if provider == 'deepseek' else {
+                k: v for k, v in (auth or {}).items() if k in ('token', 'key')}
+            permit = self.permits.pop(p['permitId'], None)
             if not permit or permit['expiresAt'] <= now() or any(permit[k] != p[k] for k in ('batchId', 'requestId', 'leaseId')):
                 raise ValueError('提交许可已过期或已消费')
             if batch['stopped'] or batch['paused'] or not row or row['status'] not in ('queued', 'preparing') or any(r['status'] in INFLIGHT for r in batch['rows']):
@@ -340,19 +364,31 @@ class Service:
             # Stop and submitting share this exact lock and durable boundary.
             row['status'] = 'submitting'
             self.save(batch)
-            self.workers[row['requestId']] = asyncio.create_task(self._create(batch['batchId'], row['requestId'], auth or {}))
+            self.workers[row['requestId']] = asyncio.create_task(self._create(batch['batchId'], row['requestId'], worker_auth))
             return batch
 
     async def _create(self, batch_id, request_id, auth):
         try:
             snapshot = self.row(self.batch(batch_id), request_id)['snapshot']
-            response, evidence = await self.transport.create(snapshot, INSTRUCTIONS, auth)
+            is_deepseek = provider_for(snapshot['model']) == 'deepseek'
+            transport = self.deepseek_transport if is_deepseek else self.transport
+            response, evidence = await transport.create(snapshot, INSTRUCTIONS, auth)
             remote = response.get('id')
             if not isinstance(remote, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', remote):
                 raise TransportError('未取得远端 ID，提交结果未知')
             async with self.lock:
                 batch = self.batch(batch_id)
                 row = self.row(batch, request_id)
+                if is_deepseek:
+                    usage = safe_usage(response.get('usage'))
+                    row.update(remoteResponseId=remote, status='succeeded' if response.get('status') == 'completed' else 'failed',
+                        costEvidence={'create': evidence}, actualCredits=None, usage=usage,
+                        suggestion=suggestion(response, snapshot))
+                    if 'prompt_tokens' in usage and 'completion_tokens' in usage:
+                        row['usageCostUSD'] = cost(usage['prompt_tokens'], usage['completion_tokens'], batch['price'])
+                    row.pop('error', None)
+                    self.save(batch)  # Full stateless result is atomic; no remote GET.
+                    return
                 row.update(remoteResponseId=remote, status='submitted', costEvidence={'create': evidence}, actualCredits=receipt_credits(evidence))
                 self.save(batch)  # ID is durable before any GET.
             await self._poll(batch_id, request_id, auth)
@@ -360,12 +396,15 @@ class Service:
             async with self.lock:
                 batch = self.batch(batch_id)
                 row = self.row(batch, request_id)
-                row['status'] = 'submitted' if row.get('remoteResponseId') else ('failed' if isinstance(error, TransportError) and error.definitely_rejected else 'unknown')
+                row['status'] = 'submitted' if row.get('remoteResponseId') and provider_for(row['snapshot']['model']) == 'comfy' else ('failed' if isinstance(error, TransportError) and error.definitely_rejected else 'unknown')
                 row['error'] = str(error) if isinstance(error, TransportError) else '提交结果未知，请勿自动重试；可能已产生费用'
                 batch['paused'] = True
                 self.save(batch)
 
     async def _poll(self, batch_id, request_id, auth):
+        if provider_for(self.row(self.batch(batch_id), request_id)['snapshot']['model']) != 'comfy':
+            return
+        auth = {k: v for k, v in auth.items() if k in ('token', 'key')}
         for _ in range(120):
             row = self.row(self.batch(batch_id), request_id)
             try:
@@ -437,7 +476,7 @@ class Service:
                 self.save(batch)
             for row in batch['rows']:
                 running = self.workers.get(row['requestId'])
-                if auth and row['status'] in ('submitted', 'polling') and row.get('remoteResponseId') and (not running or running.done()):
+                if provider_for(row['snapshot']['model']) == 'comfy' and any((auth or {}).get(k) for k in ('token', 'key')) and row['status'] in ('submitted', 'polling') and row.get('remoteResponseId') and (not running or running.done()):
                     self.workers[row['requestId']] = asyncio.create_task(self._poll(batch['batchId'], row['requestId'], auth))
             return batch
 
@@ -456,8 +495,9 @@ class Service:
         async with self.lock:
             batch = self.batch(p['batchId'])
             self.check_lease(batch, p['leaseId'])
-            await self.check_quote(p['quoteId'], [r['snapshot'] for r in batch['rows']], p['budgetCredits'])
-            batch.update(stopped=False, paused=False, quoteId=p['quoteId'], budgetCredits=p['budgetCredits'])
+            q = await self.check_quote(p['quoteId'], [r['snapshot'] for r in batch['rows']], p['budgetCredits'])
+            batch.update(stopped=False, paused=False, quoteId=p['quoteId'], budgetCredits=p['budgetCredits'],
+                price=copy.deepcopy(q['price']), provider=q['price']['provider'], currency=q['price']['currency'])
             for row in batch['rows']:
                 if row['status'] == 'stopped':
                     row['status'] = 'queued'

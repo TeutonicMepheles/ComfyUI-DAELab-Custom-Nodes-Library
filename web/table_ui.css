@@ -1,5 +1,5 @@
 @import './creative_theme.css';
-@import './prompt_optimization.css';
+@import './prompt_optimization.css?v=20261008-deepseek-api-r3';
 
 /* Only the table owner opts into this surface; legacy studio panels stay unchanged. */
 .dae-ui.dae-table-panel,.dae-ui.dae-table-dialog {font:400 14px/1.6 var(--dae-font-family,sans-serif);color:var(--dae-text,#ededed);background:var(--dae-surface,#222);box-sizing:border-box}

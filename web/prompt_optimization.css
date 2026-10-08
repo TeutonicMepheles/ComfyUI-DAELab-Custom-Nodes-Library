@@ -10,7 +10,7 @@
 .dae-ui .prompt-opt-panel [hidden]{display:none!important}
 .dae-ui .prompt-opt-panel p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .dae-ui .prompt-opt-field{display:flex;flex-direction:column;gap:6px;min-width:0;font-weight:500}
-.dae-ui .prompt-opt-field :is(textarea,select){box-sizing:border-box;width:100%;min-width:0;font:400 14px/1.6 var(--dae-font-family);color:var(--dae-text);background:var(--dae-surface-low);border:1px solid var(--dae-border-control);border-radius:8px;padding:8px}
+.dae-ui .prompt-opt-field :is(textarea,select,input[type=password]){box-sizing:border-box;width:100%;min-width:0;font:400 14px/1.6 var(--dae-font-family);color:var(--dae-text);background:var(--dae-surface-low);border:1px solid var(--dae-border-control);border-radius:8px;padding:8px}
 .dae-ui .prompt-opt-field textarea{resize:vertical;min-height:88px;max-height:240px}
 .dae-ui .prompt-opt-hint,.dae-ui .prompt-opt-pricing,.dae-ui .prompt-opt-skipped{font-size:12px;color:var(--dae-text-muted)}
 .dae-ui .prompt-opt-pricing p{margin-top:8px}
@@ -38,3 +38,5 @@
 .dae-ui .prompt-opt-panel :focus-visible{outline:2px solid var(--dae-focus);outline-offset:2px}
 @media(max-height:540px){.dae-ui.table-text-side[data-side-kind=optimization]{inset:12px 12px 12px auto;max-height:calc(100dvh - 24px)}.dae-ui .prompt-opt-scroll{padding:12px}.dae-ui .prompt-opt-footer{padding:8px 12px;gap:4px}}
 @media(prefers-reduced-motion:reduce){.dae-ui .prompt-opt-panel *{scroll-behavior:auto;transition:none}}
+
+.dae-ui .prompt-opt-key{display:flex;flex-direction:column;gap:8px}

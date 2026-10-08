@@ -1,10 +1,10 @@
 import {isGeneration,rowGenerationConfig,setRowGenerationConfig,generationConfigField} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {isPrompt,promptField} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
 import {addField,addRecord,removeField,clone,uid,reorder,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button} from './table_controls.mjs?v=20261002-generation-pause';
+import {createTableButton as button} from './table_controls.mjs?v=20261008-deepseek-api-r3';
 import {applyPromptToColumn} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {previewContentAsset} from './table_content_view.mjs?v=20261002-table-module-responsibilities';
-import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261008-prompt-optimization';
+import {previewContentAsset} from './table_content_view.mjs?v=20261008-deepseek-api-r3';
+import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261008-deepseek-api-r3';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 

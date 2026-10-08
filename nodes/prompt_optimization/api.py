@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from aiohttp import web
 from .service import Service
+from .pricing import provider_for
 
 _service = None
 
@@ -35,9 +36,11 @@ async def handle(request):
         if not isinstance(p, dict) or p.get('contractVersion') != 1:
             raise ValueError('契约版本不支持')
         auth = {'token': request.headers.get('Authorization', '').removeprefix('Bearer ').strip(),
-                'key': request.headers.get('X-API-Key', '')}
+                'key': request.headers.get('X-API-Key', ''),
+                'deepseekKey': request.headers.get('X-DAELab-DeepSeek-Key', '')}
         if action == 'advance':
-            if not any(auth.values()):
+            row = _service.row(_service.batch(p['batchId']), p['requestId'])
+            if row and provider_for(row['snapshot']['model']) == 'comfy' and not (auth['token'] or auth['key']):
                 raise ValueError('请登录 ComfyUI 账号后开始优化')
             result = await _service.advance(p, auth)
         elif action in ('query', 'recover'):

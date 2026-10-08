@@ -9,6 +9,8 @@ export const INSTRUCTION_DIGEST='a8b481b7eb82fd5eb46ab9c2c5d34bd3f17e1299db8fe2b
 export const INPUT_VERSION='daelab.prompt-opt.input.v1';
 export const DEFAULT_REQUIREMENTS='提升清晰度和可执行性，消除重复与含混表达，保持原意，不主动扩写。';
 export const NAMESPACE='daelabPromptOptimizationV1';
+// Provider remains derivable from the frozen model, including old snapshots.
+export const optimizationProvider=model=>String(model||'').startsWith('deepseek-')?'deepseek':'comfy';
 const copy=v=>structuredClone(v);
 const uuid=()=>crypto.randomUUID();
 const workflowIdentities=new Map();

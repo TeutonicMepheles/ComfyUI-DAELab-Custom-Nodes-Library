@@ -336,7 +336,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.s.models=lambda:['gpt-4.1','gpt-4.1-nano','gpt-5']
         cap=await self.s.capabilities()
         self.assertFalse(cap['available'])
-        self.assertEqual([m['id'] for m in cap['models'] if m['available']],['gpt-4.1','gpt-4.1-nano'])
+        self.assertEqual([m['id'] for m in cap['models'] if m['available'] and m['provider']=='comfy'],['gpt-4.1','gpt-4.1-nano'])
         s=snapshot()
         self.assertEqual((await self.s.estimate(dict(rows=[s])))['status'],'unavailable')
         s['model']='gpt-4.1'

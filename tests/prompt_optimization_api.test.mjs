@@ -101,3 +101,41 @@ test('failed account refresh still allows local query and recover without creden
     await assert.rejects(nativeOptimizationAuth({root,required:true}),/无法取得/);
   }
 });
+
+test('DeepSeek page key is header-only, shared in-page, clearable, and never reads native auth',async()=>{
+  const calls=[];let nativeReads=0;
+  const options={getAuth:()=>{nativeReads++;throw Error('native must not run');},fetchApi:async(url,opts)=>{calls.push({url,...opts});return {ok:true,json:async()=>({batchId:'ds',rows:[{snapshot:{model:'deepseek-flash'}}]})};}};
+  const first=createPromptOptimizationApi(options),second=createPromptOptimizationApi(options);
+  first.clearDeepSeekKey();assert.equal(first.setDeepSeekKey('fake-deepseek-key'),true);assert.equal(second.hasDeepSeekKey(),true);
+  try{
+    await second.advance({batchId:'ds',provider:'deepseek',permitId:'p'});
+    await second.query({batchId:'ds'});await second.recover({batchId:'ds'});
+    assert.equal(nativeReads,0);assert.equal(calls[0].headers['X-DAELab-DeepSeek-Key'],'fake-deepseek-key');
+    assert.equal(calls[0].headers.Authorization,undefined);assert.equal(calls[0].headers['X-API-Key'],undefined);
+    assert.ok(calls.every(c=>!c.body.includes('fake-deepseek-key')));
+    assert.ok(calls.slice(1).every(c=>Object.keys(c.headers).length===1));
+    assert.equal(second.clearDeepSeekKey(),false);assert.equal(first.hasDeepSeekKey(),false);
+    const before=calls.length;await assert.rejects(first.advance({provider:'deepseek'}),/请先保存/);assert.equal(calls.length,before);
+  }finally{first.clearDeepSeekKey();}
+});
+
+test('DeepSeek environment key permits advance without page or native credentials; beforeSend still guards',async()=>{
+  let nativeReads=0;const calls=[];
+  const api=createPromptOptimizationApi({getAuth:()=>{nativeReads++;},fetchApi:async(url,opts)=>{calls.push({url,...opts});return {ok:true,json:async()=>({deepseekKeyConfigured:true})};}});
+  api.clearDeepSeekKey();await api.capabilities({model:'deepseek-flash'});
+  await api.advance({provider:'deepseek',permitId:'p'});
+  assert.equal(nativeReads,0);assert.deepEqual(calls[1].headers,{'Content-Type':'application/json'});
+  assert.equal(JSON.parse(calls[1].body).provider,'deepseek');
+  await assert.rejects(api.advance({provider:'deepseek'},{beforeSend:()=>false}),/未发送/);assert.equal(calls.length,2);
+});
+
+test('initial local recovery does not acquire native credentials before frozen provider discovery',async()=>{
+  let reads=0;const api=createPromptOptimizationApi({getAuth:()=>{reads++;},fetchApi:async()=>({ok:true,json:async()=>({batchId:'ds',rows:[{snapshot:{model:'deepseek-v4-pro'}}]})})});
+  await api.recover({batchId:'ds'},{localOnly:true});await api.recover({batchId:'ds'});assert.equal(reads,0);
+});
+
+test('DeepSeek diagnostic errors never expose the page key and never retry',async()=>{
+  let sends=0;const api=createPromptOptimizationApi({fetchApi:async()=>{sends++;throw Error('fake-key diagnostic');}});
+  api.setDeepSeekKey('fake-key');
+  try{await assert.rejects(api.advance({provider:'deepseek'}),e=>!e.message.includes('fake-key')&&e.message.includes('查询原任务'));assert.equal(sends,1);}finally{api.clearDeepSeekKey();}
+});

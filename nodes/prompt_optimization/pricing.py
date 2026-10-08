@@ -10,6 +10,8 @@ import urllib.request
 
 SOURCE = 'https://docs.comfy.org/tutorials/partner-nodes/pricing'
 MODEL = 'gpt-4.1-mini'
+MESSAGE_FRAMING_TOKENS = 64
+TOKEN_ALGORITHM = 'utf8-byte-conservative-v2; two messages; framing +64; approximate, not actual usage'
 # Non-reasoning models only. Verified 2026-10-08 against the official model
 # reference. Native availability and Partner credit pricing are checked live.
 MODEL_LIMITS = {name: {'maxOutputTokens': 32768, 'contextTokens': 1047576,
@@ -69,8 +71,8 @@ class OfficialPricing:
 
 def tokens(snapshot, instructions):
     # No tokenizer dependency/download. UTF-8 byte length conservatively estimates
-    # BPE tokens; +32 is explicitly approximate message framing, not actual usage.
-    input_count = len(instructions.encode('utf-8')) + len(snapshot['inputText'].encode('utf-8')) + 32
+    # BPE tokens; +64 conservatively frames developer + user, not actual usage.
+    input_count = len(instructions.encode('utf-8')) + len(snapshot['inputText'].encode('utf-8')) + MESSAGE_FRAMING_TOKENS
     expected = min(snapshot['maxOutputTokens'], max(32, math.ceil(len(snapshot['input']['prompt_text'].encode('utf-8')) * 0.65)))
     return input_count, expected
 

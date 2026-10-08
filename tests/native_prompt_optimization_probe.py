@@ -52,8 +52,10 @@ async def main():
         t = NativeTransport()
         data, receipt = await t.create(snapshot,INSTRUCTIONS,auth)
         assert data['id']=='resp_probe' and receipt['creditsHeader']=='0.125'
-        assert received[0]['instructions']==INSTRUCTIONS
-        assert received[0]['input']==[{'role':'user','content':[{'text':fixture['inputText'],'type':'input_text'}]}]
+        assert 'instructions' not in received[0]
+        assert received[0]['input']==[
+            {'role':'developer','content':[{'text':INSTRUCTIONS,'type':'input_text'}]},
+            {'role':'user','content':[{'text':fixture['inputText'],'type':'input_text'}]}]
         assert received[0]['max_output_tokens']==1024
         await t.query('resp_probe',auth)
         failure_status=503
@@ -82,7 +84,8 @@ async def main():
         assert 'dummy-probe-secret' not in logs
         assert '***' in logs
         print(json.dumps({'core':str(CORE),'nativeEndpoint':'/proxy/openai/v1/responses',
-            'instructionsExact':True,'inputExact':True,'postRetryCount':0,'getSeparated':True,
+            'instructionsExact':True,'inputExact':True,'inputRoles':['developer','user'],
+            'topLevelInstructionsAbsent':True,'postRetryCount':0,'getSeparated':True,
             'headerCaptured':True,'logsRedacted':True,'realPaidRequests':0,'loopbackCalls':calls,
             'localRejections':rejections}))
     await runner.cleanup()

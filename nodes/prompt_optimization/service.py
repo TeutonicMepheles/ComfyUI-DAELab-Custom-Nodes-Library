@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from .instructions import INSTRUCTIONS, INSTRUCTION_VERSION, INSTRUCTION_DIGEST, INPUT_VERSION
 from .context_copy import context_copy_reason
-from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, tokens, cost
+from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, TOKEN_ALGORITHM, tokens, cost
 from .transport import NativeTransport, TransportError, native_capabilities
 
 ACTIVE = {'queued', 'preparing', 'submitting', 'submitted', 'polling'}
@@ -193,7 +193,7 @@ class Service:
         return dict(contractVersion=1, models=choices,
             defaultModel=MODEL, instructionVersion=INSTRUCTION_VERSION, instructionDigest=INSTRUCTION_DIGEST,
             inputVersion=INPUT_VERSION, available=available and bool(price), reason=reason, price=price,
-            tokenAlgorithm='utf8-byte-conservative-v1; framing +32; approximate, not actual usage')
+            tokenAlgorithm=TOKEN_ALGORITHM)
 
     async def estimate(self, p):
         selected = p.get('model', p['rows'][0]['model'] if p.get('rows') else MODEL)

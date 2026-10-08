@@ -14,22 +14,26 @@ def native_capabilities():
     try:
         import nodes
         from comfy_api_nodes.nodes_openai import SupportedOpenAIModel
-        from comfy_api_nodes.apis.openai import OpenAICreateResponse
+        from comfy_api_nodes.apis.openai import OpenAICreateResponse, InputMessage, InputTextContent
         from comfy_api_nodes.util import request_logger
         registered = 'OpenAIChatNode' in nodes.NODE_CLASS_MAPPINGS
         fields = OpenAICreateResponse.model_fields
         redacted = request_logger._redact_headers({'Authorization': 'probe', 'X-API-KEY': 'probe'})
-        if not registered or not {'instructions', 'max_output_tokens', 'input'} <= fields.keys() or 'probe' in redacted.values():
+        developer = InputMessage(role='developer', content=[InputTextContent(text='capability-probe')])
+        if not registered or not {'max_output_tokens', 'input'} <= fields.keys() or 'probe' in redacted.values():
+            return []
+        if developer.model_dump(exclude_none=True).get('role') != 'developer':
             return []
         return [v.value for v in SupportedOpenAIModel]
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, TypeError, ValueError):
         return []
 
 
 def native_request(snapshot, instructions):
     from comfy_api_nodes.apis.openai import OpenAICreateResponse, InputMessage, InputTextContent
-    return OpenAICreateResponse(model=snapshot['model'], instructions=instructions,
-        input=[InputMessage(role='user', content=[InputTextContent(text=snapshot['inputText'])])],
+    return OpenAICreateResponse(model=snapshot['model'],
+        input=[InputMessage(role='developer', content=[InputTextContent(text=instructions)]),
+               InputMessage(role='user', content=[InputTextContent(text=snapshot['inputText'])])],
         max_output_tokens=snapshot['maxOutputTokens'], store=True, stream=False,
         previous_response_id=None, truncation='disabled')
 

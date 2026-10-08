@@ -73,6 +73,29 @@
         0,
         0
       ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.5
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        },
+        "2": {
+          "x": 1250,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
     }
   },
   "version": 0.4

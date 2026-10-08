@@ -1,0 +1,102 @@
+{
+  "id": "a76a2148-1c0d-44d3-9234-a54cd91c562e",
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "title": "Q01 · 单格提示词验收",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        1180,
+        620
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "table_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table",
+        "daelabPromptOptimizationV1": {
+          "version": 1,
+          "tableId": "66f41837-98dd-40ba-8ccf-1252d895b602",
+          "revisions": {},
+          "batches": [],
+          "preferences": {
+            "model": "gpt-4.1-mini"
+          },
+          "drafts": {
+            "[\"cell\",\"p\",\"Q01\"]": ""
+          }
+        }
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"image\",\"model\":\"Lib Image\",\"promptFieldId\":\"p\",\"mode\":\"\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q01\",\"selected\":false,\"values\":{\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"text\",\"text\":\"一只白猫坐在窗台上，白色的猫，下午阳光照着窗台，画面不要文字。\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"image\",\"model\":\"Lib Image\",\"promptFieldId\":\"p\",\"mode\":\"\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q01\",\"selected\":false,\"values\":{\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"text\",\"text\":\"一只白猫坐在窗台上，白色的猫，下午阳光照着窗台，画面不要文字。\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
+    },
+    "daelabPromptOptimizationV1": {
+      "version": 1,
+      "documentId": "30e11a32-ca49-4754-a106-8e5949ef58fd",
+      "nativeWorkflowId": "a76a2148-1c0d-44d3-9234-a54cd91c562e"
+    },
+    "daelabPaidAcceptanceFixture": {
+      "version": 1,
+      "scope": "cell",
+      "fieldId": "p",
+      "recordId": "Q01",
+      "cases": [
+        "Q01"
+      ],
+      "model": "gpt-4.1-mini",
+      "requirements": "提升清晰度和可执行性，消除重复与含混表达，保持原意，不主动扩写。",
+      "maxOutputTokens": 1024,
+      "notAuthorization": true,
+      "paidPostsExecuted": 0
+    }
+  },
+  "version": 0.4
+}

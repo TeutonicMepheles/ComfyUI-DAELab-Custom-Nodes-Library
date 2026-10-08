@@ -9,23 +9,6 @@ const widgetNames={
  'DAELAB.StoryboardImport':'storyboard_data',
  'DAELAB.ComfyTV.GPTImageStoryboardStage':'storyboard_data',
 };
-const activePhases=new Set(['waiting','running','queued','preparing','submitting','recovering','pausing']);
-
-function preserveLegacyResults(current,next){
- const bindings=(current.meta?.prompt_config||current.meta?.storyboard)?.bindings||{};
- const outputIds=[bindings.video_result,bindings.generation_status].filter(Boolean);
- const nextFields=new Set(next.fields.map(f=>f.id)),rows=new Map(next.records.map(r=>[r.id,r]));
- for(const live of current.records){
-  if(!live.meta?.generation)continue;
-  const row=rows.get(live.id),active=activePhases.has(live.meta.generation.phase);
-  if(active&&(!row||outputIds.some(id=>!nextFields.has(id))))throw new Error('任务正在运行，暂不能撤销对应记录或生成结果字段');
-  if(!row)continue;
-  for(const id of outputIds)if(nextFields.has(id)){
-   if(Object.hasOwn(live.values,id))row.values[id]=structuredClone(live.values[id]);else delete row.values[id];
-  }
- }
-}
-
 function readTable(value,wrapped){
  const decoded=typeof value==='string'?JSON.parse(value):value;
  const table=wrapped?decoded?.table:decoded;
@@ -65,7 +48,6 @@ export function preserveWorkflowGenerationHistory(graph,data){
   try{
    restored=readTable(hasNamed?named[name]:serialized.widgets_values[index],wrapped);
    preserveGenerationHistory(current,restored);
-   preserveLegacyResults(current,restored);
    assertTransition(current,restored,{restoring:true});
   }catch(error){
    // Extension hook exceptions are swallowed by the native frontend. Replace

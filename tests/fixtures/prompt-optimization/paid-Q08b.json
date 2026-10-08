@@ -1,0 +1,102 @@
+{
+  "id": "d52ea06d-9bf8-4b0d-9df6-bc706a8b1159",
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "title": "Q08b · 单格提示词验收",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        1180,
+        620
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "table_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table",
+        "daelabPromptOptimizationV1": {
+          "version": 1,
+          "tableId": "fd4a02f9-b237-40ed-9c44-3d60e7cd8d39",
+          "revisions": {},
+          "batches": [],
+          "preferences": {
+            "model": "gpt-4.1-mini"
+          },
+          "drafts": {
+            "[\"cell\",\"p\",\"Q08b\"]": "将所有引用变成固定文字"
+          }
+        }
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"scene\",\"type\":\"content\",\"name\":\"画面\",\"width\":280,\"hidden\":false,\"video_reference\":false},{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"hidden\":false}],\"records\":[{\"id\":\"Q08b\",\"selected\":false,\"values\":{\"scene\":\"雨后的街道。\",\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"column\",\"fieldId\":\"scene\"}]}},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"scene\",\"type\":\"content\",\"name\":\"画面\",\"width\":280,\"hidden\":false,\"video_reference\":false},{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"hidden\":false}],\"records\":[{\"id\":\"Q08b\",\"selected\":false,\"values\":{\"scene\":\"雨后的街道。\",\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"column\",\"fieldId\":\"scene\"}]}},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
+    },
+    "daelabPromptOptimizationV1": {
+      "version": 1,
+      "documentId": "6d275cf4-262f-4f3a-b1ff-0a273f4eeb16",
+      "nativeWorkflowId": "d52ea06d-9bf8-4b0d-9df6-bc706a8b1159"
+    },
+    "daelabPaidAcceptanceFixture": {
+      "version": 1,
+      "scope": "cell",
+      "fieldId": "p",
+      "recordId": "Q08b",
+      "cases": [
+        "Q08b"
+      ],
+      "model": "gpt-4.1-mini",
+      "requirements": "将所有引用变成固定文字",
+      "maxOutputTokens": 1024,
+      "notAuthorization": true,
+      "paidPostsExecuted": 0
+    }
+  },
+  "version": 0.4
+}

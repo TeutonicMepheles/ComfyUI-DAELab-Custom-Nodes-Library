@@ -1,5 +1,6 @@
 .dae-ui .prompt-opt-entry{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;max-width:100%}
 .dae-ui .prompt-opt-trigger{display:inline-flex;align-items:center;gap:6px;background:var(--dae-primary-container)!important;color:var(--dae-on-primary-container)!important;font-weight:500}
+.dae-ui .prompt-opt-trigger:hover:not(:disabled){background:color-mix(in srgb,var(--dae-primary-container) 85%,var(--dae-on-primary-container))!important}
 .dae-ui .prompt-opt-trigger .dae-table-icon{width:18px;height:18px;flex:none}
 .dae-ui .prompt-opt-menu-cost{font-size:12px;color:var(--dae-text-muted);overflow-wrap:anywhere}
 .dae-ui.table-text-side[data-side-kind=optimization]{width:min(480px,calc(100vw - 24px));max-height:calc(100dvh - 120px)}
@@ -21,7 +22,7 @@
 .dae-ui .prompt-opt-result{border-top:1px solid var(--dae-border);padding-top:8px}
 .dae-ui .prompt-opt-result summary>span{margin-right:8px}
 .dae-ui .prompt-opt-row-status{font-size:12px;color:var(--dae-text-muted)}
-.dae-ui .prompt-opt-result:is([data-status=stale],[data-status=invalid],[data-status=unknown],[data-status=failed]) .prompt-opt-row-status{color:var(--dae-error)}
+.dae-ui .prompt-opt-result:is([data-status=stale],[data-status=invalid],[data-status=unknown],[data-status=failed]) .prompt-opt-row-status{color:var(--dae-danger)}
 .dae-ui .prompt-opt-comparison{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:10px 0}
 .dae-ui .prompt-opt-comparison strong{font-size:12px;font-weight:500;color:var(--dae-text-muted)}
 .dae-ui .prompt-opt-comparison pre{margin:0;padding:10px;border-radius:8px;background:var(--dae-surface-low);white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;min-height:24px}
@@ -29,7 +30,7 @@
 .dae-ui .prompt-opt-footer{display:flex;flex-direction:column;gap:8px;flex:none;padding:12px 16px;border-top:1px solid var(--dae-border);background:var(--dae-surface)}
 .dae-ui .prompt-opt-actions{display:flex;flex-wrap:wrap;gap:6px}
 .dae-ui .prompt-opt-recovery{display:flex;flex-direction:column;gap:8px}
-.dae-ui .prompt-opt-warning,.dae-ui .prompt-opt-error{color:var(--dae-error);font-size:12px}
+.dae-ui .prompt-opt-warning,.dae-ui .prompt-opt-error{color:var(--dae-danger);font-size:12px}
 .dae-ui .prompt-opt-error{flex:none;padding:8px 16px;max-height:100px;overflow:auto}
 .dae-ui .prompt-opt-ack{display:flex;align-items:flex-start;gap:8px;font-size:12px}
 .dae-ui .prompt-opt-ack input{flex:none;min-width:18px;min-height:18px;accent-color:var(--dae-accent)}

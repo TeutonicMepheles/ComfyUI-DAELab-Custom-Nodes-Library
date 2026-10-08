@@ -248,7 +248,15 @@ class Service:
 
     async def submit(self, p):
         rows = p['rows']
-        fingerprint = digest({k: p[k] for k in ('quoteId', 'batchId', 'rows', 'budgetCredits')})
+        scope = p.get('range')
+        if not isinstance(scope, dict) or scope.get('scope') not in ('cell', 'column'):
+            raise ValueError('提交必须包含明确的单元格或整列范围')
+        expected_keys = {'scope', 'fieldId', 'recordId'} if scope['scope'] == 'cell' else {'scope', 'fieldId'}
+        if set(scope) != expected_keys or not rows or any(r['snapshot']['target']['fieldId'] != scope['fieldId'] for r in rows):
+            raise ValueError('范围字段与冻结行不一致')
+        if scope['scope'] == 'cell' and (len(rows) != 1 or rows[0]['snapshot']['target']['recordId'] != scope['recordId']):
+            raise ValueError('单元格范围与冻结记录不一致')
+        fingerprint = digest({k: p[k] for k in ('quoteId', 'batchId', 'rows', 'budgetCredits', 'range')})
         async with self.lock:
             old = self.ledger.get('batch', p['batchId'])
             if old:
@@ -271,6 +279,7 @@ class Service:
                         raise ValueError('前次提交结果未知，可能已扣费；须明确确认重复收费风险后以新请求 ID 重新优化')
             batch = dict(contractVersion=1, batchId=p['batchId'], tableKey=table_key(snapshots[0]['target']),
                 quoteId=q['quoteId'], submissionDigest=fingerprint, budgetCredits=p['budgetCredits'],
+                range=copy.deepcopy(scope),
                 stopped=False, paused=False, rows=[dict(requestId=r['requestId'], snapshot=copy.deepcopy(r['snapshot']),
                     status='queued', remoteResponseId=None, actualCredits=None) for r in rows])
             self.check_lease(batch, p['leaseId'])
@@ -391,11 +400,16 @@ class Service:
                     counts = {}
                     for row in rows:
                         counts[row['status']] = counts.get(row['status'], 0) + 1
-                    summary = dict(batchId=batch['batchId'], fieldId=fields[0] if len(fields) == 1 else None,
-                        scope='cell' if len(rows) == 1 else 'column', rowCount=len(rows), statusCounts=counts,
-                        paused=batch['paused'], stopped=batch['stopped'], updatedAt=batch.get('updatedAt'))
+                    explicit_range = batch.get('range')
+                    inferred_range = dict(fieldId=fields[0] if len(fields) == 1 else None, scope='cell' if len(rows) == 1 else 'column')
                     if len(rows) == 1:
-                        summary['recordId'] = rows[0]['snapshot']['target']['recordId']
+                        inferred_range['recordId'] = rows[0]['snapshot']['target']['recordId']
+                    effective_range = explicit_range or inferred_range
+                    summary = dict(batchId=batch['batchId'], fieldId=effective_range['fieldId'],
+                        scope=effective_range['scope'], rowCount=len(rows), statusCounts=counts,
+                        paused=batch['paused'], stopped=batch['stopped'], updatedAt=batch.get('updatedAt'))
+                    if effective_range['scope'] == 'cell':
+                        summary['recordId'] = effective_range['recordId']
                     summaries.append(summary)
                 # Discovery is strictly read-only, including when auth is present:
                 # no polling, lease renewal, row continuation or ledger mutation.

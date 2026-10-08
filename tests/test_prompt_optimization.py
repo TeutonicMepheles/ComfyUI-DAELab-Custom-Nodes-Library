@@ -66,10 +66,13 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(*self.s.workers.values(), return_exceptions=True)
         self.s.ledger.db.close()
         self.temp.cleanup()
-    async def batch(self, count=1, bid='batch1'):
+    async def batch(self, count=1, bid='batch1', scope=None):
         rows = [snapshot(i) for i in range(count)]
         q = await self.s.estimate(dict(rows=rows, model='gpt-4.1-mini'))
         p = dict(quoteId=q['quoteId'], batchId=bid, rows=[dict(requestId=f'{bid}-r{i}', snapshot=s) for i,s in enumerate(rows)], leaseId=self.lease['leaseId'], budgetCredits=q['budgetUpperCredits'])
+        p['range'] = dict(scope=scope or ('cell' if count == 1 else 'column'), fieldId='prompt')
+        if p['range']['scope'] == 'cell':
+            p['range']['recordId'] = rows[0]['target']['recordId']
         return await self.s.submit(p), p, q
     async def permit(self, batch, index=0):
         row = batch['rows'][index]
@@ -217,7 +220,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         batch, _, _ = await self.batch()
         second_snapshot = snapshot(8)
         q = await self.s.estimate(dict(rows=[second_snapshot]))
-        second = await self.s.submit(dict(quoteId=q['quoteId'],batchId='second',rows=[dict(requestId='second-r0',snapshot=second_snapshot)],leaseId=self.lease['leaseId'],budgetCredits=q['budgetUpperCredits']))
+        second = await self.s.submit(dict(quoteId=q['quoteId'],batchId='second',rows=[dict(requestId='second-r0',snapshot=second_snapshot)],leaseId=self.lease['leaseId'],budgetCredits=q['budgetUpperCredits'],range=dict(scope='cell',fieldId='prompt',recordId=second_snapshot['target']['recordId'])))
         await self.advance(batch)
         p = await self.permit(second)
         with self.assertRaisesRegex(ValueError,'其他批次'):
@@ -299,6 +302,36 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
             await self.s.query(dict(target={'tableId':'table'}))
         with self.assertRaisesRegex(ValueError,'完整'):
             await self.s.query(dict(target={'documentId':'doc','tableId':'table','recordId':'row0'}))
+
+    async def test_column_with_one_valid_row_preserves_explicit_range(self):
+        batch, p, _ = await self.batch(scope='column')
+        self.assertEqual(batch['range'],{'scope':'column','fieldId':'prompt'})
+        found=await self.s.query(dict(target={'documentId':'doc','tableId':'table'}))
+        self.assertEqual(found['batches'][0]['scope'],'column')
+        self.assertNotIn('recordId',found['batches'][0])
+        second=Service(self.temp.name,transport=self.t,pricing=self.p,models=lambda:['gpt-4.1-mini'])
+        try:
+            self.assertEqual((await second.query(dict(target={'documentId':'doc','tableId':'table'})))['batches'][0]['scope'],'column')
+        finally:
+            second.ledger.db.close()
+        # An idempotent ID must not silently change its original range.
+        p['range']={'scope':'cell','fieldId':'prompt','recordId':'row0'}
+        with self.assertRaisesRegex(ValueError,'冲突'):
+            await self.s.submit(p)
+
+    async def test_range_rejects_mismatched_field_record_or_missing_scope(self):
+        _, p, _ = await self.batch()
+        for invalid in ({'scope':'column','fieldId':'wrong'}, {'scope':'cell','fieldId':'prompt','recordId':'wrong'}, {'scope':'column','fieldId':'prompt','recordId':'row0'}, None):
+            p['range']=invalid
+            with self.assertRaises(ValueError):
+                await self.s.submit(p)
+
+    async def test_legacy_batch_without_range_keeps_discovery_fallback(self):
+        batch, _, _ = await self.batch()
+        batch.pop('range')
+        self.s.save(batch)
+        found=await self.s.query(dict(target={'documentId':'doc','tableId':'table'}))
+        self.assertEqual((found['batches'][0]['scope'],found['batches'][0]['recordId']),('cell','row0'))
 
 
 class ValidationTests(unittest.TestCase):

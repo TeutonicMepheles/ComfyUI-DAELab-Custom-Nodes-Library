@@ -55,16 +55,22 @@ def validate_snapshot(s):
             raise ValueError('修订无效')
     if s['model'] not in MODEL_LIMITS or not isinstance(s['maxOutputTokens'], int) or not 32 <= s['maxOutputTokens'] <= MODEL_LIMITS[s['model']]['maxOutputTokens']:
         raise ValueError('模型或输出预算不受支持，请重新选择')
-    inp = s['input']
-    if list(inp) != ['purpose', 'optimization_requirements', 'prompt_text', 'protected_tokens', 'reference_context']:
+    # Ledger canonicalization sorts dictionary keys, while inputText is the exact
+    # frozen wire payload. Validate its order and bytes, then compare redundancy.
+    if not isinstance(s['inputText'], str) or len(s['inputText']) > 120000:
+        raise ValueError('输入与冻结 JSON 不一致或过长')
+    try:
+        inp = json.loads(s['inputText'])
+    except ValueError:
+        raise ValueError('冻结输入不是有效 JSON') from None
+    if not isinstance(inp, dict) or list(inp) != ['purpose', 'optimization_requirements', 'prompt_text', 'protected_tokens', 'reference_context']:
         raise ValueError('输入字段或次序无效')
+    if inp != s['input'] or json.dumps(inp, ensure_ascii=False, separators=(',', ':')) != s['inputText']:
+        raise ValueError('输入与冻结 JSON 不一致或格式已改变')
     if inp['purpose'] not in ('image', 'video', 'general') or not isinstance(inp['prompt_text'], str) or not inp['prompt_text'].strip():
         raise ValueError('提示词为空或用途无效')
     if not isinstance(inp['optimization_requirements'], str) or not inp['optimization_requirements'].strip() or s['purpose'] != inp['purpose']:
         raise ValueError('优化要求或用途不一致')
-    serialized = json.dumps(inp, ensure_ascii=False, separators=(',', ':'))
-    if serialized != s['inputText'] or len(serialized) > 120000:
-        raise ValueError('输入与冻结 JSON 不一致或过长')
     protected = inp['protected_tokens']
     if not isinstance(protected, list) or TOKEN.findall(inp['prompt_text']) != protected or len(set(protected)) != len(protected):
         raise ValueError('保护标记不完整')
@@ -279,7 +285,7 @@ class Service:
                         raise ValueError('前次提交结果未知，可能已扣费；须明确确认重复收费风险后以新请求 ID 重新优化')
             batch = dict(contractVersion=1, batchId=p['batchId'], tableKey=table_key(snapshots[0]['target']),
                 quoteId=q['quoteId'], submissionDigest=fingerprint, budgetCredits=p['budgetCredits'],
-                range=copy.deepcopy(scope),
+                range=copy.deepcopy(scope), preflightSkipped=copy.deepcopy(q.get('skipped', [])),
                 stopped=False, paused=False, rows=[dict(requestId=r['requestId'], snapshot=copy.deepcopy(r['snapshot']),
                     status='queued', remoteResponseId=None, actualCredits=None) for r in rows])
             self.check_lease(batch, p['leaseId'])

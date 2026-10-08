@@ -221,6 +221,39 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.t.gets, ['resp_test'])
         self.assertNotIn('error', recovered)
 
+    async def test_sqlite_restart_reestimates_frozen_input_and_preserves_preflight_skips(self):
+        original = snapshot(fixture=3)  # Text reference with token/kind/label/text order.
+        skipped = [{'recordId': 'empty-row', 'reason': '提示词为空'}]
+        quote = await self.s.estimate(dict(rows=[original], skipped=skipped))
+        batch = await self.s.submit(dict(quoteId=quote['quoteId'], batchId='restored',
+            range=dict(scope='column', fieldId='prompt'), rows=[dict(requestId='restore-r0', snapshot=original)],
+            leaseId=self.lease['leaseId'], budgetCredits=quote['budgetUpperCredits']))
+        self.s.ledger.db.close()
+        restored = Service(self.temp.name, transport=self.t, pricing=self.p, models=lambda: ['gpt-4.1-mini'])
+        try:
+            stored = restored.batch('restored')
+            frozen = stored['rows'][0]['snapshot']
+            self.assertTrue(stored['paused'])
+            self.assertNotEqual(list(frozen['input']), list(original['input']))
+            self.assertNotEqual(list(frozen['input']['reference_context'][0]), list(original['input']['reference_context'][0]))
+            self.assertEqual(frozen['inputText'], original['inputText'])
+            new_quote = await restored.estimate(dict(rows=[frozen], skipped=stored.get('preflightSkipped', [])))
+            self.assertEqual(stored['preflightSkipped'], skipped)
+            self.assertEqual(new_quote['skipped'], skipped)
+            lease = await restored.lease(dict(target=original['target'], instanceId='restored-view'))
+            continued = await restored.continue_batch(dict(batchId='restored', quoteId=new_quote['quoteId'],
+                leaseId=lease['leaseId'], budgetCredits=new_quote['budgetUpperCredits']))
+            self.assertFalse(continued['paused'])
+            permit = await restored.permit(dict(batchId='restored', requestId='restore-r0', leaseId=lease['leaseId'],
+                **{k: frozen[k] for k in ('snapshotDigest', 'revision', 'requestSeq')}))
+            await restored.advance(permit, {'token': 'fake'})
+            await asyncio.gather(*restored.workers.values())
+            self.assertEqual(len(self.t.posts), 1)
+            self.assertEqual(self.t.posts[0][0]['inputText'], original['inputText'])
+            self.assertEqual(restored.batch('restored')['preflightSkipped'], skipped)
+        finally:
+            restored.ledger.db.close()
+
     async def test_restart_unknown_and_submitted_get_only_no_queued(self):
         batch, _, _ = await self.batch(3)
         batch['rows'][0]['status']='submitting'
@@ -405,7 +438,22 @@ class ValidationTests(unittest.TestCase):
         s['authorization']='secret'
         with self.assertRaises(ValueError): validate_snapshot(s)
 
-
+    def test_input_text_contract_stays_strict_after_ledger_dictionary_reordering(self):
+        original = snapshot(fixture=3)
+        reordered = json.loads(json.dumps(original, sort_keys=True, ensure_ascii=False))
+        validate_snapshot(reordered)
+        # The redundancy may be reordered in storage, but actual wire JSON may not.
+        changed = copy.deepcopy(reordered)
+        changed['inputText'] = json.dumps(changed['input'], ensure_ascii=False, separators=(',', ':'))
+        with self.assertRaisesRegex(ValueError, '次序'):
+            validate_snapshot(changed)
+        changed = copy.deepcopy(reordered)
+        changed['input']['reference_context'][0]['text'] = 'different reference'
+        with self.assertRaises(ValueError): validate_snapshot(changed)
+        for text in ('not JSON', '[]', original['inputText'] + ' ', original['inputText'].replace('{', '{"purpose":"image",', 1)):
+            changed = copy.deepcopy(reordered)
+            changed['inputText'] = text
+            with self.assertRaises(ValueError): validate_snapshot(changed)
 class PriceRecoveryTests(unittest.IsolatedAsyncioTestCase):
     def response(self):
         response = MagicMock()

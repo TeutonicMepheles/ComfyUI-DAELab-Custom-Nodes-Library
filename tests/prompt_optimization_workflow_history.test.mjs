@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NAMESPACE,prepareWorkflowIdentity} from '../web/prompt_optimization_model.mjs';
+import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from '../web/prompt_optimization_model.mjs';
 import {installWorkflowGenerationHistory,preserveWorkflowGenerationHistory} from '../web/prompt_optimization_workflow_history.mjs';
 
 const clone=value=>structuredClone(value);
@@ -46,6 +46,22 @@ test('false/false load of a copied native workflow forks identity before overlay
  app.loadGraphData(f.data,false,false);
  assert.notEqual(f.data.extra[NAMESPACE].documentId,'doc');assert.notEqual(f.serialized.properties[NAMESPACE].tableId,'table');
  assert.equal(decoded(f).records[0].meta.generationColumns.g.phase,'running');assert.deepEqual(decoded(f).records[0].values.g,[]);
+});
+
+test('restored revision and ledger references already match remount persistence, preserving redo',()=>{
+ const f=fixture(),registry=new OptimizationRevisions();registry.begin(f.current,'r','p');
+ f.live.properties[NAMESPACE].revisions=registry.serialize();f.live.properties[NAMESPACE].batches=[{batchId:'retained'}];
+ const previous=clone(registry.current(f.current,'r','p'));
+ preserveWorkflowGenerationHistory(f.graph,f.data);
+ const saved=clone(f.serialized.properties[NAMESPACE]);
+ registry.merge(saved.revisions);registry.observe(decoded(f));
+ assert.deepEqual(registry.serialize(),saved.revisions);
+ const next=registry.current(decoded(f),'r','p');
+ assert.equal(next.revision,previous.revision+1);assert.equal(next.requestSeq,previous.requestSeq);
+ assert.deepEqual(saved.batches,[{batchId:'retained'}]);
+ // Merging a historical revision must not reinstate its older stamp.
+ registry.merge(f.live.properties[NAMESPACE].revisions);registry.observe(decoded(f));
+ assert.deepEqual(registry.serialize(),saved.revisions);
 });
 
 for(const type of ['DAELAB.Table','DAELAB.ScriptParser','DAELAB.StoryboardImport','DAELAB.ComfyTV.GPTImageStoryboardStage'])test(`${type}: preserve completed media before native nodes are destroyed`,()=>{

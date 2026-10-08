@@ -1,4 +1,4 @@
-import {NAMESPACE,prepareWorkflowIdentity} from './prompt_optimization_model.mjs';
+import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {serializeStoryboardTable} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';
@@ -80,6 +80,13 @@ export function preserveWorkflowGenerationHistory(graph,data){
   // Frontend 1.52.7 emits both forms and namedValuesRestore may prefer the map.
   // Keep them in agreement so either native restore path receives the overlay.
   if(named&&typeof named==='object')named[name]=value;
+  // Restoration itself is a new prompt revision. Project it into the source
+  // snapshot too, otherwise remount persists newer metadata and the next native
+  // capture treats that derived update as an edit, clearing the redo queue.
+  const latest=live.properties[NAMESPACE],revisions=new OptimizationRevisions(latest.revisions);
+  revisions.observe(restored);
+  serialized.properties[NAMESPACE].revisions=revisions.serialize();
+  serialized.properties[NAMESPACE].batches=structuredClone(latest.batches||[]);
   // Storyboard save() replays these reports after configure; keep its live
   // receipt source too, otherwise an older report can overwrite the overlay.
   if(live.properties?.daelabTableReports!==undefined)serialized.properties.daelabTableReports=structuredClone(live.properties.daelabTableReports);

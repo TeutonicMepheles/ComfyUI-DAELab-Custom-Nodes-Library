@@ -90,7 +90,7 @@ export class OptimizationRevisions{
  }
  current(table,r,f){this.observe(table);return this.entries.get(this.key(r,f));}
  begin(table,r,f){const item=this.current(table,r,f);if(!item)throw new Error('目标不存在');item.requestSeq++;return {...item};}
- merge(saved){for(const [key,value] of Object.entries(saved||{})){const old=this.entries.get(key);if(!old)this.entries.set(key,{...value});else{old.revision=Math.max(old.revision,value.revision||0);old.requestSeq=Math.max(old.requestSeq,value.requestSeq||0);}}}
+ merge(saved){for(const [key,value] of Object.entries(saved||{})){const old=this.entries.get(key);if(!old)this.entries.set(key,{...value});else{if((value.revision||0)>old.revision)old.stamp=value.stamp;old.revision=Math.max(old.revision,value.revision||0);old.requestSeq=Math.max(old.requestSeq,value.requestSeq||0);}}}
  serialize(){return Object.fromEntries([...this.entries].map(([k,v])=>[k,{...v}]));}
 }
 

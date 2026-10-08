@@ -1,3 +1,6 @@
+import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs';
+import {attachPromptOptimization} from './prompt_optimization_controller.mjs';
+import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {createMaterialTable} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
 import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261002-image-hide-duration';
@@ -73,7 +76,8 @@ function createPanel(node){
  const tabs=document.createElement('nav');tabs.className='studio-tabs';heading.append(tabs);root.append(heading);
  let tools=document.createElement('div');tools.className='studio-group-head';root.append(tools);
  let updateSummary=()=>{},promptUI=null,generationUI=null;
- const editor=createTableEditor({promptColumnsOnly:isGeneric(node),nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)?.presentation==='content',getTable:()=>node.__dataTable,setTable:t=>{generationUI?.syncPromptChanges(t,node.__dataTable);save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>{promptUI?.invalidate();generationUI?.invalidate();}});
+ const editor=createTableEditor({validateChange:assertTransition,promptColumnsOnly:isGeneric(node),nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)?.presentation==='content',getTable:()=>node.__dataTable,setTable:t=>{generationUI?.syncPromptChanges(t,node.__dataTable);save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>{promptUI?.invalidate();generationUI?.invalidate();}});
+ const optimization=attachPromptOptimization({node,graph:node.graph,editor,getTable:()=>node.__dataTable,identity:ensureIdentity(node.graph,node),fetchApi:app.api.fetchApi.bind(app.api)});
  function defaults(){const batch=node.graph?._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch'&&n.inputs?.some(i=>i.name==='storyboard_json'&&node.graph.links[i.link]?.origin_id===node.id));return batch?Object.fromEntries(['model','mode','duration','resolution','ratio','sound'].map(k=>[k,widget(batch,k)?.value])):promptConfig(node.__dataTable).defaults||{};}
  function syncDefaults(){const next=defaults();if(JSON.stringify(next)!==JSON.stringify(promptConfig(node.__dataTable).defaults||{}))editor.change(t=>{t.meta.prompt_config||=clone(promptConfig(t));t.meta.prompt_config.defaults=next;});}
  node.__syncPromptDefaults=syncDefaults;
@@ -136,14 +140,15 @@ function createPanel(node){
  };
  const presentation=isGeneric(node)?installContentPresentation({root,editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
  generationUI=isGeneric(node)?attachGenerationColumns({editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
- editor.render();return {root:workbench.host,editor,height:workbench.height,close:()=>{generationUI?.invalidate();presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{generationUI?.destroy();presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
+ editor.render();return {root:workbench.host,editor,height:workbench.height,close:()=>{optimization.pause();generationUI?.invalidate();presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{optimization.observe();workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{optimization.destroy();generationUI?.destroy();presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
 }
 
 function install(node){
  if(!node.graph)return;
+ const duplicate=node.graph._nodes?.some(n=>n!==node&&n.properties?.[NAMESPACE]?.tableId&&n.properties[NAMESPACE].tableId===node.properties?.[NAMESPACE]?.tableId);ensureIdentity(node.graph,node,{duplicate});
  if(node.type==='DAELAB.ComfyTV.GPTImageStoryboardStage')recoverShiftedWorkflowValues(node);
  const raw=widget(node,dataName(node))?.value;
- try{node.__dataTable=isGeneric(node)?(raw?normalizeTable(raw):createMaterialTable()):readStoryboard(raw);}catch(e){notify(`表格未加载：${e.message}`,'error');return;}
+ try{const next=isGeneric(node)?(raw?normalizeTable(raw):createMaterialTable()):readStoryboard(raw);if(node.__dataTable)assertTransition(node.__dataTable,next,{restoring:true});node.__dataTable=next;}catch(e){notify(`表格未加载：${e.message}`,'error');return;}
  syncGenerationConfigOwners(node.__dataTable);
  hideNative(node,dataName(node));hideNative(node,'main_prompt');save(node,node.__dataTable);
  if(node.__dataTablePanel){node.__dataTablePanel.render();return;}

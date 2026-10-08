@@ -46,3 +46,7 @@ test('unknown submission requires explicit duplicate-fee acknowledgement and nev
     ack.checked=true;ack.dispatchEvent(new Event('change'));assert.equal(retry.disabled,false);
     await retry.onclick({preventDefault(){},stopPropagation(){}});assert.deepEqual(f.calls,[['retry',{acknowledgeUnknown:true}]]);panel.destroy();
 });
+test('result summary includes preflight skips without double-counting persisted rows',()=>{
+    const f=fixture();f.update({range:{total:3,processable:1,skipped:[{recordId:'empty',reason:'为空'}]},rows:[{requestId:'r',recordId:'empty',status:'skipped'},{requestId:'s',recordId:'changed',status:'skipped'}]});
+    const panel=createPromptOptimizationPanel(f);assert.match(find(panel.root,e=>e.className==='prompt-opt-counts').textContent,/跳过 2/);panel.destroy();
+});

@@ -53,7 +53,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
    const s=next.frozen.wire;const permit=await api.permit({batchId:batch.batchId,requestId:next.requestId,leaseId:lease.leaseId,snapshotDigest:s.snapshotDigest,revision:s.revision,requestSeq:s.requestSeq});
    // Recheck after awaiting permit: UI edits/close must not race an old approval.
    if(dead||life!==lifecycle||requiresContinue||!isActive()||!matchesSnapshot(getTable(),identity,revisions,next.frozen)){requiresContinue=true;return;}
-   ingest(await api.advance({batchId:batch.batchId,requestId:next.requestId,leaseId:lease.leaseId,permitId:permit.permitId}));
+   ingest(await api.advance({batchId:batch.batchId,requestId:next.requestId,leaseId:lease.leaseId,permitId:permit.permitId},{beforeSend:()=>!dead&&life===lifecycle&&!requiresContinue&&isActive()&&matchesSnapshot(getTable(),identity,revisions,next.frozen)}));
   }catch(e){state.error=e.message;requiresContinue=true;}finally{running=false;update();schedule();}
  }
  async function submit(){const life=lifecycle;const canSubmit=state.permissions.canSubmit;return operation(async()=>{

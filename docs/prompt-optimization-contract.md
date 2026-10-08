@@ -37,6 +37,8 @@ state：`{scope,fieldId,recordId,requirements,model,models,range:{total,processa
 
 ## 本地事务与生命周期
 
+原生登录接入锁定 ComfyUI frontend 1.52.7：公开 extensionManager 仅提供登录布尔值，api.authToken/apiKey 仅在原生 queuePrompt 期间临时存在。优化 API 在单一兼容适配器中通过 extensionManager 的 Pinia store 注册表取得原生 auth/teamWorkspace/apiKeyAuth，调用原生工作空间初始化、切换等待与 token 刷新方法；这是经版本与结构检查的内部兼容接缝，不宣称稳定公共 API。版本或结构不符时禁止 advance。使用当前工作空间授权，不读存储、不导入哈希模块、不执行整张工作流，也不记录凭据。Firebase 身份不能降级到旧 API key；身份或工作空间在等待中改变则拒绝发送，原生错误脱敏。凭据取得后再次检查控制器生命周期、Active 状态与冻结目标，避免关闭、模式切换或编辑期间的异步授权继续提交。
+
 C 独占模型、控制器、宿主装配。修订与最新请求序号存于节点 properties 的 `daelabPromptOptimizationV1` 并使用运行期单调高水位合并；不在整表 history。目标和依赖发生变化（包括撤销回相同正文）递增。应用在 editor.change 同步事务中重新检查身份/字段/修订/请求/指纹，批量只写有效提示词覆盖值，有变化才记一次历史。任务与建议只在服务账本，恢复不依据历史快照的忙碌状态。
 
 文档身份位于 graph.extra；表身份位于节点 properties；复制节点重新生成表身份，产品“创建副本”显式更新文档身份。同一序列化工作流原样拷贝视为同一文档。不能猜文件名。

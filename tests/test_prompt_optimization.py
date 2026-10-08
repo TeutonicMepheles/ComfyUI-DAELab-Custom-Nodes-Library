@@ -3,10 +3,13 @@ import asyncio
 import copy
 import importlib.util
 import json
+import ssl
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch, MagicMock
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('promptopt', ROOT / 'nodes/prompt_optimization/__init__.py', submodule_search_locations=[str(ROOT / 'nodes/prompt_optimization')])
@@ -16,7 +19,7 @@ spec.loader.exec_module(module)
 from promptopt.service import Service, digest, validate_snapshot, suggestion
 from promptopt.instructions import INSTRUCTIONS, INSTRUCTION_VERSION, INSTRUCTION_DIGEST, INPUT_VERSION
 from promptopt.transport import TransportError
-from promptopt.pricing import tokens
+from promptopt.pricing import tokens, OfficialPricing
 
 
 class Price:
@@ -361,6 +364,43 @@ class ValidationTests(unittest.TestCase):
         s=snapshot()
         s['authorization']='secret'
         with self.assertRaises(ValueError): validate_snapshot(s)
+
+
+class PriceRecoveryTests(unittest.IsolatedAsyncioTestCase):
+    def response(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b'Input credits / 1M\n| gpt-4.1-mini | 84.4 | 337.6 |'
+        return response
+
+    async def test_public_get_retries_transient_tls_once_without_changing_tls(self):
+        failure=ssl.SSLEOFError('TLS EOF fixture')
+        with patch('promptopt.pricing.urllib.request.urlopen',side_effect=[failure,self.response()]) as fetch, patch('promptopt.pricing.time.sleep') as sleep:
+            loaded=OfficialPricing()._load()
+        self.assertEqual(fetch.call_count,2)
+        self.assertEqual(loaded['prices']['gpt-4.1-mini']['input'],84.4)
+        self.assertEqual(sleep.call_args.args,(0.25,))
+        for call in fetch.call_args_list:
+            self.assertEqual(call.args,('https://docs.comfy.org/tutorials/partner-nodes/pricing.md',))
+            self.assertEqual(call.kwargs,{'timeout':10}) # No unverified SSL context.
+
+    async def test_public_get_has_three_attempt_limit_and_nonretryable_http(self):
+        with patch('promptopt.pricing.urllib.request.urlopen',side_effect=urllib.error.URLError('EOF')) as fetch, patch('promptopt.pricing.time.sleep'):
+            with self.assertRaises(urllib.error.URLError): OfficialPricing()._load()
+            self.assertEqual(fetch.call_count,3)
+        with patch('promptopt.pricing.urllib.request.urlopen',side_effect=urllib.error.HTTPError('https://docs.comfy.org',403,'Forbidden',{},None)) as fetch:
+            with self.assertRaises(urllib.error.HTTPError): OfficialPricing()._load()
+            self.assertEqual(fetch.call_count,1)
+
+    async def test_failed_price_cache_recovers_after_fifteen_seconds(self):
+        pricing=OfficialPricing()
+        loaded={'checkedAt':115001,'prices':{'gpt-4.1-mini':{'input':84.4,'output':337.6}}}
+        with patch.object(pricing,'_load',side_effect=[urllib.error.URLError('EOF'),loaded]) as load, patch('promptopt.pricing.time.time',return_value=100) as clock:
+            with self.assertRaises(ValueError): await pricing.get()
+            with self.assertRaises(ValueError): await pricing.get()
+            self.assertEqual(load.call_count,1)
+            clock.return_value=115.001
+            self.assertEqual((await pricing.get())['input'],84.4)
+            self.assertEqual(load.call_count,2)
 
 
 if __name__ == '__main__':

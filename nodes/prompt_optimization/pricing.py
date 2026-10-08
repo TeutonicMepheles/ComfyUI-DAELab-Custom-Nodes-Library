@@ -3,7 +3,9 @@ import asyncio
 import hashlib
 import math
 import re
+import ssl
 import time
+import urllib.error
 import urllib.request
 
 SOURCE = 'https://docs.comfy.org/tutorials/partner-nodes/pricing'
@@ -22,8 +24,18 @@ class OfficialPricing:
 
     def _load(self):
         # The documentation markdown is a public, non-billable price source.
-        with urllib.request.urlopen(SOURCE + '.md', timeout=20) as response:
-            text = response.read(2_000_000).decode('utf-8')
+        # Retry only this public GET, with normal TLS verification unchanged.
+        # This code never participates in native billable POST transport.
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(SOURCE + '.md', timeout=10) as response:
+                    text = response.read(2_000_000).decode('utf-8')
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError, ssl.SSLEOFError) as error:
+                retryable = not isinstance(error, urllib.error.HTTPError) or error.code in (408, 429, 500, 502, 503, 504)
+                if not retryable or attempt == 2:
+                    raise
+                time.sleep(0.25 * (2 ** attempt))
         if 'Input credits / 1M' not in text:
             raise ValueError('官方价格结构已改变，暂无法估算')
         prices = {}
@@ -42,7 +54,8 @@ class OfficialPricing:
 
     async def get(self, model=MODEL):
         async with self.lock:
-            if not self.cached or self.cached['checkedAt'] < time.time() * 1000 - 300000:
+            cache_ms = 300000 if self.cached and self.cached['prices'] else 15000
+            if not self.cached or self.cached['checkedAt'] < time.time() * 1000 - cache_ms:
                 try:
                     self.cached = await asyncio.to_thread(self._load)
                 except Exception:

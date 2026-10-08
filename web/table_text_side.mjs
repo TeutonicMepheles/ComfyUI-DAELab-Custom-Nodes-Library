@@ -24,7 +24,14 @@ export function createTextSide({root,getHost=()=>document.body}) {
             panel={key,record,field,pane,body,id:pane.id,returnFocus};panels.set(key,panel);
             const cleanups=[];body.onCleanup=fn=>cleanups.push(fn);
             body.close=()=>{if(active===panel)hide();for(const dispose of cleanups.splice(0))dispose();pane.remove();panels.delete(key);};
-            pane.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'&&!e.defaultPrevented&&!e.isComposing){e.preventDefault();collapse();}});
+            // Native IMEs can report isComposing=false on their boundary key.
+            // Track the session as well as 229 (IME-processed key), without
+            // preventing the default Escape that dismisses native candidates.
+            let composing=false;
+            pane.addEventListener('compositionstart',()=>{composing=true;},true);
+            pane.addEventListener('compositionend',()=>{composing=false;},true);
+            pane.addEventListener('focusout',e=>{if(!pane.contains(e.relatedTarget))composing=false;});
+            pane.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'&&!e.defaultPrevented&&!composing&&!e.isComposing&&e.keyCode!==229){e.preventDefault();collapse();}});
             active=panel;build(body);
         }
         const host=getHost();if(panel.pane.parentNode!==host)host.append(panel.pane);

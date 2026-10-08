@@ -31,7 +31,7 @@ def main():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         expected = {entry["path"] for entry in manifest["files"]}
         actual = {p.relative_to(OUTPUT).as_posix() for p in OUTPUT.rglob("*") if p.is_file()}
-        assert actual == expected | {"source-manifest.json"}, "Unexpected/missing vendored files"
+        assert actual == expected | {"source-manifest.json", ".gitattributes"}, "Unexpected/missing vendored files"
         for entry in manifest["files"]:
             data = (OUTPUT / entry["path"]).read_bytes()
             assert digest(data) == entry["sha256"] and len(data) == entry["bytes"], entry["path"]

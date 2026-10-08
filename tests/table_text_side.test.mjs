@@ -46,3 +46,8 @@ test('Escape during composition leaves dock open; ordinary Escape restores calle
     body.parentNode.dispatchEvent(escape);assert.equal(body.parentNode.hidden,true);assert.equal(document.activeElement,anchor);
     side.destroy();
 });
+test('closing a native popup restores the target cell when its menu anchor is hidden',()=>{
+    const {document,root}=setup(),anchor=new Element('button'),cell=new Element('td');anchor.getClientRects=()=>[];cell.dataset={record:'r',field:'f'};root.querySelectorAll=()=>[cell];
+    const side=createTextSide({root});side.open('r','f','优化',()=>{},{kind:'optimization',returnFocus:anchor});side.hide();
+    assert.equal(document.activeElement,cell);side.destroy();
+});

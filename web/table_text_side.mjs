@@ -7,7 +7,7 @@ export function createTextSide({root,getHost=()=>document.body}) {
     document.addEventListener('dae-table-text-open',otherOpened);
     const keyFor=(record,field,kind)=>JSON.stringify([record,field,kind]);
     function hide(){if(active){active.pane.hidden=true;active.body.dispatchEvent(new Event('dae-text-side-hide'));}active=null;}
-    function collapse(){const panel=active;hide();if(panel)(panel.returnFocus?.isConnected?panel.returnFocus:findCell(panel.record,panel.field))?.focus({preventScroll:true});}
+    function collapse(){const panel=active;hide();if(panel){const anchor=panel.returnFocus,visible=anchor?.isConnected&&(!anchor.getClientRects||anchor.getClientRects().length>0);(visible?anchor:findCell(panel.record,panel.field))?.focus({preventScroll:true});}}
     function closeAll(){hide();for(const p of [...panels.values()])p.body.close();}
     function open(record,field,title,build,{toggle=false,kind='text',returnFocus=null}={}){
         const key=keyFor(record,field,kind);
@@ -33,6 +33,6 @@ export function createTextSide({root,getHost=()=>document.body}) {
         panel.body.querySelector('textarea,[contenteditable=true]')?.focus({preventScroll:true});
         return panel.body;
     }
-    function findCell(record,field){return [...root.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===record&&e.dataset.field===field);}
+    function findCell(record,field){return record?[...root.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===record&&e.dataset.field===field):[...root.querySelectorAll('th[data-column]')].find(e=>e.dataset.column===field)?.querySelector('.field-title');}
     return {open,hide:collapse,closeAll,destroy(){closeAll();document.removeEventListener('dae-table-text-open',otherOpened);}};
 }

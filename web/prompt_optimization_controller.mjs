@@ -1,4 +1,4 @@
-import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,NAMESPACE} from './prompt_optimization_model.mjs';
+import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE} from './prompt_optimization_model.mjs';
 import {createPromptOptimizationApi} from './prompt_optimization_api.mjs';
 import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs';
 
@@ -13,7 +13,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
  function update(){
   if(dead)return;revisions.observe(getTable());persist();
   state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen);const suggestionStatus=item.applied?'applied':item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
-   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${getTable().records.findIndex(r=>r.id===s?.target.recordId)+1} 行`,before:item.frozen?.local?.display||s?.input.prompt_text||'',after:item.suggestion?.text||'',status:item.status,suggestionStatus,reason:!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),actualCredits:item.actualCredits??null};});
+   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${getTable().records.findIndex(r=>r.id===s?.target.recordId)+1} 行`,before:item.frozen?.local?.display||s?.input.prompt_text||'',after:item.frozen?displaySuggestion(item.frozen,item.suggestion?.text||''):item.suggestion?.text||'',status:item.status,suggestionStatus,reason:!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),actualCredits:item.actualCredits??null};});
   const inFlight=[...items.values()].some(i=>activeStatuses.has(i.status)),queued=[...items.values()].some(i=>['queued','preparing'].includes(i.status));
   const quoteValid=state.quote?.status==='ready'&&state.quote.expiresAt>Date.now();
   state.permissions={canEstimate:!state.busy&&!inFlight,canSubmit:!state.busy&&quoteValid&&prepared.length>0&&!inFlight&&!queued&&isActive(),canStop:!!batch&&(inFlight||queued)&&!batch.stopped,canContinue:!!batch&&queued&&requiresContinue&&isActive(),canRecover:!!state.batchId,canApplyAll:state.rows.some(i=>i.canApply)};
@@ -44,7 +44,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
    const current=[...items.values()].find(i=>activeStatuses.has(i.status));
    if(current){ingest(await api.recover({batchId:batch.batchId}));return;}
    if(requiresContinue||batch.stopped||batch.paused)return;
-   const next=[...items.values()].find(i=>['queued','preparing'].includes(i.status));if(!next)return;
+   const next=batch.rows.map(r=>items.get(r.requestId)).find(i=>['queued','preparing'].includes(i.status));if(!next)return;
    await controlLease();if(dead||!isActive()){requiresContinue=true;return;}
    if(!next.frozen||!matchesSnapshot(getTable(),identity,revisions,next.frozen)){ingest(await api.skip({batchId:batch.batchId,requestId:next.requestId,leaseId:lease.leaseId,reason:'发送前目标或依赖已变化'}));return;}
    const s=next.frozen.wire;const permit=await api.permit({batchId:batch.batchId,requestId:next.requestId,leaseId:lease.leaseId,snapshotDigest:s.snapshotDigest,revision:s.revision,requestSeq:s.requestSeq});
@@ -57,10 +57,14 @@ export function createOptimizationController({getTable,identity,revisions,persis
   if(!canSubmit)throw new Error('请先取得当前范围的有效积分估算');
   for(const p of prepared){const s=p.wire,now=revisions.current(getTable(),s.target.recordId,s.target.fieldId);if(now.revision!==s.revision||now.requestSeq+1!==s.requestSeq||inspectTarget(getTable(),s.target.recordId,s.target.fieldId).stamp!==p.local.stamp)throw new Error('估算后目标已变化，请重新估算');}
   await controlLease();if(dead||!isActive())throw new Error('当前视图不可提交');
-  const rows=prepared.map(frozen=>({requestId:uuid(),snapshot:frozen.wire,frozen}));
+  for(const p of prepared){const s=p.wire,now=revisions.current(getTable(),s.target.recordId,s.target.fieldId);if(now.revision!==s.revision||now.requestSeq+1!==s.requestSeq||inspectTarget(getTable(),s.target.recordId,s.target.fieldId).stamp!==p.local.stamp)throw new Error('取得控制权期间目标已变化，请重新估算');}
+  const rows=prepared.map(frozen=>({requestId:uuid(),snapshot:frozen.wire,frozen})),batchId=uuid();
+  onBatch(batchId,{scope,fieldId,recordId});
+  const value=await api.submit({quoteId:state.quote.quoteId,batchId,rows:rows.map(({requestId,snapshot})=>({requestId,snapshot})),leaseId:lease.leaseId,budgetCredits:state.quote.budgetUpperCredits,acknowledgeUnknownRequestIds});
+  if(dead)return;
+  if(value.reusedExisting){onBatch(value.batchId,{scope,fieldId,recordId});await recover(value.batchId);return;}
   for(const r of rows){revisions.begin(getTable(),r.snapshot.target.recordId,r.snapshot.target.fieldId);items.set(r.requestId,{...r,status:'queued'});}persist();
-  const value=await api.submit({quoteId:state.quote.quoteId,batchId:uuid(),rows:rows.map(({requestId,snapshot})=>({requestId,snapshot})),leaseId:lease.leaseId,budgetCredits:state.quote.budgetUpperCredits,acknowledgeUnknownRequestIds});
-  requiresContinue=false;ingest(value);onBatch(value.batchId,{scope,fieldId,recordId});schedule();
+  requiresContinue=false;ingest(value);schedule();
  });}
  async function recover(batchId=state.batchId){return operation(async()=>{
   if(!batchId)return;const value=await api.recover({batchId});requiresContinue=true;

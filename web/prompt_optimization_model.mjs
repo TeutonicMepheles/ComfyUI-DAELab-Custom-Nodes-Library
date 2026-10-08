@@ -16,11 +16,20 @@ export function canonical(value){
 }
 export async function digest(value){const bytes=new TextEncoder().encode(typeof value==='string'?value:canonical(value));return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');}
 export function ensureIdentity(graph,node,{duplicate=false}={}){
- graph.extra||={};graph.extra[NAMESPACE]||={version:1,documentId:uuid()};node.properties||={};
+ graph.extra||={};graph.extra[NAMESPACE]||={version:1,documentId:uuid(),nativeWorkflowId:graph.id};node.properties||={};
  if(duplicate||!node.properties[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};
  return {documentId:graph.extra[NAMESPACE].documentId,tableId:node.properties[NAMESPACE].tableId};
 }
 export function forkDocumentIdentity(graph){graph.extra||={};graph.extra[NAMESPACE]={version:1,documentId:uuid()};for(const node of graph._nodes||[])if(node.properties?.[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};}
+// Native 1.52.7 Save As / Duplicate generates graphData.id before this public hook.
+// An unchanged serialized file retains that ID; names and file paths never decide ownership.
+export function prepareWorkflowIdentity(data){
+ data.extra||={};const old=data.extra[NAMESPACE];
+ if(old?.nativeWorkflowId&&data.id&&old.nativeWorkflowId!==data.id){
+  data.extra[NAMESPACE]={version:1,documentId:uuid(),nativeWorkflowId:data.id};
+  for(const node of data.nodes||[])if(node.properties?.[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};
+ }else if(old&&data.id)old.nativeWorkflowId=data.id;
+}
 const editable=f=>f&&!f.readonly&&(f.presentation==='prompt'||['text','longtext'].includes(f.type));
 const safeLabel=text=>String(text||'引用').replace(/(?:https?:\/\/|file:\/\/|[A-Z]:[\\/])\S+/gi,'[位置已隐藏]');
 
@@ -84,9 +93,13 @@ export async function freezeSnapshot(table,target,revisions,{model='gpt-4.1-mini
  const input={purpose:local.purpose,optimization_requirements:req,prompt_text,protected_tokens,reference_context};
  const base={contractVersion:1,target:copy(target),revision:revision.revision,requestSeq:revision.requestSeq,model,requirements:req,purpose:local.purpose,instructionVersion:INSTRUCTION_VERSION,instructionDigest:INSTRUCTION_DIGEST,inputVersion:INPUT_VERSION,maxOutputTokens,input,inputText:JSON.stringify(input)};
  const snapshotDigest=await digest({content:local.content,...base});
- return {wire:{...base,snapshotDigest},local:{...local,mapping}};
+ return {wire:{...base,snapshotDigest},local:{...local,mapping,display:displaySuggestion({wire:{input},local:{mapping}},prompt_text)}};
 }
 
+export function displaySuggestion(frozen,text){
+ let display=text;for(let i=0;i<frozen.local.mapping.length;i++){const token=frozen.local.mapping[i].token,context=frozen.wire.input.reference_context[i];display=display.split(token).join('@'+context.label);}
+ return display;
+}
 export function restoreSuggestion(frozen,text,{status='completed'}={}){
  if(status!=='completed')throw new Error('模型输出未完整完成');
  if(typeof text!=='string'||!text.trim()||text.length>100000)throw new Error('结果为空或过长');

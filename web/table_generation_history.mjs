@@ -6,6 +6,8 @@ export function preserveGenerationHistory(current,next){
  const records=new Map(current.records.map(r=>[r.id,r]));
  for(const row of next.records){
   const live=records.get(row.id);if(!live)continue;
+  const active=new Set(['waiting','running','queued','preparing','submitting','recovering','pausing']);
+  for(const [fieldId,state] of Object.entries(live.meta?.generationColumns||{}))if(active.has(state.phase)&&!nextFields.has(fieldId))throw new Error('任务正在排队、运行或恢复，暂不能撤销或删除生成列');
   for(const name of ['generationColumns','generation']){
    if(live.meta?.[name]!==undefined){row.meta||={};row.meta[name]=structuredClone(live.meta[name]);}
    else if(row.meta)delete row.meta[name];

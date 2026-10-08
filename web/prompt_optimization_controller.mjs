@@ -11,7 +11,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
  const listeners=new Set(),items=new Map();
  const state={scope,fieldId,recordId,requirements:preferences.requirements||'',model:preferences.model||'gpt-4.1-mini',models:[],range:{total:0,processable:0,skipped:[]},quote:null,busy:false,error:'',rows:[],batchId:null,permissions:{}};
  function update(){
-  if(dead)return;revisions.observe(getTable());persist();
+  if(dead)return;revisions.observe(getTable());persist();state.inactiveReason=isActive()?'':'节点处于停用模式或视图已释放，请恢复 Active 后继续';
   state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen);const suggestionStatus=item.applied?'applied':item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
    return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${getTable().records.findIndex(r=>r.id===s?.target.recordId)+1} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),actualCredits:item.actualCredits??null};});
   const inFlight=[...items.values()].some(i=>activeStatuses.has(i.status)),queued=[...items.values()].some(i=>['queued','preparing'].includes(i.status));
@@ -26,7 +26,8 @@ export function createOptimizationController({getTable,identity,revisions,persis
   const e=++epoch,table=getTable(),rows=scope==='cell'?table.records.filter(r=>r.id===recordId):table.records;
   const pending=[],skipped=[];const temporary=new OptimizationRevisions(revisions.serialize());
   for(const row of rows)try{pending.push(await freezeSnapshot(table,{...identity,recordId:row.id,fieldId},temporary,{model:state.model,requirements:state.requirements,begin:true}));}catch(error){skipped.push({recordId:row.id,reason:error.message});}
-  const quote=await api.estimate({rows:pending.map(p=>p.wire),skipped,model:state.model,maxOutputTokens:1024});
+  if(dead||e!==epoch)return;state.range={total:rows.length,processable:pending.length,skipped};update();
+  const quote=pending.length?await api.estimate({rows:pending.map(p=>p.wire),skipped,model:state.model,maxOutputTokens:1024}):{status:'unavailable',reason:'当前范围没有可优化的提示词'};
   if(dead||e!==epoch)return;prepared=pending;state.range={total:rows.length,processable:pending.length,skipped};state.quote=quote;
  });}
  async function controlLease(){lease=await api.lease({target:identity,instanceId,leaseId:lease?.leaseId});return lease;}
@@ -62,7 +63,8 @@ export function createOptimizationController({getTable,identity,revisions,persis
   for(const p of prepared){const s=p.wire,now=revisions.current(getTable(),s.target.recordId,s.target.fieldId);if(now.revision!==s.revision||now.requestSeq+1!==s.requestSeq||inspectTarget(getTable(),s.target.recordId,s.target.fieldId).stamp!==p.local.stamp)throw new Error('取得控制权期间目标已变化，请重新估算');}
   const rows=prepared.map(frozen=>({requestId:uuid(),snapshot:frozen.wire,frozen})),batchId=uuid();
   onBatch(batchId,{scope,fieldId,recordId});
-  const value=await api.submit({quoteId:state.quote.quoteId,batchId,rows:rows.map(({requestId,snapshot})=>({requestId,snapshot})),leaseId:lease.leaseId,budgetCredits:state.quote.budgetUpperCredits,acknowledgeUnknownRequestIds});
+  const range=scope==='cell'?{scope,fieldId,recordId}:{scope,fieldId};
+  const value=await api.submit({quoteId:state.quote.quoteId,batchId,range,rows:rows.map(({requestId,snapshot})=>({requestId,snapshot})),leaseId:lease.leaseId,budgetCredits:state.quote.budgetUpperCredits,acknowledgeUnknownRequestIds});
   if(dead)return;
   if(value.reusedExisting){onBatch(value.batchId,{scope,fieldId,recordId});await recover(value.batchId);return;}
   for(const r of rows){revisions.begin(getTable(),r.snapshot.target.recordId,r.snapshot.target.fieldId);items.set(r.requestId,{...r,status:'queued'});}persist();
@@ -97,8 +99,8 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
  for(const item of saved().batches||[])references.set(item.batchId,item);
  const persist=()=>{saved().revisions=revisions.serialize();saved().batches=[...references.values()];};const api=createPromptOptimizationApi({fetchApi});const controllers=new Map(),instanceId=uuid();let dead=false;
  function obtain(target){const key=JSON.stringify([target.scope,target.fieldId,target.recordId||'']);if(controllers.has(key))return controllers.get(key);
-  const controller=createOptimizationController({getTable,identity,revisions,persist,change:editor.change,api,...target,instanceId,preferences:{model:saved().preferences?.model,requirements:saved().drafts?.[key]||''},onPreferences:value=>{saved().preferences={model:value.model};saved().drafts||={};saved().drafts[key]=value.requirements;},isActive:()=>!dead&&node.graph===graph&&isActive(),onBatch:(batchId,range)=>{references.set(batchId,{batchId,...range});persist();}});controllers.set(key,controller);
-  const last=saved().batches?.filter(b=>b.scope===target.scope&&b.fieldId===target.fieldId&&b.recordId===target.recordId).at(-1);if(last)void controller.recover(last.batchId);return controller;
+  const controller=createOptimizationController({getTable,identity,revisions,persist,change:editor.change,api,...target,instanceId,preferences:{model:saved().preferences?.model,requirements:saved().drafts?.[key]||''},onPreferences:value=>{saved().preferences={model:value.model};saved().drafts||={};saved().drafts[key]=value.requirements;},isActive:()=>!dead&&node.graph===graph&&isActive(),onBatch:(batchId,range)=>{references.set(batchId,{batchId,...range,updatedAt:Date.now()});persist();}});controllers.set(key,controller);
+  const last=saved().batches?.filter(b=>b.scope===target.scope&&b.fieldId===target.fieldId&&b.recordId===target.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);return controller;
  }
  editor.openPromptOptimization=target=>{const controller=obtain(target);editor.openTextSide(target.recordId||'',target.fieldId,target.scope==='column'?'优化整列提示词':'优化提示词',container=>{const panel=createPromptOptimizationPanel({controller,container});container.onCleanup(()=>panel?.destroy?.());},{kind:'optimization',returnFocus:target.anchor});if(!controller.getState().quote&&!controller.getState().batchId)void controller.estimate();};
  editor.promptOptimizationEstimate=async target=>{
@@ -106,7 +108,7 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
   for(const row of rows)try{frozen.push((await freezeSnapshot(table,{...identity,recordId:row.id,fieldId:target.fieldId},temporary,{begin:true,model:saved().preferences?.model||'gpt-4.1-mini',requirements:saved().drafts?.[JSON.stringify([target.scope,target.fieldId,target.recordId||''])]||''})).wire);}catch(e){skipped.push({recordId:row.id,reason:e.message});}
   return api.estimate({rows:frozen,skipped,model:saved().preferences?.model||'gpt-4.1-mini',maxOutputTokens:1024});
  };
- void api.query({target:identity}).then(result=>{if(dead)return;for(const item of result.batches||[])references.set(item.batchId,item);persist();for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).at(-1);if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
+ void api.query({target:identity}).then(result=>{if(dead)return;for(const item of result.batches||[])references.set(item.batchId,item);persist();for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
  const unobserve=editor.onTableChange(()=>{revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();});
  return {observe(){revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();},pause(){for(const c of controllers.values())c.pause();},destroy(){dead=true;unobserve();for(const c of controllers.values())c.destroy();controllers.clear();delete editor.openPromptOptimization;delete editor.promptOptimizationEstimate;}};
 }

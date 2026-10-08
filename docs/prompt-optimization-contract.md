@@ -13,7 +13,8 @@
 - `capabilities({})` → `{models,defaultModel,instructionVersion,instructionDigest,inputVersion,available,reason,price}`。models 以 `{id,label,available}` 表示。
 - `estimate({rows:[snapshot],skipped:[{recordId,reason}],model,maxOutputTokens})` → quote `{quoteId,snapshotDigest,status,price,inputTokens,expectedOutputTokens,maxOutputTokens,estimatedCredits,budgetUpperCredits,expiresAt,reason}`。status=`ready|unavailable|expired`；时间 Unix 毫秒。价格携带来源、版本与计价单位。
 - `lease({target:{documentId,tableId},instanceId,leaseId?})` → `{leaseId,expiresAt}`。同视图续租；不同活动控制器不能同时控制。租约丢失只保留查询。
-- `submit({quoteId,batchId,rows:[{requestId,snapshot}],leaseId,budgetCredits})` → batch；只建立持久化 queued 行。重复身份同内容幂等，不同内容冲突。
+- `submit({quoteId,batchId,range,rows:[{requestId,snapshot}],leaseId,budgetCredits})` → batch；只建立持久化 queued 行。重复身份同内容幂等，不同内容冲突。
+- K4：range 为 `{scope:'cell',fieldId,recordId}` 或 `{scope:'column',fieldId}`，参与幂等摘要并持久化。整列只有一行有效数据时仍保留 column 身份；只有旧账本允许按行数回退推断。
 - K2 补充：unknown 后的新请求另传 `acknowledgeUnknownRequestIds:[旧requestId]`；仅由 UI 明确确认“可能重复计费”后提供。普通 retry/recover 不隐含该确认。`retry({acknowledgeUnknown})` 只准备新估算，用户再点开始才提交。
 - `query/recover({batchId})` → batch `{batchId,rows,stopped,paused}`。行包含 `{requestId,snapshot,status,remoteResponseId,suggestion:{status,text,reason}?,error?,actualCredits:null|number,costEvidence?}`。recover 只能查询已有 ID，不创建响应。
 - K3：`query({target:{documentId,tableId}})` 只读返回 `{contractVersion:1,batches:[{batchId,scope,fieldId,recordId?,rowCount,statusCounts,paused,stopped,updatedAt}]}`，不轮询、不续租、不改变账本。用于工作流历史回退查询引用后仍可按稳定身份发现任务；不返回鉴权、完整请求或远端 ID。

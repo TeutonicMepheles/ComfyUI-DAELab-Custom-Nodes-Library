@@ -1,4 +1,5 @@
 import {preserveGenerationHistory} from './table_generation_history.mjs';
+import {scheduleTableInstall} from './table_node_install.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs';
 import {attachPromptOptimization} from './prompt_optimization_controller.mjs';
 import {app} from '/scripts/app.js';
@@ -21,7 +22,7 @@ function install(node){
 }
 app.registerExtension({name:'DAELab.ScriptParser',beforeRegisterNodeDef(type,data){
  if(data.name!==TYPE)return;
- for(const method of ['onNodeCreated','onAdded','onConfigure']){const prev=type.prototype[method];type.prototype[method]=function(...args){const result=prev?.apply(this,args);if(method==='onConfigure')this.__scriptPanel?.close();if(this.graph)install(this);else queueMicrotask(()=>{if(this.graph)install(this);});return result;};}
+ for(const method of ['onNodeCreated','onAdded','onConfigure']){const prev=type.prototype[method];type.prototype[method]=function(...args){const result=prev?.apply(this,args);if(method==='onConfigure')this.__scriptPanel?.close();scheduleTableInstall(this,install);return result;};}
  const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(...args){this.__scriptPanel?.destroy();delete this.__scriptPanel;delete this.__scriptTable;return removed?.apply(this,args);};
 }});
 let registered=false;

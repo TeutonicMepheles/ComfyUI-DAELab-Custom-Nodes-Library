@@ -1,5 +1,6 @@
 import {effectivePrompt,columnValue,validateColumnPrompt,isColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {validatePrompt,resolvePromptAsset} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
+import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 
 export const CONTRACT_VERSION=1;
 export const INSTRUCTION_VERSION='daelab.prompt-opt.v1';
@@ -63,7 +64,9 @@ export function inspectTarget(table,recordId,fieldId){
   }else if(s.type==='frame'){
    const generation=table.fields.find(f=>f.id===s.generationFieldId);
    if(!generation?.generation)throw new Error('首尾帧生成配置已删除');
-   dependencies.push({segment:s,generation:generation.generation,frames:row.meta?.generationFrames?.[s.generationFieldId]??null,tags:row.meta?.generationFrameTags?.[s.generationFieldId]??null});
+   const config=rowGenerationConfig(row,generation.id,generation.generation),frame=generationFrames(table,row,generation.id,config).find(f=>f.role===s.role);
+   if(!frame?.asset||frame.error)throw new Error((s.role==='first'?'首帧':'尾帧')+'引用不完整');
+   dependencies.push({segment:s,generation:config,asset:frame.asset,frames:row.meta?.generationFrames?.[s.generationFieldId]??null,tags:row.meta?.generationFrameTags?.[s.generationFieldId]??null});
    context={kind:'frame',label:s.role==='first'?'首帧':'尾帧',role:s.role};
   }else throw new Error('不支持的提示词结构');
   anchors.push({segment:copy(s),context});

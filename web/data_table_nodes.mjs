@@ -1,4 +1,5 @@
 import {preserveGenerationHistory} from './table_generation_history.mjs';
+import {scheduleTableInstall} from './table_node_install.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs';
 import {attachPromptOptimization} from './prompt_optimization_controller.mjs';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
@@ -163,7 +164,7 @@ export function registerTableNodes(){
  if(globalThis.__DAELAB_TABLE_VERSION===VERSION)return;globalThis.__DAELAB_TABLE_VERSION=VERSION;
  app.registerExtension({name:'DAELab.DataTable',beforeRegisterNodeDef(type,data){
   if(!TYPES.includes(data.name))return;
-  for(const method of ['onNodeCreated','onAdded','onConfigure']){const prev=type.prototype[method];type.prototype[method]=function(){const result=prev?.apply(this,arguments);if(method==='onConfigure'&&this.__dataTablePanel){this.__dataTablePanel.close();this.__dataTablePanel.editor.history.undoStack=[];this.__dataTablePanel.editor.history.redoStack=[];}if(this.graph)install(this);else queueMicrotask(()=>{if(this.graph)install(this);});return result;};}
+  for(const method of ['onNodeCreated','onAdded','onConfigure']){const prev=type.prototype[method];type.prototype[method]=function(){const result=prev?.apply(this,arguments);if(method==='onConfigure'&&this.__dataTablePanel){this.__dataTablePanel.close();this.__dataTablePanel.editor.history.undoStack=[];this.__dataTablePanel.editor.history.redoStack=[];}scheduleTableInstall(this,install);return result;};}
   const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(){removeOwnedWidgets(this,OWNER);delete this.__dataTablePanel;delete this.__daelabStoryboardRender;delete this.__storyboardResultUI;return removed?.apply(this,arguments);};
  }});
 }

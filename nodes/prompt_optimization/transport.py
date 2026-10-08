@@ -76,6 +76,7 @@ class NativeTransport:
             # safe authentication/payment labels, never provider bodies or URLs.
             message = str(error)
             labels = {'Unauthorized:': '登录已过期，请重新登录', 'Payment Required:': 'ComfyUI 积分不足',
+                      'Rate Limit Exceeded:': '请求过于频繁，请稍后显式重试',
                       'Too Many Requests:': '请求过于频繁，请稍后显式重试'}
             for prefix, label in labels.items():
                 if message.startswith(prefix):

@@ -181,6 +181,46 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, '预算'):
             await self.s.submit(p)
 
+    async def test_expired_quote_stops_next_post_and_preserves_completed_row(self):
+        batch, _, quote = await self.batch(2)
+        await self.advance(batch)
+        await self.done()
+        completed = copy.deepcopy(self.s.batch('batch1')['rows'][0])
+        frozen = self.s.ledger.get('quote', quote['quoteId'])
+        frozen['expiresAt'] = 0
+        self.s.ledger.put('quote', quote['quoteId'], frozen)
+        permit = await self.permit(self.s.batch('batch1'), 1)
+        with self.assertRaisesRegex(ValueError, '估算已失效'):
+            await self.s.advance(permit, {'token': 'fake'})
+        self.assertEqual(len(self.t.posts), 1)
+        after = self.s.batch('batch1')
+        self.assertTrue(after['paused'])
+        self.assertEqual(after['rows'][0], completed)
+        self.assertIsNone(after['rows'][1]['remoteResponseId'])
+
+    async def test_get_disconnect_recovers_existing_id_without_second_post(self):
+        original_query = self.t.query
+        failed_ids = []
+        async def disconnected(remote_id, auth):
+            failed_ids.append(remote_id)
+            raise ConnectionError('local GET disconnect fixture')
+        self.t.query = disconnected
+        batch, _, _ = await self.batch()
+        await self.advance(batch)
+        await self.done()
+        row = self.s.batch('batch1')['rows'][0]
+        self.assertEqual((row['status'], row['remoteResponseId']), ('submitted', 'resp_test'))
+        self.assertIn('不会重发', row['error'])
+        self.assertEqual(failed_ids, ['resp_test'])
+        self.t.query = original_query
+        await self.s.query(dict(batchId='batch1'), {'token': 'fake'})
+        await self.done()
+        recovered = self.s.batch('batch1')['rows'][0]
+        self.assertEqual((recovered['status'], recovered['remoteResponseId']), ('succeeded', 'resp_test'))
+        self.assertEqual(len(self.t.posts), 1)
+        self.assertEqual(self.t.gets, ['resp_test'])
+        self.assertNotIn('error', recovered)
+
     async def test_restart_unknown_and_submitted_get_only_no_queued(self):
         batch, _, _ = await self.batch(3)
         batch['rows'][0]['status']='submitting'

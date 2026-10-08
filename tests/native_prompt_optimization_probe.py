@@ -17,7 +17,7 @@ spec = importlib.util.spec_from_file_location('promptopt', ROOT / 'nodes/prompt_
 module = importlib.util.module_from_spec(spec)
 sys.modules['promptopt'] = module
 spec.loader.exec_module(module)
-from promptopt.transport import NativeTransport, native_request, native_context
+from promptopt.transport import NativeTransport, TransportError, native_request, native_context
 from promptopt.instructions import INSTRUCTIONS
 from comfy_api_nodes.util._helpers import get_comfy_api_headers
 from comfy_api_nodes.util import request_logger
@@ -27,14 +27,14 @@ import folder_paths
 
 async def main():
     calls, received = [], []
-    fail = False
+    failure_status = None
     async def fake(request):
         calls.append(request.method)
         assert request.headers['Authorization'] == 'Bearer dummy-probe-secret'
         if request.method == 'POST':
             received.append(await request.json())
-            if fail:
-                return web.json_response({'error': 'fixture transient'}, status=503)
+            if failure_status:
+                return web.json_response({'error': 'fixture transient'}, status=failure_status)
         return web.json_response({'id':'resp_probe','status':'completed','output':[]}, headers={'X-Comfy-Credits-Used':'0.125'})
     app = web.Application()
     app.router.add_route('*','/proxy/openai/v1/responses{tail:.*}',fake)
@@ -56,7 +56,7 @@ async def main():
         assert received[0]['input']==[{'role':'user','content':[{'text':fixture['inputText'],'type':'input_text'}]}]
         assert received[0]['max_output_tokens']==1024
         await t.query('resp_probe',auth)
-        fail=True
+        failure_status=503
         try:
             await t.create(snapshot,INSTRUCTIONS,auth)
         except Exception:
@@ -64,12 +64,27 @@ async def main():
         else:
             raise AssertionError('Expected local 503')
         assert calls==['POST','GET','POST'],calls
+        rejections = []
+        for status, label in ((401, '登录已过期，请重新登录'), (402, 'ComfyUI 积分不足'),
+                              (429, '请求过于频繁，请稍后显式重试')):
+            failure_status = status
+            before = len(calls)
+            try:
+                await t.create(snapshot, INSTRUCTIONS, auth)
+            except TransportError as error:
+                assert error.definitely_rejected, (status, str(error))
+                assert str(error) == label, (status, str(error))
+            else:
+                raise AssertionError(f'Expected local {status}')
+            assert calls[before:] == ['POST'], (status, calls[before:])
+            rejections.append({'httpStatus': status, 'postCount': 1, 'definitelyRejected': True, 'label': label})
         logs=''.join(p.read_text(encoding='utf-8') for p in Path(directory).rglob('*.log'))
         assert 'dummy-probe-secret' not in logs
         assert '***' in logs
         print(json.dumps({'core':str(CORE),'nativeEndpoint':'/proxy/openai/v1/responses',
             'instructionsExact':True,'inputExact':True,'postRetryCount':0,'getSeparated':True,
-            'headerCaptured':True,'logsRedacted':True,'realPaidRequests':0,'loopbackCalls':calls}))
+            'headerCaptured':True,'logsRedacted':True,'realPaidRequests':0,'loopbackCalls':calls,
+            'localRejections':rejections}))
     await runner.cleanup()
 
 

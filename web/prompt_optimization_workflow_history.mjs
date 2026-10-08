@@ -1,4 +1,4 @@
-import {NAMESPACE} from './prompt_optimization_model.mjs';
+import {NAMESPACE,prepareWorkflowIdentity} from './prompt_optimization_model.mjs';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {serializeStoryboardTable} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';
@@ -9,6 +9,26 @@ const widgetNames={
  'DAELAB.StoryboardImport':'storyboard_data',
  'DAELAB.ComfyTV.GPTImageStoryboardStage':'storyboard_data',
 };
+const installed=new WeakSet();
+
+/** Amend the source history snapshot before the host clones it for configure.
+ * The host retains this exact argument as activeState after undo/redo. Overlaying
+ * only its configure clone makes the next capture reinsert the obsolete state,
+ * trapping undo on the same step and discarding redo. Keep the host's queues and
+ * restore implementation intact; only our same-document media fields change.
+ */
+export function installWorkflowGenerationHistory(app){
+ if(installed.has(app))return;
+ installed.add(app);
+ const load=app.loadGraphData;
+ app.loadGraphData=function(data,clean=true,restoreView=true,...rest){
+  if(clean===false&&restoreView===false&&app.isGraphReady&&data&&typeof data==='object'&&!Array.isArray(data)){
+   prepareWorkflowIdentity(data);
+   preserveWorkflowGenerationHistory(app.rootGraph,data);
+  }
+  return load.call(this,data,clean,restoreView,...rest);
+ };
+}
 function readTable(value,wrapped){
  const decoded=typeof value==='string'?JSON.parse(value):value;
  const table=wrapped?decoded?.table:decoded;

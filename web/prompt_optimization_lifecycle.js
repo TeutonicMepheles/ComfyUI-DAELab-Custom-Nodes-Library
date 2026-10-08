@@ -1,9 +1,10 @@
 import {app} from '/scripts/app.js';
 import {prepareWorkflowIdentity} from './prompt_optimization_model.mjs';
-import {preserveWorkflowGenerationHistory} from './prompt_optimization_workflow_history.mjs';
+import {installWorkflowGenerationHistory,preserveWorkflowGenerationHistory} from './prompt_optimization_workflow_history.mjs';
 
 app.registerExtension({
  name:'DAELab.PromptOptimization.Identity.v1',
+ setup(){installWorkflowGenerationHistory(app);},
  beforeConfigureGraph(data){
   prepareWorkflowIdentity(data);
   if(!app.isGraphReady)return;

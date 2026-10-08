@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {NAMESPACE,prepareWorkflowIdentity} from '../web/prompt_optimization_model.mjs';
-import {preserveWorkflowGenerationHistory} from '../web/prompt_optimization_workflow_history.mjs';
+import {installWorkflowGenerationHistory,preserveWorkflowGenerationHistory} from '../web/prompt_optimization_workflow_history.mjs';
 
 const clone=value=>structuredClone(value);
 const table=(phase='complete',text='优化后')=>({version:1,fields:[{id:'p',type:'text'},{id:'g',type:'content',presentation:'generation'}],records:[{id:'r',values:{p:text,g:[{id:'asset',url:'/view?filename=retained.png'}]},meta:{generationColumns:{g:{phase,requestId:'remote',stamp:'input',input:{prompt:'原文'}}}}}],meta:{}});
@@ -14,6 +14,39 @@ function fixture(type='DAELAB.Table',phase='complete'){
  return {current,old,live,graph:{id:'native',extra:clone(extra),_nodes:[live]},data:{id:'native',extra:clone(extra),nodes:[serialized]},serialized,wrapped};
 }
 const decoded=f=>{const value=JSON.parse(f.serialized.widgets_values[1]);return f.wrapped?value.table:value;};
+
+test('native clone-before-configure cannot recapture stale media and trap undo or clear redo',async()=>{
+ const f=fixture();let loaded,receiver,args;
+ const app={rootGraph:f.graph,isGraphReady:true,async loadGraphData(...input){receiver=this;args=input;loaded=clone(input[0]);preserveWorkflowGenerationHistory(this.rootGraph,loaded);}};
+ installWorkflowGenerationHistory(app);const wrapper=app.loadGraphData;installWorkflowGenerationHistory(app);assert.equal(app.loadGraphData,wrapper);
+ const workflow={},options={silentAssetErrors:true};
+ await app.loadGraphData(f.data,false,false,workflow,options);
+ const activeState=f.data,redo=[{next:true}],undo=[];
+ // Native updateState retains the original input; its next capture compares it
+ // with the configured graph. A differing media overlay would add a false edit.
+ if(JSON.stringify(loaded)!==JSON.stringify(activeState)){undo.push(activeState);redo.length=0;}
+ assert.equal(undo.length,0);assert.equal(redo.length,1);assert.equal(receiver,app);
+ assert.equal(args[3],workflow);assert.equal(args[4],options);
+ assert.equal(decoded(f).records[0].values.p,'原文');assert.equal(decoded(f).records[0].meta.generationColumns.g.phase,'complete');
+});
+
+test('history wrapper leaves ordinary loads and other documents untouched',async()=>{
+ for(const mode of ['normal','view','not-ready','other-document']){
+  const f=fixture();if(mode==='other-document')f.data.extra[NAMESPACE].documentId='another';
+  const before=clone(f.data),app={rootGraph:f.graph,isGraphReady:mode!=='not-ready',loadGraphData(){return 'native-result';}};
+  installWorkflowGenerationHistory(app);
+  assert.equal(app.loadGraphData(f.data,mode==='normal',mode==='view'),'native-result');
+  assert.deepEqual(f.data,before);
+ }
+});
+
+test('false/false load of a copied native workflow forks identity before overlay',()=>{
+ const f=fixture();f.data.id='copied-native';
+ const app={rootGraph:f.graph,isGraphReady:true,loadGraphData(){}};installWorkflowGenerationHistory(app);
+ app.loadGraphData(f.data,false,false);
+ assert.notEqual(f.data.extra[NAMESPACE].documentId,'doc');assert.notEqual(f.serialized.properties[NAMESPACE].tableId,'table');
+ assert.equal(decoded(f).records[0].meta.generationColumns.g.phase,'running');assert.deepEqual(decoded(f).records[0].values.g,[]);
+});
 
 for(const type of ['DAELAB.Table','DAELAB.ScriptParser','DAELAB.StoryboardImport','DAELAB.ComfyTV.GPTImageStoryboardStage'])test(`${type}: preserve completed media before native nodes are destroyed`,()=>{
  const f=fixture(type),before=clone(f.current);const result=preserveWorkflowGenerationHistory(f.graph,f.data),next=decoded(f);

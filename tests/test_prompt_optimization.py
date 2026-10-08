@@ -267,6 +267,39 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError,'输出预算'):
             await self.s.estimate(dict(rows=[s],model='gpt-4.1'))
 
+    async def test_target_discovery_survives_lost_workflow_refs_without_network(self):
+        batch, _, _ = await self.batch(2)
+        batch['rows'][0].update(status='submitted',remoteResponseId='resp_pending')
+        self.s.save(batch)
+        before = self.s.ledger.db.execute('SELECT kind,id,body FROM objects ORDER BY kind,id').fetchall()
+        # Native undo no longer retains batchId; only serialized stable identity
+        # is available. Even auth supplied to discovery must not poll the remote.
+        found = await self.s.query(dict(target={'documentId':'doc','tableId':'table'}), {'token':'fake-discovery-token'})
+        self.assertEqual(len(found['batches']),1)
+        summary = found['batches'][0]
+        self.assertEqual((summary['batchId'],summary['fieldId'],summary['scope'],summary['rowCount']),('batch1','prompt','column',2))
+        self.assertNotIn('recordId',summary)
+        self.assertEqual(summary['statusCounts'],{'submitted':1,'queued':1})
+        self.assertEqual(self.t.posts,[])
+        self.assertEqual(self.t.gets,[])
+        self.assertEqual(self.s.workers,{})
+        after = self.s.ledger.db.execute('SELECT kind,id,body FROM objects ORDER BY kind,id').fetchall()
+        self.assertEqual(before,after)
+        for secret in ('inputText','snapshot','resp_pending','fake-discovery-token'):
+            self.assertNotIn(secret,json.dumps(found))
+        self.assertNotIn('fake-discovery-token',str(after))
+        self.assertEqual((await self.s.query(dict(target={'documentId':'other','tableId':'table'})))['batches'],[])
+        self.assertEqual((await self.s.query(dict(target={'documentId':'doc','tableId':'other'})))['batches'],[])
+
+    async def test_target_discovery_single_cell_and_exact_identity_shape(self):
+        await self.batch()
+        summary=(await self.s.query(dict(target={'documentId':'doc','tableId':'table'})))['batches'][0]
+        self.assertEqual((summary['scope'],summary['recordId']),('cell','row0'))
+        with self.assertRaisesRegex(ValueError,'完整'):
+            await self.s.query(dict(target={'tableId':'table'}))
+        with self.assertRaisesRegex(ValueError,'完整'):
+            await self.s.query(dict(target={'documentId':'doc','tableId':'table','recordId':'row0'}))
+
 
 class ValidationTests(unittest.TestCase):
     def test_all_fixture_inputs_and_full_token_budget(self):

@@ -377,6 +377,30 @@ class Service:
 
     async def query(self, p, auth=None):
         async with self.lock:
+            if not p.get('batchId') and 'target' in p:
+                target = p['target']
+                if not isinstance(target, dict) or set(target) != {'documentId', 'tableId'} or any(not isinstance(value, str) or not value or len(value) > 200 for value in target.values()):
+                    raise ValueError('查询需要完整的文档与表格身份')
+                key = table_key(target)
+                summaries = []
+                for batch in self.ledger.all('batch'):
+                    if batch['tableKey'] != key:
+                        continue
+                    rows = batch['rows']
+                    fields = sorted({r['snapshot']['target']['fieldId'] for r in rows})
+                    counts = {}
+                    for row in rows:
+                        counts[row['status']] = counts.get(row['status'], 0) + 1
+                    summary = dict(batchId=batch['batchId'], fieldId=fields[0] if len(fields) == 1 else None,
+                        scope='cell' if len(rows) == 1 else 'column', rowCount=len(rows), statusCounts=counts,
+                        paused=batch['paused'], stopped=batch['stopped'], updatedAt=batch.get('updatedAt'))
+                    if len(rows) == 1:
+                        summary['recordId'] = rows[0]['snapshot']['target']['recordId']
+                    summaries.append(summary)
+                # Discovery is strictly read-only, including when auth is present:
+                # no polling, lease renewal, row continuation or ledger mutation.
+                summaries.sort(key=lambda value: value.get('updatedAt') or 0, reverse=True)
+                return dict(contractVersion=1, batches=summaries)
             batch = self.batch(p['batchId'])
             lease = self.leases.get(batch['tableKey'])
             if (not lease or lease['expiresAt'] <= now()) and any(r['status'] in ('queued', 'preparing') for r in batch['rows']):

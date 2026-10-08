@@ -1,0 +1,325 @@
+{
+  "contractVersion": "context-copy.v1",
+  "normalization": "Per ordinary segment/reference: NFKC, Unicode lowercase, retain categories Letter/Number, contiguous six Unicode codepoints. Source fragments already present in original ordinary segments are exempt. No semantic guarantee.",
+  "cases": [
+    {
+      "id": "real-q04-copy",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道，一名行人从左向右走过。"
+          }
+        ]
+      },
+      "output": "雨后的街道上，一名行人从左向右缓步走过，画面层次分明，前景与背景的湿润质感清晰可见。⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": "Actual v1 failed output, only nonce replaced."
+    },
+    {
+      "id": "real-q05-copy",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道，一名行人从左向右走过。"
+          }
+        ]
+      },
+      "output": "雨后的街道上，一名行人从左向右走过。⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": "Actual v1 failed output, only nonce replaced."
+    },
+    {
+      "id": "q04-generic-addition",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道，一名行人从左向右走过。"
+          }
+        ]
+      },
+      "output": "⟦DAE_REF_guard_0001⟧。画面层次清晰，主体与环境关系明确。",
+      "expectedBlocked": false,
+      "note": ""
+    },
+    {
+      "id": "unchanged-reference",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道，一名行人从左向右走过。"
+          }
+        ]
+      },
+      "output": "⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": false,
+      "note": ""
+    },
+    {
+      "id": "fact-already-in-ordinary-input",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧ 一名行人从左向右走过。",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道，一名行人从左向右走过。"
+          }
+        ]
+      },
+      "output": "一名行人从左向右走过。⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": false,
+      "note": ""
+    },
+    {
+      "id": "do-not-join-output-across-anchor",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "abcdef"
+          }
+        ]
+      },
+      "output": "abc⟦DAE_REF_guard_0001⟧def",
+      "expectedBlocked": false,
+      "note": ""
+    },
+    {
+      "id": "do-not-join-input-whitelist-across-anchor",
+      "input": {
+        "prompt_text": "abc⟦DAE_REF_guard_0001⟧def",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "abcdef"
+          }
+        ]
+      },
+      "output": "abcdef⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": ""
+    },
+    {
+      "id": "media-label-is-not-text-context",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "image",
+            "label": "画面"
+          }
+        ]
+      },
+      "output": "⟦DAE_REF_guard_0001⟧画面是六字素材标签",
+      "expectedBlocked": false,
+      "note": ""
+    },
+    {
+      "id": "nfkc-fullwidth-case",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "ＡＢＣＤＥＦ"
+          }
+        ]
+      },
+      "output": "ABCDEF ⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": ""
+    },
+    {
+      "id": "nfkc-numeric-category",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "①②③④⑤⑥"
+          }
+        ]
+      },
+      "output": "123456 ⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": ""
+    },
+    {
+      "id": "unicode-lower-expansion",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "İBCDEF"
+          }
+        ]
+      },
+      "output": "ibcdef ⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": "Lower creates a combining dot, then Letter/Number filtering drops it."
+    },
+    {
+      "id": "non-bmp-six-codepoints",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "𠀀𠀁𠀂𠀃𠀄𠀅"
+          }
+        ]
+      },
+      "output": "𠀀𠀁𠀂𠀃𠀄𠀅⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": "Six Unicode codepoints, twelve UTF-16 code units."
+    },
+    {
+      "id": "non-bmp-three-below-threshold",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "𠀀𠀁𠀂"
+          }
+        ]
+      },
+      "output": "𠀀𠀁𠀂⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": false,
+      "note": "Must not treat UTF-16 code units as six characters."
+    },
+    {
+      "id": "english-case-space-punctuation",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "Silver lantern hangs above the doorway."
+          }
+        ]
+      },
+      "output": "SILVER, lantern hangs above the doorway. ⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": true,
+      "note": ""
+    },
+    {
+      "id": "short-fact-known-limit",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道"
+          }
+        ]
+      },
+      "output": "雨后的街道。⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": false,
+      "note": "Explicit limitation: five-character copied detail is below threshold, not semantically approved."
+    },
+    {
+      "id": "paraphrase-known-limit",
+      "input": {
+        "prompt_text": "⟦DAE_REF_guard_0001⟧",
+        "protected_tokens": [
+          "⟦DAE_REF_guard_0001⟧"
+        ],
+        "reference_context": [
+          {
+            "token": "⟦DAE_REF_guard_0001⟧",
+            "kind": "text",
+            "label": "画面",
+            "text": "雨后的街道，一名行人从左向右走过。"
+          }
+        ]
+      },
+      "output": "降水结束后，有人沿路横向行进。⟦DAE_REF_guard_0001⟧",
+      "expectedBlocked": false,
+      "note": "Explicit limitation: semantic materialization without shared six characters can evade the guard."
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import time
 import uuid
 from pathlib import Path
 from .instructions import INSTRUCTIONS, INSTRUCTION_VERSION, INSTRUCTION_DIGEST, INPUT_VERSION
+from .context_copy import context_copy_reason
 from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, tokens, cost
 from .transport import NativeTransport, TransportError, native_capabilities
 
@@ -99,6 +100,9 @@ def suggestion(response, snapshot):
     residue = TOKEN.sub('', text)
     valid = valid and 'DAE_REF_' not in residue and '⟦' not in residue and '⟧' not in residue
     valid = valid and not re.search(r'@(image|video|audio)_\d+\b|\{\{\s*Node\b', residue, re.I)
+    copied_reason = context_copy_reason(snapshot['input'], text) if valid else None
+    if copied_reason:
+        return {'status': 'invalid', 'text': text, 'reason': copied_reason}
     return {'status': ('unchanged' if text == original else 'valid') if valid else 'invalid',
         'text': text, 'reason': '' if valid else '输出为空、格式无效或引用标记已改变'}
 

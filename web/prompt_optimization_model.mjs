@@ -1,10 +1,11 @@
 import {effectivePrompt,columnValue,validateColumnPrompt,isColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {validatePrompt,resolvePromptAsset} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
 import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {copiesReferenceContext,CONTEXT_COPY_REASON} from './prompt_optimization_context_copy.mjs';
 
 export const CONTRACT_VERSION=1;
-export const INSTRUCTION_VERSION='daelab.prompt-opt.v1';
-export const INSTRUCTION_DIGEST='76b816233f2d22a6cb286d14bc389c04fe23800536cf3b7cf668eb20568a9ff1';
+export const INSTRUCTION_VERSION='daelab.prompt-opt.v2';
+export const INSTRUCTION_DIGEST='a8b481b7eb82fd5eb46ab9c2c5d34bd3f17e1299db8fe2b7f14f9fe63c90d52c';
 export const INPUT_VERSION='daelab.prompt-opt.input.v1';
 export const DEFAULT_REQUIREMENTS='提升清晰度和可执行性，消除重复与含混表达，保持原意，不主动扩写。';
 export const NAMESPACE='daelabPromptOptimizationV1';
@@ -120,6 +121,7 @@ export function restoreSuggestion(frozen,text,{status='completed'}={}){
  let remainder=text;for(const token of expected)remainder=remainder.replace(token,'');
  if(/DAE_REF_|⟦|⟧/.test(remainder))throw new Error('结果包含伪造或残缺保护标记');
  if(text===wire.input.prompt_text)return {status:'unchanged',document:copy(local.original),text};
+ if(copiesReferenceContext(wire.input,text))throw new Error(CONTEXT_COPY_REASON);
  if(typeof local.original==='string')return {status:'valid',document:text,text};
  const segments=[];let pos=0;for(const {token,segment} of local.mapping){const index=text.indexOf(token,pos);if(index>pos)segments.push({type:'text',text:text.slice(pos,index)});segments.push(copy(segment));pos=index+token.length;}if(pos<text.length)segments.push({type:'text',text:text.slice(pos)});
  const document={...copy(local.original),segments};

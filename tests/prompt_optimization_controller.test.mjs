@@ -195,11 +195,12 @@ test('applied suggestion cannot be reapplied after undo/redo and request sequenc
  assert.equal(s.count('advance'),1);
 });
 
-function mountHarness(t,{references=[],discovered=[]}={}){
+function mountHarness(t,{references=[],discovered=[],discoveryGate=null}={}){
  const table=makeTable(),identity={documentId:crypto.randomUUID(),tableId:crypto.randomUUID()},graph={};
  const node={graph,properties:{[NAMESPACE]:{tableId:identity.tableId,revisions:{},batches:clone(references)}}},calls=[];
  const fetchApi=async(url,options)=>{
   const action=url.split('/').at(-1),payload=JSON.parse(options.body);calls.push({action,payload});
+  if(action==='query'&&discoveryGate)await discoveryGate;
   const result=action==='query'?{batches:clone(discovered)}:action==='recover'?{batchId:payload.batchId,rows:[]}
    :action==='capabilities'?{available:true,models:['gpt-4.1-mini']}:{status:'ready',quoteId:'estimate',expiresAt:Date.now()+300000};
   return {ok:true,json:async()=>result};
@@ -252,4 +253,17 @@ test('recovery without trustworthy revision metadata keeps suggestions stale and
  assert.equal(c.getState().rows[0].suggestionStatus,'stale');assert.equal(c.getState().rows[0].canApply,false);
  await c.applyAll();assert.equal(history.length,0);assert.equal(table.records[0].values.p,'一只白猫，白色的猫。');
  assert.equal(service.count('advance'),0);
+});
+
+// A real newly-created batch starts with a minimal reference. Delayed discovery
+// after native Undo must not turn a read into a new serializable edit.
+test('late discovery preserves existing serialized references and excludes mutable summaries',async t=>{
+ const reference={batchId:'new-live-batch',scope:'cell',fieldId:'p',recordId:'r',updatedAt:10};
+ let release;const discoveryGate=new Promise(resolve=>release=resolve);
+ const summary={...reference,updatedAt:99,rowCount:1,statusCounts:{succeeded:1},paused:true,stopped:false};
+ const {node,mount}=mountHarness(t,{references:[reference],discovered:[summary],discoveryGate});
+ mount();await flush();const before=JSON.stringify(node.properties[NAMESPACE]);
+ release();await flush();
+ assert.equal(JSON.stringify(node.properties[NAMESPACE]),before,'query completion must not create an edit that could clear redo');
+ assert.deepEqual(node.properties[NAMESPACE].batches,[reference]);
 });

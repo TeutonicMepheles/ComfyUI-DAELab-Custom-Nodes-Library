@@ -115,7 +115,11 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
   for(const row of rows)try{frozen.push((await freezeSnapshot(table,{...identity,recordId:row.id,fieldId:target.fieldId},temporary,{begin:true,model:saved().preferences?.model||'gpt-4.1-mini',requirements:saved().drafts?.[JSON.stringify([target.scope,target.fieldId,target.recordId||''])]||''})).wire);}catch(e){skipped.push({recordId:row.id,reason:e.message});}
   return api.estimate({rows:frozen,skipped,model:saved().preferences?.model||'gpt-4.1-mini',maxOutputTokens:1024});
  };
- void api.query({target:identity}).then(result=>{if(dead)return;for(const item of result.batches||[])references.set(item.batchId,item);persist();for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
+ void api.query({target:identity}).then(result=>{if(dead)return;for(const item of result.batches||[]){
+  // A late discovery is not an edit. Keep existing stable query references;
+  // mutable server counters/timestamps must not disturb native Undo/Redo.
+  if(!references.has(item.batchId))references.set(item.batchId,{batchId:item.batchId,scope:item.scope,fieldId:item.fieldId,...(item.recordId?{recordId:item.recordId}:{}),updatedAt:item.updatedAt});
+ }persist();for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
  const unobserve=editor.onTableChange(()=>{revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();});
  return {observe(){revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();},pause(){for(const c of controllers.values())c.pause();},destroy(){dead=true;unobserve();for(const c of controllers.values())c.destroy();controllers.clear();delete editor.openPromptOptimization;delete editor.promptOptimizationEstimate;}};
 }

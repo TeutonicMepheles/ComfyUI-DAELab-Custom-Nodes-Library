@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createTextSide} from '../web/table_text_side.mjs';
+
+// Minimal DOM harness for dock ownership, lifecycle and keyboard behavior.
+class Element extends EventTarget {
+    constructor(tag) { super(); this.tagName=tag; this.children=[]; this.dataset={}; this.style={setProperty(){}}; this.hidden=false; this.isConnected=true; }
+    append(...nodes) { for(const n of nodes){n.parentNode?.children.splice(n.parentNode.children.indexOf(n),1);n.parentNode=this;this.children.push(n);} }
+    replaceChildren(...nodes) {this.children=[];this.append(...nodes);}
+    setAttribute(name,value) {this[name]=value;}
+    querySelector() {return null;}
+    querySelectorAll() {return [];}
+    remove() {if(this.parentNode)this.parentNode.children.splice(this.parentNode.children.indexOf(this),1);this.isConnected=false;}
+    focus() {globalThis.document.activeElement=this;}
+}
+function setup(){
+    const document=Object.assign(new EventTarget(),{body:new Element('body'),createElement:tag=>new Element(tag)});
+    globalThis.document=document;
+    globalThis.CustomEvent=class extends Event{constructor(type,options){super(type);this.detail=options?.detail;}};
+    return {document,root:new Element('main')};
+}
+test('different dock kinds keep independent drafts and collapse does not dispose either',()=>{
+    const {document,root}=setup(),side=createTextSide({root}),anchor=new Element('button');let disposed=0,built=0;
+    const build=body=>{built++;body.draft='用户草稿';body.onCleanup(()=>disposed++);};
+    const text=side.open('row','field','正文',build);
+    const optimize=side.open('row','field','优化',build,{kind:'optimization',returnFocus:anchor});
+    assert.notEqual(text,optimize);assert(text.parentNode.hidden);assert.equal(document.body.children.length,2);
+    side.hide();assert.equal(disposed,0);assert.equal(document.activeElement,anchor);
+    assert.equal(side.open('row','field','优化',build,{kind:'optimization'}),optimize);
+    assert.equal(optimize.draft,'用户草稿');assert.equal(built,2);
+    side.destroy();assert.equal(disposed,2);assert.equal(document.body.children.length,0);
+});
+test('opening another instance hides the first without transferring its draft or cleanup',()=>{
+    const {root}=setup(),a=createTextSide({root}),b=createTextSide({root});
+    const first=a.open('r','f','A',body=>body.draft='A');
+    const second=b.open('r','f','B',body=>body.draft='B');
+    assert(first.parentNode.hidden);assert.equal(first.draft,'A');assert.equal(second.draft,'B');
+    b.destroy();a.destroy();
+});
+test('Escape during composition leaves dock open; ordinary Escape restores caller focus',()=>{
+    const {document,root}=setup(),side=createTextSide({root}),anchor=new Element('button');
+    const body=side.open('r','f','优化',()=>{},{kind:'optimization',returnFocus:anchor});
+    const composing=Object.assign(new Event('keydown',{cancelable:true}),{key:'Escape',isComposing:true});
+    body.parentNode.dispatchEvent(composing);assert.equal(body.parentNode.hidden,false);
+    const escape=Object.assign(new Event('keydown',{cancelable:true}),{key:'Escape',isComposing:false});
+    body.parentNode.dispatchEvent(escape);assert.equal(body.parentNode.hidden,true);assert.equal(document.activeElement,anchor);
+    side.destroy();
+});

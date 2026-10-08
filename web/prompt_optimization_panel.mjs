@@ -56,7 +56,7 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
     const acknowledge=node('label',recovery,undefined,'prompt-opt-ack'),ack=node('input',acknowledge);ack.type='checkbox';node('span',acknowledge,'我理解重新优化可能重复计费');ack.addEventListener('change',()=>render(state));
     const recoveryActions=node('div',recovery,undefined,'prompt-opt-actions');
     const run=async(method,...args)=>{if(composing&&['submit','estimate','retry','continue'].includes(method))return;localError='';try{await controller[method](...args);}catch(error){if(alive){localError=error?.message||String(error);render(controller.getState());}}};
-    const recover=button('查询原任务',()=>run('recover')),resume=button('继续剩余行',()=>run('continue')),retry=button('重新优化（新请求）',()=>run('retry'));
+    const recover=button('查询原任务',()=>run('recover')),resume=button('继续剩余行',()=>run('continue')),retry=button('重新优化（新请求）',()=>run('retry',{acknowledgeUnknown:ack.checked}));
     recoveryActions.append(recover,resume,retry);
     const error=node('p',view,'','prompt-opt-error');error.setAttribute('role','alert');
     const footer=node('footer',view,undefined,'prompt-opt-footer');
@@ -92,7 +92,9 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
         pricingText.textContent=quote?[
             `完整输入 ${quote.inputTokens??'未知'} tokens；预计输出 ${quote.expectedOutputTokens??'未知'} tokens；最大输出 ${quote.maxOutputTokens??'未知'} tokens。`,
             `预计消耗：${credits(quote.estimatedCredits)||'暂无法估算'}。预算上界：${credits(quote.budgetUpperCredits)||'暂无法估算'}（不是预期消耗）。`,
-            quote.price?`费率版本：${quote.price.version||'未提供'}；单位：${quote.price.unit||'未提供'}。`:'尚无可信价格。',quote.reason||''
+            quote.price?`费率版本：${quote.price.version||'未提供'}；单位：${quote.price.unit||'未提供'}。`:'尚无可信价格。',
+            quote.price?.checkedAt?`费率核对：${new Date(quote.price.checkedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京时间）。`:'',
+            quote.tokenAlgorithm?`Token 计数依据：${quote.tokenAlgorithm}。`:'',quote.reason||''
         ].join('\n'):'更新估算后可查看完整输入、预计输出与预算上界。';
         const source=quote?.price?.source||quote?.price?.sourceUrl;const safeSource=typeof source==='string'&&/^https:\/\//.test(source);priceSource.hidden=!safeSource;if(safeSource){priceSource.href=source;priceSource.textContent='查看官方价格来源';}
         const count=status=>rows.filter(r=>r.suggestionStatus===status).length;

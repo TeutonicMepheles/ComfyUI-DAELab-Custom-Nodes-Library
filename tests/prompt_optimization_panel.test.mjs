@@ -44,5 +44,5 @@ test('unknown submission requires explicit duplicate-fee acknowledgement and nev
     const panel=createPromptOptimizationPanel(f),retry=find(panel.root,e=>e.textContent==='重新优化（新请求）'),ack=find(panel.root,e=>e.type==='checkbox');
     assert.equal(retry.disabled,true);assert.deepEqual(f.calls,[]);
     ack.checked=true;ack.dispatchEvent(new Event('change'));assert.equal(retry.disabled,false);
-    await retry.onclick({preventDefault(){},stopPropagation(){}});assert.deepEqual(f.calls,[['retry']]);panel.destroy();
+    await retry.onclick({preventDefault(){},stopPropagation(){}});assert.deepEqual(f.calls,[['retry',{acknowledgeUnknown:true}]]);panel.destroy();
 });

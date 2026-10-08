@@ -1,5 +1,5 @@
 """Canonical fixed instruction. UTF-8/LF; synchronized with contract K."""
-INSTRUCTION_VERSION = 'daelab.prompt-opt.v2'
+INSTRUCTION_VERSION = 'daelab.prompt-opt.v3'
 INPUT_VERSION = 'daelab.prompt-opt.input.v1'
 INSTRUCTION_DIGEST = 'a8b481b7eb82fd5eb46ab9c2c5d34bd3f17e1299db8fe2b7f14f9fe63c90d52c'
 DEFAULT_REQUIREMENTS = '提升清晰度和可执行性，消除重复与含混表达，保持原意，不主动扩写。'

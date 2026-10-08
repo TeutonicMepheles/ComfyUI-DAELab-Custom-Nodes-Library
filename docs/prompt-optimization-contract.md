@@ -8,7 +8,7 @@
 
 `target={documentId,tableId,recordId,fieldId}`。表级 target 只有前两项。ID 是序列化 UUID；nodeId 不作为身份。`instanceId` 为面板挂载期 UUID。
 
-`snapshot={contractVersion,target,revision,requestSeq,snapshotDigest,model,requirements,purpose,instructionVersion,instructionDigest,inputVersion,maxOutputTokens,input,inputText}`。input 精确遵循计划 5.3；inputText 是它的紧凑 Unicode JSON。snapshotDigest 是本地完整规范化快照的 SHA-256，包含引用结构/依赖/模板/行覆盖语义；本地结构映射与 URL 不发送 LLM。服务只从唯一固定指令来源构造 instructions，不信任客户端替代指令。输出预算默认 1024 tokens，能力与费率无效必须阻止开始。
+`snapshot={contractVersion,target,revision,requestSeq,snapshotDigest,model,requirements,purpose,instructionVersion,instructionDigest,inputVersion,maxOutputTokens,input,inputText}`。input 精确遵循计划 5.3；inputText 是它的紧凑 Unicode JSON。snapshotDigest 是本地完整规范化快照的 SHA-256，包含引用结构/依赖/模板/行覆盖语义；本地结构映射与 URL 不发送 LLM。服务只从唯一固定指令来源构造 developer 消息，不信任客户端替代指令。输出预算默认 1024 tokens，能力与费率无效必须阻止开始。
 
 - `capabilities({})` → `{models,defaultModel,instructionVersion,instructionDigest,inputVersion,available,reason,price}`。models 以 `{id,label,available}` 表示。
 - `estimate({rows:[snapshot],skipped:[{recordId,reason}],model,maxOutputTokens})` → quote `{quoteId,snapshotDigest,status,price,inputTokens,expectedOutputTokens,maxOutputTokens,estimatedCredits,budgetUpperCredits,expiresAt,reason}`。status=`ready|unavailable|expired`；时间 Unix 毫秒。价格携带来源、版本与计价单位。
@@ -59,3 +59,5 @@ M0–M6、V01–V13、Q01–Q08 不降低门槛。mock 仅证明程序契约，�
 这是保守的显式复制检测，不能识别所有短片段或语义改写，通用长语也可能误判；不能将结构/复制校验通过宣称为人工语义验收通过。事实与要求仍按 5.8 对照原文人工审阅；不新增评分 LLM 或自动修复调用。
 
 批次发现仅补充未知查询引用，已知引用不随服务端状态计数、暂停状态或更新时间改写；避免异步读取产生派生序列化变化干扰原生重做。远端权威状态继续只来自账本。
+
+2026-10-08 v3：正文与摘要沿用 v2；input 精确为 developer（唯一固定正文）再 user（原冻结 JSON），顶层 instructions 省略。输入模板仍 v1；计数 framing +64。版本升级使 v1/v2 quote 不可用于付费提交，旧账本可查询。Q08b 的 mini v2 失败与 full-model 对照记录保留，v3 不自动重发旧任务。

@@ -4,7 +4,7 @@ import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs
 import {copiesReferenceContext,CONTEXT_COPY_REASON} from './prompt_optimization_context_copy.mjs';
 
 export const CONTRACT_VERSION=1;
-export const INSTRUCTION_VERSION='daelab.prompt-opt.v2';
+export const INSTRUCTION_VERSION='daelab.prompt-opt.v3';
 export const INSTRUCTION_DIGEST='a8b481b7eb82fd5eb46ab9c2c5d34bd3f17e1299db8fe2b7f14f9fe63c90d52c';
 export const INPUT_VERSION='daelab.prompt-opt.input.v1';
 export const DEFAULT_REQUIREMENTS='提升清晰度和可执行性，消除重复与含混表达，保持原意，不主动扩写。';

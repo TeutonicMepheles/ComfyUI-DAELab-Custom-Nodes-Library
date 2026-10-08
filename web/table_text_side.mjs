@@ -31,7 +31,11 @@ export function createTextSide({root,getHost=()=>document.body}) {
             pane.addEventListener('compositionstart',()=>{composing=true;},true);
             pane.addEventListener('compositionend',()=>{composing=false;},true);
             pane.addEventListener('focusout',e=>{if(!pane.contains(e.relatedTarget))composing=false;});
-            pane.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'&&!e.defaultPrevented&&!composing&&!e.isComposing&&e.keyCode!==229){e.preventDefault();collapse();}});
+            const imeKey=e=>composing||e.isComposing||e.keyCode===229;
+            // Descendant editors can own Escape too; stop those handlers before
+            // they collapse the dock, while leaving the native IME default intact.
+            pane.addEventListener('keydown',e=>{if(imeKey(e))e.stopPropagation();},true);
+            pane.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'&&!e.defaultPrevented&&!imeKey(e)){e.preventDefault();collapse();}});
             active=panel;build(body);
         }
         const host=getHost();if(panel.pane.parentNode!==host)host.append(panel.pane);

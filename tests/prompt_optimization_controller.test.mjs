@@ -15,7 +15,7 @@ function fakeService(){
  const record=(name,p)=>calls.push({name,p:clone(p)});
  const api={
   capabilities:async p=>{record('capabilities',p);return {available:true,models:['gpt-4.1-mini']};},
-  estimate:async p=>{record('estimate',p);return {status:'ready',quoteId:`quote-${++n}`,expiresAt:Date.now()+300000,budgetUpperCredits:1,estimatedCredits:0.2};},
+  estimate:async p=>{record('estimate',p);await hooks.estimate?.(p);return {status:'ready',quoteId:`quote-${++n}`,expiresAt:Date.now()+300000,budgetUpperCredits:1,estimatedCredits:0.2};},
   lease:async p=>{record('lease',p);await hooks.lease?.(p);const key=JSON.stringify(p.target),old=leases.get(key);if(old&&old.instanceId!==p.instanceId)throw Error('此表格已由另一个视图控制');const value={leaseId:old?.leaseId||`lease-${++n}`,instanceId:p.instanceId};leases.set(key,value);return clone(value);},
   submit:async p=>{record('submit',p);const supplied=await hooks.submit?.(p);if(supplied)return clone(supplied);const value={...clone(p),stopped:false,paused:false,rows:p.rows.map(r=>({...clone(r),status:'queued'}))};batches.set(p.batchId,value);return clone(value);},
   query:async p=>{record('query',p);return clone(batches.get(p.batchId));},
@@ -98,12 +98,40 @@ test('unknown retry requires acknowledgment and sends original unknown request I
 
 test('refresh recovery of preparing rows remains paused until explicit budget confirmation and continue',async t=>{
  const {controller:first,service:s,table,revisions}=harness(t);await flush();await first.estimate();await first.submit();
- const stored=[...s.batches.values()][0];stored.rows[0].status='preparing';stored.paused=true;first.destroy();
+ const stored=[...s.batches.values()][0];stored.rows[0].status='preparing';stored.paused=true;stored.preflightSkipped=[{recordId:'empty',reason:'提示词为空'}];first.destroy();
  const c=createOptimizationController({getTable:()=>table,identity:{documentId:'doc',tableId:'table'},revisions:new OptimizationRevisions(revisions.serialize()),persist(){},change(){},api:s.api,scope:'cell',fieldId:'p',recordId:'r',instanceId:'same-view'});t.after(()=>c.destroy());
  await flush();await c.recover(stored.batchId);t.mock.timers.tick(1200);await flush();assert.equal(s.count('advance'),0);
  assert.equal(c.getState().permissions.canContinue,true);
+ assert.deepEqual(c.getState().range,{total:2,processable:1,skipped:stored.preflightSkipped});
  await c.continue();assert.equal(s.count('continue'),0,'Fresh quote must be displayed before confirmation');
  await c.continue();t.mock.timers.tick(1200);await flush();assert.equal(s.count('advance'),1);
+});
+
+test('continue never reuses a new-attempt quote for the recovered frozen batch',async t=>{
+ const {controller:c,service:s}=harness(t);await flush();await c.estimate();await c.submit();
+ const stored=[...s.batches.values()][0];stored.paused=true;
+ await c.recover(stored.batchId);assert.equal(c.getState().quote,null);
+ await c.estimate();const newAttempt=s.calls.filter(x=>x.name==='estimate').at(-1).p.rows;
+ assert.notDeepEqual(newAttempt,stored.rows.map(x=>x.snapshot));
+ await c.continue();assert.equal(s.count('continue'),0);
+ const original=s.calls.filter(x=>x.name==='estimate').at(-1).p.rows;
+ assert.deepEqual(original,stored.rows.map(x=>x.snapshot));
+ await c.continue();assert.equal(s.count('continue'),1);
+});
+
+test('continuation estimate cannot authorize a new request for a stopped batch',async t=>{
+ const {controller:c,service:s}=harness(t);await flush();await c.estimate();await c.submit();await c.stop();
+ await c.estimate();assert.equal(c.getState().permissions.canSubmit,true);
+ await c.continue();assert.equal(c.getState().permissions.canSubmit,false);
+ await c.submit();assert.equal(s.count('submit'),1);
+});
+
+test('leaving during continuation re-estimate discards the late quote',async t=>{
+ const {controller:c,service:s}=harness(t);await flush();await c.estimate();await c.submit();
+ await c.recover([...s.batches.keys()][0]);const entered=deferred(),release=deferred();
+ s.hooks.estimate=async()=>{entered.resolve();await release.promise;};
+ const pending=c.continue();await entered.promise;c.pause();release.resolve();await pending;
+ assert.equal(c.getState().quote,null);assert.equal(s.count('continue'),0);assert.equal(s.count('advance'),0);
 });
 
 test('applied suggestion cannot be reapplied after undo/redo and request sequence never rewinds',async t=>{

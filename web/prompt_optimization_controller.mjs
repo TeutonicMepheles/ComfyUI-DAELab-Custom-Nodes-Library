@@ -7,7 +7,7 @@ const activeStatuses=new Set(['submitting','submitted','polling']);
 const terminal=new Set(['succeeded','failed','skipped','stopped','unknown']);
 const uuid=()=>crypto.randomUUID();
 export function createOptimizationController({getTable,identity,revisions,persist,change,api,scope,fieldId,recordId,isActive=()=>true,onBatch=()=>{},instanceId=uuid(),preferences={},onPreferences=()=>{}}){
- let dead=false,epoch=0,lifecycle=0,lease=null,batch=null,timer=null,prepared=[],running=false,requiresContinue=false,acknowledgeUnknownRequestIds=[];
+ let dead=false,epoch=0,lifecycle=0,lease=null,batch=null,timer=null,prepared=[],running=false,requiresContinue=false,continuationQuoteId=null,acknowledgeUnknownRequestIds=[];
  const listeners=new Set(),items=new Map();
  const state={scope,fieldId,recordId,requirements:preferences.requirements||'',model:preferences.model||'gpt-4.1-mini',models:[],range:{total:0,processable:0,skipped:[]},quote:null,busy:false,error:'',rows:[],batchId:null,permissions:{}};
  function update(){
@@ -71,15 +71,22 @@ export function createOptimizationController({getTable,identity,revisions,persis
   requiresContinue=life!==lifecycle||!isActive();ingest(value);schedule();
  });}
  async function recover(batchId=state.batchId){return operation(async()=>{
-  if(!batchId)return;const value=await api.recover({batchId});requiresContinue=true;
+  if(!batchId)return;state.batchId=batchId;state.quote=null;prepared=[];continuationQuoteId=null;epoch++;
+  const value=await api.recover({batchId});requiresContinue=true;
+  const skipped=value.preflightSkipped||[];
+  state.range={total:value.rows.length+skipped.length,processable:value.rows.length,skipped};
   for(const row of value.rows||[]){if(items.has(row.requestId))continue;let frozen;try{const s=row.snapshot,nonce=s.input.protected_tokens[0]?.match(/^⟦DAE_REF_(.+)_\d+⟧$/)?.[1];frozen=await freezeSnapshot(getTable(),s.target,revisions,{model:s.model,requirements:s.requirements,maxOutputTokens:s.maxOutputTokens,...(nonce?{nonce}:{})});if(frozen.wire.snapshotDigest!==s.snapshotDigest)frozen=null;}catch{}items.set(row.requestId,{...row,frozen});}
   ingest(value);schedule();
  });}
  function apply(ids){return operation(()=>{if(!isActive())throw new Error('当前模式不可应用');const selected=[...items.values()].filter(i=>ids.includes(i.requestId));const result=applySuggestions({table:getTable(),identity,revisions,items:selected,change});for(const id of result.applied)items.get(id).applied=true;state.error=result.conflicts.map(c=>c.reason).join('；');observe();return result;});}
  const controller={getState:()=>state,subscribe(fn){listeners.add(fn);fn(state);return()=>listeners.delete(fn);},setRequirements(text){state.requirements=text;onPreferences({model:state.model,requirements:text});state.quote=null;epoch++;update();},setModel(id){state.model=id;onPreferences({model:id,requirements:state.requirements});state.quote=null;epoch++;update();},estimate,submit,stop:()=>operation(async()=>{requiresContinue=true;await controlLease();ingest(await api.stop({batchId:state.batchId,leaseId:lease.leaseId}));}),recover,continue:()=>operation(async()=>{
   const life=lifecycle;
-  if(!state.quote||state.quote.expiresAt<=Date.now()||state.quote.quoteId===batch.quoteId){
-   state.quote=await api.estimate({rows:batch.rows.map(i=>i.snapshot),skipped:[],model:state.model,maxOutputTokens:1024});
+  if(!state.quote||state.quote.status!=='ready'||state.quote.quoteId!==continuationQuoteId||state.quote.expiresAt<=Date.now()||state.quote.quoteId===batch.quoteId){
+   prepared=[];
+   const e=++epoch,rows=batch.rows.map(i=>i.snapshot),quote=await api.estimate({rows,skipped:[],model:rows[0].model,maxOutputTokens:rows[0].maxOutputTokens});
+   if(dead||e!==epoch||life!==lifecycle)return;
+   state.quote=quote;continuationQuoteId=quote.quoteId;state.model=rows[0].model;
+   if(quote.status!=='ready'){state.error=quote.reason||'剩余任务暂无法估算';return;}
    state.error='剩余任务预算已重新核对，请查看当前估算后再次点击继续剩余行。';return;
   }
   await controlLease();ingest(await api.continue({batchId:state.batchId,leaseId:lease.leaseId,quoteId:state.quote.quoteId,budgetCredits:state.quote.budgetUpperCredits}));requiresContinue=life!==lifecycle||!isActive();schedule();

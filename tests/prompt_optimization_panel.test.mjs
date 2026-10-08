@@ -50,3 +50,8 @@ test('result summary includes preflight skips without double-counting persisted 
     const f=fixture();f.update({range:{total:3,processable:1,skipped:[{recordId:'empty',reason:'为空'}]},rows:[{requestId:'r',recordId:'empty',status:'skipped'},{requestId:'s',recordId:'changed',status:'skipped'}]});
     const panel=createPromptOptimizationPanel(f);assert.match(find(panel.root,e=>e.className==='prompt-opt-counts').textContent,/跳过 2/);panel.destroy();
 });
+test('disabled submission explains inactive mode and clears explanation on restoration',()=>{
+    const f=fixture();f.update({inactiveReason:'节点已停用，请恢复 Active 模式。'});const panel=createPromptOptimizationPanel(f);
+    const reason=find(panel.root,e=>e.className==='prompt-opt-warning'&&e.textContent?.includes('Active'));assert.equal(reason.hidden,false);
+    f.update({inactiveReason:'',quote:{status:'ready',estimatedCredits:1,expiresAt:Date.now()+5000},permissions:{canSubmit:true}});assert.equal(reason.hidden,true);panel.destroy();
+});

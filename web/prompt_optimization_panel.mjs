@@ -61,6 +61,7 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
     const error=node('p',view,'','prompt-opt-error');error.setAttribute('role','alert');
     const footer=node('footer',view,undefined,'prompt-opt-footer');
     const quoteText=node('strong',footer),footerRange=node('span',footer,undefined,'prompt-opt-hint');
+    const inactiveReason=node('p',footer,'','prompt-opt-warning');inactiveReason.setAttribute('role','status');inactiveReason.hidden=true;
     const footerActions=node('div',footer,undefined,'prompt-opt-actions');
     const estimate=button('更新估算',()=>run('estimate')),start=button('开始优化',()=>run('submit'),true),stop=button('停止剩余行',()=>run('stop'));
     footerActions.append(estimate,start,stop);
@@ -107,6 +108,7 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
         recovery.hidden=!state.batchId;recover.hidden=!permissions.canRecover;recover.disabled=Boolean(state.busy);resume.hidden=!permissions.canContinue;resume.disabled=Boolean(state.busy);
         retry.disabled=Boolean(state.busy)||rows.some(r=>['queued','preparing','submitting','submitted','polling'].includes(r.status))||(hasUnknown&&!ack.checked);retry.hidden=!rows.length;
         estimate.disabled=!permissions.canEstimate||Boolean(state.busy);start.disabled=!permissions.canSubmit||Boolean(state.busy)||composing||expired||quote?.status!=='ready';stop.hidden=!permissions.canStop;stop.disabled=!permissions.canStop;
+        inactiveReason.textContent=state.inactiveReason||'';inactiveReason.hidden=!start.disabled||!state.inactiveReason;
         applyAll.hidden=state.scope!=='column';applyAll.disabled=!permissions.canApplyAll||Boolean(state.busy);applyAll.textContent=`应用全部有效建议（${rows.filter(r=>r.canApply).length}）`;
         error.textContent=localError||state.error||'';error.hidden=!error.textContent;
     }

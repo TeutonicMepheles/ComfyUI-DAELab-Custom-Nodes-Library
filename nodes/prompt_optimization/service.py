@@ -246,6 +246,11 @@ class Service:
             return dict(contractVersion=1, **lease)
 
     async def check_quote(self, quote_id, rows, budget):
+        # A persisted, unexpired quote can outlive a fixed-instruction upgrade.
+        # Reject its old snapshots before submit/continue/advance can authorize
+        # the current instructions under a previously confirmed quote.
+        for snapshot in rows:
+            validate_snapshot(snapshot)
         q = self.ledger.get('quote', quote_id)
         if not q or q['expiresAt'] <= now() or q['snapshotDigest'] != digest(rows):
             raise ValueError('估算已失效或快照已改变，请重新估算')

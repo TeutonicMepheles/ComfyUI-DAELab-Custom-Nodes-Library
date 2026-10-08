@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createOptimizationController} from '../web/prompt_optimization_controller.mjs';
-import {OptimizationRevisions} from '../web/prompt_optimization_model.mjs';
+import {createOptimizationController,attachPromptOptimization} from '../web/prompt_optimization_controller.mjs';
+import {OptimizationRevisions,freezeSnapshot,NAMESPACE} from '../web/prompt_optimization_model.mjs';
 
 const clone=value=>structuredClone(value);
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
@@ -116,4 +116,63 @@ test('applied suggestion cannot be reapplied after undo/redo and request sequenc
  await c.apply(row.requestId);assert.equal(history.length,count);
  Object.assign(table,applied);c.observe();assert.ok(revisions.current(table,'r','p').revision>undo.revision);
  assert.equal(s.count('advance'),1);
+});
+
+function mountHarness(t,{references=[],discovered=[]}={}){
+ const table=makeTable(),identity={documentId:crypto.randomUUID(),tableId:crypto.randomUUID()},graph={};
+ const node={graph,properties:{[NAMESPACE]:{tableId:identity.tableId,revisions:{},batches:clone(references)}}},calls=[];
+ const fetchApi=async(url,options)=>{
+  const action=url.split('/').at(-1),payload=JSON.parse(options.body);calls.push({action,payload});
+  const result=action==='query'?{batches:clone(discovered)}:action==='recover'?{batchId:payload.batchId,rows:[]}
+   :action==='capabilities'?{available:true,models:['gpt-4.1-mini']}:{status:'ready',quoteId:'estimate',expiresAt:Date.now()+300000};
+  return {ok:true,json:async()=>result};
+ };
+ const mounts=[];
+ function mount(){
+  // Skip rendering the panel; exercise actual attach/discovery/recovery code.
+  const editor={change(){},onTableChange(){return()=>{};},openTextSide(){}};
+  const lifecycle=attachPromptOptimization({node,graph,editor,getTable:()=>table,identity,fetchApi});mounts.push(lifecycle);
+  editor.openPromptOptimization({scope:'cell',fieldId:'p',recordId:'r'});return lifecycle;
+ }
+ t.after(()=>mounts.forEach(m=>m.destroy()));
+ return {node,calls,mount,identity};
+}
+
+test('native history restoring old node properties retains known batch references on remount',async t=>{
+ const reference={batchId:'durable-reference',scope:'cell',fieldId:'p',recordId:'r'};
+ const {node,calls,mount,identity}=mountHarness(t,{references:[reference]});const first=mount();await flush();
+ const before=calls.filter(c=>c.action==='recover').length;assert.ok(before>=1);first.destroy();
+ node.properties[NAMESPACE]={tableId:identity.tableId,revisions:{},batches:[]};
+ mount();await flush();
+ const after=calls.filter(c=>c.action==='recover');assert.ok(after.length>before);
+ assert.ok(after.every(c=>c.payload.batchId==='durable-reference'));
+ assert.ok(node.properties[NAMESPACE].batches.some(b=>b.batchId==='durable-reference'));
+});
+
+test('server target discovery recovers batches absent from workflow references',async t=>{
+ const summary={batchId:'server-only',scope:'cell',fieldId:'p',recordId:'r',updatedAt:100};
+ const {node,calls,mount,identity}=mountHarness(t,{discovered:[summary]});mount();await flush();
+ assert.deepEqual(calls.find(c=>c.action==='query').payload.target,identity);
+ assert.deepEqual(calls.filter(c=>c.action==='recover').map(c=>c.payload.batchId),['server-only']);
+ assert.ok(node.properties[NAMESPACE].batches.some(b=>b.batchId==='server-only'));
+ assert.equal(calls.filter(c=>['submit','advance'].includes(c.action)).length,0);
+});
+
+test('newest server-discovered batch is recovered when summaries are newest-first',async t=>{
+ const newer={batchId:'newer',scope:'cell',fieldId:'p',recordId:'r',updatedAt:200};
+ const older={...newer,batchId:'older',updatedAt:100};
+ const {calls,mount}=mountHarness(t,{discovered:[newer,older]});mount();await flush();
+ assert.deepEqual(calls.filter(c=>c.action==='recover').map(c=>c.payload.batchId),['newer']);
+});
+
+test('recovery without trustworthy revision metadata keeps suggestions stale and non-applicable',async t=>{
+ const table=makeTable(),sourceRevisions=new OptimizationRevisions();
+ const frozen=await freezeSnapshot(table,{documentId:'doc',tableId:'table',recordId:'r',fieldId:'p'},sourceRevisions,{begin:true});
+ const service=fakeService();service.batches.set('untrusted-revision',{batchId:'untrusted-revision',paused:true,rows:[{
+  requestId:'old-request',snapshot:frozen.wire,status:'succeeded',suggestion:{status:'valid',text:'一只白猫。'},
+ }]});
+ const {controller:c,history}=harness(t,{service,table,revisions:new OptimizationRevisions()});await flush();await c.recover('untrusted-revision');
+ assert.equal(c.getState().rows[0].suggestionStatus,'stale');assert.equal(c.getState().rows[0].canApply,false);
+ await c.applyAll();assert.equal(history.length,0);assert.equal(table.records[0].values.p,'一只白猫，白色的猫。');
+ assert.equal(service.count('advance'),0);
 });

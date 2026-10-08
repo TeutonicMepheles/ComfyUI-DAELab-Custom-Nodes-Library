@@ -29,11 +29,11 @@ function fakeService(){
  return {api,calls,batches,hooks,count:name=>calls.filter(c=>c.name===name).length};
 }
 
-function harness(t,{service=fakeService(),table=makeTable(),revisions=new OptimizationRevisions(),recordId='r',instanceId='same-view'}={}){
+function harness(t,{service=fakeService(),table=makeTable(),revisions=new OptimizationRevisions(),scope='cell',recordId='r',instanceId='same-view'}={}){
  t.mock.timers.enable({apis:['setTimeout']});
  const history=[],savedBatches=[];
  const controller=createOptimizationController({getTable:()=>table,identity:{documentId:'doc',tableId:'table'},revisions,persist(){},
-  change(fn){history.push(clone(table));fn(table);},api:service.api,scope:'cell',fieldId:'p',recordId,instanceId,
+  change(fn){history.push(clone(table));fn(table);},api:service.api,scope,fieldId:'p',recordId,instanceId,
   onBatch:(batchId,range)=>savedBatches.push({batchId,...range})});
  t.after(()=>controller.destroy());
  return {controller,service,table,revisions,history,savedBatches};
@@ -43,6 +43,55 @@ test('opening and estimating never calls submit, permit or remote advance',async
  const {controller:c,service:s}=harness(t);await flush();await c.estimate();
  assert.equal(c.getState().range.processable,1);assert.equal(c.getState().permissions.canSubmit,true);
  assert.deepEqual(s.calls.map(call=>call.name),['capabilities','estimate']);
+});
+
+test('V05 column preflight freezes all records despite presentation and selection, with explicit invalid-row counts',async t=>{
+ const table=makeTable();table.fields[0].hidden=true;table.view='cards';
+ table.records[0].selected=true;table.records[1].selected=false;table.records[1].hidden=true;
+ // A filtered/virtualized view may expose a subset, but the controller receives
+ // the full model. These view hints must never replace the records collection.
+ table.meta.visibleRecordIds=['r'];table.meta.collapsedRecordIds=['r2'];
+ table.records.push({id:'empty',values:{p:''}},{id:'invalid',values:{p:{kind:'column-template',version:1,segments:[{type:'column',fieldId:'missing'}]}}});
+ const {controller:c,service:s}=harness(t,{table,scope:'column',recordId:null});await flush();await c.estimate();
+ assert.equal(c.getState().range.total,4);assert.equal(c.getState().range.processable,2);
+ assert.deepEqual(c.getState().range.skipped.map(x=>x.recordId),['empty','invalid']);
+ assert.ok(c.getState().range.skipped.every(x=>typeof x.reason==='string'&&x.reason.length>0));
+ const quote=s.calls.find(x=>x.name==='estimate').p;
+ assert.deepEqual(quote.rows.map(x=>x.target.recordId),['r','r2']);
+ assert.equal(s.count('advance'),0);await c.submit();
+ const submitted=s.calls.find(x=>x.name==='submit').p;
+ assert.deepEqual(submitted.range,{scope:'column',fieldId:'p'});
+ assert.deepEqual(submitted.rows.map(x=>x.snapshot),quote.rows);
+});
+
+test('V05 adding a row while the first frozen row is running never adds it to the batch or sends it',async t=>{
+ const {controller:c,service:s,table}=harness(t,{scope:'column',recordId:null}),entered=deferred(),release=deferred();
+ s.hooks.advance=async(batch,row)=>{if(row.snapshot.target.recordId==='r'){entered.resolve();await release.promise;}row.status='succeeded';};
+ await flush();await c.estimate();await c.submit();const original=clone([...s.batches.values()][0].rows);
+ t.mock.timers.tick(1200);await entered.promise;
+ table.records.push({id:'added-during-run',values:{p:'这一行必须等待下一次用户开始的新批次。'}});c.observe();
+ release.resolve();await flush();t.mock.timers.tick(1200);await flush();t.mock.timers.tick(2400);await flush();
+ const stored=[...s.batches.values()][0];
+ assert.deepEqual(stored.rows.map(x=>({requestId:x.requestId,snapshot:x.snapshot})),original.map(x=>({requestId:x.requestId,snapshot:x.snapshot})));
+ assert.deepEqual(s.calls.filter(x=>x.name==='advance').map(x=>x.p.requestId),original.map(x=>x.requestId));
+ assert.equal(s.count('submit'),1);assert.equal(s.count('skip'),0);
+ assert.equal(c.getState().range.total,2);assert.equal(table.records.length,3);
+});
+
+for(const mutation of ['delete','edit'])test(`V05 ${mutation} of an unsent row during another row's execution is skipped before permit and never sent`,async t=>{
+ const {controller:c,service:s,table}=harness(t,{scope:'column',recordId:null}),entered=deferred(),release=deferred();
+ s.hooks.advance=async(batch,row)=>{entered.resolve();await release.promise;row.status='succeeded';};
+ await flush();await c.estimate();await c.submit();const stored=[...s.batches.values()][0],originalSecond=clone(stored.rows[1]);
+ t.mock.timers.tick(1200);await entered.promise;
+ if(mutation==='delete')table.records.splice(1,1);else table.records[1].values.p='用户在排队期间写入的新正文，不得替换进旧请求。';
+ c.observe();release.resolve();await flush();t.mock.timers.tick(1200);await flush();t.mock.timers.tick(2400);await flush();
+ assert.deepEqual(stored.rows.map(x=>x.status),['succeeded','skipped']);
+ assert.deepEqual(stored.rows[1].snapshot,originalSecond.snapshot,'The skipped task retains its original frozen input');
+ const skipped=s.calls.filter(x=>x.name==='skip');assert.equal(skipped.length,1);
+ assert.equal(skipped[0].p.requestId,originalSecond.requestId);assert.match(skipped[0].p.reason,/变化/);
+ assert.deepEqual(s.calls.filter(x=>x.name==='permit').map(x=>x.p.requestId),[stored.rows[0].requestId]);
+ assert.deepEqual(s.calls.filter(x=>x.name==='advance').map(x=>x.p.requestId),[stored.rows[0].requestId]);
+ if(mutation==='edit')assert.equal(table.records[1].values.p,'用户在排队期间写入的新正文，不得替换进旧请求。');
 });
 
 for(const stage of ['lease','submit','permit'])test(`pause while awaiting ${stage} cannot be cleared by its late response`,async t=>{

@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "canvasRepository": "https://github.com/TeutonicMepheles/ComfyUI-DAELab-Creative-Canvas.git",
+  "canvasRevision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+  "files": [
+    {
+      "path": "creative_theme.css",
+      "source": "web/creative_theme.css",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "eb35668cbdf400db5d3ed873258de5019f19ceae9f66daee876136615c3970f3",
+      "bytes": 6251
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-55-Regular.woff2",
+      "source": "web/vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-55-Regular.woff2",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "1cb8418d80b01ec08cb6f2d64b6244aaaf1bb80dc35491b66ddba16c5e24f444",
+      "bytes": 5256740
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-65-Medium.woff2",
+      "source": "web/vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-65-Medium.woff2",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "628a0d5be684bae0e7a8e3ad15b7c4f623fd15b3375082624f778326e343467a",
+      "bytes": 5469328
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-75-SemiBold.woff2",
+      "source": "web/vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-75-SemiBold.woff2",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "75e2ba042e1c8ad8cf3dd5bf26f25984ffeca6c4ebb86977c8f8e1abeeb2652f",
+      "bytes": 5481108
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/LICENSE.txt",
+      "source": "web/vendor/alibaba-puhuiti-3/LICENSE.txt",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "1dda8d65762c8b559b2bce135ed1e6d43344552dd565ff9826216d58dc1d7181",
+      "bytes": 5063
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/README.md",
+      "source": "web/vendor/alibaba-puhuiti-3/README.md",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "8e580cad82478784dd832f4192008e23744cf02c4ef7312238c2a675c81892cd",
+      "bytes": 960
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/manifest.json",
+      "source": "web/vendor/alibaba-puhuiti-3/manifest.json",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "ec0bc41b381f4686f2643a319040c9d0a53071cb09c7223b9e73a1ee8c99599a",
+      "bytes": 543
+    },
+    {
+      "path": "vendor/remixicon/LICENSE",
+      "source": "web/vendor/remixicon/LICENSE",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "6f2f21c5f8db34635d31848e9ff831d5dc421bb83ffc9d37f82651364047ae58",
+      "bytes": 7198
+    },
+    {
+      "path": "vendor/remixicon/LICENSE-supplemental",
+      "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/License",
+      "revision": "9fb7967c0a4c09910161192bde99efd3df09f5eb",
+      "sha256": "6f2f21c5f8db34635d31848e9ff831d5dc421bb83ffc9d37f82651364047ae58",
+      "bytes": 7198
+    },
+    {
+      "path": "vendor/remixicon/README.md",
+      "source": "web/vendor/remixicon/README.md",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "3284b85d7137973e0edb2998e08e2d700040d14f4af6c21f9bbd99b87dfcedf0",
+      "bytes": 1517
+    },
+    {
+      "path": "vendor/remixicon/arrow-down-line.svg",
+      "source": "web/vendor/remixicon/arrow-down-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "b1b1432f71a0ac7fbd3b1a114101edeb6406efc33c13c5957d2f17facf6875e7",
+      "bytes": 224
+    },
+    {
+      "path": "vendor/remixicon/arrow-left-right-line.svg",
+      "source": "web/vendor/remixicon/arrow-left-right-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "3623ad961089552c31c0a91991a84bcc04f90da9463f4f63077d7baf74ce2275",
+      "bytes": 369
+    },
+    {
+      "path": "vendor/remixicon/arrow-up-line.svg",
+      "source": "web/vendor/remixicon/arrow-up-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "047242b33db3e4a7c2aa9bfd0786c5c6e4a5dd6c3742770e7500cc7923a17554",
+      "bytes": 224
+    },
+    {
+      "path": "vendor/remixicon/artboard-line.svg",
+      "source": "web/vendor/remixicon/artboard-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "deda639f35c81767e5391157129db39019fabd8c16ef885d2fc7557767679cca",
+      "bytes": 309
+    },
+    {
+      "path": "vendor/remixicon/delete-bin-line.svg",
+      "source": "web/vendor/remixicon/delete-bin-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "a3484fc34454104f58430d605047d353c6f9669fd037b2b30a98d4f58ad66a3e",
+      "bytes": 302
+    },
+    {
+      "path": "vendor/remixicon/download-line.svg",
+      "source": "web/vendor/remixicon/download-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "ad83ac7dc9d4c6af651a53068e928d82f9402cfd05a924742388549846032f43",
+      "bytes": 219
+    },
+    {
+      "path": "vendor/remixicon/edit-line.svg",
+      "source": "web/vendor/remixicon/edit-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "78c5dcafc5a57e67a277a466e73ecfb0779cda99becfe90bf62977471024c609",
+      "bytes": 361
+    },
+    {
+      "path": "vendor/remixicon/file-copy-line.svg",
+      "source": "web/vendor/remixicon/file-copy-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "6146b833e109330b7f0d7cd6cf9b3d0eabf309459f5743de5dfc499872f74a0d",
+      "bytes": 458
+    },
+    {
+      "path": "vendor/remixicon/folder-image-line.svg",
+      "source": "web/vendor/remixicon/folder-image-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "5a9e8b9baf4d9a26f55683d922142109a5caa68a9c3f8542248c713c82c44a72",
+      "bytes": 416
+    },
+    {
+      "path": "vendor/remixicon/fullscreen-line.svg",
+      "source": "web/vendor/remixicon/fullscreen-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "4c98301c55d2d8fadc57a0d2cfc06005ef285d48b5d9aec64bfe3023f6429528",
+      "bytes": 182
+    },
+    {
+      "path": "vendor/remixicon/image-line.svg",
+      "source": "web/vendor/remixicon/image-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "da8ec323a5f37d6e7feacce550f2ba25c3f6e0fd37b94b4ac652dbd809130d4e",
+      "bytes": 440
+    },
+    {
+      "path": "vendor/remixicon/layout-grid-line.svg",
+      "source": "web/vendor/remixicon/layout-grid-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "246bd15d3c8246db8463f1854515fd0a3ba1b84a0cab2cd22ccf43d724ffd1b1",
+      "bytes": 288
+    },
+    {
+      "path": "vendor/remixicon/list-ordered.svg",
+      "source": "web/vendor/remixicon/list-ordered.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "810b83aa35f62b5873274832d9449b369a760d3c38f5224318b1a6e2a92a79f3",
+      "bytes": 253
+    },
+    {
+      "path": "vendor/remixicon/lock-line.svg",
+      "source": "web/vendor/remixicon/lock-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "389ddb87b7b773e165ca30bf7ba4c9974fd56bb6c579e34b0ff6adb3d66d4a00",
+      "bytes": 382
+    },
+    {
+      "path": "vendor/remixicon/lock-unlock-line.svg",
+      "source": "web/vendor/remixicon/lock-unlock-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "724da7e8c7a7774fbd499dfc42f64f5763f226e5d1ff39494b5f2bb914fe3cab",
+      "bytes": 403
+    },
+    {
+      "path": "vendor/remixicon/palette-line.svg",
+      "source": "web/vendor/remixicon/palette-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "3164a6d63a937f7331d0d596b007c7879150aa9e252ead9acc9ccf760220907f",
+      "bytes": 1020
+    },
+    {
+      "path": "vendor/remixicon/pause-fill.svg",
+      "source": "web/vendor/remixicon/pause-fill.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "82bfb45bf5b77f055ce984fca319d551c4319036520fd8a0719f41e656431953",
+      "bytes": 129
+    },
+    {
+      "path": "vendor/remixicon/play-fill.svg",
+      "source": "web/vendor/remixicon/play-fill.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "ac35d2ee814f73004c748273aabbddb57d0e5c1eead3788b889276781876a7c5",
+      "bytes": 413
+    },
+    {
+      "path": "vendor/remixicon/scissors-cut-line.svg",
+      "source": "web/vendor/remixicon/scissors-cut-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "b0b226e42092680fcc1f952496c3f3466bf67b1507346ca4c0c5785c500cef12",
+      "bytes": 1153
+    },
+    {
+      "path": "vendor/remixicon/sparkling-line.svg",
+      "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Weather/sparkling-line.svg",
+      "revision": "9fb7967c0a4c09910161192bde99efd3df09f5eb",
+      "sha256": "1bd9942ade4b0955f83ab20ec31fe28c7949c40a00417e9257fe87f0310d07fe",
+      "bytes": 785
+    },
+    {
+      "path": "vendor/remixicon/upload-2-line.svg",
+      "source": "web/vendor/remixicon/upload-2-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "88bddea91a61b492722478caa1a70429dbd62515cba54c3f3d249e265142a765",
+      "bytes": 209
+    },
+    {
+      "path": "vendor/remixicon/video-line.svg",
+      "source": "web/vendor/remixicon/video-line.svg",
+      "revision": "785bad3441550f580cb42b7a9532cc0f4ee547f9",
+      "sha256": "641200dc6b3f97f79938deef08c8a78cf267d9ec9831ca772721e69fdb67e202",
+      "bytes": 602
+    }
+  ]
+}

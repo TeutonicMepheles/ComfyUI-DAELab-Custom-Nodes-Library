@@ -24,7 +24,7 @@ export function tableTheme() {
     document.head.append(bundled);
     const sheet = document.createElement('link');
     sheet.id = 'dae-table-ui-css'; sheet.rel = 'stylesheet';
-    sheet.href = new URL('./table_ui.css?v=20261009-progress-r4', import.meta.url).href;
+    sheet.href = new URL('./table_ui.css?v=20261009-progress-r5', import.meta.url).href;
     document.head.append(sheet);
 }
 

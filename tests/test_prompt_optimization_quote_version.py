@@ -41,8 +41,8 @@ class OldQuoteTests(unittest.IsolatedAsyncioTestCase):
         # Seed a ledger from the previous instruction release. Its quote is still
         # live and every other digest/price/budget/lease check can pass.
         old = copy.deepcopy(snapshot)
-        old['instructionVersion'] = 'daelab.prompt-opt.v1'
-        old['instructionDigest'] = '76b816233f2d22a6cb286d14bc389c04fe23800536cf3b7cf668eb20568a9ff1'
+        old['instructionVersion'] = 'daelab.prompt-opt.v3'
+        old['instructionDigest'] = 'a8b481b7eb82fd5eb46ab9c2c5d34bd3f17e1299db8fe2b7f14f9fe63c90d52c'
         old['snapshotDigest'] = helpers.digest({k: v for k, v in old.items() if k != 'snapshotDigest'})
         frozen = self.service.ledger.get('quote', quote['quoteId'])
         frozen.update(rows=[old], snapshotDigest=helpers.digest([old]))

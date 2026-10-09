@@ -1,11 +1,11 @@
 import {modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
-import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261009-progress-r4';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r4';
+import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261009-progress-r5';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r5';
 import {connectionPanel} from './libtv_connection.mjs';
 import {GENERATION_MODELS,LOCAL_VIDEO_MODEL,isGeneration,rowGenerationConfig,setRowGenerationConfig,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationFrameRoles,generationFrames,generationFrameTagKey,syncGenerationFrameTags,syncGenerationPromptMode,syncGenerationPromptSource,generationConfigField,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {effectivePrompt,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {columnReferenceOptions,createReferenceMenu,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
-import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261009-progress-r4';
+import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261009-progress-r5';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
  let alive=true;

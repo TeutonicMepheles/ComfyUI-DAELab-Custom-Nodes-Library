@@ -1,9 +1,9 @@
 import {bindInlineEditor} from './table_inline_editor.mjs?v=20261001-table-perf';
 import {isColumnPrompt,columnValue} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {columnReferenceOptions,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
-import {readPromptSegments} from './table_prompt_template_editor.mjs?v=20261009-progress-r4';
+import {readPromptSegments} from './table_prompt_template_editor.mjs?v=20261009-progress-r5';
 import {uid,setValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button} from './table_controls.mjs?v=20261009-progress-r4';
+import {createTableButton as button} from './table_controls.mjs?v=20261009-progress-r5';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 

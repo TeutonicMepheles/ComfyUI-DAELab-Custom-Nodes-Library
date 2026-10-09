@@ -1,9 +1,9 @@
-import {createTableEditor} from './data_table_editor.mjs?v=20261009-progress-r4';
-import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs?v=20261009-progress-r4';
-import {createPromptEditor} from './table_prompt_editor.mjs?v=20261009-progress-r4';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261009-progress-r4';
-import {installContentPresentation} from './table_context_menu.mjs?v=20261009-progress-r4';
-import {createWorkbench} from './table_workbench.mjs?v=20261009-progress-r4';
+import {createTableEditor} from './data_table_editor.mjs?v=20261009-progress-r5';
+import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs?v=20261009-progress-r5';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20261009-progress-r5';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261009-progress-r5';
+import {installContentPresentation} from './table_context_menu.mjs?v=20261009-progress-r5';
+import {createWorkbench} from './table_workbench.mjs?v=20261009-progress-r5';
 import {workbenchTheme} from './table_workbench_theme.mjs';
 import {studioTheme} from './daelab_studio_theme.mjs';
 import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261007-parser-review';

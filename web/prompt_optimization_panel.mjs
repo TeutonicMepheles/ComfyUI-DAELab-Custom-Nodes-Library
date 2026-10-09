@@ -1,7 +1,7 @@
-import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-progress-r4';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r4';
+import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-progress-r5';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r5';
 
-import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r4';
+import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r5';
 
 const taskLabels={queued:'等待提交',preparing:'准备中',submitting:'正在提交',submitted:'已提交',polling:'等待结果',succeeded:'已完成',failed:'失败',skipped:'已跳过',stopped:'已停止',unknown:'提交结果未知'};
 const suggestionLabels={valid:'有改动建议',unchanged:'未发现可安全改进的内容',stale:'建议已过期',invalid:'建议无效',applied:'已应用'};

@@ -1,6 +1,6 @@
 import {app} from '/scripts/app.js';
-import {prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261009-progress-r4';
-import {installWorkflowGenerationHistory,preserveWorkflowGenerationHistory} from './prompt_optimization_workflow_history.mjs?v=20261009-progress-r4';
+import {prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261009-progress-r5';
+import {installWorkflowGenerationHistory,preserveWorkflowGenerationHistory} from './prompt_optimization_workflow_history.mjs?v=20261009-progress-r5';
 
 app.registerExtension({
  name:'DAELab.PromptOptimization.Identity.v1',

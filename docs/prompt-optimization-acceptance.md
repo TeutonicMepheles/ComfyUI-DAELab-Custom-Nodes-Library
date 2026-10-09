@@ -1,5 +1,7 @@
 # 提示词优化验收进度
 
+统一的 V01–V13 当前结论、测试代码与历史证据继承关系见 [交付审阅](prompt-optimization-review.md)。
+
 验收口径（2026-10-09 用户澄清）：DeepSeek 当前替代 Comfy Partner 的模型产出，两者共用前端交互。已通过的进度、停止/继续、建议应用、撤销重做与保存恢复属于同一套功能的验收。下文“原 Comfy M6 未完成”仅保留提供方连接、真实输出和计费的未验证项，不代表另有一套 Comfy UI。代码核对确认入口统一调用 `createOptimizationController` 与 `createPromptOptimizationPanel`，共用状态投影和应用事务；仅鉴权、模型/费用展示及远端查询能力说明因通道而异。
 
 ## 2026-10-09 DeepSeek Flash v4 验收通过

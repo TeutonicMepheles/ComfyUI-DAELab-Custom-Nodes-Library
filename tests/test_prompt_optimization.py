@@ -97,26 +97,6 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(row['costEvidence']), {'create', 'query'})
         self.assertNotIn('not-real', self.s.ledger.db.execute('SELECT group_concat(body) FROM objects').fetchone()[0])
 
-    async def test_v4_persisted_tasks_remain_queryable_but_cannot_send_v5_under_old_quote(self):
-        batch, payload, quote = await self.batch()
-        old = batch['rows'][0]['snapshot']
-        old.update(instructionVersion='daelab.prompt-opt.v4',
-                   instructionDigest='8e44e9256b7eb759fc1d78d7731c668fa8bceaf78ae441025e256c2fa190eb11')
-        self.s.save(batch)
-        self.assertEqual((await self.s.query({'batchId':batch['batchId']}))['rows'][0]['snapshot'], old)
-        proposed = copy.deepcopy(payload)
-        proposed.update(batchId='new-v4-task', rows=[{'requestId':'new-v4-row','snapshot':old}])
-        with self.assertRaises(ValueError):
-            await self.s.submit(proposed)
-        permit = await self.permit(batch)
-        with self.assertRaises(ValueError):
-            await self.s.advance(permit, {'token':'not-real'})
-        with self.assertRaises(ValueError):
-            await self.s.continue_batch(dict(batchId=batch['batchId'],quoteId=quote['quoteId'],
-                budgetCredits=quote['budgetUpperCredits'],leaseId=self.lease['leaseId']))
-        self.assertFalse(self.t.posts)
-        self.assertTrue(self.s.batch(batch['batchId'])['paused'])
-
     async def test_stop_linearizes_before_post(self):
         batch, _, _ = await self.batch(2)
         p = await self.permit(batch)

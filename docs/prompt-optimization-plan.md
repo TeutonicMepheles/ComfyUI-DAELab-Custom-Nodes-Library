@@ -1,6 +1,6 @@
 # 提示词优化开发与统一验收计划
 
-状态：M0–M6 工程验收完成，待本轮 PR 用户审阅及明确合并授权。PR #26 已合入 main `63819e6`；后续测试代码 `d0869e8` / v5 下，Comfy Partner 固定 mini 与 DeepSeek Flash 的九个冻结样本各自全部通过，真实单格/整列应用、撤销重做与保存恢复已验证。Comfy v5 可归因实际积分 1.47；Flash 用量估算 0.004662 USD、实际账单按用户明确决定另列待验证。A/B/C 同代码，135 项 JS、58 项 Python 通过，32 项共享资源与原字体哈希核验通过；后续提交仅整理文档。详见 [最新验收记录](prompt-optimization-acceptance.md)。历史失败与 unknown 原样保留，生产 8000 未切换。
+状态：M0–M6 工程验收完成。用户已审阅 PR #27 报告并明确授权修复后合并；F01 迁移测试假通过问题已修复，58 项 Python 及移除版本检查后的三项负向验证通过，详见 [复审记录](prompt-optimization-review.md)。PR #26 已合入 main `63819e6`；后续运行代码 `d0869e8` / v5 下，Comfy Partner 固定 mini 与 DeepSeek Flash 的九个冻结样本各自全部通过，真实单格/整列应用、撤销重做与保存恢复已验证。Comfy v5 可归因实际积分 1.47；Flash 用量估算 0.004662 USD、实际账单按用户明确决定另列待验证。135 项 JS、32 项共享资源与原字体哈希核验通过；本次复审只改变测试、历史指令 fixture 和文档，运行代码不变。详见 [最新验收记录](prompt-optimization-acceptance.md)。历史失败与 unknown 原样保留，生产 8000 未切换。
 
 2026-10-08 用户增量授权：增加自有 DeepSeek API 可选项以先提供可用接入，范围与验收见 [DeepSeek 接入说明](prompt-optimization-deepseek.md)。该授权更新下文“首版仅 Comfy Partner”的提供方限制；Comfy 默认、既有数据保护与历史费用记录保持兼容。新增接入的工程验证与原 M6 真实文本/账单验证分开记录，不将待验证项改为通过。
 

@@ -4,7 +4,7 @@ import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=202610
 import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261009-instructions-v5';
 import {app} from '/scripts/app.js';
 import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261009-instructions-v5';
-import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
+import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261008-auto-import';
 import {generationMaterials} from './table_material_output.mjs';
 const TYPE='DAELAB.ScriptParser',widget=node=>node.widgets?.find(w=>w.name==='table_data');
 const notify=(message,severity='info')=>app.extensionManager?.toast?.add?.({severity,summary:'分镜解析器',detail:message,life:8000});

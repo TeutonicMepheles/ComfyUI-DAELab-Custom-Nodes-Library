@@ -18,12 +18,12 @@ def validated_table(data):
     return data
 
 
-def project_table(value, *, for_video=False):
+def project_table(value, *, for_video=False, allow_empty_prompt=False):
     table = validated_table(value)
     meta = table.get('meta', {}).get('storyboard', {})
     bindings = meta.get('bindings', {})
     fields = {f['id']: f for f in table['fields']}
-    if bindings.get('image_prompt') not in fields:
+    if bindings.get('image_prompt') not in fields and not allow_empty_prompt:
         raise ValueError('请在字段映射中绑定画面描述字段')
     for role in ('image_prompt', 'camera_notes', 'shot_no', 'time_range'):
         field = fields.get(bindings.get(role))

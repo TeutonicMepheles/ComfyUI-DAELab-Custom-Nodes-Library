@@ -54,6 +54,21 @@ class ScriptContractTests(unittest.TestCase):
         self.assertEqual(result['shots'][0]['additional_reference_images'],
                          ['/view?filename=a2.png', '/view?filename=b.png'])
 
+    def test_sparse_image_only_table_outputs_without_creating_empty_column(self):
+        table = self.table()
+        table['fields'] = table['fields'][1:]
+        del table['records'][0]['values']['scene']
+        table['meta']['script_parser'].update(field_policy='nonempty', created_roles=[])
+        table['records'][0]['meta'] = dict(script_source=dict(row_id='t1/r1', issues=['缺画面文字']), script_original=[dict(text='')])
+        result = storyboard_projection(table)
+        self.assertEqual(result['shots'][0]['prompt'], '')
+        self.assertEqual(len(result['table']['fields']), 2)
+        self.assertEqual(result['shots'][0]['source']['row_id'], 't1/r1')
+        self.assertEqual(result['shots'][0]['original_fields'], [dict(text='')])
+        table['meta']['script_parser']['created_roles'] = ['scene']
+        with self.assertRaisesRegex(ValueError, '已删除'):
+            storyboard_projection(table)
+
 
 if __name__ == '__main__':
     unittest.main()

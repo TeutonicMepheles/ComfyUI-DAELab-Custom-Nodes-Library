@@ -109,7 +109,11 @@ async def script_document(request):
 async def script_normalize(request):
     try:
         body = await json_body(request)
-        inventory = await asyncio.to_thread(read_inventory, body.get('document_id'))
+        inventory = body.get('inventory')
+        if inventory is None:
+            inventory = await asyncio.to_thread(read_inventory, body.get('document_id'))
+        elif not isinstance(inventory, dict) or inventory.get('document_id') != body.get('document_id'):
+            raise ValueError('保存的文档来源不匹配')
         result = await asyncio.to_thread(normalize_inventory, inventory, body.get('choices'))
         result['assets'] = inventory['assets']
         return web.json_response(result)

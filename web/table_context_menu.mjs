@@ -10,12 +10,12 @@ const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'
 
 // One instance-owned contextual menu; the existing editor remains the transaction
 // owner. This module never reads another plugin's node or private application state.
-export function installContentPresentation({root,editor,getTable,notify,editPromptTemplate}){
+export function installContentPresentation({root,editor,getTable,notify,editPromptTemplate,enabled=()=>true}){
     const toolbar=el('aside','dae-ui content-context');toolbar.setAttribute('role','toolbar');toolbar.setAttribute('aria-label','表格选中操作');toolbar.hidden=true;document.body.append(toolbar);
     let selected=null,signature='',disposed=false,columnGrid=null,columnSelection=null,rowGrid=null,rowSelection=null,cellAnchor=null,columnAnchor=null,rowAnchor=null,optimizationEntry=null,nativeMenuOpen=false;
     const context=()=>globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
-    const active=()=>context()?.presentation==='content'&&root.isConnected&&!!context()?.getViewport();
-    const nativeActive=()=>nativeMenuOpen&&root.isConnected&&!context();
+    const active=()=>enabled()&&context()?.presentation==='content'&&root.isConnected&&!!context()?.getViewport();
+    const nativeActive=()=>enabled()&&nativeMenuOpen&&root.isConnected&&!context();
     const findCell=()=>{if(!selected?.record)return null;if(!cellAnchor?.isConnected||cellAnchor.dataset.field!==selected.field||cellAnchor.dataset.record!==selected.record)cellAnchor=root.querySelector(`td[data-field="${CSS.escape(selected.field)}"][data-record="${CSS.escape(selected.record)}"]`);return cellAnchor;};
     const field=()=>getTable().fields.find(f=>f.id===selected?.field);
     const mutate=fn=>{try{editor.change(fn);signature='';tick();}catch(e){notify(e.message);}};

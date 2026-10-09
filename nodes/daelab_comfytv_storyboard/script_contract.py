@@ -19,10 +19,12 @@ def storyboard_projection(value):
     bindings = meta.get('bindings', {})
     fields = {f['id']: f for f in projected['fields']}
     scene = bindings.get('scene')
+    omitted_scene = meta.get('field_policy') == 'nonempty' and 'scene' not in meta.get('created_roles', [])
     if scene not in fields:
         if not projected['records']:
             return dict(schema_version=4, table=projected, shots=[], asset_groups=[], document_title='', source_filename='')
-        raise ValueError('画面字段已删除，请恢复字段后输出分镜')
+        if not omitted_scene:
+            raise ValueError('画面字段已删除，请恢复字段后输出分镜')
     # This is the legacy storyboard projection. Column-generation prompt state
     # belongs to table_json and must not opt the old consumer into its unrelated
     # reviewed-final-prompt protocol. Keep the field count within the same limit.
@@ -49,10 +51,12 @@ def storyboard_projection(value):
         'image_url': reference_ids[0] if reference_ids else None,
         'source': bindings.get('source'), 'original_fields': bindings.get('original'),
     }, source_filename=' / '.join(d['filename'] for d in meta.get('documents', [])))
-    result = project_table(projected)
+    result = project_table(projected, allow_empty_prompt=omitted_scene)
     for shot, row, assets in zip(result['shots'], table['records'], reference_rows):
         shot['image_url'] = assets[0]['url'] if assets else ''
         shot['additional_reference_images'] = [asset['url'] for asset in assets[1:]]
         shot['parser_issues'] = copy.deepcopy(row.get('meta', {}).get('script_source', {}).get('issues', []))
         shot['original_shot_no'] = str(row['values'].get(bindings.get('shot_no'), '') or '')
+        shot['source'] = copy.deepcopy(row.get('meta', {}).get('script_source', shot.get('source')))
+        shot['original_fields'] = copy.deepcopy(row.get('meta', {}).get('script_original', shot.get('original_fields', [])))
     return result

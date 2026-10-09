@@ -10,6 +10,10 @@
 .dae-ui.script-parser .script-draft select{max-width:100%;min-width:0;color:var(--dae-text);background:var(--dae-surface,#292929)}
 .dae-ui.script-parser pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6;margin:6px 0}
 .dae-ui.script-parser:is(dialog){overflow-wrap:anywhere}
+.dae-ui.script-parser.script-import-dialog{width:min(1000px,90vw);box-sizing:border-box;font-family:var(--dae-font-family);font-size:14px;line-height:1.5}
+.dae-ui.script-parser.script-import-dialog details{padding:8px 0}
+.dae-ui.script-parser.script-import-dialog summary{cursor:pointer;overflow-wrap:anywhere}
+.dae-ui.script-parser .script-actions [hidden]{display:none}
 .dae-ui.script-parser .script-images{display:flex;gap:12px;flex-wrap:wrap}
 .dae-ui.script-parser .script-image{margin:8px 0;flex:0 1 240px;max-width:100%;min-width:0}
 .dae-ui.script-parser .script-image img{width:100%;height:140px;object-fit:contain;background:var(--dae-surface-low,#222)}
@@ -18,3 +22,15 @@
 .dae-ui.script-parser .script-confirm{border-top:1px solid var(--dae-border,#444);margin-top:12px}
 [data-canvas-panel=true] .dae-ui.script-parser .script-draft{overflow:visible;max-height:none}
 @media(max-width:700px){.dae-ui.script-parser .script-compare{grid-template-columns:1fr}}
+
+.dae-ui.script-parser .script-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:200px;flex:1;padding:24px;box-sizing:border-box;text-align:center}
+.dae-ui.script-parser .script-empty>p{margin:0;font-size:16px;font-weight:500}
+.dae-ui.script-parser .script-feedback{display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:none}
+.dae-ui.script-parser .script-empty .script-feedback{justify-content:center;max-width:100%}
+.dae-ui.script-parser[data-empty=true]>.table-height{display:none}
+.dae-ui.script-parser button.script-notice{align-self:flex-start;border:0;background:transparent;color:var(--dae-text-muted);font-size:12px;min-height:32px;text-align:left;white-space:normal}
+.dae-ui.script-parser th.table-choice button.script-more{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0 2px!important;margin:0 0 0 2px!important;border:0!important;background:transparent!important;font-size:11px}
+.dae-ui.script-parser th.table-choice button.script-more:hover{background:var(--dae-surface-hover)!important}
+.dae-ui.script-parser button:focus-visible{outline:2px solid var(--dae-focus);outline-offset:-2px}
+.dae-ui.script-table-menu{display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 16px);overflow:auto}
+.dae-ui.script-table-menu>button{text-align:left}

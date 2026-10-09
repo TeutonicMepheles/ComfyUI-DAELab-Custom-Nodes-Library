@@ -1,5 +1,7 @@
 # 提示词优化验收进度
 
+验收口径（2026-10-09 用户澄清）：DeepSeek 当前替代 Comfy Partner 的模型产出，两者共用前端交互。已通过的进度、停止/继续、建议应用、撤销重做与保存恢复属于同一套功能的验收。下文“原 Comfy M6 未完成”仅保留提供方连接、真实输出和计费的未验证项，不代表另有一套 Comfy UI。代码核对确认入口统一调用 `createOptimizationController` 与 `createPromptOptimizationPanel`，共用状态投影和应用事务；仅鉴权、模型/费用展示及远端查询能力说明因通道而异。
+
 ## 2026-10-09 DeepSeek Flash v4 验收通过
 
 测试代码 `ec9303c223c4a8401e82ba2320f31bc83e7aca1a`，固定指令 `daelab.prompt-opt.v4`，界面 `20261009-progress-r5`。六个单格加一组三行整列共九个冻结输入全部通过；九次均使用 `deepseek-flash`、最大输出 1024 tokens，输入与冻结清单逐项一致（仅保护标记 nonce 不同）。没有静默换模、POST 重试或媒体生成。

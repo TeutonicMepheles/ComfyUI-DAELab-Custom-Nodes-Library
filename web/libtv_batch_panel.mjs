@@ -1,3 +1,4 @@
+import {batchTask} from './libtv_task_snapshots.mjs';
 import {selectedTaskSummary} from './storyboard_task_state.mjs?v=20261001-frame-tags-dedup';
 import { validateResultUrl, addVideoToCanvas } from './libtv_canvas_result.mjs?v=20260925-1';
 
@@ -31,10 +32,11 @@ export function batchControls(node,root,{app,set}) {
     if(node.properties?.daelabLibTVBatch)showBatchReport(node,node.properties.daelabLibTVBatch);
 }
 
-export function showBatchReport(node,raw) {
+export function showBatchReport(node,raw,live=false) {
     if(!raw)return;
     let report;try{report=typeof raw==='string'?JSON.parse(raw):raw;}catch{return;}
     if(report.batch_id!==value(node,'request_id') || (report.project_uuid && report.project_uuid!==value(node,'project_uuid')))return;
+    batchTask(node,report,live);
     node.properties ||= {};node.properties.daelabLibTVBatch=report;
     const panel=node.__libtvPanel;if(!panel?.batchResults)return;
     panel.batchResults.replaceChildren();

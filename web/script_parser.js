@@ -15,6 +15,7 @@ function install(node){
  if(node.__scriptPanel){node.__scriptPanel.render();return;}
  const panel=createScriptParserPanel({node,app,getTable:()=>node.__scriptTable,setTable:next=>{node.__scriptTable=next;data.value=JSON.stringify(next);data.callback?.(data.value,app.canvas,node);node.graph?.setDirtyCanvas?.(true,true);},notify});node.__scriptPanel=panel;
  const optimization=attachPromptOptimization({node,graph:node.graph,editor:panel.editor,getTable:()=>node.__scriptTable,identity:ensureIdentity(node.graph,node),fetchApi:app.api.fetchApi.bind(app.api)});
+ const parserTasks=panel.tasks;panel.tasks=()=>[...parserTasks(),...optimization.tasks()];
  for(const method of ['render','close','destroy']){const previous=panel[method];panel[method]=(...args)=>{optimization[method==='render'?'observe':method==='close'?'pause':'destroy']();return previous(...args);};}
  const w=node.addDOMWidget('daelab_script_parser','custom',panel.root,{serialize:false,hideOnZoom:false,getHeight:()=>panel.height(),getMinHeight:()=>panel.height(),getValue:()=>'',setValue:()=>panel.render()});w.serialize=false;w.inputEl=panel.root;w.computeSize=width=>[width||1060,panel.height()];w.computeLayoutSize=()=>({minHeight:panel.height(),maxHeight:panel.height(),minWidth:720});
  const removed=w.onRemove?.bind(w);w.onRemove=()=>{panel.destroy();removed?.();panel.root.remove();};
@@ -28,6 +29,7 @@ app.registerExtension({name:'DAELab.ScriptParser',beforeRegisterNodeDef(type,dat
 let registered=false;
 function register(){const api=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')];if(registered||api?.version!==1)return;
  api.registerAdapter('daelab.script-parser',{matches:node=>node.type===TYPE,menu:[{label:'分镜剧本解析器',type:TYPE,icon:'file-text-line'}],presentation:'content',expanded:true,collapsible:false,resizable:true,fullHeight:true,workspace:()=>false,compactWidth:0,width:1060,
+ tasks:node=>node.__scriptPanel?.tasks?.()||[],
  panel:node=>node.__scriptPanel?{root:node.__scriptPanel.root,close:()=>node.__scriptPanel.close()}:null,
  selectionSurface:node=>node.__scriptPanel?.surface,
  materialSources:node=>[...(node.__scriptPanel?.root.querySelectorAll('[data-generation-source]')||[])].map(element=>({element,key:element.dataset.generationSource,label:'输出为素材组'})),

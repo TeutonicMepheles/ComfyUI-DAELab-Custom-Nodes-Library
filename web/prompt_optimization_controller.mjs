@@ -1,3 +1,4 @@
+import {optimizationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
 import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-instructions-v5';
 import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261009-instructions-v5';
 import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261009-instructions-v5';
@@ -183,7 +184,10 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
   // A late discovery is not an edit. Keep existing stable query references;
   // mutable server counters/timestamps must not disturb native Undo/Redo.
   if(!references.has(item.batchId))references.set(item.batchId,{batchId:item.batchId,scope:item.scope,fieldId:item.fieldId,...(item.recordId?{recordId:item.recordId}:{}),updatedAt:item.updatedAt});
- }persist();for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
+ }persist();
+ // Restore existing targets for node-level visibility; recover is local-only and never submits.
+ for(const ref of references.values())if(['cell','column'].includes(ref.scope)&&getTable().fields.some(f=>f.id===ref.fieldId)&&(ref.scope==='column'||getTable().records.some(r=>r.id===ref.recordId)))obtain({scope:ref.scope,fieldId:ref.fieldId,...(ref.scope==='cell'?{recordId:ref.recordId}:{})});
+ for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
  const unobserve=editor.onTableChange(()=>{revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();});
- return {observe(){revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();},pause(){for(const c of controllers.values())c.pause();},destroy(){dead=true;unobserve();for(const c of controllers.values())c.destroy();controllers.clear();delete editor.openPromptOptimization;delete editor.promptOptimizationEstimate;}};
+ return {tasks:trackTaskCompletion(()=>optimizationTaskSnapshots([...controllers.values()].map(c=>c.getState()))),observe(){revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();},pause(){for(const c of controllers.values())c.pause();},destroy(){dead=true;unobserve();for(const c of controllers.values())c.destroy();controllers.clear();delete editor.openPromptOptimization;delete editor.promptOptimizationEstimate;}};
 }

@@ -1,3 +1,4 @@
+import {libtvTasks,clearLibTVTask,updateLibTVExecution} from './libtv_task_snapshots.mjs';
 import { app } from "/scripts/app.js";
 import { stopCanvasPropagation } from "./list_editor_controls.mjs";
 import { removeOwnedWidgets } from './dynamic_widget_lifecycle.mjs';
@@ -126,7 +127,7 @@ function install(node) {
         }catch(error){status.textContent=error.message;}
     };
     root.insertBefore(video,status);root.insertBefore(restore,status);root.insertBefore(send,status);
-    node.__libtvPanel={root,controls,status,video,send,creativeButtons:[fresh,restore],creativeFields:[controls.prompt,controls.duration,controls.model].filter(Boolean)};nodes.add(node);sync(node);
+    node.__libtvPanel={tasks:()=>libtvTasks(node),root,controls,status,video,send,creativeButtons:[fresh,restore],creativeFields:[controls.prompt,controls.duration,controls.model].filter(Boolean)};nodes.add(node);sync(node);
     if(batch){restore.remove();send.remove();video.remove();root.querySelector("strong").textContent="LibTV · 分镜批量生成";fresh.textContent="新建批次编号";batchControls(node,root,{app,set});}
     if(node.properties?.daelabLibTVResult)showResult(node,node.properties.daelabLibTVResult);
     // Content-sized panel; restored surplus height must never feed back into layout.
@@ -173,8 +174,8 @@ function sync(node){
 app.registerExtension({name:"DAELab.LibTV.Panel",beforeRegisterNodeDef(type,data){
     if(![TYPE,BATCH_TYPE].includes(data.name))return;
     for(const method of ["onNodeCreated","onConfigure","onAdded"]){const previous=type.prototype[method];type.prototype[method]=function(){const result=previous?.apply(this,arguments);if(this.graph)install(this);else queueMicrotask(()=>install(this));return result;};}
-    const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(){nodes.delete(this);removeOwnedWidgets(this,'__daelabLibTVPanel');this.__libtvPanel?.root.remove();delete this.__libtvPanel;return removed?.apply(this,arguments);};
-    const executed=type.prototype.onExecuted;type.prototype.onExecuted=function(message){const result=executed?.apply(this,arguments);if(this.type===BATCH_TYPE){showBatchReport(this,message.batch_report?.[0]);return result;}const url=resultUrl(message);if(url){showResult(this,url);if(globalThis.LiteGraph?.registered_node_types?.["ComfyTV.AssetVideoLoaderStage"])addVideoToCanvas(app,url,`LibTV · ${widget(this,"model").value}`).catch(error=>{this.__libtvPanel.status.textContent=error.message;});}return result;};
+    const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(){nodes.delete(this);clearLibTVTask(this);removeOwnedWidgets(this,'__daelabLibTVPanel');this.__libtvPanel?.root.remove();delete this.__libtvPanel;return removed?.apply(this,arguments);};
+    const executed=type.prototype.onExecuted;type.prototype.onExecuted=function(message){const result=executed?.apply(this,arguments);if(this.type===BATCH_TYPE){showBatchReport(this,message.batch_report?.[0],true);return result;}const url=resultUrl(message);if(url){showResult(this,url);if(globalThis.LiteGraph?.registered_node_types?.["ComfyTV.AssetVideoLoaderStage"])addVideoToCanvas(app,url,`LibTV · ${widget(this,"model").value}`).catch(error=>{this.__libtvPanel.status.textContent=error.message;});}return result;};
 },afterConfigureGraph(){
     const params=new URLSearchParams(location.search),url=params.get("daelab_libtv_result");
     if(!url||this.resultHandled)return;this.resultHandled=true;
@@ -182,4 +183,13 @@ app.registerExtension({name:"DAELab.LibTV.Panel",beforeRegisterNodeDef(type,data
 }});
 setInterval(()=>{for(const node of nodes)sync(node);},300);
 
-app.api.addEventListener("daelab.libtv.batch",event=>{for(const node of nodes)if(node.type===BATCH_TYPE&&widget(node,"project_uuid")?.value===event.detail.project_uuid&&widget(node,"request_id")?.value===event.detail.batch_id)showBatchReport(node,event.detail);});
+app.api.addEventListener("daelab.libtv.batch",event=>{for(const node of nodes)if(node.type===BATCH_TYPE&&widget(node,"project_uuid")?.value===event.detail.project_uuid&&widget(node,"request_id")?.value===event.detail.batch_id)showBatchReport(node,event.detail,true);});
+
+// Installed ComfyUI emits `executing` as a node ID, unlike executed/progress.
+let taskExecution=null;
+app.api.addEventListener('execution_start',({detail})=>{taskExecution={promptId:detail.prompt_id,graph:app.graph};});
+for(const event of ['executing','executed','execution_error','execution_interrupted'])app.api.addEventListener(event,({detail})=>{
+ const payload=event==='executing'?{node:detail,prompt_id:taskExecution?.promptId}:detail;
+ for(const node of nodes)if(node.graph===app.graph&&node.type===TYPE&&(event!=='executing'||taskExecution?.graph===node.graph))updateLibTVExecution(node,event,payload);
+});
+app.api.addEventListener('execution_success',({detail})=>{if(taskExecution?.promptId===detail.prompt_id)taskExecution=null;});

@@ -23,8 +23,10 @@ export function createScriptParserPanel({node,app,getTable,setTable,notify}){
  const notice=button('',()=>showIssues());notice.className='script-notice';notice.hidden=true;root.append(notice);
  const draftBox=el('section');draftBox.className='script-draft';draftBox.hidden=true;
  const guard=new ParserRequests();let draft=null,choices=null,normalized=null,controller=null,alive=true,promptUI=null,generation=null,presentation=null,detailsDialog=null,uploadMode='append',adjusting=false,menu=null,statusTimer=null,busy=false,workbench=null;
+ let operationTask=null;
  const snapshot=()=>JSON.stringify(getTable());
  function message(value,error=false){
+  if(error&&operationTask)operationTask={...operationTask,state:'error',detail:value};
   clearTimeout(statusTimer);status.textContent=value;status.dataset.error=String(error);feedback.hidden=!value&&!busy;
   const local=detailsDialog?.querySelector('.script-status');if(local){local.textContent=value;local.dataset.error=String(error);}
   if(value&&!error&&!busy)statusTimer=setTimeout(()=>{status.textContent='';feedback.hidden=true;},4500);
@@ -42,13 +44,16 @@ export function createScriptParserPanel({node,app,getTable,setTable,notify}){
   notice.hidden=!hasTable||!count;
   const label=`有 ${count} 项图片或导入问题待处理`;if(notice.textContent!==label)notice.textContent=label;
  }
- function cancel(){guard.invalidate();controller?.abort();controller=null;busy=false;normalized=null;draft=null;choices=null;adjusting=false;draftBox.replaceChildren();draftBox.hidden=true;detailsDialog?.remove();detailsDialog=null;menu?.close();}
+ function cancel(){if(operationTask?.state==='running')operationTask=null;guard.invalidate();controller?.abort();controller=null;busy=false;normalized=null;draft=null;choices=null;adjusting=false;draftBox.replaceChildren();draftBox.hidden=true;detailsDialog?.remove();detailsDialog=null;menu?.close();}
  function invalidate(){guard.invalidate();controller?.abort();normalized=null;draftBox.querySelector('.script-confirm')?.remove();}
  async function request(path,{body,file,signal}={}){
   let data=body?JSON.stringify(body):undefined,headers=body?{'Content-Type':'application/json'}:{};
   if(file){data=new FormData();data.append('file',file,file.name);}
-  const r=await app.api.fetchApi('/daelab/script-parser/'+path,{method:data?'POST':'GET',body:data,headers,signal});
-  const result=await r.json();if(!r.ok)throw new Error(result.error||'解析服务不可用，请重启 ComfyUI');return result;
+  const task=operationTask={id:'script-import',label:path==='classify'?'AI 归类':'文档导入',order:5,state:'running',detail:({document:'读取文档与准备图片',normalize:'整理字段与图片',classify:'等待模型响应'})[path]||'处理中',startedAt:Date.now(),elapsed:true};
+  try{const r=await app.api.fetchApi('/daelab/script-parser/'+path,{method:data?'POST':'GET',body:data,headers,signal});
+   const result=await r.json();if(!r.ok)throw new Error(result.error||'解析服务不可用，请重启 ComfyUI');
+   if(alive&&operationTask===task&&!signal?.aborted)operationTask={...task,state:'success',detail:'处理完成',finishedAt:Date.now()};return result;
+  }catch(error){if(alive&&operationTask===task){operationTask=error.name==='AbortError'?null:{...task,state:'error',detail:error.message};}throw error;}
  }
  async function uploadAsset(file){
   const body=new FormData();body.append('image',file,crypto.randomUUID()+'.'+file.name.split('.').at(-1));body.append('type','input');body.append('subfolder','DAELAB/script-parser');
@@ -186,7 +191,7 @@ export function createScriptParserPanel({node,app,getTable,setTable,notify}){
  // The Canvas owns vertical browsing. Native mode keeps the shared workbench.
  const stop=e=>{if((e.type==='wheel'&&e.ctrlKey)||(['pointerdown','mousedown'].includes(e.type)&&e.button===1))return;e.stopPropagation();};
  for(const event of ['pointerdown','pointerup','mousedown','mouseup','click','dblclick','wheel','keydown','drop'])root.addEventListener(event,stop);
- updatePending();editor.render();decorate();return {root:workbench.host,surface:root,editor,height:workbench.height,actions,
+ updatePending();editor.render();decorate();return {tasks:()=>alive?[...(operationTask?[{...operationTask}]:[]),...(generation?.tasks()||[]),...promptUI.tasks()]:[],root:workbench.host,surface:root,editor,height:workbench.height,actions,
   render:()=>{workbench.restoreHeight();promptUI.observe();editor.render();updatePending();decorate();},
   close:()=>{cancel();clearTimeout(statusTimer);message('');updatePending();promptUI.close();presentation.close();editor.closeDialogs();},
   destroy:()=>{if(!alive)return;alive=false;clearTimeout(statusTimer);observer.disconnect();menu?.close();guard.destroy();controller?.abort();detailsDialog?.remove();draftBox.remove();generation.destroy();presentation.destroy();promptUI.destroy();editor.destroy();workbench.destroy();}};

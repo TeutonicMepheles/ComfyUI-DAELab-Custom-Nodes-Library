@@ -1,6 +1,6 @@
 # 提示词优化开发与统一验收计划
 
-状态：实施中。M0–M5 工程验收已记录；2026-10-09 自有 DeepSeek Flash 的九个 v4 文本样本及完整交互流程通过，详见 [最新验收记录](prompt-optimization-acceptance.md)。用户要求先推进功能和流程，实际账单另列待验证，不再作为继续验证的门槛。原 Comfy 固定 mini 的 M6 仍未完成，历史连接失败与 unknown 保留，不用 DeepSeek 结果代替该通道验收。生产 8000 未切换。
+状态：实施中。M0–M5 工程验收已记录；PR #26 已合入 main `63819e6`。后续候选 `d0869e8` 的 Comfy Partner 固定 mini 在 v5 指令下九个冻结样本全部通过，真实单格/整列应用、撤销重做、保存恢复及可归因实际积分 1.47 已验证。A/B/C 同代码；135 项 JS、58 项 Python 通过。DeepSeek Flash 历史 v4 的九项与共用完整流程已通过，当前 v5 同版本九项复验等待本页会话密钥，M6 总门槛暂不标记完成。详见 [最新验收记录](prompt-optimization-acceptance.md)。用户要求先推进功能和流程，DeepSeek 实际账单另列待验证，不再作为继续验证的门槛；历史失败与 unknown 原样保留。生产 8000 未切换。
 
 2026-10-08 用户增量授权：增加自有 DeepSeek API 可选项以先提供可用接入，范围与验收见 [DeepSeek 接入说明](prompt-optimization-deepseek.md)。该授权更新下文“首版仅 Comfy Partner”的提供方限制；Comfy 默认、既有数据保护与历史费用记录保持兼容。新增接入的工程验证与原 M6 真实文本/账单验证分开记录，不将待验证项改为通过。
 

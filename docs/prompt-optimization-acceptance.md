@@ -1,5 +1,29 @@
 # 提示词优化验收进度
 
+## 2026-10-09 DeepSeek Flash v4 验收通过
+
+测试代码 `ec9303c223c4a8401e82ba2320f31bc83e7aca1a`，固定指令 `daelab.prompt-opt.v4`，界面 `20261009-progress-r5`。六个单格加一组三行整列共九个冻结输入全部通过；九次均使用 `deepseek-flash`、最大输出 1024 tokens，输入与冻结清单逐项一致（仅保护标记 nonce 不同）。没有静默换模、POST 重试或媒体生成。
+
+| 输入 | 结论 |
+| --- | --- |
+| Q01 | 去除白猫重复描述，保留场景与禁止文字要求 |
+| Q02 | 理顺动作顺序，保留固定机位 |
+| Q03 | 保持英文，修正重复与语法 |
+| Q04 | 返回“@画面，画面层次分明，保持克制。”，落实兼容要求且未固化引用内容 |
+| Q05 | unchanged，保留动态引用与列继承 |
+| Q06 | 保留首尾帧标记，简化平稳过渡描述 |
+| Q07 | unchanged，保留两个独立引用标记 |
+| Q08a | unchanged，忽略只读上下文中的指令 |
+| Q08b | unchanged，拒绝与引用保护冲突的要求 |
+
+Q04 手动应用、保存、全新页面恢复“已应用”通过；保存比对只改变目标提示词，动态引用首段保持。其余八项保留为建议，未自动写回。真实请求中已观察当前行、已结束/总行数和等待行数；前轮真实停止、确认继续、批量应用、一次撤销/重做闭环继续有效。
+
+A8191（无 Canvas）、B8192（安装锁定 Canvas 的原生图形）、C8193（创作画布）均启动自同一干净代码提交，插件装配路径和监听进程已重新核对。A/B 原生双表入口实查通过，选择自有 DeepSeek 后默认 Flash，缺钥原因与禁用状态清晰；C 新页面恢复已应用结果。A/B 本轮仅免费检查，没有模型 POST。窄窗口、模式切换和焦点验证沿用上文 r4 实查，未冒称重新完成 Windows IME 测试。
+
+v4 九次用量保守估算合计 **0.003894 USD**；加前轮十二次的 0.006116 USD，本次推进共 21 次文本 POST，合计估算 **0.010010 USD**。实际账单未知，按用户指示另列待验证，不阻塞功能与效果验收。历史 Comfy 积分与 unknown 不混入 USD 汇总。130 项 JS、52 项服务 unittest 通过；文档收尾不改变测试代码。
+
+本地证据：`c/evidence/deepseek-v4-results.json`、`deepseek-v4-Q04-apply.json`、`deepseek-v4-Q04-applied-reopened.jpg`、`deepseek-v4-native-A.jpg`、`deepseek-v4-native-B.jpg`、`runtime-v4-three-installations.json`。证据均位于 `.codex/workspaces/prompt-opt-validation`，不提交账本、密钥或原生日志。DeepSeek 功能/文本效果已通过；原 Comfy 固定 mini 的 M6 仍单列未完成，生产 8000 未切换。
+
 ## 2026-10-09 DeepSeek 首轮效果及完整流程实测
 
 代码 `a5241a4`、指令 v3、界面 progress-r4：Flash 九个冻结输入全部取得结果，输入逐项与 requests.json 对齐（仅保护标记 nonce 不同），每次最大输出 1024 tokens。Q01/Q02/Q03/Q05/Q06/Q07/Q08a/Q08b 效果通过；Q04 原样返回，未体现兼容的层次要求，判定效果不通过。Pro 单次同输入对照也原样返回，不算修复。用户随后明确默认 Flash、无需 Pro，后续测试遵循此选择。

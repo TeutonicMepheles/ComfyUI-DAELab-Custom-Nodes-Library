@@ -187,6 +187,7 @@ test('applied suggestion cannot be reapplied after undo/redo and request sequenc
  const {controller:c,service:s,table,revisions,history}=harness(t);s.hooks.advance=async(batch,row)=>{row.status='succeeded';row.suggestion={status:'valid',text:'一只白猫。'};};
  await flush();await c.estimate();await c.submit();t.mock.timers.tick(1200);await flush();
  const row=c.getState().rows[0];assert.equal(row.canApply,true);await c.apply(row.requestId);
+ assert.equal(c.getState().rows[0].reason,'');assert.equal(c.getState().rows[0].suggestionStatus,'applied');
  const applied=clone(table),high=revisions.current(table,'r','p'),count=history.length;
  Object.assign(table,clone(history[0]));c.observe();const undo=revisions.current(table,'r','p');
  assert.ok(undo.revision>high.revision);assert.equal(undo.requestSeq,high.requestSeq);
@@ -396,4 +397,18 @@ test('editing after unknown cannot bypass acknowledgement; explicit submit carri
  await c.submit();assert.equal(s.count('submit'),1);assert.match(c.getState().error,/先确认未知/);
  await c.submit({acknowledgeUnknown:true});assert.equal(s.count('submit'),2);
  assert.deepEqual(s.calls.filter(x=>x.name==='submit')[1].p.acknowledgeUnknownRequestIds,[old]);
+});
+
+
+test('saved application receipts restore as applied and cannot become a second edit after reload',async t=>{
+ const s=fakeService(),table=makeTable(),revisions=new OptimizationRevisions(),receipts=new Map();
+ t.mock.timers.enable({apis:['setTimeout']});const identity={documentId:'doc',tableId:'table'};
+ const common={getTable:()=>table,identity,revisions,persist(){},change:fn=>fn(table),api:s.api,scope:'cell',fieldId:'p',recordId:'r',instanceId:'receipt-view',getAppliedRequestIds:id=>receipts.get(id)||[],onApplied:(id,ids)=>receipts.set(id,ids)};
+ const c=createOptimizationController(common);s.hooks.advance=async(_b,row)=>{row.status='succeeded';row.suggestion={status:'valid',text:'一只白猫。'};};
+ await flush();await c.estimate();await c.submit();t.mock.timers.tick(1200);await flush();
+ const batchId=c.getState().batchId,row=c.getState().rows[0];await c.apply(row.requestId);
+ assert.deepEqual(receipts.get(batchId),[row.requestId]);c.destroy();
+ let writes=0;const restored=createOptimizationController({...common,revisions:new OptimizationRevisions(revisions.serialize()),change(){writes++;}});t.after(()=>restored.destroy());
+ await restored.recover(batchId);assert.equal(restored.getState().rows[0].suggestionStatus,'applied');assert.equal(restored.getState().rows[0].reason,'');
+ await restored.apply(row.requestId);assert.equal(writes,0);assert.equal(s.count('advance'),1);
 });

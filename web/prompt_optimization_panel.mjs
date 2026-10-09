@@ -1,7 +1,7 @@
-import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-progress-r1';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r1';
+import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-progress-r3';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r3';
 
-import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r1';
+import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r3';
 
 const taskLabels={queued:'等待提交',preparing:'准备中',submitting:'正在提交',submitted:'已提交',polling:'等待结果',succeeded:'已完成',failed:'失败',skipped:'已跳过',stopped:'已停止',unknown:'提交结果未知'};
 const suggestionLabels={valid:'有改动建议',unchanged:'未发现可安全改进的内容',stale:'建议已过期',invalid:'建议无效',applied:'已应用'};
@@ -140,7 +140,7 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
         const source=quote?.price?.source||quote?.price?.sourceUrl;const safeSource=typeof source==='string'&&/^https:\/\//.test(source);priceSource.hidden=!safeSource;if(safeSource){priceSource.href=source;priceSource.textContent='查看官方价格来源';}
         const count=status=>rows.filter(r=>r.suggestionStatus===status).length;
         const skippedCount=new Set([...(range.skipped||[]).map(r=>r.recordId),...rows.filter(r=>r.status==='skipped').map(r=>r.recordId)]).size;
-        counts.textContent=`有改动 ${count('valid')} · 未改动 ${count('unchanged')} · 失败 ${rows.filter(r=>r.status==='failed'||r.suggestionStatus==='invalid').length} · 跳过 ${skippedCount} · 过期 ${count('stale')} · 未知 ${rows.filter(r=>r.status==='unknown').length}`;
+        counts.textContent=`已应用 ${count('applied')} · 有改动 ${count('valid')} · 未改动 ${count('unchanged')} · 失败 ${rows.filter(r=>r.status==='failed'||r.suggestionStatus==='invalid').length} · 跳过 ${skippedCount} · 过期 ${count('stale')} · 未知 ${rows.filter(r=>r.status==='unknown').length}`;
 
         const ids=new Set(rows.map(r=>r.requestId));for(const [id,v] of rowViews)if(!ids.has(id)){v.element.remove();rowViews.delete(id);}
         for(const row of rows){const v=rowView(row);v.title.textContent=row.label||row.recordId;v.status.textContent=state.requestActivity?.requestId===row.requestId?(state.requestActivity.phase==='prepare'?'准备发送':'等待模型响应'):(suggestionLabels[row.suggestionStatus]||taskLabels[row.status]||row.status);v.element.dataset.status=row.suggestionStatus||row.status;displayPrompt(v.before,row.before);displayPrompt(v.after,row.after||(['queued','preparing','submitting','submitted','polling'].includes(row.status)?'等待模型返回建议…':'本行没有可显示的优化建议。'));v.reason.textContent=row.reason||'';v.reason.hidden=!row.reason;v.actual.textContent=row.currency==='USD'||row.provider==='deepseek'?(credits(row.usageCostUSD,'USD')?`用量保守估算：${credits(row.usageCostUSD,'USD')}；实际账单未知`:'用量费用估算未取得；实际账单未知'):(credits(row.actualCredits)?`实际消耗：${credits(row.actualCredits)}`:'实际消耗未取得');v.apply.disabled=!row.canApply||Boolean(state.busy);v.apply.textContent=row.suggestionStatus==='applied'?'已应用':'应用此建议';if(rows.length===1&&!v.openedResult&&['succeeded','failed','unknown','skipped','stopped'].includes(row.status)){v.element.open=true;v.openedResult=true;}}

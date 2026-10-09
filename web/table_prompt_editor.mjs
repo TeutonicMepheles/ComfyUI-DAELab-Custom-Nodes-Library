@@ -1,9 +1,9 @@
 import {bindInlineEditor,deletePromptReference} from './table_inline_editor.mjs?v=20261001-table-perf';
 import {columnReferenceOptions,createReferenceMenu,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
 import {isColumnPrompt,effectivePrompt,columnValue,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {openColumnPromptEditor,readPromptSegments} from './table_prompt_template_editor.mjs?v=20261009-progress-r1';
+import {openColumnPromptEditor,readPromptSegments} from './table_prompt_template_editor.mjs?v=20261009-progress-r3';
 import {clone} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {tableButton as button} from './data_table_editor.mjs?v=20261009-progress-r1';
+import {tableButton as button} from './data_table_editor.mjs?v=20261009-progress-r3';
 import {promptConfig,promptField,promptAssets,tableAssets,resolvePromptAsset,promptText,promptState,isPrompt,validatePrompt,applyPromptResults,PromptRequests} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
 
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};

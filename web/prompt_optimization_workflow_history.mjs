@@ -1,4 +1,4 @@
-import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261009-progress-r1';
+import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261009-progress-r3';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {serializeStoryboardTable} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';

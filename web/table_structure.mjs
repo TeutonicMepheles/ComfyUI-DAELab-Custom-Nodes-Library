@@ -1,6 +1,6 @@
 import {addGenerationColumn} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {addField,addRecord,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r1';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r3';
 import {moveRows,moveColumn} from './table_structure_model.mjs';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);node.className=cls;if(text)node.textContent=text;return node;};

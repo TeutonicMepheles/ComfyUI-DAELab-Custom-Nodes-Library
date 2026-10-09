@@ -1,12 +1,12 @@
-import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r1';
-import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261009-progress-r1';
-import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261009-progress-r1';
+import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r3';
+import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261009-progress-r3';
+import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261009-progress-r3';
 
 const registries=new Map(),batchReferences=new Map();
 const activeStatuses=new Set(['submitting','submitted','polling']);
 const terminal=new Set(['succeeded','failed','skipped','stopped','unknown']);
 const uuid=()=>crypto.randomUUID();
-export function createOptimizationController({getTable,identity,revisions,persist,change,api,scope,fieldId,recordId,isActive=()=>true,onBatch=()=>{},instanceId=uuid(),preferences={},onPreferences=()=>{}}){
+export function createOptimizationController({getTable,identity,revisions,persist,change,api,scope,fieldId,recordId,isActive=()=>true,onBatch=()=>{},onApplied=()=>{},getAppliedRequestIds=()=>[],instanceId=uuid(),preferences={},onPreferences=()=>{}}){
  let dead=false,epoch=0,lifecycle=0,lease=null,batch=null,timer=null,prepared=[],running=false,requiresContinue=false,continuationQuoteId=null,acknowledgeUnknownRequestIds=[];
  const listeners=new Set(),items=new Map();
  let blockingOperations=0,estimateEpoch=null,capabilityEpoch=0;
@@ -22,7 +22,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
   state.deepseekKeyRequired=state.provider==='deepseek'&&!state.pageDeepSeekKeyConfigured&&!state.deepseekKeyConfigured;
   state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen);const suggestionStatus=item.applied?'applied':item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
    const provider=optimizationProvider(s?.model),currency=provider==='deepseek'?'USD':'credits';
-   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${getTable().records.findIndex(r=>r.id===s?.target.recordId)+1} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),provider,currency,actualCredits:provider==='deepseek'?null:item.actualCredits??null,usageCostUSD:provider==='deepseek'?item.usageCostUSD??null:null};});
+   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${getTable().records.findIndex(r=>r.id===s?.target.recordId)+1} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:item.applied?'':!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),provider,currency,actualCredits:provider==='deepseek'?null:item.actualCredits??null,usageCostUSD:provider==='deepseek'?item.usageCostUSD??null:null};});
   const inFlight=Boolean(state.requestActivity)||[...items.values()].some(i=>activeStatuses.has(i.status)),queued=[...items.values()].some(i=>['queued','preparing'].includes(i.status));
   const resumable=[...items.values()].some(i=>['queued','preparing','stopped'].includes(i.status));
   const quoteValid=state.quote?.status==='ready'&&state.quote.expiresAt>Date.now();
@@ -52,7 +52,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
   state.batchModel=value.rows?.[0]?.snapshot?.model||state.model;state.batchProvider=optimizationProvider(state.batchModel);
   state.batchPrice=value.price||null;state.batchCurrency=value.currency||value.price?.currency||(state.batchProvider==='deepseek'?'USD':'credits');
   const currentIds=new Set((value.rows||[]).map(row=>row.requestId));for(const id of items.keys())if(!currentIds.has(id))items.delete(id);
-  for(const row of value.rows||[]){let item=items.get(row.requestId);if(!item){item={...row};items.set(row.requestId,item);}Object.assign(item,row);
+  for(const row of value.rows||[]){let item=items.get(row.requestId);if(!item){item={...row};items.set(row.requestId,item);}Object.assign(item,row);item.applied=Boolean(item.applied||getAppliedRequestIds(value.batchId).includes(row.requestId));
    if(row.suggestion&&item.frozen){try{item.suggestion={...row.suggestion,...restoreSuggestion(item.frozen,row.suggestion.text,{status:row.status==='succeeded'?'completed':'incomplete'})};}catch(e){item.suggestion={...row.suggestion,status:'invalid',reason:e.message};}}
   }update();
  }
@@ -105,7 +105,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
   for(const row of value.rows||[]){if(items.has(row.requestId))continue;let frozen;try{const s=row.snapshot,nonce=s.input.protected_tokens[0]?.match(/^⟦DAE_REF_(.+)_\d+⟧$/)?.[1];frozen=await freezeSnapshot(getTable(),s.target,revisions,{model:s.model,requirements:s.requirements,maxOutputTokens:s.maxOutputTokens,...(nonce?{nonce}:{})});if(frozen.wire.snapshotDigest!==s.snapshotDigest)frozen=null;}catch{}items.set(row.requestId,{...row,frozen});}
   ingest(value);schedule();
  },'recover');}
- function apply(ids){return operation(()=>{if(!isActive())throw new Error('当前模式不可应用');const selected=[...items.values()].filter(i=>ids.includes(i.requestId));const result=applySuggestions({table:getTable(),identity,revisions,items:selected,change});for(const id of result.applied)items.get(id).applied=true;state.error=result.conflicts.map(c=>c.reason).join('；');observe();return result;},'apply');}
+ function apply(ids){return operation(()=>{if(!isActive())throw new Error('当前模式不可应用');const selected=[...items.values()].filter(i=>ids.includes(i.requestId));const result=applySuggestions({table:getTable(),identity,revisions,items:selected,change});for(const id of result.applied)items.get(id).applied=true;if(result.applied.length)onApplied(state.batchId,result.applied);state.error=result.conflicts.map(c=>c.reason).join('；');observe();return result;},'apply');}
  function setModel(id){
   if(providerLocked()){state.error='任务进行中，请先停止剩余行再切换服务或模型';update();return false;}
   state.draftActive=true;state.model=id;state.quote=null;prepared=[];continuationQuoteId=null;epoch++;state.error='';
@@ -149,7 +149,7 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
  for(const item of saved().batches||[])references.set(item.batchId,item);
  const persist=()=>{saved().revisions=revisions.serialize();saved().batches=[...references.values()];};const api=createPromptOptimizationApi({fetchApi});const controllers=new Map(),instanceId=uuid();let dead=false;
  function obtain(target){const key=JSON.stringify([target.scope,target.fieldId,target.recordId||'']);if(controllers.has(key))return controllers.get(key);
-  const controller=createOptimizationController({getTable,identity,revisions,persist,change:editor.change,api,...target,instanceId,preferences:{model:saved().preferences?.model,requirements:saved().drafts?.[key]||''},onPreferences:value=>{saved().preferences={model:value.model};saved().drafts||={};saved().drafts[key]=value.requirements;},isActive:()=>!dead&&node.graph===graph&&isActive(),onBatch:(batchId,range)=>{references.set(batchId,{batchId,...range,updatedAt:Date.now()});persist();}});controllers.set(key,controller);
+  const controller=createOptimizationController({getTable,identity,revisions,persist,change:editor.change,api,...target,instanceId,preferences:{model:saved().preferences?.model,requirements:saved().drafts?.[key]||''},onPreferences:value=>{saved().preferences={model:value.model};saved().drafts||={};saved().drafts[key]=value.requirements;},isActive:()=>!dead&&node.graph===graph&&isActive(),getAppliedRequestIds:batchId=>references.get(batchId)?.appliedRequestIds||[],onApplied:(batchId,ids)=>{const reference=references.get(batchId);if(reference){reference.appliedRequestIds=[...new Set([...(reference.appliedRequestIds||[]),...ids])];persist();}},onBatch:(batchId,range)=>{references.set(batchId,{...references.get(batchId),batchId,...range,updatedAt:Date.now()});persist();}});controllers.set(key,controller);
   const last=saved().batches?.filter(b=>b.scope===target.scope&&b.fieldId===target.fieldId&&b.recordId===target.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);return controller;
  }
  editor.openPromptOptimization=target=>{const controller=obtain(target);controller.observe();editor.openTextSide(target.recordId||'',target.fieldId,target.scope==='column'?'优化整列提示词':'优化提示词',container=>{const panel=createPromptOptimizationPanel({controller,container});container.onCleanup(()=>panel?.destroy?.());},{kind:'optimization',returnFocus:target.anchor});if(!controller.getState().quote&&!controller.getState().batchId)void controller.estimate();};

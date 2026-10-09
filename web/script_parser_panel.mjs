@@ -1,9 +1,9 @@
-import {createTableEditor} from './data_table_editor.mjs?v=20261007-parser-review';
-import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs';
-import {createPromptEditor} from './table_prompt_editor.mjs?v=20261004-pr24-parser';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261004-pr24-parser';
-import {installContentPresentation} from './table_context_menu.mjs?v=20261004-pr24-parser';
-import {createWorkbench} from './table_workbench.mjs';
+import {createTableEditor} from './data_table_editor.mjs?v=20261009-review-r6';
+import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs?v=20261009-review-r6';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20261009-review-r6';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261009-review-r6';
+import {installContentPresentation} from './table_context_menu.mjs?v=20261009-review-r6';
+import {createWorkbench} from './table_workbench.mjs?v=20261009-review-r6';
 import {workbenchTheme} from './table_workbench_theme.mjs';
 import {studioTheme} from './daelab_studio_theme.mjs';
 import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261007-parser-review';

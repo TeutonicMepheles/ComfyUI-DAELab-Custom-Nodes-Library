@@ -1,0 +1,102 @@
+{
+  "id": "d9bc2045-fd98-4e40-a214-b10193b5cfcc",
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "title": "Q06 · 单格提示词验收",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        1180,
+        620
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "table_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table",
+        "daelabPromptOptimizationV1": {
+          "version": 1,
+          "tableId": "ac8dc699-ec6d-4abd-9fd2-32cad5cf1795",
+          "revisions": {},
+          "batches": [],
+          "preferences": {
+            "model": "gpt-4.1-mini"
+          },
+          "drafts": {
+            "[\"cell\",\"p\",\"Q06\"]": "精简表达"
+          }
+        }
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"frames\",\"type\":\"content\",\"name\":\"本地首尾帧测试素材\",\"width\":170,\"hidden\":false,\"video_reference\":false},{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"video\",\"model\":\"Seedance 2.5\",\"promptFieldId\":\"p\",\"mode\":\"frames2video\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q06\",\"selected\":false,\"values\":{\"frames\":[{\"id\":\"paid-first\",\"name\":\"首帧本地测试图\",\"kind\":\"image\",\"filename\":\"paid-first.png\",\"subfolder\":\"prompt-opt-paid-fixtures\",\"type\":\"input\",\"url\":\"/view?filename=paid-first.png&subfolder=prompt-opt-paid-fixtures&type=input\"},{\"id\":\"paid-last\",\"name\":\"尾帧本地测试图\",\"kind\":\"image\",\"filename\":\"paid-last.png\",\"subfolder\":\"prompt-opt-paid-fixtures\",\"type\":\"input\",\"url\":\"/view?filename=paid-last.png&subfolder=prompt-opt-paid-fixtures&type=input\"}],\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"frame\",\"generationFieldId\":\"g\",\"role\":\"first\"},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"frame\",\"generationFieldId\":\"g\",\"role\":\"last\"},{\"type\":\"text\",\"text\":\" 镜头固定，镜头不要移动，让首帧平稳过渡到尾帧。\"}]},\"g\":[]},\"meta\":{\"generationFrames\":{\"g\":{\"first\":{\"fieldId\":\"frames\",\"assetId\":\"paid-first\"},\"last\":{\"fieldId\":\"frames\",\"assetId\":\"paid-last\"}}},\"generationFrameTags\":{\"g\":\"[\\\"p\\\",[\\\"first\\\",\\\"last\\\"]]\"}}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"frames\",\"type\":\"content\",\"name\":\"本地首尾帧测试素材\",\"width\":170,\"hidden\":false,\"video_reference\":false},{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"video\",\"model\":\"Seedance 2.5\",\"promptFieldId\":\"p\",\"mode\":\"frames2video\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q06\",\"selected\":false,\"values\":{\"frames\":[{\"id\":\"paid-first\",\"name\":\"首帧本地测试图\",\"kind\":\"image\",\"filename\":\"paid-first.png\",\"subfolder\":\"prompt-opt-paid-fixtures\",\"type\":\"input\",\"url\":\"/view?filename=paid-first.png&subfolder=prompt-opt-paid-fixtures&type=input\"},{\"id\":\"paid-last\",\"name\":\"尾帧本地测试图\",\"kind\":\"image\",\"filename\":\"paid-last.png\",\"subfolder\":\"prompt-opt-paid-fixtures\",\"type\":\"input\",\"url\":\"/view?filename=paid-last.png&subfolder=prompt-opt-paid-fixtures&type=input\"}],\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"frame\",\"generationFieldId\":\"g\",\"role\":\"first\"},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"frame\",\"generationFieldId\":\"g\",\"role\":\"last\"},{\"type\":\"text\",\"text\":\" 镜头固定，镜头不要移动，让首帧平稳过渡到尾帧。\"}]},\"g\":[]},\"meta\":{\"generationFrames\":{\"g\":{\"first\":{\"fieldId\":\"frames\",\"assetId\":\"paid-first\"},\"last\":{\"fieldId\":\"frames\",\"assetId\":\"paid-last\"}}},\"generationFrameTags\":{\"g\":\"[\\\"p\\\",[\\\"first\\\",\\\"last\\\"]]\"}}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
+    },
+    "daelabPromptOptimizationV1": {
+      "version": 1,
+      "documentId": "ceaafb28-3a66-4701-a243-a601262caa37",
+      "nativeWorkflowId": "d9bc2045-fd98-4e40-a214-b10193b5cfcc"
+    },
+    "daelabPaidAcceptanceFixture": {
+      "version": 1,
+      "scope": "cell",
+      "fieldId": "p",
+      "recordId": "Q06",
+      "cases": [
+        "Q06"
+      ],
+      "model": "gpt-4.1-mini",
+      "requirements": "精简表达",
+      "maxOutputTokens": 1024,
+      "notAuthorization": true,
+      "paidPostsExecuted": 0
+    }
+  },
+  "version": 0.4
+}

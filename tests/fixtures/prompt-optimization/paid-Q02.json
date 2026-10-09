@@ -1,0 +1,102 @@
+{
+  "id": "363ac068-4322-4f7f-b5b4-2069572496d8",
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "title": "Q02 · 单格提示词验收",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        1180,
+        620
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "table_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table",
+        "daelabPromptOptimizationV1": {
+          "version": 1,
+          "tableId": "7959c6cc-a9a2-4494-81e3-549840a76cd6",
+          "revisions": {},
+          "batches": [],
+          "preferences": {
+            "model": "gpt-4.1-mini"
+          },
+          "drafts": {
+            "[\"cell\",\"p\",\"Q02\"]": "理清动作顺序"
+          }
+        }
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"video\",\"model\":\"Seedance 2.5\",\"promptFieldId\":\"p\",\"mode\":\"text2video\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q02\",\"selected\":false,\"values\":{\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"text\",\"text\":\"固定机位。女孩先把书合上，然后站起来离开书桌，镜头别动。\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"video\",\"model\":\"Seedance 2.5\",\"promptFieldId\":\"p\",\"mode\":\"text2video\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q02\",\"selected\":false,\"values\":{\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"text\",\"text\":\"固定机位。女孩先把书合上，然后站起来离开书桌，镜头别动。\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
+    },
+    "daelabPromptOptimizationV1": {
+      "version": 1,
+      "documentId": "064cf6dd-7ed3-4cc8-b961-2a4c7087b6af",
+      "nativeWorkflowId": "363ac068-4322-4f7f-b5b4-2069572496d8"
+    },
+    "daelabPaidAcceptanceFixture": {
+      "version": 1,
+      "scope": "cell",
+      "fieldId": "p",
+      "recordId": "Q02",
+      "cases": [
+        "Q02"
+      ],
+      "model": "gpt-4.1-mini",
+      "requirements": "理清动作顺序",
+      "maxOutputTokens": 1024,
+      "notAuthorization": true,
+      "paidPostsExecuted": 0
+    }
+  },
+  "version": 0.4
+}

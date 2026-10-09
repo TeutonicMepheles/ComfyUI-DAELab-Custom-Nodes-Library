@@ -1,0 +1,102 @@
+{
+  "id": "1e3091c0-2ebe-48cf-8bb5-2b189dca30dd",
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "title": "Q03 · 单格提示词验收",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        1180,
+        620
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "table_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table",
+        "daelabPromptOptimizationV1": {
+          "version": 1,
+          "tableId": "99a98783-4738-4657-b02f-7160ff9b201f",
+          "revisions": {},
+          "batches": [],
+          "preferences": {
+            "model": "gpt-4.1-mini"
+          },
+          "drafts": {
+            "[\"cell\",\"p\",\"Q03\"]": "明确要求英文输出"
+          }
+        }
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"image\",\"model\":\"Lib Image\",\"promptFieldId\":\"p\",\"mode\":\"\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q03\",\"selected\":false,\"values\":{\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"text\",\"text\":\"一只白猫坐在窗台上，不要文字。\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"image\",\"model\":\"Lib Image\",\"promptFieldId\":\"p\",\"mode\":\"\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q03\",\"selected\":false,\"values\":{\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"text\",\"text\":\"一只白猫坐在窗台上，不要文字。\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
+    },
+    "daelabPromptOptimizationV1": {
+      "version": 1,
+      "documentId": "b199c0b2-38d8-47c4-b4c0-465ad953a2cd",
+      "nativeWorkflowId": "1e3091c0-2ebe-48cf-8bb5-2b189dca30dd"
+    },
+    "daelabPaidAcceptanceFixture": {
+      "version": 1,
+      "scope": "cell",
+      "fieldId": "p",
+      "recordId": "Q03",
+      "cases": [
+        "Q03"
+      ],
+      "model": "gpt-4.1-mini",
+      "requirements": "明确要求英文输出",
+      "maxOutputTokens": 1024,
+      "notAuthorization": true,
+      "paidPostsExecuted": 0
+    }
+  },
+  "version": 0.4
+}

@@ -1,0 +1,102 @@
+{
+  "id": "9d339e7f-da04-4c57-94b1-5e91eafabb9f",
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.Table",
+      "title": "Q04 · 单格提示词验收",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        1180,
+        620
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "table_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DAELAB.Table",
+        "daelabPromptOptimizationV1": {
+          "version": 1,
+          "tableId": "57c0465a-363d-4716-8ef8-e3a3f6dc952c",
+          "revisions": {},
+          "batches": [],
+          "preferences": {
+            "model": "gpt-4.1-mini"
+          },
+          "drafts": {
+            "[\"cell\",\"p\",\"Q04\"]": "强调画面层次，保持克制，不补充具体场景细节。"
+          }
+        }
+      },
+      "widgets_values": [
+        "{\"version\":1,\"fields\":[{\"id\":\"scene\",\"type\":\"content\",\"name\":\"画面\",\"width\":280,\"hidden\":false,\"video_reference\":false},{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"image\",\"model\":\"Lib Image\",\"promptFieldId\":\"p\",\"mode\":\"\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q04\",\"selected\":false,\"values\":{\"scene\":\"雨后的街道，一名行人从左向右走过。\",\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"column\",\"fieldId\":\"scene\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      ],
+      "widgets_values_named": {
+        "table_data": "{\"version\":1,\"fields\":[{\"id\":\"scene\",\"type\":\"content\",\"name\":\"画面\",\"width\":280,\"hidden\":false,\"video_reference\":false},{\"id\":\"p\",\"type\":\"json\",\"presentation\":\"prompt\",\"name\":\"待优化提示词\",\"width\":540,\"generationConfigFieldId\":\"g\",\"hidden\":false},{\"id\":\"g\",\"type\":\"content\",\"presentation\":\"generation\",\"readonly\":true,\"name\":\"用途配置（不执行媒体生成）\",\"width\":240,\"generation\":{\"version\":1,\"kind\":\"image\",\"model\":\"Lib Image\",\"promptFieldId\":\"p\",\"mode\":\"\",\"settings\":{}},\"hidden\":false,\"video_reference\":false}],\"records\":[{\"id\":\"Q04\",\"selected\":false,\"values\":{\"scene\":\"雨后的街道，一名行人从左向右走过。\",\"p\":{\"kind\":\"column-template\",\"version\":1,\"segments\":[{\"type\":\"column\",\"fieldId\":\"scene\"}]},\"g\":[]},\"meta\":{}}],\"view\":\"table\",\"meta\":{\"material_columns\":true,\"video_reference_version\":1}}"
+      }
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": false,
+      "viewport": {
+        "x": 60,
+        "y": 60,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "expanded": true
+        }
+      }
+    },
+    "daelabPromptOptimizationV1": {
+      "version": 1,
+      "documentId": "7e0700c1-b41a-4baf-b770-636c7d6a1ffe",
+      "nativeWorkflowId": "9d339e7f-da04-4c57-94b1-5e91eafabb9f"
+    },
+    "daelabPaidAcceptanceFixture": {
+      "version": 1,
+      "scope": "cell",
+      "fieldId": "p",
+      "recordId": "Q04",
+      "cases": [
+        "Q04"
+      ],
+      "model": "gpt-4.1-mini",
+      "requirements": "强调画面层次，保持克制，不补充具体场景细节。",
+      "maxOutputTokens": 1024,
+      "notAuthorization": true,
+      "paidPostsExecuted": 0
+    }
+  },
+  "version": 0.4
+}

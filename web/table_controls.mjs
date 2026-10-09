@@ -18,16 +18,21 @@ export function createTableButton(label, action, primary = false) {
 
 export function tableTheme() {
     if (document.getElementById('dae-table-ui-css')) return;
+    const bundled = document.createElement('link');
+    bundled.id = 'dae-table-bundled-theme'; bundled.rel = 'stylesheet';
+    bundled.href = new URL('./vendor/prompt-optimization-shared/creative_theme.css', import.meta.url).href;
+    document.head.append(bundled);
     const sheet = document.createElement('link');
     sheet.id = 'dae-table-ui-css'; sheet.rel = 'stylesheet';
-    sheet.href = new URL('./table_ui.css?v=20261001-remove-cell-expand', import.meta.url).href;
+    sheet.href = new URL('./table_ui.css?v=20261009-review-r6', import.meta.url).href;
     document.head.append(sheet);
 }
 
 export function tableIcon(button, name, label) {
     button.title = label; button.setAttribute('aria-label', label);
-    if (!shared && !['check-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)) { button.textContent = label; return button; }
+    const bundled=['sparkling-line','arrow-left-right-line'].includes(name);
+    if (!shared && !bundled && !['check-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)) { button.textContent = label; return button; }
     const icon = document.createElement('span');icon.className='dae-table-icon';icon.setAttribute('aria-hidden','true');
-    icon.style.setProperty('--table-icon', `url("${['draggable','settings-3-line','check-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
+    icon.style.setProperty('--table-icon', `url("${bundled?new URL('./vendor/prompt-optimization-shared/vendor/remixicon/'+name+'.svg',import.meta.url).href:['draggable','settings-3-line','check-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
     button.replaceChildren(icon); return button;
 }

@@ -1,3 +1,4 @@
+import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261009-review-r6';
 import {generationMaterials} from './table_material_output.mjs?v=20261002-shared-prompt-generation-config';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.
@@ -39,7 +40,7 @@ function register(){
         summary:node=>tables.includes(node.type)?`${node.__dataTable?.records?.length||0} 条记录`:null,
         preview:node=>({url:node.properties?.daelabLibTVResult,kind:'video'}),
         inputLabels:{first_frame:'首帧',last_frame:'尾帧',reference_images:'参考图片',reference_video:'参考视频'},
-        prepareCopy(node,data){for(const [i,w] of (node.widgets||[]).entries())if(w.name==='request_id'&&data.widgets_values)data.widgets_values[i]=`copy-${crypto.randomUUID()}`;},
+        prepareCopy(node,data){if(data.properties?.[NAMESPACE])delete data.properties[NAMESPACE];for(const [i,w] of (node.widgets||[]).entries())if(w.name==='request_id'&&data.widgets_values)data.widgets_values[i]=`copy-${crypto.randomUUID()}`;},
         onCreate(node){if(node.type==='DAELAB.Table'){node.title='多维表格';const table=createMaterialTable(),w=node.widgets?.find(w=>w.name==='table_data');if(w)w.value=JSON.stringify(table);node.__dataTable=table;node.__dataTablePanel?.render();}if(node.type==='DAELAB.LibTV.VideoGenerate'){const w=node.widgets?.find(w=>w.name==='request_id');if(w)w.value=`video-${crypto.randomUUID()}`;}},
     });
     // The single video node has no native run button; batch panels already do.

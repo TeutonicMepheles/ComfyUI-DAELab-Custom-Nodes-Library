@@ -1,7 +1,8 @@
+import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {attachCellSelection} from './table_cell_selection.mjs?v=20261002-table-module-responsibilities';
-import {attachTableStructure} from './table_structure.mjs?v=20261002-generation-pause';
-import {createTextSide} from './table_text_side.mjs?v=20261004-pr24-parser';
-import {renderContentCell,bindMaterialThumbnail} from './table_content_view.mjs?v=20261002-table-module-responsibilities';
+import {attachTableStructure} from './table_structure.mjs?v=20261009-review-r6';
+import {createTextSide} from './table_text_side.mjs?v=20261009-review-r6';
+import {renderContentCell,bindMaterialThumbnail} from './table_content_view.mjs?v=20261009-review-r6';
 import {clone,uid,addField,removeField,addRecord,duplicateSelected,reorder,setValue,transferValue,parseTSV,pasteMatrix,encodeTSV,SnapshotHistory,emptyValue,convertValue,FIELD_TYPES,COLUMN_MINIMUM_WIDTH} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
@@ -13,8 +14,8 @@ import {bindColumnAssets} from './table_prompt_template.mjs?v=20261001-frame-tag
 
 let copiedRegion=null;
 export const FIELD_LABELS={content:'内容',text:'文本',longtext:'多行文本',number:'数字',checkbox:'勾选',select:'单选',assets:'素材',json:'结构化原文'};
-export {createTableButton as tableButton} from './table_controls.mjs?v=20261002-generation-pause';
-import {createTableButton as tableButton,tableTheme,tableIcon} from './table_controls.mjs?v=20261002-generation-pause';
+export {createTableButton as tableButton} from './table_controls.mjs?v=20261009-review-r6';
+import {createTableButton as tableButton,tableTheme,tableIcon} from './table_controls.mjs?v=20261009-review-r6';
 const element=(tag,className,parent)=>{const e=document.createElement(tag);if(className)e.className=className;if(parent)parent.append(e);return e;};
 const MIME='application/x-daelab-table';
 
@@ -42,6 +43,7 @@ export function tableDialog(title){tableTheme();const d=element('dialog','dae-ui
 
 // The very same editor is used by every template. Integrations only supply data and upload I/O.
 export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRowState=null,renderCell=null,decorateAsset=null,onRestore=()=>{},displayContent=()=>false,nativeHistory=null,promptColumnsOnly=false,validateChange=()=>{},textPanelHost=undefined}) {
+ const observers=new Set();const observed=()=>{for(const fn of observers)fn();};
  const cleanups=new Set(),cellBindings=new WeakMap();const clearBindings=()=>{for(const fn of cleanups)fn();cleanups.clear();};
  const dialogs=new Set();const openDialog=title=>{const d=tableDialog(title);dialogs.add(d);return d;};const closeDialogs=()=>{textSide.closeAll();for(const d of dialogs){d.querySelectorAll('video').forEach(v=>v.pause());d.remove();}dialogs.clear();};
  styles();const owner=uid(),history=new SnapshotHistory(),root=element('section','dae-table'),toolbar=element('nav','dae-table-toolbar',root),shell=element('div','dae-table-scroll',root),footer=element('nav','dae-table-footer',root);
@@ -50,10 +52,10 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
  shell.dataset.storyboardScroll='true';let busy=false,editGroup=null,drag=null,raf=null,splitters=null,structure=null,materialSort=null;
  const fields=()=>getTable().fields.filter(f=>!f.hidden);
  const packet=e=>{try{return JSON.parse(e.dataTransfer.getData(MIME));}catch{return null;}};
- function change(fn,{render:draw=true,group=null}={}) {const before=JSON.stringify(getTable()),next=JSON.parse(before);fn(next);validateChange(getTable(),next);const after=JSON.stringify(next);history.record(before,after,group);const boundary=nativeHistory&&displayContent()&&before!==after&&!group;if(boundary)nativeHistory.begin();try{setTable(next);if(draw)render();else updateFooter();}finally{if(boundary)nativeHistory.end();}}
+ function change(fn,{render:draw=true,group=null}={}) {const before=JSON.stringify(getTable()),next=JSON.parse(before);fn(next);validateChange(getTable(),next);const after=JSON.stringify(next);history.record(before,after,group);const boundary=nativeHistory&&displayContent()&&before!==after&&!group;if(boundary)nativeHistory.begin();try{setTable(next);observed();if(draw)render();else updateFooter();}finally{if(boundary)nativeHistory.end();}}
  function safely(fn){try{return fn();}catch(e){notify(e.message);return null;}}
  function clearCells(cells=selection().flat()){safely(()=>change(t=>{const fields=new Map(t.fields.map(f=>[f.id,f])),records=new Map(t.records.map(r=>[r.id,r]));for(const {row,field} of cells){const f=fields.get(field.id),r=records.get(row.id);if(!f||!r||f.readonly)continue;r.values[f.id]=f.promptTemplate?{kind:'column-template',version:1,segments:[]}:emptyValue(f);}}));}
- function restore(redo=false){const pending=(redo?history.redoStack:history.undoStack).at(-1);if(pending){try{validateChange(getTable(),JSON.parse(pending),{restoring:true});}catch(e){notify(e.message);return;}}const value=history.restore(JSON.stringify(getTable()),redo);if(value){const boundary=nativeHistory&&displayContent();if(boundary)nativeHistory.begin();try{onRestore();setTable(value);render();}finally{if(boundary)nativeHistory.end();}}}
+ function restore(redo=false){const pending=(redo?history.redoStack:history.undoStack).at(-1);if(pending){try{validateChange(getTable(),preserveGenerationHistory(getTable(),JSON.parse(pending)),{restoring:true});}catch(e){notify(e.message);return;}}const value=history.restore(JSON.stringify(getTable()),redo);if(value){const boundary=nativeHistory&&displayContent();if(boundary)nativeHistory.begin();try{onRestore();preserveGenerationHistory(getTable(),value);setTable(value);observed();render();}finally{if(boundary)nativeHistory.end();}}}
  const undo=tableButton('撤销',()=>restore()),redo=tableButton('重做',()=>restore(true)),count=element('span','table-count');
  function updateFooter(){const table=getTable(),selected=table.records.filter(r=>r.selected).length;selectionActions.hidden=!selected;refreshStates();undo.disabled=!history.undoStack.length;redo.disabled=!history.redoStack.length;const label=`${selected} / ${table.records.length} 行已选`;if(count.textContent!==label)count.textContent=label;}
  const cellSelection=attachCellSelection({root,shell,getTable}),{selection,choose,mark}=cellSelection;
@@ -324,5 +326,5 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
     if(['Delete','Backspace'].includes(e.key)){e.preventDefault();clearCells();}
  });
  for(const event of ['pointerdown','pointerup','mousedown','mouseup','click','dblclick','wheel','keydown'])root.addEventListener(event,e=>{if(event==='wheel'&&e.ctrlKey||event==='pointerdown'&&e.button===1||event==='mousedown'&&e.button===1)return;stopCanvasPropagation(e);});
- render();return {manageFields,addColumn:(target=null,before=false,anchor=root)=>root.dispatchEvent(new CustomEvent('dae-add-column',{detail:{target,before,anchor}})),addRow:(target=null,before=false)=>root.dispatchEvent(new CustomEvent('dae-add-row',{detail:{target,before}})),root,toolbar,selectionActions,selection,restore,copySelection:async()=>{const matrix=selection().map(cells=>cells.map(({row,field})=>clone(row.values[field.id]??emptyValue(field)))),text=encodeTSV(matrix);await navigator.clipboard.writeText(text);copiedRegion={text,matrix};},selectColumn:cellSelection.selectColumn,clearSelection:cellSelection.clear,render,refreshCells,change,clearCells,history,openDialog,closeDialogs,openTextSide:textSide.open,collapseTextSide:textSide.hide,focusCell:(record,field)=>{const cell=[...shell.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===record&&e.dataset.field===field);cell?.focus();cell?.scrollIntoView({block:'nearest',inline:'nearest'});},destroy:()=>{cellSelection.destroy();clearBindings();structure?.dispose();splitters?.dispose();dragEnd();closeDialogs();textSide.destroy();}};
+ render();return {onTableChange(fn){observers.add(fn);return()=>observers.delete(fn);},manageFields,addColumn:(target=null,before=false,anchor=root)=>root.dispatchEvent(new CustomEvent('dae-add-column',{detail:{target,before,anchor}})),addRow:(target=null,before=false)=>root.dispatchEvent(new CustomEvent('dae-add-row',{detail:{target,before}})),root,toolbar,selectionActions,selection,restore,copySelection:async()=>{const matrix=selection().map(cells=>cells.map(({row,field})=>clone(row.values[field.id]??emptyValue(field)))),text=encodeTSV(matrix);await navigator.clipboard.writeText(text);copiedRegion={text,matrix};},selectColumn:cellSelection.selectColumn,clearSelection:cellSelection.clear,render,refreshCells,change,clearCells,history,openDialog,closeDialogs,openTextSide:textSide.open,collapseTextSide:textSide.hide,focusCell:(record,field)=>{const cell=[...shell.querySelectorAll('td[data-field]')].find(e=>e.dataset.record===record&&e.dataset.field===field);cell?.focus();cell?.scrollIntoView({block:'nearest',inline:'nearest'});},destroy:()=>{observers.clear();cellSelection.destroy();clearBindings();structure?.dispose();splitters?.dispose();dragEnd();closeDialogs();textSide.destroy();}};
 }

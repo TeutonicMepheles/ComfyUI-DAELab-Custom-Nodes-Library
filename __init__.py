@@ -146,4 +146,7 @@ NODE_DISPLAY_NAME_MAPPINGS.update(LIBTV_NAMES)
 
 WEB_DIRECTORY = "./web"
 
+from .nodes.prompt_optimization import register as register_prompt_optimization
+register_prompt_optimization()
+
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

@@ -366,3 +366,34 @@ test('reopening the same controller observes Active mode without discarding its 
  assert.equal(find(container,e=>e.textContent==='开始优化').disabled,false);
  const inactive=find(container,e=>e.className==='prompt-opt-warning'&&e.role==='status');assert.equal(inactive.hidden,true);
 });
+
+
+test('pending permit and blocking model response publish immediate stages and clear on settlement',async t=>{
+ const {controller:c,service:s}=harness(t),permit=deferred(),response=deferred();
+ s.hooks.permit=()=>permit.promise;
+ s.hooks.advance=async(_batch,row)=>{await response.promise;row.status='succeeded';};
+ await flush();await c.estimate();await c.submit();assert.equal(c.getState().draftActive,false);
+ t.mock.timers.tick(1200);await flush();
+ assert.equal(c.getState().requestActivity.phase,'prepare');assert.equal(c.getState().permissions.canEstimate,false);
+ permit.resolve();await flush();assert.equal(c.getState().requestActivity.phase,'request');
+ assert.equal(c.getState().permissions.canSubmit,false);assert.equal(c.getState().permissions.canStop,true);
+ response.resolve();await flush();assert.equal(c.getState().requestActivity,null);assert.equal(c.getState().rows[0].status,'succeeded');
+ c.setRequirements('更简洁');assert.equal(c.getState().draftActive,true);
+});
+
+test('advance failure exits waiting display and pauses without automatic resubmission',async t=>{
+ const {controller:c,service:s}=harness(t);s.hooks.advance=()=>{throw Error('模拟连接中断');};
+ await flush();await c.estimate();await c.submit();t.mock.timers.tick(1200);await flush();
+ assert.equal(c.getState().requestActivity,null);assert.equal(c.getState().paused,true);assert.match(c.getState().error,/连接中断/);
+ t.mock.timers.tick(1200);await flush();assert.equal(s.count('advance'),1);
+});
+
+
+test('editing after unknown cannot bypass acknowledgement; explicit submit carries exact prior IDs',async t=>{
+ const {controller:c,service:s}=harness(t);s.hooks.advance=async(_batch,row)=>{row.status='unknown';};
+ await flush();await c.estimate();await c.submit();t.mock.timers.tick(1200);await flush();
+ const old=c.getState().rows[0].requestId;c.setRequirements('只去除重复');await c.estimate();
+ await c.submit();assert.equal(s.count('submit'),1);assert.match(c.getState().error,/先确认未知/);
+ await c.submit({acknowledgeUnknown:true});assert.equal(s.count('submit'),2);
+ assert.deepEqual(s.calls.filter(x=>x.name==='submit')[1].p.acknowledgeUnknownRequestIds,[old]);
+});

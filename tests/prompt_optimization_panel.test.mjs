@@ -103,3 +103,25 @@ test('shared async button cleanup cannot overwrite final controller button permi
  t.mock.timers.tick(0);assert.equal(estimate.disabled,false);assert.equal(start.disabled,false);
  panel.destroy();t.mock.timers.tick(0);
 });
+
+test('fixed status and result shortcut replace stale submit guidance; single results expand once',async()=>{
+ const f=fixture(),panel=createPromptOptimizationPanel(f),footer=find(panel.root,e=>e.tagName==='footer');
+ const status=find(footer,e=>e.className==='prompt-opt-status'),details=find(panel.root,e=>e.className==='prompt-opt-settings');
+ assert.match(find(status,e=>e.tagName==='strong').textContent,/更新估算/);
+ f.update({batchId:'b',draftActive:false,rows:[{requestId:'one',recordId:'r',status:'succeeded',suggestionStatus:'valid',canApply:true}],permissions:{canRecover:true}});
+ assert.equal(details.open,false);assert.equal(find(status,e=>e.tagName==='strong').textContent,'优化完成，等待应用');
+ const row=find(panel.root,e=>e.className==='prompt-opt-result');assert.equal(row.open,true);
+ row.open=false;f.update({});assert.equal(row.open,false,'polls preserve user collapse');
+ const show=find(footer,e=>e.textContent==='查看结果');await show.onclick({preventDefault(){},stopPropagation(){}});assert.equal(row.open,true);
+ assert.equal(find(footer,e=>e.textContent==='开始优化').hidden,true);assert.equal(find(footer,e=>e.textContent==='更新估算').hidden,true);
+ f.update({draftActive:true});assert.equal(find(footer,e=>e.textContent==='开始优化').hidden,false);
+ panel.destroy();
+});
+
+test('unsaved replacement key blocks start and IME explains disabled state',()=>{
+ const f=fixture();f.update({quote:{status:'ready',expiresAt:Date.now()+10000},permissions:{canSubmit:true},pageDeepSeekKeyConfigured:true});
+ const panel=createPromptOptimizationPanel(f),key=find(panel.root,e=>e.type==='password'),start=find(panel.root,e=>e.textContent==='开始优化');
+ key.value='replacement-test-key';key.dispatchEvent(new Event('input'));assert.equal(start.disabled,true);assert.match(start.title,/保存到本页会话/);
+ key.value='';key.dispatchEvent(new Event('input'));assert.equal(start.disabled,false);
+ const input=find(panel.root,e=>e.tagName==='textarea');input.dispatchEvent(new Event('compositionstart'));assert.equal(start.disabled,true);assert.match(start.title,/候选词/);panel.destroy();
+});

@@ -40,3 +40,13 @@
 @media(prefers-reduced-motion:reduce){.dae-ui .prompt-opt-panel *{scroll-behavior:auto;transition:none}}
 
 .dae-ui .prompt-opt-key{display:flex;flex-direction:column;gap:8px}
+.dae-ui .prompt-opt-settings{min-width:0}
+.dae-ui .prompt-opt-settings-body{display:flex;flex-direction:column;gap:14px;padding-top:8px}
+.dae-ui .prompt-opt-settings>summary{font-size:14px;font-weight:500}
+.dae-ui .prompt-opt-results-title{margin:0;font-size:14px;font-weight:500;scroll-margin-top:12px}
+.dae-ui .prompt-opt-status{display:flex;flex-direction:column;gap:4px;min-width:0;border-left:3px solid var(--dae-primary-container);padding-left:10px}
+.dae-ui .prompt-opt-status strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.dae-ui .prompt-opt-status[data-tone=warning]{border-color:var(--dae-danger)}
+.dae-ui .prompt-opt-status[data-tone=success]{border-color:var(--dae-accent)}
+.dae-ui .prompt-opt-progress{font-size:12px;font-variant-numeric:tabular-nums;color:var(--dae-text-muted)}
+.dae-ui .prompt-opt-footer{max-height:55%;overflow:auto;overscroll-behavior:contain}

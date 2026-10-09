@@ -143,6 +143,8 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, '未知'):
             await self.s.submit(p)
         p['acknowledgeUnknownRequestIds']=['batch1-r0']
+        quote = await self.s.estimate(dict(rows=[snapshot()], model='gpt-4.1-mini'))
+        p.update(quoteId=quote['quoteId'], budgetCredits=quote['budgetUpperCredits'])
         self.assertEqual((await self.s.submit(p))['rows'][0]['status'], 'queued')
 
     async def test_idempotent_submit_and_conflict(self):

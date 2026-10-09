@@ -44,8 +44,8 @@ const editable=f=>f&&!f.readonly&&(f.presentation==='prompt'||['text','longtext'
 const safeLabel=text=>String(text||'引用').replace(/(?:https?:\/\/|file:\/\/|[A-Z]:[\\/])\S+/gi,'[位置已隐藏]');
 
 /** Read only. Keep editable text separate from protected structural anchors. */
-export function inspectTarget(table,recordId,fieldId){
- const field=table.fields.find(f=>f.id===fieldId),row=table.records.find(r=>r.id===recordId);
+export function inspectTarget(table,recordId,fieldId,known={}){
+ const field=known.field||table.fields.find(f=>f.id===fieldId),row=known.row||table.records.find(r=>r.id===recordId);
  if(!editable(field)||!row)throw new Error('目标行或可编辑提示词列已删除');
  const original=effectivePrompt(table,row,fieldId);
  if(original==null||original==='')throw new Error('提示词为空');
@@ -84,14 +84,22 @@ export function inspectTarget(table,recordId,fieldId){
 export class OptimizationRevisions{
  constructor(saved={}){this.entries=new Map(Object.entries(saved).map(([k,v])=>[k,{...v}]));}
  key(recordId,fieldId){return JSON.stringify([recordId,fieldId]);}
+ read(r,f){return this.entries.get(this.key(r,f));}
+ observeTarget(table,r,f,known={}){
+  const key=this.key(r,f),old=this.entries.get(key);let stamp;
+  const row=known.row||table.records.find(row=>row.id===r),field=known.field||table.fields.find(field=>field.id===f);
+  if(!row||!editable(field)){if(old&&old.stamp!=='deleted')this.entries.set(key,{...old,stamp:'deleted',revision:old.revision+1});return this.read(r,f);}
+  try{stamp=inspectTarget(table,r,f,{row,field}).stamp;}catch(e){stamp='invalid:'+e.message;}
+  if(!old||old.stamp!==stamp)this.entries.set(key,{stamp,revision:(old?.revision||0)+1,requestSeq:old?.requestSeq||0});
+  return this.entries.get(key);
+ }
  observe(table){
-  const live=new Set();for(const row of table.records)for(const field of table.fields.filter(editable)){
-   const key=this.key(row.id,field.id);live.add(key);let stamp;try{stamp=inspectTarget(table,row.id,field.id).stamp;}catch(e){stamp='invalid:'+e.message;}
-   const old=this.entries.get(key);if(!old||old.stamp!==stamp)this.entries.set(key,{stamp,revision:(old?.revision||0)+1,requestSeq:old?.requestSeq||0});
+  const live=new Set(),fields=table.fields.filter(editable);for(const row of table.records)for(const field of fields){
+   live.add(this.key(row.id,field.id));this.observeTarget(table,row.id,field.id,{row,field});
   }
   for(const [key,old] of this.entries)if(!live.has(key)&&old.stamp!=='deleted')this.entries.set(key,{...old,stamp:'deleted',revision:old.revision+1});
  }
- current(table,r,f){this.observe(table);return this.entries.get(this.key(r,f));}
+ current(table,r,f){return this.observeTarget(table,r,f);}
  begin(table,r,f){const item=this.current(table,r,f);if(!item)throw new Error('目标不存在');item.requestSeq++;return {...item};}
  merge(saved){for(const [key,value] of Object.entries(saved||{})){const old=this.entries.get(key);if(!old)this.entries.set(key,{...value});else{if((value.revision||0)>old.revision)old.stamp=value.stamp;old.revision=Math.max(old.revision,value.revision||0);old.requestSeq=Math.max(old.requestSeq,value.requestSeq||0);}}}
  serialize(){return Object.fromEntries([...this.entries].map(([k,v])=>[k,{...v}]));}
@@ -133,9 +141,9 @@ export function restoreSuggestion(frozen,text,{status='completed'}={}){
  if(canonical(before)!==canonical(after))throw new Error('引用结构发生变化');
  return {status:canonical(document)===canonical(local.original)?'unchanged':'valid',document,text};
 }
-export function matchesSnapshot(table,identity,revisions,frozen){
+export function matchesSnapshot(table,identity,revisions,frozen,{observed=false}={}){
  const s=frozen.wire;if(s.target.documentId!==identity.documentId||s.target.tableId!==identity.tableId)return false;
- try{const now=revisions.current(table,s.target.recordId,s.target.fieldId);return now.revision===s.revision&&now.requestSeq===s.requestSeq&&inspectTarget(table,s.target.recordId,s.target.fieldId).stamp===frozen.local.stamp;}catch{return false;}
+ try{const now=observed?revisions.read(s.target.recordId,s.target.fieldId):revisions.current(table,s.target.recordId,s.target.fieldId);return now.revision===s.revision&&now.requestSeq===s.requestSeq&&now.stamp===frozen.local.stamp;}catch{return false;}
 }
 export function applySuggestions({table,identity,revisions,items,change}){
  const candidates=[],conflicts=[];for(const item of items){

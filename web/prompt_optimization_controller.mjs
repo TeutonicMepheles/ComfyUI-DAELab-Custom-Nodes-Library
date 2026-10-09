@@ -1,6 +1,6 @@
-import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r5';
-import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261009-progress-r5';
-import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261009-progress-r5';
+import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-review-r6';
+import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261009-review-r6';
+import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261009-review-r6';
 
 const registries=new Map(),batchReferences=new Map();
 const activeStatuses=new Set(['submitting','submitted','polling']);
@@ -14,15 +14,23 @@ export function createOptimizationController({getTable,identity,revisions,persis
  const state={scope,fieldId,recordId,requirements:preferences.requirements||'',model:preferences.model||'gpt-4.1-mini',models:[],range:{total:0,processable:0,skipped:[]},quote:null,busy:false,error:'',rows:[],batchId:null,permissions:{},deepseekKeyConfigured:false,pageDeepSeekKeyConfigured:false};
  const batchProvider=()=>optimizationProvider(batch?.rows?.[0]?.snapshot?.model||state.model);
  const providerLocked=()=>blockingOperations>0||[...items.values()].some(i=>activeStatuses.has(i.status)||['queued','preparing'].includes(i.status));
+ const unknownIds=()=> (state.unknownRequests||[]).map(r=>r.requestId);
+ function setUnknownRequests(rows){
+  const next=[...new Map(rows.map(r=>[r.requestId,r])).values()].sort((a,b)=>a.requestId.localeCompare(b.requestId));
+  if(JSON.stringify(next.map(r=>r.requestId))!==JSON.stringify(unknownIds()))acknowledgeUnknownRequestIds=[];
+  state.unknownRequests=next;
+ }
  function update(){
   if(dead)return;state.busy=blockingOperations>0||estimateEpoch===epoch;revisions.observe(getTable());persist();state.inactiveReason=isActive()?'':'节点处于停用模式或视图已释放，请恢复 Active 后继续';
   state.paused=Boolean(requiresContinue||batch?.paused);state.stopped=Boolean(batch?.stopped);
   state.operationName=[...operations.values()].at(-1)||'';
   state.provider=optimizationProvider(state.model);state.pageDeepSeekKeyConfigured=Boolean(api.hasDeepSeekKey?.());
   state.deepseekKeyRequired=state.provider==='deepseek'&&!state.pageDeepSeekKeyConfigured&&!state.deepseekKeyConfigured;
-  state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen);const suggestionStatus=item.applied?'applied':item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
+  const rowNumbers=new Map(getTable().records.map((row,index)=>[row.id,index+1]));
+  state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen,{observed:true});const suggestionStatus=item.applied?'applied':item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
    const provider=optimizationProvider(s?.model),currency=provider==='deepseek'?'USD':'credits';
-   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${getTable().records.findIndex(r=>r.id===s?.target.recordId)+1} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:item.applied?'':!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),provider,currency,actualCredits:provider==='deepseek'?null:item.actualCredits??null,usageCostUSD:provider==='deepseek'?item.usageCostUSD??null:null};});
+   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${rowNumbers.get(s?.target.recordId)||0} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:item.applied?'':!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),provider,currency,actualCredits:provider==='deepseek'?null:item.actualCredits??null,usageCostUSD:provider==='deepseek'?item.usageCostUSD??null:null};});
+  state.unknownRequests=(state.unknownRequests||[]).map(r=>({...r,label:rowNumbers.has(r.target?.recordId)?`第 ${rowNumbers.get(r.target.recordId)} 行`:'历史目标'}));
   const inFlight=Boolean(state.requestActivity)||[...items.values()].some(i=>activeStatuses.has(i.status)),queued=[...items.values()].some(i=>['queued','preparing'].includes(i.status));
   const resumable=[...items.values()].some(i=>['queued','preparing','stopped'].includes(i.status));
   const quoteValid=state.quote?.status==='ready'&&state.quote.expiresAt>Date.now();
@@ -31,7 +39,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
   for(const listener of listeners)listener(state);
  }
  async function operation(fn,name='processing'){if(dead)return;const token={};operations.set(token,name);blockingOperations++;state.error='';update();try{return await fn();}catch(e){state.error=e.message||String(e);}finally{operations.delete(token);blockingOperations--;update();}}
- function observe(){revisions.observe(getTable());persist();if(!isActive()){requiresContinue=true;lifecycle++;}update();}
+ function observe(){if(!isActive()){requiresContinue=true;lifecycle++;}update();}
  async function estimate(){
   if(dead||blockingOperations>0)return;
   state.draftActive=true;const e=++epoch,model=state.model,requirements=state.requirements;estimateEpoch=e;state.error='';state.quote={status:'estimating'};prepared=[];update();
@@ -41,7 +49,8 @@ export function createOptimizationController({getTable,identity,revisions,persis
   for(const row of rows)try{pending.push(await freezeSnapshot(table,{...identity,recordId:row.id,fieldId},temporary,{model,requirements,begin:true}));}catch(error){skipped.push({recordId:row.id,reason:error.message});}
   if(dead||e!==epoch)return;state.range={total:rows.length,processable:pending.length,skipped};update();
   const quote=pending.length?await api.estimate({rows:pending.map(p=>p.wire),skipped,model,maxOutputTokens:1024}):{status:'unavailable',reason:'当前范围没有可优化的提示词'};
-  if(dead||e!==epoch)return;prepared=pending;state.range={total:rows.length,processable:pending.length,skipped};state.quote=quote;
+   if(dead||e!==epoch)return;prepared=pending;state.range={total:rows.length,processable:pending.length,skipped};state.quote=quote;
+   setUnknownRequests(quote.unknownRequests||[...items.values()].filter(i=>i.status==='unknown').map(i=>({requestId:i.requestId,target:(i.frozen?.wire||i.snapshot)?.target,model:(i.frozen?.wire||i.snapshot)?.model})));
   }catch(error){if(!dead&&e===epoch){state.error=error.message||String(error);state.quote={status:'unavailable',reason:state.error};}}
   finally{if(e===epoch){estimateEpoch=null;update();}}
  }
@@ -52,6 +61,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
   state.batchModel=value.rows?.[0]?.snapshot?.model||state.model;state.batchProvider=optimizationProvider(state.batchModel);
   state.batchPrice=value.price||null;state.batchCurrency=value.currency||value.price?.currency||(state.batchProvider==='deepseek'?'USD':'credits');
   const currentIds=new Set((value.rows||[]).map(row=>row.requestId));for(const id of items.keys())if(!currentIds.has(id))items.delete(id);
+  if(!state.draftActive||!prepared.length)setUnknownRequests(value.unknownRequests||[...(state.unknownRequests||[]),...(value.rows||[]).filter(r=>r.status==='unknown').map(r=>({requestId:r.requestId,batchId:value.batchId,target:r.snapshot.target,model:r.snapshot.model}))]);
   for(const row of value.rows||[]){let item=items.get(row.requestId);if(!item){item={...row};items.set(row.requestId,item);}Object.assign(item,row);item.applied=Boolean(item.applied||getAppliedRequestIds(value.batchId).includes(row.requestId));
    if(row.suggestion&&item.frozen){try{item.suggestion={...row.suggestion,...restoreSuggestion(item.frozen,row.suggestion.text,{status:row.status==='succeeded'?'completed':'incomplete'})};}catch(e){item.suggestion={...row.suggestion,status:'invalid',reason:e.message};}}
   }update();
@@ -79,9 +89,9 @@ export function createOptimizationController({getTable,identity,revisions,persis
  async function submit({acknowledgeUnknown=false}={}){const life=lifecycle;const canSubmit=state.permissions.canSubmit;return operation(async()=>{
   if(state.deepseekKeyRequired)throw new Error('请先保存本页 DeepSeek API 密钥，或配置服务器 DEEPSEEK_API_KEY');
   if(!canSubmit)throw new Error('请先取得当前范围的有效费用估算');
-  const unknownIds=[...items.values()].filter(i=>i.status==='unknown').map(i=>i.requestId);
-  if(acknowledgeUnknown)acknowledgeUnknownRequestIds=unknownIds;
-  if(unknownIds.some(id=>!acknowledgeUnknownRequestIds.includes(id)))throw new Error('请先确认未知请求可能已计费，再开始新的优化请求');
+  const risks=unknownIds();
+  if(acknowledgeUnknown)acknowledgeUnknownRequestIds=risks;
+  if(risks.some(id=>!acknowledgeUnknownRequestIds.includes(id)))throw new Error('请先确认全部历史未知请求可能已计费，再开始新的优化请求');
   for(const p of prepared){const s=p.wire,now=revisions.current(getTable(),s.target.recordId,s.target.fieldId);if(now.revision!==s.revision||now.requestSeq+1!==s.requestSeq||inspectTarget(getTable(),s.target.recordId,s.target.fieldId).stamp!==p.local.stamp)throw new Error('估算后目标已变化，请重新估算');}
   await controlLease();if(dead||life!==lifecycle||!isActive())throw new Error('当前视图不可提交');
   for(const p of prepared){const s=p.wire,now=revisions.current(getTable(),s.target.recordId,s.target.fieldId);if(now.revision!==s.revision||now.requestSeq+1!==s.requestSeq||inspectTarget(getTable(),s.target.recordId,s.target.fieldId).stamp!==p.local.stamp)throw new Error('取得控制权期间目标已变化，请重新估算');}
@@ -89,7 +99,11 @@ export function createOptimizationController({getTable,identity,revisions,persis
   const range=scope==='cell'?{scope,fieldId,recordId}:{scope,fieldId};
   const value=await api.submit({quoteId:state.quote.quoteId,batchId,range,rows:rows.map(({requestId,snapshot})=>({requestId,snapshot})),leaseId:lease.leaseId,budgetCredits:state.quote.budgetUpperCredits,acknowledgeUnknownRequestIds});
   if(dead)return;
-  if(value.reusedExisting){onBatch(value.batchId,{scope,fieldId,recordId});await recover(value.batchId);return;}
+  if(value.reusedExisting){
+   const authoritative=value.range||{scope:value.rows.length===1?'cell':'column',fieldId:value.rows[0]?.snapshot.target.fieldId,...(value.rows.length===1?{recordId:value.rows[0].snapshot.target.recordId}:{})};
+   if(authoritative.scope!==scope||authoritative.fieldId!==fieldId||(scope==='cell'&&authoritative.recordId!==recordId))throw new Error('已有任务范围与当前请求不同，请打开原任务查看；未创建新任务。');
+   onBatch(value.batchId,authoritative);await recover(value.batchId);return;
+  }
   for(const r of rows){revisions.begin(getTable(),r.snapshot.target.recordId,r.snapshot.target.fieldId);items.set(r.requestId,{...r,status:'queued'});}persist();
   onBatch(value.batchId,{scope,fieldId,recordId});state.draftActive=false;requiresContinue=life!==lifecycle||!isActive();ingest(value);schedule();
  },'submit');}
@@ -133,7 +147,7 @@ export function createOptimizationController({getTable,identity,revisions,persis
   }
   await controlLease();ingest(await api.continue({batchId:state.batchId,leaseId:lease.leaseId,quoteId:state.quote.quoteId,budgetCredits:state.quote.budgetUpperCredits}));state.draftActive=false;requiresContinue=life!==lifecycle||!isActive();schedule();
  },'continue'),retry:({acknowledgeUnknown=false}={})=>{
-  const unknown=[...items.values()].filter(i=>i.status==='unknown');
+  const unknown=state.unknownRequests||[];
   if(unknown.length&&!acknowledgeUnknown){state.error='原请求结果未知，可能已产生费用；请明确确认新请求可能重复收费。';update();return;}
   acknowledgeUnknownRequestIds=unknown.map(i=>i.requestId);return estimate();
  },apply:id=>apply([id]),applyAll:()=>apply(state.rows.filter(r=>r.canApply).map(r=>r.requestId)),observe,pause(){requiresContinue=true;lifecycle++;update();},destroy(){dead=true;epoch++;clearTimeout(timer);unsubscribeKey?.();listeners.clear();}};

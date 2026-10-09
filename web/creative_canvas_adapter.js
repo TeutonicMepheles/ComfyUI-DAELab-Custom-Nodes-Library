@@ -1,4 +1,4 @@
-import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261009-progress-r5';
+import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261009-review-r6';
 import {generationMaterials} from './table_material_output.mjs?v=20261002-shared-prompt-generation-config';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.

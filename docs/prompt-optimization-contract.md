@@ -1,5 +1,11 @@
 # 提示词优化公共契约 K / v1
 
+## PR26 修复契约（2026-10-09）
+
+- 估算与批次查询返回 `unknownRequests`：当前冻结目标集合涉及的全部历史未知请求（requestId、batchId、target、model、updatedAt）。前端展示完整集合后才能确认；服务端提交时重新核对，新增 unknown 必须重新估算/确认，不静默追加授权或删除历史。确认只用于当前新请求。
+- 活动批次仅在范围、完整目标集合与请求语义一致时复用；部分重叠或模型/输入变化明确返回冲突。引用采用服务端权威 range，不以当前面板范围改写旧批次。
+- 状态更新只观察一次全表，逐行查询修订缓存；发送前、应用前仍核对目标和依赖。修订与 requestSeq 不因撤销回退。两种提供方共用此契约。
+
 基线 `a42e85c9701db22b6d4036905657d74e236b84e8`。本契约与计划第 4–8 节共同生效。固定指令唯一代码来源为 `nodes/prompt_optimization/instructions.py`；计划第 5 节完整正文及 Q01–Q08 标准纳入本契约。共同请求 fixture 为 `tests/fixtures/prompt-optimization/requests.json`（九个输入，不是模型输出）。
 
 ## 服务 DTO

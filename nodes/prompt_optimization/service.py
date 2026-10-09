@@ -40,6 +40,25 @@ def table_key(target):
     return canonical({k: target[k] for k in ('documentId', 'tableId')})
 
 
+def batch_range(batch):
+    if batch.get('range'):
+        return batch['range']
+    rows = batch['rows']
+    result = dict(scope='cell' if len(rows) == 1 else 'column', fieldId=rows[0]['snapshot']['target']['fieldId'])
+    if len(rows) == 1:
+        result['recordId'] = rows[0]['snapshot']['target']['recordId']
+    return result
+
+
+def submission_semantics(snapshot):
+    # Fresh estimates change nonce and requestSeq, not the intended operation.
+    value = {k: v for k, v in snapshot.items() if k not in ('snapshotDigest', 'requestSeq', 'inputText', 'input')}
+    input_text = canonical(snapshot['input'])
+    for index, token in enumerate(snapshot['input']['protected_tokens']):
+        input_text = input_text.replace(token, f'⟦DAE_REF_normalized_{index:04d}⟧')
+    return canonical(dict(value, input=json.loads(input_text)))
+
+
 def validate_snapshot(s):
     if set(s) != {'contractVersion', 'target', 'revision', 'requestSeq', 'snapshotDigest', 'model', 'requirements', 'purpose', 'instructionVersion', 'instructionDigest', 'inputVersion', 'maxOutputTokens', 'input', 'inputText'}:
         raise ValueError('快照包含未知字段或缺少契约字段')
@@ -174,6 +193,13 @@ class Service:
     def row(self, batch, identifier):
         return next((r for r in batch['rows'] if r['requestId'] == identifier), None)
 
+    def unknown_requests(self, snapshots):
+        keys = {canonical(s['target']) for s in snapshots}
+        return sorted([dict(requestId=row['requestId'], batchId=batch['batchId'],
+            target=copy.deepcopy(row['snapshot']['target']), model=row['snapshot']['model'], updatedAt=batch.get('updatedAt'))
+            for batch in self.ledger.all('batch') for row in batch['rows']
+            if row['status'] == 'unknown' and canonical(row['snapshot']['target']) in keys], key=lambda item: item['requestId'])
+
     async def capabilities(self, payload=None):
         selected = (payload or {}).get('model', MODEL)
         native_models = self.models()
@@ -230,7 +256,8 @@ class Service:
             maxOutputTokens=sum(s['maxOutputTokens'] for s in rows),
             estimatedCredits=round(sum(cost(i, o, price) for i, o in counts), 6), budgetUpperCredits=round(upper, 6),
             expiresAt=now() + 300000, tokenAlgorithm=cap['tokenAlgorithm'],
-            processed=len(rows), skipped=copy.deepcopy(p.get('skipped', [])), rows=copy.deepcopy(rows))
+            processed=len(rows), skipped=copy.deepcopy(p.get('skipped', [])), rows=copy.deepcopy(rows),
+            unknownRequests=self.unknown_requests(rows))
         self.ledger.put('quote', q['quoteId'], q)
         return {k: v for k, v in q.items() if k != 'rows'}
 
@@ -297,15 +324,28 @@ class Service:
             if len({r['requestId'] for r in rows}) != len(rows):
                 raise ValueError('请求 ID 重复')
             keys = {canonical(s['target']) for s in snapshots}
-            for previous in self.ledger.all('batch'):
+            previous_batches = self.ledger.all('batch')
+            overlapping = []
+            for previous in previous_batches:
                 for row in previous['rows']:
                     if row['requestId'] in {r['requestId'] for r in rows}:
                         raise ValueError('请求 ID 已属于其他批次')
                     if canonical(row['snapshot']['target']) in keys and row['status'] in ACTIVE:
-                        # Reuse the existing active task rather than create a paid duplicate.
-                        return dict(previous, reusedExisting=True)
-                    if canonical(row['snapshot']['target']) in keys and row['status'] == 'unknown' and row['requestId'] not in p.get('acknowledgeUnknownRequestIds', []):
-                        raise ValueError('前次提交结果未知，可能已扣费；须明确确认重复收费风险后以新请求 ID 重新优化')
+                        overlapping.append(previous)
+                        break
+            if overlapping:
+                previous = overlapping[0]
+                old = {canonical(r['snapshot']['target']): submission_semantics(r['snapshot']) for r in previous['rows']}
+                new = {canonical(s['target']): submission_semantics(s) for s in snapshots}
+                if len(overlapping) == 1 and batch_range(previous) == scope and old == new:
+                    return dict(previous, range=batch_range(previous), reusedExisting=True)
+                raise ValueError('请求范围与已有活动任务重叠，或模型、输入已变化；请先等待原任务完成或停止剩余行，再重新估算。未创建新任务。')
+            unknown = self.unknown_requests(snapshots)
+            quoted_ids = {r['requestId'] for r in q.get('unknownRequests', [])}
+            if any(r['requestId'] not in quoted_ids for r in unknown):
+                raise ValueError('历史未知请求已变化，请更新估算并重新确认全部费用风险')
+            if any(r['requestId'] not in p.get('acknowledgeUnknownRequestIds', []) for r in unknown):
+                raise ValueError('前次提交结果未知，可能已扣费；须明确确认全部历史未知请求的重复收费风险后重新优化')
             batch = dict(contractVersion=1, batchId=p['batchId'], tableKey=table_key(snapshots[0]['target']),
                 quoteId=q['quoteId'], submissionDigest=fingerprint, budgetCredits=p['budgetCredits'],
                 price=copy.deepcopy(q['price']), provider=q['price']['provider'], currency=q['price']['currency'],
@@ -478,7 +518,7 @@ class Service:
                 running = self.workers.get(row['requestId'])
                 if provider_for(row['snapshot']['model']) == 'comfy' and any((auth or {}).get(k) for k in ('token', 'key')) and row['status'] in ('submitted', 'polling') and row.get('remoteResponseId') and (not running or running.done()):
                     self.workers[row['requestId']] = asyncio.create_task(self._poll(batch['batchId'], row['requestId'], auth))
-            return batch
+            return dict(batch, unknownRequests=self.unknown_requests([r['snapshot'] for r in batch['rows']]))
 
     async def stop(self, p):
         async with self.lock:

@@ -1,7 +1,7 @@
-import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-progress-r5';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r5';
+import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-review-r6';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-review-r6';
 
-import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r5';
+import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-review-r6';
 
 const taskLabels={queued:'等待提交',preparing:'准备中',submitting:'正在提交',submitted:'已提交',polling:'等待结果',succeeded:'已完成',failed:'失败',skipped:'已跳过',stopped:'已停止',unknown:'提交结果未知'};
 const suggestionLabels={valid:'有改动建议',unchanged:'未发现可安全改进的内容',stale:'建议已过期',invalid:'建议无效',applied:'已应用'};
@@ -71,6 +71,7 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
     const rowList=node('div',scroller,undefined,'prompt-opt-results'),rowViews=new Map();
     const recovery=node('div',scroller,undefined,'prompt-opt-recovery');
     const unknown=node('p',recovery,'提交结果未知，可能已经产生费用。查询原任务不会新建请求；重新优化会创建新的付费请求，可能重复计费。','prompt-opt-warning');
+    const unknownDetails=node('details',recovery,undefined,'prompt-opt-skipped'),unknownTitle=node('summary',unknownDetails),unknownList=node('ul',unknownDetails);let unknownSignature='';
     const acknowledge=node('label',recovery,undefined,'prompt-opt-ack'),ack=node('input',acknowledge);ack.type='checkbox';node('span',acknowledge,'我理解重新优化可能重复计费');ack.addEventListener('change',()=>render(state));
     const recoveryActions=node('div',recovery,undefined,'prompt-opt-actions');
     // Canvas buttons restore a captured disabled value in their promise finally.
@@ -105,6 +106,9 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
     function render(next){
         if(!alive)return;state=next;
         const permissions=state.permissions||{},range=state.range||{total:0,processable:0,skipped:[]},rows=state.rows||[],quote=state.quote;
+        const risks=state.unknownRequests||rows.filter(r=>r.status==='unknown'),riskSignature=JSON.stringify(risks.map(r=>r.requestId).sort());
+        if(riskSignature!==unknownSignature){unknownSignature=riskSignature;ack.checked=false;unknownList.replaceChildren();for(const r of risks)node('li',unknownList,`${r.label||'历史目标'} · ${r.model||state.batchModel||state.model}${r.updatedAt?` · ${new Date(r.updatedAt).toLocaleString('zh-CN')}`:''} · 结果未知，可能已计费`);}
+        unknownDetails.hidden=!risks.length;unknownTitle.textContent=`查看全部 ${risks.length} 个历史未知请求`;
         view.setAttribute('aria-busy',String(Boolean(state.busy)));
         scope.textContent=`${state.scope==='column'?'整列':'单元格'}：共 ${range.total} 行，处理 ${range.processable} 行，跳过 ${range.skipped?.length||0} 行`;
         footerRange.textContent='';footerRange.hidden=true;
@@ -144,8 +148,8 @@ export function createPromptOptimizationPanel({controller,container,renderPrompt
 
         const ids=new Set(rows.map(r=>r.requestId));for(const [id,v] of rowViews)if(!ids.has(id)){v.element.remove();rowViews.delete(id);}
         for(const row of rows){const v=rowView(row);v.title.textContent=row.label||row.recordId;v.status.textContent=state.requestActivity?.requestId===row.requestId?(state.requestActivity.phase==='prepare'?'准备发送':'等待模型响应'):(suggestionLabels[row.suggestionStatus]||taskLabels[row.status]||row.status);v.element.dataset.status=row.suggestionStatus||row.status;displayPrompt(v.before,row.before);displayPrompt(v.after,row.after||(['queued','preparing','submitting','submitted','polling'].includes(row.status)?'等待模型返回建议…':'本行没有可显示的优化建议。'));v.reason.textContent=row.reason||'';v.reason.hidden=!row.reason;v.actual.textContent=row.currency==='USD'||row.provider==='deepseek'?(credits(row.usageCostUSD,'USD')?`用量保守估算：${credits(row.usageCostUSD,'USD')}；实际账单未知`:'用量费用估算未取得；实际账单未知'):(credits(row.actualCredits)?`实际消耗：${credits(row.actualCredits)}`:'实际消耗未取得');v.apply.disabled=!row.canApply||Boolean(state.busy);v.apply.textContent=row.suggestionStatus==='applied'?'已应用':'应用此建议';if(rows.length===1&&!v.openedResult&&['succeeded','failed','unknown','skipped','stopped'].includes(row.status)){v.element.open=true;v.openedResult=true;}}
-        const hasUnknown=rows.some(r=>r.status==='unknown');unknown.textContent=state.batchProvider==='deepseek'?'提交结果未知，可能已经产生费用。DeepSeek 查询仅查看本地记录，无法取回丢失的远端响应；重新优化会创建新的付费请求，可能重复计费。':'提交结果未知，可能已经产生费用。查询原任务不会新建请求；重新优化会创建新的付费请求，可能重复计费。';unknown.hidden=!hasUnknown;acknowledge.hidden=!hasUnknown;if(!hasUnknown)ack.checked=false;
-        recovery.hidden=!state.batchId;recover.hidden=!permissions.canRecover;recover.disabled=Boolean(state.busy);resume.hidden=!permissions.canContinue;resume.disabled=Boolean(state.busy||state.deepseekKeyRequired||keyInput.value.trim());resume.textContent=state.continuationReady?'确认继续剩余行':'核对继续费用';
+        const hasUnknown=risks.length>0;unknown.textContent=(state.batchProvider||selectedProvider)==='deepseek'?'提交结果未知，可能已经产生费用。DeepSeek 查询仅查看本地记录，无法取回丢失的远端响应；重新优化会创建新的付费请求，可能重复计费。':'提交结果未知，可能已经产生费用。查询原任务不会新建请求；重新优化会创建新的付费请求，可能重复计费。';unknown.hidden=!hasUnknown;acknowledge.hidden=!hasUnknown;if(!hasUnknown)ack.checked=false;
+        recovery.hidden=!state.batchId&&!hasUnknown;recover.hidden=!permissions.canRecover;recover.disabled=Boolean(state.busy);resume.hidden=!permissions.canContinue;resume.disabled=Boolean(state.busy||state.deepseekKeyRequired||keyInput.value.trim());resume.textContent=state.continuationReady?'确认继续剩余行':'核对继续费用';
         retry.disabled=Boolean(state.busy)||rows.some(r=>['queued','preparing','submitting','submitted','polling'].includes(r.status))||(hasUnknown&&!ack.checked);retry.hidden=!rows.length;retry.title='先为新请求更新估算；点击开始优化才会收费';
         estimate.disabled=!permissions.canEstimate||Boolean(state.busy);start.disabled=!permissions.canSubmit||Boolean(state.busy)||composing||(hasUnknown&&!ack.checked)||Boolean(keyInput.value.trim())||expired||quote?.status!=='ready';start.title=start.disabled?display.detail:'提交付费优化请求';estimate.title='只计算费用，不调用模型';
         stop.title='停止尚未发送的行；已发送请求仍可能返回并计费';stop.hidden=!permissions.canStop;stop.disabled=!permissions.canStop;

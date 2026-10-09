@@ -29,6 +29,15 @@ function fixture(){
 }
 const find=(root,predicate)=>{if(predicate(root))return root;for(const e of root.children){const result=find(e,predicate);if(result)return result;}return null;};
 
+test('historical risk list works without a current batch and new risks reset acknowledgement',()=>{
+ const f=fixture(),risk=id=>({requestId:id,label:'第 1 行',model:'deepseek-flash'});
+ f.update({draftActive:true,unknownRequests:[risk('A'),risk('B')],quote:{status:'ready',expiresAt:Date.now()+5000},permissions:{canSubmit:true}});
+ const panel=createPromptOptimizationPanel(f),ack=find(panel.root,e=>e.type==='checkbox'),start=find(panel.root,e=>e.textContent==='开始优化'),recovery=find(panel.root,e=>e.className==='prompt-opt-recovery');
+ assert.equal(recovery.hidden,false);assert.equal(start.disabled,true);assert.ok(find(panel.root,e=>e.textContent==='查看全部 2 个历史未知请求'));
+ ack.checked=true;ack.dispatchEvent(new Event('change'));assert.equal(start.disabled,false);
+ f.update({unknownRequests:[risk('A'),risk('B'),risk('C')]});assert.equal(ack.checked,false);assert.equal(start.disabled,true);panel.destroy();
+});
+
 test('polling retains input composition and row DOM; result HTML stays plain text',()=>{
     const f=fixture(),panel=createPromptOptimizationPanel(f),input=find(panel.root,e=>e.tagName==='textarea');
     input.dispatchEvent(new Event('compositionstart'));input.value='中文未完成';input.dispatchEvent(new Event('input'));

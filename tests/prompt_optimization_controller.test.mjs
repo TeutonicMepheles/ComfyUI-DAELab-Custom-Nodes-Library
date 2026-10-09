@@ -8,6 +8,43 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {
 const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve();};
 const makeTable=()=>({fields:[{id:'p',name:'提示词',type:'text'}],records:[{id:'r',values:{p:'一只白猫，白色的猫。'}},{id:'r2',values:{p:'女孩先合上书，然后站起来。'}}],meta:{}});
 
+test('R01/R02 complete historical unknown set is displayed and confirmed after consecutive attempts and remount',async t=>{
+ const s=fakeService(),originalEstimate=s.api.estimate,originalRecover=s.api.recover;
+ const risks=()=>[...s.batches.values()].flatMap(b=>b.rows.filter(r=>r.status==='unknown').map(r=>({requestId:r.requestId,batchId:b.batchId,target:r.snapshot.target,model:r.snapshot.model})));
+ s.api.estimate=async p=>({...await originalEstimate(p),unknownRequests:risks()});
+ s.api.recover=async p=>({...await originalRecover(p),unknownRequests:risks()});
+ s.hooks.advance=async(b,r)=>{r.status='unknown';};
+ const {controller:c,table,revisions}=harness(t,{service:s});await flush();
+ await c.estimate();await c.submit();t.mock.timers.tick(1200);await flush();
+ await c.retry({acknowledgeUnknown:true});await c.submit({acknowledgeUnknown:true});t.mock.timers.tick(1200);await flush();
+ assert.equal(risks().length,2);const last=c.getState().batchId;c.destroy();
+ const fresh=createOptimizationController({getTable:()=>table,identity:{documentId:'doc',tableId:'table'},revisions:new OptimizationRevisions(revisions.serialize()),persist(){},change(){},api:s.api,scope:'cell',fieldId:'p',recordId:'r',instanceId:'same-view'});t.after(()=>fresh.destroy());
+ await flush();await fresh.recover(last);assert.equal(fresh.getState().unknownRequests.length,2);
+ await fresh.estimate();await fresh.submit();assert.equal(s.count('submit'),2);
+ await fresh.submit({acknowledgeUnknown:true});assert.equal(s.count('submit'),3);
+ assert.deepEqual(new Set(s.calls.filter(c=>c.name==='submit').at(-1).p.acknowledgeUnknownRequestIds),new Set(risks().map(r=>r.requestId)));
+ assert.equal(s.count('advance'),2);
+});
+
+for(const direction of ['cell-to-column','column-to-cell'])test(`R03/R04 mismatched authoritative range cannot be restored or persisted: ${direction}`,async t=>{
+ const scope=direction==='cell-to-column'?'column':'cell';
+ const {controller:c,service:s,savedBatches}=harness(t,{scope,recordId:scope==='cell'?'r':null});await flush();
+ s.hooks.submit=p=>({...p,reusedExisting:true,range:scope==='cell'?{scope:'column',fieldId:'p'}:{scope:'cell',fieldId:'p',recordId:'r'}});
+ await c.estimate();await c.submit();assert.match(c.getState().error,/范围.*不同/);assert.deepEqual(savedBatches,[]);assert.equal(s.count('recover'),0);assert.equal(s.count('advance'),0);
+});
+
+test('R06 500-row state refresh scans once; edits and undo still invalidate cached matches',async t=>{
+ const table={fields:[{id:'p',name:'提示词',type:'text'}],records:Array.from({length:500},(_,i)=>({id:`r${i}`,values:{p:`白猫在窗台上。${i}`}})),meta:{}};
+ const {controller:c,service:s,revisions}=harness(t,{table,scope:'column',recordId:null});await flush();await c.estimate();await c.submit();
+ const batch=[...s.batches.values()][0];for(const row of batch.rows){row.status='succeeded';row.suggestion={status:'valid',text:'白猫。'};}
+ await c.recover(batch.batchId);assert.equal(c.getState().rows.filter(r=>r.canApply).length,500);
+ let scans=0;const original=revisions.observe.bind(revisions);revisions.observe=t=>{scans++;return original(t);};
+ c.setRequirements('只更改编辑要求');assert.equal(scans,1);
+ const before=table.records[0].values.p;table.records[0].values.p='用户新文本';scans=0;c.observe();assert.equal(scans,1);assert.equal(c.getState().rows[0].canApply,false);
+ table.records[0].values.p=before;c.observe();assert.equal(c.getState().rows[0].canApply,false,'Undo must not make old suggestions current again');
+ assert.equal(c.getState().rows[1].canApply,true);
+});
+
 // No network or model provider is involved. The fake preserves the service's
 // per-table lease, reusedExisting and queued/preparing protocol boundaries.
 function fakeService(){
@@ -394,7 +431,7 @@ test('editing after unknown cannot bypass acknowledgement; explicit submit carri
  const {controller:c,service:s}=harness(t);s.hooks.advance=async(_batch,row)=>{row.status='unknown';};
  await flush();await c.estimate();await c.submit();t.mock.timers.tick(1200);await flush();
  const old=c.getState().rows[0].requestId;c.setRequirements('只去除重复');await c.estimate();
- await c.submit();assert.equal(s.count('submit'),1);assert.match(c.getState().error,/先确认未知/);
+ await c.submit();assert.equal(s.count('submit'),1);assert.match(c.getState().error,/先确认全部历史未知/);
  await c.submit({acknowledgeUnknown:true});assert.equal(s.count('submit'),2);
  assert.deepEqual(s.calls.filter(x=>x.name==='submit')[1].p.acknowledgeUnknownRequestIds,[old]);
 });

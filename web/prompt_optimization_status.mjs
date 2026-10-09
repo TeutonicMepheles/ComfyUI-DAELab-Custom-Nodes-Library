@@ -31,7 +31,7 @@ export function optimizationStatus(state,{now=Date.now(),composing=false,keyDraf
  }
  if(state.inactiveReason)return show('inactive','当前不可提交',state.inactiveReason,'warning');
  if(state.error)return show('error','需要处理',state.error,'warning');
- if(unknown&&!unknownAcknowledged)return show('acknowledge','请确认未知请求的费用风险','查看上次结果并勾选确认后，再准备新的优化请求。','warning');
+ if((state.unknownRequests?.length||unknown)&&!unknownAcknowledged)return show('acknowledge','请确认未知请求的费用风险','查看全部历史未知请求并勾选确认后，再准备新的优化请求。','warning');
  if(composing)return show('composing','正在输入','请先确认输入法候选词，再更新估算。');
  if(keyDraft)return show('key','密钥尚未保存','请点击“保存到本页会话”，使输入的密钥生效。');
  if(state.deepseekKeyRequired)return show('key','请先保存密钥','填写 DeepSeek API 密钥并保存到本页会话，然后更新估算。');

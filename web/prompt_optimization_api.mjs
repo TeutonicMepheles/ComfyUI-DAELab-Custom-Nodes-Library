@@ -1,4 +1,4 @@
-import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r3';
+import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261009-progress-r4';
 
 // This module lives only in this page. Never expose the value through state,
 // serialized payloads, preferences, storage, or diagnostic messages.

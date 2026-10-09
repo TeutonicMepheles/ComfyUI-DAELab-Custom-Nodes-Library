@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r3';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-progress-r4';
 import {request,modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
 import {generationReportNeedsApply,generationReceipt,recoveryJob,LOCAL_VIDEO_MODEL,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};

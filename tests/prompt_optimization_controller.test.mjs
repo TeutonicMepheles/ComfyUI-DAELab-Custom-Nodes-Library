@@ -412,3 +412,16 @@ test('saved application receipts restore as applied and cannot become a second e
  await restored.recover(batchId);assert.equal(restored.getState().rows[0].suggestionStatus,'applied');assert.equal(restored.getState().rows[0].reason,'');
  await restored.apply(row.requestId);assert.equal(writes,0);assert.equal(s.count('advance'),1);
 });
+
+
+test('failed local creation leaves no phantom history reference',async t=>{
+ const {controller:c,service:s,savedBatches}=harness(t);s.hooks.submit=()=>{throw Error('创建未成功');};
+ await flush();await c.estimate();await c.submit();assert.deepEqual(savedBatches,[]);assert.equal(c.getState().batchId,null);assert.equal(s.count('advance'),0);
+});
+
+test('missing saved batch falls back to same target server history without submitting',async t=>{
+ const {controller:c,service:s}=harness(t);await flush();await c.estimate();await c.submit();const id=c.getState().batchId;
+ const recover=s.api.recover,query=s.api.query;s.api.recover=async p=>{if(p.batchId==='missing')throw Error('找不到优化任务');return recover(p);};
+ s.api.query=async p=>p.target?{batches:[{batchId:'different',scope:'cell',fieldId:'other',recordId:'r',updatedAt:10},{batchId:id,scope:'cell',fieldId:'p',recordId:'r',updatedAt:1}]}:query(p);
+ await c.recover('missing');assert.equal(c.getState().batchId,id);assert.equal(c.getState().error,'');assert.equal(s.count('submit'),1);assert.equal(s.count('advance'),0);
+});

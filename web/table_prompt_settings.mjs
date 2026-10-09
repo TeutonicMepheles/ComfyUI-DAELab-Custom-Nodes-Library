@@ -1,5 +1,5 @@
 import {LOCAL_VIDEO_MODEL} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
-import {createTableButton} from './table_controls.mjs?v=20261009-review-r6';
+import {createTableButton} from './table_controls.mjs?v=20261009-instructions-v5';
 
 // The order and setting keys are the contract documented in docs/prompt-settings-template.md.
 export const PROMPT_SETTINGS_TEMPLATE=Object.freeze([

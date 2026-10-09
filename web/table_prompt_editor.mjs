@@ -9,7 +9,7 @@ import {promptConfig,promptField,promptAssets,tableAssets,resolvePromptAsset,pro
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};
 const roleLabel=role=>({first:'首帧',last:'尾帧',reference:'参考素材'})[role]||role;
 export function createPromptEditor({getTable,editor,request,notify,renderFrame,getDefaults=()=>({}),onStatus=()=>{}}){
- const requests=new PromptRequests();requests.observe(getTable());let hover=null,timer=null,closeTimer=null,parsing=false,alive=true;
+ const requests=new PromptRequests();requests.observe(getTable());let hover=null,timer=null,closeTimer=null,parsing=false,alive=true,task=null;
  const style=document.createElement('style');style.textContent=`
 .dae-prompt-preview{white-space:pre-wrap;max-height:72px;overflow:auto;line-height:1.6}.dae-prompt-ref{display:inline-block;border-radius:4px;background:#254b45;color:#b9f4dc;padding:1px 5px;margin:0 2px;cursor:pointer}.dae-prompt-ref[data-invalid=true]{background:#542e36;color:#ffd1d1}.dae-prompt-active{outline:2px solid #9ce8c4!important;outline-offset:2px}.dae-prompt-edit{white-space:pre-wrap;min-height:140px;max-height:340px;overflow:auto;padding:12px;border:1px solid #596a78;border-radius:6px;line-height:1.7;outline-offset:2px}.dae-prompt-dialog{width:min(860px,92vw)}.dae-prompt-assets{max-height:240px;overflow:auto}.dae-prompt-assets img{width:60px;height:45px;object-fit:contain}.dae-prompt-hover{position:fixed;z-index:100000;background:#202b31;color:#e5ecef;border:1px solid #82ad9d;padding:10px;border-radius:8px;width:260px;box-shadow:0 8px 30px #0008;font:14px/1.6 var(--dae-font-family,sans-serif)}.dae-prompt-hover img{width:100%;height:160px;object-fit:contain}.dae-prompt-status{display:block;font-size:11px;color:#9ec4b4}.dae-prompt-error{color:#ffadad;white-space:pre-wrap}.dae-prompt-choices{display:flex;gap:5px;flex-wrap:wrap;max-height:180px;overflow:auto}.dae-prompt-choices button{display:flex;align-items:center}.dae-prompt-choices img{width:44px;height:34px;object-fit:contain}.dae-prompt-diff{display:grid;grid-template-columns:1fr 1fr;gap:16px}.dae-prompt-diff pre{white-space:pre-wrap;max-height:45vh;overflow:auto}
 .dae-prompt-cell{display:flex;flex-direction:column;gap:4px;height:auto;min-width:0}
@@ -44,7 +44,7 @@ export function createPromptEditor({getTable,editor,request,notify,renderFrame,g
  async function call(table,ids,operation='parse',documents={}){return request({table,recordIds:ids,defaults:getDefaults(),operation,documents});}
  async function parse(ids=null,compare=false){
   if(parsing)return;parsing=true;
-  const report=state=>{if(alive)onStatus(state);};
+  const report=state=>{if(!alive)return;task={id:'prompt-parse',label:'提示词解析',order:15,state:state.busy?'running':state.error?'error':'success',detail:state.message,startedAt:state.busy?Date.now():task?.startedAt,elapsed:state.busy,finishedAt:state.busy?undefined:Date.now()};onStatus(state);};
   try{
    closeHover();const before=getTable(),selected=ids||before.records.filter(r=>r.selected).map(r=>r.id),field=promptField(before);
    const pending=selected.filter(id=>compare||before.records.find(r=>r.id===id)?.values[field]?.editOrigin!=='edited'),skipped=selected.length-pending.length;
@@ -114,5 +114,5 @@ export function createPromptEditor({getTable,editor,request,notify,renderFrame,g
 
  function decorateAsset(item,row,asset,field){identity(item,row.id,asset.id);}
  const escape=e=>{if(e.key==='Escape'&&(hover||timer)){e.preventDefault();e.stopImmediatePropagation();closeHover();}};document.addEventListener('keydown',escape,true);
- return {parse,edit,editTemplate,renderCell,mountEditor,decorateAsset,observe:()=>requests.observe(getTable()),invalidate:()=>requests.invalidate(),close:closeHover,destroy(){alive=false;requests.invalidate();closeHover();style.remove();document.removeEventListener('keydown',escape,true);}};
+ return {tasks:()=>alive&&task?[{...task}]:[],parse,edit,editTemplate,renderCell,mountEditor,decorateAsset,observe:()=>requests.observe(getTable()),invalidate:()=>requests.invalidate(),close:closeHover,destroy(){alive=false;requests.invalidate();closeHover();style.remove();document.removeEventListener('keydown',escape,true);}};
 }

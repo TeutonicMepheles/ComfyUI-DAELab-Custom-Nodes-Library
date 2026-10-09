@@ -314,7 +314,7 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
  const observer=new MutationObserver(decorate);observer.observe(editor.root,{childList:true,subtree:true});
  const promptInput=refreshSettingBars;editor.root.addEventListener('input',promptInput);
  decorate();
- return {open,renderFrame,syncPromptChanges(table,before){
+ return {tasks:tasks.tasks,open,renderFrame,syncPromptChanges(table,before){
   for(const field of table.fields.filter(isGeneration)){
    syncGenerationPromptSource(table,before,field.generation);const panel=configPanels.get(field.id);
    const draftChanged=panel&&syncGenerationPromptSource(table,before,panel.draft);

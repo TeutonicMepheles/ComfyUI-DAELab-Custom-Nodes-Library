@@ -1,3 +1,4 @@
+import {generationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-instructions-v5';
 import {request,modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
 import {generationReportNeedsApply,generationReceipt,recoveryJob,LOCAL_VIDEO_MODEL,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
@@ -167,5 +168,5 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
   if(refresh)refreshLive();
  }
  const timer=setInterval(()=>void poll(),3000);
- return {generate,decorate,get submitting(){return submitting;},invalidate(){epoch++;},destroy(){alive=false;epoch++;clearInterval(timer);live.clear();}};
+ return {tasks:trackTaskCompletion(()=>generationTaskSnapshots(getTable(),live)),generate,decorate,get submitting(){return submitting;},invalidate(){epoch++;},destroy(){alive=false;epoch++;clearInterval(timer);live.clear();}};
 }

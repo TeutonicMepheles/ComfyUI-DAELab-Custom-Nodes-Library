@@ -164,7 +164,7 @@ export function renderContentCell(cell,row,field,{change,upload,notify,getTable,
             const item=el('div','content-material'),media=el(asset.kind==='video'?'video':'img');media.src=asset.url;
             if(asset.kind!=='video')media.alt=asset.name||'图片';
             item.setAttribute('aria-label',`第 ${index+1} 个素材：${asset.name||'素材'}${field.readonly?'':'，Delete 移除'}`);
-            materialCleanups.push(bindMaterialThumbnail(item,media,index,{cell,bindDrag:field.readonly||!bindAssetDrag?null:element=>bindAssetDrag(element,asset),remove:field.readonly?null:()=>change(t=>{const r=t.records.find(r=>r.id===row.id);r.values[field.id]=r.values[field.id].filter(a=>a.id!==asset.id);})}));
+            materialCleanups.push(bindMaterialThumbnail(item,media,index,{cell,bindDrag:!bindAssetDrag?null:element=>bindAssetDrag(element,asset),remove:field.readonly?null:()=>change(t=>{const r=t.records.find(r=>r.id===row.id);r.values[field.id]=r.values[field.id].filter(a=>a.id!==asset.id);})}));
             item.ondblclick=e=>{e.stopPropagation();cell.dispatchEvent(new CustomEvent('dae-preview',{bubbles:true,detail:asset}));};
             item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();cell.dispatchEvent(new CustomEvent('dae-preview',{bubbles:true,detail:asset}));}});
             display.append(item);

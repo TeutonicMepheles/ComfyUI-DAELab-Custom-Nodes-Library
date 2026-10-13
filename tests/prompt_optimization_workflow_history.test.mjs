@@ -15,6 +15,20 @@ function fixture(type='DAELAB.Table',phase='complete'){
 }
 const decoded=f=>{const value=JSON.parse(f.serialized.widgets_values[1]);return f.wrapped?value.table:value;};
 
+test('reactive native history preserves receipts without DataCloneError',()=>{
+ const f=fixture();
+ const reactive=value=>value&&typeof value==='object'?new Proxy(value,{get:(target,key)=>reactive(Reflect.get(target,key))}):value;
+ f.live.__dataTable=reactive(f.current);
+ f.live.properties[NAMESPACE].batches=new Proxy([{batchId:'retained'}],{});
+ f.live.properties.daelabTableReports=new Proxy([{requestId:'receipt'}],{});
+ f.serialized.widgets_values_named={table_data:new Proxy(f.old,{})};
+ assert.deepEqual(preserveWorkflowGenerationHistory(f.graph,f.data),{preserved:[7],blocked:[]});
+ assert.deepEqual(f.serialized.properties[NAMESPACE].batches,[{batchId:'retained'}]);
+ assert.deepEqual(f.serialized.properties.daelabTableReports,[{requestId:'receipt'}]);
+ assert.equal(decoded(f).records[0].meta.generationColumns.g.phase,'complete');
+ assert.equal(decoded(f).records[0].values.p,'原文');
+});
+
 test('native clone-before-configure cannot recapture stale media and trap undo or clear redo',async()=>{
  const f=fixture();let loaded,receiver,args;
  const app={rootGraph:f.graph,isGraphReady:true,async loadGraphData(...input){receiver=this;args=input;loaded=clone(input[0]);preserveWorkflowGenerationHistory(this.rootGraph,loaded);}};

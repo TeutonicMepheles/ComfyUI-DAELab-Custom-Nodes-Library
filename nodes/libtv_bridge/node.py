@@ -78,6 +78,7 @@ class LibTVVideo(io.ComfyNode):
                 io.Image.Input("last_frame", optional=True),
                 io.Image.Input("reference_images", optional=True),
                 io.Custom("COMFYTV_VIDEO").Input("reference_video", optional=True),
+                io.String.Input("text_input", optional=True, force_input=True),
             ],
             outputs=[io.Video.Output("video"), io.Custom("COMFYTV_VIDEO").Output("comfytv_video"),
                      io.String.Output("local_path"), io.String.Output("task_report")])
@@ -85,7 +86,9 @@ class LibTVVideo(io.ComfyNode):
     @classmethod
     def execute(cls, project_uuid, request_id, model, mode, prompt, duration, resolution, ratio,
                 sound=False, reference_files="[]", first_frame=None, last_frame=None,
-                reference_images=None, reference_video=None):
+                reference_images=None, reference_video=None, text_input=None):
+        if text_input is not None:
+            prompt = text_input
         files = json.loads(reference_files)
         if not isinstance(files, list) or not all(isinstance(p, str) for p in files):
             raise ValueError("reference_files must be a JSON array of paths")
@@ -108,7 +111,8 @@ class LibTVVideo(io.ComfyNode):
         url = "/view?" + urlencode(dict(filename=path.name, subfolder=subfolder, type="output"))
         report = json.dumps({k: state.get(k) for k in ("phase", "model_name", "node_key", "task_id", "width", "height", "sha256")}, ensure_ascii=False)
         return io.NodeOutput(InputImpl.VideoFromFile(str(path)), url, str(path), report,
-                             ui=ui.PreviewVideo([ui.SavedResult(path.name, subfolder, io.FolderType.output)]))
+                             ui={**ui.PreviewVideo([ui.SavedResult(path.name, subfolder, io.FolderType.output)]).as_dict(),
+                                 'daelab_video_identity': [json.dumps([project_uuid, request_id, model], ensure_ascii=False, separators=(',', ':'))]})
 
 
 NODE_CLASS_MAPPINGS = {NODE_ID: LibTVVideo}

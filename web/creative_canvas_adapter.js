@@ -1,9 +1,11 @@
-import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261009-instructions-v5';
+import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
 import {generationMaterials} from './table_material_output.mjs?v=20261002-shared-prompt-generation-config';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.
 import {createMaterialTable,fillMaterialColumn,fillMaterialRow,fillMaterialCell} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
 import {app} from '/scripts/app.js';
+import {materialItem} from './table_material_item.mjs?v=20261012-client-workflow-r2';
+import {videoResultAssets} from './libtv_video_model.mjs?v=20261012-client-workflow-r2';
 const key=Symbol.for('DAELAB.CreativeCanvas.API.v1');
 const tables=['DAELAB.Table','DAELAB.StoryboardImport','DAELAB.ComfyTV.GPTImageStoryboardStage'];
 let registered=false;
@@ -11,7 +13,10 @@ const materialTargetCache=new WeakMap();
 function register(){
     const api=globalThis[key];if(registered||api?.version!==1)return;
     api.registerAdapter('daelab.business',{
-        menu:[{label:'多维表格',type:'DAELAB.Table',icon:'layout-grid-line'}],
+        menu:[{label:'多维表格',type:'DAELAB.Table',icon:'layout-grid-line'},{label:'视频生成',type:'DAELAB.LibTV.VideoGenerate',icon:'video-line'}],
+        materialItem:(node,key)=>materialItem(node.__dataTable,key),
+        materialOutput:node=>node.type==='DAELAB.LibTV.VideoGenerate',
+        assets:node=>videoResultAssets(node),
         materialTargets(node){
             const root=node.__dataTablePanel?.root;if(!root)return [];
             const grid=root.querySelector('table'),cached=materialTargetCache.get(node);if(cached?.grid===grid&&cached.cellsRevision===grid?.dataset.cellsRevision)return cached.targets;
@@ -30,19 +35,19 @@ function register(){
         matches:node=>tables.includes(node.type)||node.type?.startsWith('DAELAB.LibTV.'),
         expanded:node=>tables.includes(node.type),
         resizable:node=>tables.includes(node.type),
-        fullHeight:node=>tables.includes(node.type),
+        fullHeight:node=>tables.includes(node.type)||node.type==='DAELAB.LibTV.VideoGenerate',
         presentation:node=>node.type==='DAELAB.Table'?'content':'card',
         selectionSurface:node=>node.type==='DAELAB.Table'?node.__dataTablePanel?.root.querySelector('.dae-table-scroll'):null,
         workspace:node=>tables.includes(node.type)&&node.type!=='DAELAB.Table',
         compactWidth:0,
         width:node=>node.type==='DAELAB.Table'?1140:tables.includes(node.type)?1060:460,
-        action:node=>node.type==='DAELAB.LibTV.VideoGenerate'?{label:'生成视频',run:()=>app.queuePrompt(0,1,[node.id])}:null,
+        action:()=>null,
         panel:node=>{const p=node.__dataTablePanel||node.__libtvPanel;return p?{root:p.root,buttons:p.creativeButtons,fields:p.creativeFields,close:()=>p.close?.()}:null;},
         summary:node=>tables.includes(node.type)?`${node.__dataTable?.records?.length||0} 条记录`:null,
         preview:node=>({url:node.properties?.daelabLibTVResult,kind:'video'}),
-        inputLabels:{first_frame:'首帧',last_frame:'尾帧',reference_images:'参考图片',reference_video:'参考视频'},
+        inputLabels:{first_frame:'首帧',last_frame:'尾帧',reference_images:'参考图片',reference_video:'参考视频',text_input:'描述文本'},
         prepareCopy(node,data){if(data.properties?.[NAMESPACE])delete data.properties[NAMESPACE];for(const [i,w] of (node.widgets||[]).entries())if(w.name==='request_id'&&data.widgets_values)data.widgets_values[i]=`copy-${crypto.randomUUID()}`;},
-        onCreate(node){if(node.type==='DAELAB.Table'){node.title='多维表格';const table=createMaterialTable(),w=node.widgets?.find(w=>w.name==='table_data');if(w)w.value=JSON.stringify(table);node.__dataTable=table;node.__dataTablePanel?.render();}if(node.type==='DAELAB.LibTV.VideoGenerate'){const w=node.widgets?.find(w=>w.name==='request_id');if(w)w.value=`video-${crypto.randomUUID()}`;}},
+        onCreate(node){if(node.type==='DAELAB.Table'){node.title='多维表格';const table=createMaterialTable(),w=node.widgets?.find(w=>w.name==='table_data');if(w)w.value=JSON.stringify(table);node.__dataTable=table;node.__dataTablePanel?.render();}if(node.type==='DAELAB.LibTV.VideoGenerate'){node.title='视频生成';const w=node.widgets?.find(w=>w.name==='request_id');if(w)w.value=`video-${crypto.randomUUID()}`;}},
     });
     // The single video node has no native run button; batch panels already do.
     registered=true;

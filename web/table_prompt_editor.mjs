@@ -3,7 +3,7 @@ import {columnReferenceOptions,createReferenceMenu,materialReferenceLabel} from 
 import {isColumnPrompt,effectivePrompt,columnValue,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {openColumnPromptEditor,readPromptSegments} from './table_prompt_template_editor.mjs?v=20261009-instructions-v5';
 import {clone} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {tableButton as button} from './data_table_editor.mjs?v=20261009-instructions-v5';
+import {tableButton as button} from './data_table_editor.mjs?v=20261012-client-workflow-r2';
 import {promptConfig,promptField,promptAssets,tableAssets,resolvePromptAsset,promptText,promptState,isPrompt,validatePrompt,applyPromptResults,PromptRequests} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
 
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};

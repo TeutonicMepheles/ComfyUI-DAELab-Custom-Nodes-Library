@@ -1,4 +1,4 @@
-import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261009-instructions-v5';
+import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
 import {serializeStoryboardTable} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';
@@ -10,6 +10,8 @@ const widgetNames={
  'DAELAB.ComfyTV.GPTImageStoryboardStage':'storyboard_data',
 };
 const installed=new WeakSet();
+// Workflow payloads are JSON; native history may wrap them in reactive proxies.
+const copy=value=>JSON.parse(JSON.stringify(value));
 
 /** Amend the source history snapshot before the host clones it for configure.
  * The host retains this exact argument as activeState after undo/redo. Overlaying
@@ -33,7 +35,7 @@ function readTable(value,wrapped){
  const decoded=typeof value==='string'?JSON.parse(value):value;
  const table=wrapped?decoded?.table:decoded;
  if(!table||!Array.isArray(table.fields)||!Array.isArray(table.records))throw new Error('历史表格数据不完整');
- return structuredClone(table);
+ return copy(table);
 }
 
 /**
@@ -56,8 +58,9 @@ export function preserveWorkflowGenerationHistory(graph,data){
   const id=serialized.properties?.[NAMESPACE]?.tableId;
   const live=byTable.get(id);
   if(!live||ambiguous.has(id)||live.type!==serialized.type)continue;
-  const current=live.type==='DAELAB.ScriptParser'?live.__scriptTable:live.__dataTable;
-  if(!current)continue;
+  const liveTable=live.type==='DAELAB.ScriptParser'?live.__scriptTable:live.__dataTable;
+  if(!liveTable)continue;
+  const current=copy(liveTable);
   // LiteGraph preserves widget indexes in widgets_values (nonserialized DOM
   // widgets occupy null positions). Resolve by the live schema's widget name,
   // never by a guessed numeric offset or a matching JSON-looking string.
@@ -72,7 +75,7 @@ export function preserveWorkflowGenerationHistory(graph,data){
   }catch(error){
    // Extension hook exceptions are swallowed by the native frontend. Replace
    // the unsafe historical table before configure rather than throwing here.
-   restored=structuredClone(current);
+   restored=copy(current);
    result.blocked.push({nodeId:serialized.id,reason:error.message});
   }
   const value=wrapped?serializeStoryboardTable(restored):JSON.stringify(restored);
@@ -86,10 +89,10 @@ export function preserveWorkflowGenerationHistory(graph,data){
   const latest=live.properties[NAMESPACE],revisions=new OptimizationRevisions(latest.revisions);
   revisions.observe(restored);
   serialized.properties[NAMESPACE].revisions=revisions.serialize();
-  serialized.properties[NAMESPACE].batches=structuredClone(latest.batches||[]);
+  serialized.properties[NAMESPACE].batches=copy(latest.batches||[]);
   // Storyboard save() replays these reports after configure; keep its live
   // receipt source too, otherwise an older report can overwrite the overlay.
-  if(live.properties?.daelabTableReports!==undefined)serialized.properties.daelabTableReports=structuredClone(live.properties.daelabTableReports);
+  if(live.properties?.daelabTableReports!==undefined)serialized.properties.daelabTableReports=copy(live.properties.daelabTableReports);
   else delete serialized.properties.daelabTableReports;
   result.preserved.push(serialized.id);
  }

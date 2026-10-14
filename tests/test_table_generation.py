@@ -228,12 +228,14 @@ class ColumnTests(unittest.TestCase):
             connection.local_request = lambda request: True
             node = types.ModuleType(PACKAGE + '.node')
             node.local_media = lambda url: None
-            local_video = types.ModuleType(PACKAGE + '.table_local_video')
-            local_video.LOCAL_MODEL = 'local-test'
-            local_video.LocalVideo = object
-            local_video.LocalVideoFailure = type('LocalVideoFailure', (RuntimeError,), {})
-            local_video.LocalVideoPaused = type('LocalVideoPaused', (RuntimeError,), {})
-            replacements = {PACKAGE+'.table_local_video': local_video, 'folder_paths': folders, 'server': server,
+            local_models = types.ModuleType(PACKAGE + '.table_local_models')
+            local_models.is_local_model = lambda model: model == 'local-test'
+            local_models.local_bridge = lambda kind, model: object()
+            local_execution = types.ModuleType(PACKAGE + '.table_local_execution')
+            local_execution.LocalExecutionFailure = type('LocalExecutionFailure', (RuntimeError,), {})
+            local_execution.LocalExecutionPaused = type('LocalExecutionPaused', (RuntimeError,), {})
+            replacements = {PACKAGE+'.table_local_models': local_models,
+                PACKAGE+'.table_local_execution': local_execution, 'folder_paths': folders, 'server': server,
                 PACKAGE+'.connection_api': connection, PACKAGE+'.node': node}
             with patch.dict(sys.modules, replacements):
                 spec = importlib.util.spec_from_file_location(PACKAGE+'.table_generation_api',

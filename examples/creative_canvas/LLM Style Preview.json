@@ -1,0 +1,270 @@
+{
+  "last_node_id": 5,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "DAELAB.LLMStylePreviewA",
+      "pos": [
+        0,
+        0.0
+      ],
+      "size": [
+        420,
+        690
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "原文",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "参考图片",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "结果",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "llmStylePreview": {
+          "version": 1,
+          "mode": "polish"
+        }
+      },
+      "title": "LLM 优化 · A 紧凑单栏",
+      "widgets_values": []
+    },
+    {
+      "id": 2,
+      "type": "DAELAB.LLMStylePreviewB",
+      "pos": [
+        480,
+        0.0
+      ],
+      "size": [
+        700,
+        690
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "原文",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "参考图片",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "结果",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "llmStylePreview": {
+          "version": 1,
+          "mode": "polish"
+        }
+      },
+      "title": "LLM 优化 · B 双栏工作台",
+      "widgets_values": []
+    },
+    {
+      "id": 3,
+      "type": "DAELAB.LLMStylePreviewC",
+      "pos": [
+        1240,
+        0.0
+      ],
+      "size": [
+        460,
+        690
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "原文",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "参考图片",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "结果",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "llmStylePreview": {
+          "version": 1,
+          "mode": "polish"
+        }
+      },
+      "title": "LLM 优化 · C 指令优先",
+      "widgets_values": []
+    },
+    {
+      "id": 4,
+      "type": "DAELAB.LLMStylePreviewD",
+      "pos": [
+        0,
+        680.0
+      ],
+      "size": [
+        460,
+        690
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "原文",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "参考图片",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "结果",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "llmStylePreview": {
+          "version": 1,
+          "mode": "polish"
+        }
+      },
+      "title": "LLM 优化 · D 分步编辑",
+      "widgets_values": []
+    },
+    {
+      "id": 5,
+      "type": "DAELAB.LLMStylePreviewE",
+      "pos": [
+        520,
+        680.0
+      ],
+      "size": [
+        700,
+        690
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "原文",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "参考图片",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "结果",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "llmStylePreview": {
+          "version": 1,
+          "mode": "polish"
+        }
+      },
+      "title": "LLM 优化 · E 对照审阅",
+      "widgets_values": []
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        50,
+        50
+      ]
+    },
+    "daelabCreativeCanvasV1": {
+      "version": 1,
+      "active": true,
+      "viewport": {
+        "x": 60,
+        "y": 90,
+        "zoom": 0.65
+      },
+      "cards": {
+        "1": {
+          "x": 0,
+          "y": 0.0,
+          "width": 420,
+          "expanded": true
+        },
+        "2": {
+          "x": 480,
+          "y": 0.0,
+          "width": 700,
+          "expanded": true
+        },
+        "3": {
+          "x": 1240,
+          "y": 0.0,
+          "width": 460,
+          "expanded": true
+        },
+        "4": {
+          "x": 0,
+          "y": 680.0,
+          "width": 460,
+          "expanded": true
+        },
+        "5": {
+          "x": 520,
+          "y": 680.0,
+          "width": 700,
+          "expanded": true
+        }
+      }
+    }
+  },
+  "version": 0.4
+}

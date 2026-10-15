@@ -3,8 +3,8 @@ import {isPrompt,promptField} from './table_prompt_model.mjs?v=20261001-frame-ta
 import {addField,addRecord,removeField,clone,uid,reorder,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {createTableButton as button} from './table_controls.mjs?v=20261009-instructions-v5';
 import {applyPromptToColumn} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {previewContentAsset} from './table_content_view.mjs?v=20261009-instructions-v5';
-import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261009-instructions-v5';
+import {previewContentAsset} from './table_content_view.mjs?v=20261012-client-workflow-r2';
+import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261012-client-workflow-r2';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 

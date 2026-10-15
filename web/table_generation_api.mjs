@@ -1,4 +1,4 @@
-import {LOCAL_VIDEO_MODEL} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {isLocalGenerationModel} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 
 export async function request(action,body){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),action==='submit'?120000:30000);
@@ -10,7 +10,7 @@ export async function request(action,body){
  finally{clearTimeout(timer);}
 }
 export async function modelCapabilities(config){
- const local=config.model===LOCAL_VIDEO_MODEL;
+ const local=isLocalGenerationModel(config.model);
  const restart='本地模型服务尚未加载，请重启 ComfyUI 后刷新页面；本地模型无需 LibTV 画布或登录。';
  try{
   const caps=await request('capabilities?'+new URLSearchParams({kind:config.kind,model:config.model}));

@@ -2,6 +2,13 @@
 
 Status: implementation in progress. Product decisions confirmed by the user.
 
+## Local image generation
+
+New image columns now default to the installed Qwen-Image-2.1 Turbo local preset.
+See [local Qwen integration and validation](table-local-qwen.md) for its exact
+model stack, supported parameters, shared serial queue and real UI evidence.
+Existing cloud configurations retain their original model.
+
 ## First implementation checkpoint
 
 First/last-frame markers are inline prompt segments rendered with the existing `@` chip class, thumbnails, sizing, ellipsis and Backspace/Delete behavior. Only their colors differ. Both the table and generation panel edit the same segments; deleted markers stay deleted after refresh, and their frame bindings are no longer submitted. Selecting a frame again restores its marker. Mode changes initialize the corresponding markers; the frame metadata retains image identity. Frontend and backend prompt resolution exclude these markers from model text.

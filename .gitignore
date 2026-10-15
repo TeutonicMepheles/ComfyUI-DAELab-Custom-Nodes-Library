@@ -13,3 +13,7 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 frontend/test-results/
+
+# Local secrets
+.env
+.env.local

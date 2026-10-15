@@ -11,7 +11,9 @@ export const DEFAULT_REQUIREMENTS='提升清晰度和可执行性，消除重复
 export const NAMESPACE='daelabPromptOptimizationV1';
 // Provider remains derivable from the frozen model, including old snapshots.
 export const optimizationProvider=model=>String(model||'').startsWith('deepseek-')?'deepseek':'comfy';
-const copy=v=>structuredClone(v);
+// Workflow properties can be Vue proxies. These snapshots are JSON data;
+// clone through the same serialization boundary used by workflow save/load.
+const copy=v=>JSON.parse(JSON.stringify(v));
 const uuid=()=>crypto.randomUUID();
 const workflowIdentities=new Map();
 export function canonical(value){

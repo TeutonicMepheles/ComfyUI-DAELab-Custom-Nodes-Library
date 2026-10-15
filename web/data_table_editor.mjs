@@ -2,7 +2,7 @@ import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {attachCellSelection} from './table_cell_selection.mjs?v=20261002-table-module-responsibilities';
 import {attachTableStructure} from './table_structure.mjs?v=20261009-instructions-v5';
 import {createTextSide} from './table_text_side.mjs?v=20261009-instructions-v5';
-import {renderContentCell,bindMaterialThumbnail} from './table_content_view.mjs?v=20261009-instructions-v5';
+import {renderContentCell,bindMaterialThumbnail} from './table_content_view.mjs?v=20261012-client-workflow-r2';
 import {clone,uid,addField,removeField,addRecord,duplicateSelected,reorder,setValue,transferValue,parseTSV,pasteMatrix,encodeTSV,SnapshotHistory,emptyValue,convertValue,FIELD_TYPES,COLUMN_MINIMUM_WIDTH} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
@@ -62,7 +62,7 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
  function clearDropHints(){shell.querySelectorAll('[data-drop],[data-material-drop-side]').forEach(e=>{delete e.dataset.drop;delete e.dataset.materialDropSide;});}
  function dragEnd(){drag=null;if(raf)cancelAnimationFrame(raf);raf=null;clearDropHints();clearMaterialSort();}
  function dragOver(e,target){e.preventDefault();e.stopPropagation();clearDropHints();target.dataset.drop='true';if(raf)cancelAnimationFrame(raf);const rect=shell.getBoundingClientRect(),dy=e.clientY<rect.top+28?-10:e.clientY>rect.bottom-28?10:0,dx=e.clientX<rect.left+28?-10:e.clientX>rect.right-28?10:0;const tick=()=>{shell.scrollBy(dx,dy);raf=requestAnimationFrame(tick);};if(dx||dy)raf=requestAnimationFrame(tick);}
- function draggable(el,data){el.draggable=true;if(data.kind==='asset')el.dataset.materialId=data.asset;el.addEventListener('dragstart',e=>{e.stopPropagation();drag={...data,owner};e.dataTransfer.setData(MIME,JSON.stringify(drag));e.dataTransfer.effectAllowed='move';});el.addEventListener('dragend',dragEnd);}
+ function draggable(el,data){el.draggable=true;if(data.kind==='asset')el.dataset.materialId=data.asset;el.addEventListener('dragstart',e=>{e.stopPropagation();drag={...data,owner};e.dataTransfer.setData(MIME,JSON.stringify(drag));e.dataTransfer.effectAllowed='move';if(data.kind==='asset')globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)?.beginMaterialDrag?.(JSON.stringify([data.record,data.field,data.asset]),e.dataTransfer);});el.addEventListener('dragend',dragEnd);}
  function assetDropPosition(e,record,field){
     const sorting=previewMaterialSort(e,record,field);if(sorting)return sorting;
     const item=e.target.closest('.dae-table-material[data-material-id]');if(!item)return null;
@@ -239,7 +239,7 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
         decorateAsset?.(item,r,a,f);
         const preview=element(video?'video':'img');preview.src=a.url;if(!video)preview.alt=a.name;
         item.setAttribute('aria-label',`第 ${i+1} 个素材：${a.name}${f.readonly?'':'，Delete 移除'}`);
-        onCleanup(bindMaterialThumbnail(item,preview,i,{cell,bindDrag:f.readonly?null:element=>draggable(element,{kind:'asset',record:r.id,field:f.id,asset:a.id}),remove:f.readonly?null:()=>change(n=>{const values=n.records.find(x=>x.id===r.id).values[f.id];values.splice(values.findIndex(x=>x.id===a.id),1);})}));
+        onCleanup(bindMaterialThumbnail(item,preview,i,{cell,bindDrag:element=>draggable(element,{kind:'asset',record:r.id,field:f.id,asset:a.id}),remove:f.readonly?null:()=>change(n=>{const values=n.records.find(x=>x.id===r.id).values[f.id];values.splice(values.findIndex(x=>x.id===a.id),1);})}));
         item.ondblclick=e=>{e.stopPropagation();previewAsset(a);};
         item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();previewAsset(a);}});
       }

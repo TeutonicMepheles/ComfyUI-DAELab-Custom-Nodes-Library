@@ -1,6 +1,8 @@
 """Stateless official DeepSeek transport. Never logs keys, bodies or exceptions."""
 import os
+import asyncio
 import re
+from pathlib import Path
 import aiohttp
 from .pricing import DEEPSEEK_RATES
 from .transport import TransportError
@@ -8,14 +10,42 @@ from .transport import TransportError
 ENDPOINT = 'https://api.deepseek.com/chat/completions'
 USAGE_KEYS = ('prompt_tokens', 'completion_tokens', 'total_tokens',
               'prompt_cache_hit_tokens', 'prompt_cache_miss_tokens')
+_request_lock = asyncio.Lock()
+
+
+ENV_FILE = Path(__file__).resolve().parents[2] / '.env'
+
+
+def configured_key():
+    """Read only this provider's key; process environment takes precedence.
+
+    No interpolation, shell execution, logging, or global environment mutation.
+    Read on demand so local key changes do not require another restart.
+    """
+    if 'DEEPSEEK_API_KEY' in os.environ:
+        return os.environ['DEEPSEEK_API_KEY']
+    try:
+        if ENV_FILE.stat().st_size > 65536:
+            return ''
+        lines = ENV_FILE.read_text(encoding='utf-8-sig').splitlines()
+    except (OSError, UnicodeError):
+        return ''
+    for line in lines:
+        name, sep, value = line.strip().partition('=')
+        if sep and name.strip() == 'DEEPSEEK_API_KEY':
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                return value[1:-1]
+            return value.split(' #', 1)[0].strip()
+    return ''
 
 
 def key_configured():
-    return bool(os.environ.get('DEEPSEEK_API_KEY', '').strip())
+    return bool(configured_key().strip())
 
 
 def resolve_key(auth):
-    key = (auth or {}).get('deepseekKey') or os.environ.get('DEEPSEEK_API_KEY', '')
+    key = (auth or {}).get('deepseekKey') or configured_key()
     if not isinstance(key, str) or not key.strip():
         raise ValueError('请在侧栏填写 DeepSeek API Key，或配置服务器 DEEPSEEK_API_KEY')
     key = key.strip()
@@ -33,8 +63,12 @@ def safe_usage(value):
 def request_body(snapshot, instructions):
     if snapshot['model'] not in DEEPSEEK_RATES:
         raise ValueError('DeepSeek 模型不受支持')
+    content = snapshot['inputText']
+    if snapshot.get('imageDataUrl'):
+        content = [{'type': 'text', 'text': content},
+                   {'type': 'image_url', 'image_url': {'url': snapshot['imageDataUrl']}}]
     return dict(model=snapshot['model'], messages=[{'role': 'system', 'content': instructions},
-        {'role': 'user', 'content': snapshot['inputText']}], thinking={'type': 'disabled'},
+        {'role': 'user', 'content': content}], thinking={'type': 'disabled'},
         max_tokens=snapshot['maxOutputTokens'], stream=False)
 
 
@@ -55,6 +89,10 @@ def normalize_response(body):
 
 class DeepSeekTransport:
     async def create(self, snapshot, instructions, auth):
+        async with _request_lock:
+            return await self._create(snapshot, instructions, auth)
+
+    async def _create(self, snapshot, instructions, auth):
         key = resolve_key(auth)
         payload = request_body(snapshot, instructions)
         try:
@@ -76,6 +114,10 @@ class DeepSeekTransport:
                 'provider': 'deepseek', 'currency': 'USD', 'method': 'POST', 'remoteResponseId': result['id']}
         except TransportError:
             raise
-        except Exception:
+        except Exception as error:
             # Never expose HTTP bodies, exception URLs/headers, or the supplied key.
-            raise TransportError('DeepSeek 连接中断或响应无效；提交结果未知，可能已产生费用，禁止自动重发') from None
+            category = ('超时' if isinstance(error, (asyncio.TimeoutError, TimeoutError)) else
+                        'TLS 校验失败' if isinstance(error, aiohttp.ClientConnectorCertificateError) else
+                        '响应类型不符' if isinstance(error, aiohttp.ContentTypeError) else
+                        '网络连接错误' if isinstance(error, aiohttp.ClientError) else '响应解析错误')
+            raise TransportError(f'DeepSeek {category}；提交结果未知，可能已产生费用，禁止自动重发') from None

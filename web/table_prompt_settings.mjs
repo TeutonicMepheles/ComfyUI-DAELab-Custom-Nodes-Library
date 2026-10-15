@@ -100,7 +100,25 @@ export function generationSettingSpecs(schema,mode){
 export const generationModeChoice=mode=>mode==='singleImage2video'?'frames2video':mode;
 export function generationModes(schema,kind){
  const modes=Object.keys(schema.properties?.modeType?.items||{}),common=kind==='video'?['text2video','singleImage2video','frames2video','image2video','mixed2video']:['text2image','image2image'];
+ if(schema.config?.strictModes)return modes;
  return [...new Set([...modes,...common,...(!modes.length&&kind==='image'?['']:[])].map(generationModeChoice))];
+}
+// Use the same local preset transition in column and cell configuration.
+export function normalizeLocalGenerationConfig(config,schema){
+ const modes=Object.keys(schema.properties?.modeType?.items||{});
+ if(!modes.includes(config.mode))config.mode=modes[0]||'';
+ const previous=config.settings||{},settings={};
+ for(const spec of generationSettingSpecs(schema,config.mode)){
+  const value=previous[spec.name],choices=spec.enum?.map(v=>typeof v==='object'?v.value:v);
+  const valid=value!==undefined&&(!choices||choices.includes(value))&&
+   (spec.type==='boolean'?typeof value==='boolean':
+    ['integer','number'].includes(spec.type)?typeof value==='number'&&Number.isFinite(value)&&
+     value>=(spec.min??-Infinity)&&value<=(spec.max??Infinity)&&
+     (spec.type!=='integer'||Number.isInteger(value))&&(!spec.step||value%spec.step===0):true);
+  if(valid)settings[spec.name]=value;
+  else if(spec.default!==undefined)settings[spec.name]=structuredClone(spec.default);
+ }
+ config.settings=settings;return config;
 }
 export function promptSettingSpecs(schema,mode,key,settings={}){
  const names=key==='duration'?['duration']:['ratio','resolution','width','height'],specs=generationSettingSpecs(schema,mode),properties=Object.entries(schema.properties||{}).map(([key,spec])=>({...spec,name:spec.originalField||key}));

@@ -2,7 +2,9 @@ import {addField,uid} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {effectivePrompt,isColumnPrompt,resolveColumnPrompt,columnValue,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 
 export const LOCAL_VIDEO_MODEL='MiniMax H3 FL（本地）';
-export const GENERATION_MODELS={image:['Lib Image','Lib Image 2.5 Pro','Lib Image 2.5 Fast'],video:['Seedance 2.0','Seedance 2.5','Minimax H3',LOCAL_VIDEO_MODEL]};
+export const LOCAL_IMAGE_MODEL='Qwen-Image-2.1 Turbo（本地）';
+export const isLocalGenerationModel=model=>[LOCAL_IMAGE_MODEL,LOCAL_VIDEO_MODEL].includes(model);
+export const GENERATION_MODELS={image:[LOCAL_IMAGE_MODEL,'Lib Image','Lib Image 2.5 Pro','Lib Image 2.5 Fast'],video:['Seedance 2.0','Seedance 2.5','Minimax H3',LOCAL_VIDEO_MODEL]};
 export const isGeneration=field=>field?.presentation==='generation';
 export const rowGenerationConfig=(row,fieldId,defaults)=>row?.meta?.generationSettings?.[defaults?.promptFieldId]?.[fieldId]||defaults;
 export function setRowGenerationConfig(row,fieldId,config){
@@ -54,7 +56,7 @@ export function enableColumnPrompt(table,fieldId){
  for(const row of table.records){const text=row.values[fieldId];row.values[fieldId]=isColumnPrompt(text)?text:typeof text==='string'&&text?{kind:'column-template',version:1,segments:[{type:'text',text}]}:'';}
 }
 export function addGenerationColumn(table,spec={}){
- const field=addField(table,{...spec,type:'content',presentation:'generation',readonly:true,width:340,generation:{version:1,kind:'image',model:'Lib Image',promptFieldId:'',mode:'',settings:{}}});
+ const field=addField(table,{...spec,type:'content',presentation:'generation',readonly:true,width:340,generation:{version:1,kind:'image',model:LOCAL_IMAGE_MODEL,promptFieldId:'',mode:'text2image',settings:{width:1024,height:1024,seed:-1}}});
  const prompts=promptColumns(table);
  if(prompts.length===1)field.generation.promptFieldId=prompts[0].id;
  else if(!prompts.length)field.generation.promptFieldId=createGenerationPrompt(table,field.id).id;
@@ -159,7 +161,7 @@ export function generationInput(table,fieldId,recordId){
   if(index<0){if(frameBindings&&generationFrameRoles(config).length)throw new Error('正文引用的素材未选为首尾帧，请调整图片选择或正文引用');index=assets.length;assets.push({id:asset.id,fieldId:asset.fieldId,kind:asset.kind,url:asset.url});}
   return {type:'asset',index};
  });
- return {recordId,fieldId,config:structuredClone(config),project:config.model===LOCAL_VIDEO_MODEL?'':table.meta.generationProject||'',segments,assets};
+ return {recordId,fieldId,config:structuredClone(config),project:isLocalGenerationModel(config.model)?'':table.meta.generationProject||'',segments,assets};
 }
 export const inputStamp=input=>JSON.stringify(input);
 export function appendGenerationResult(table,row,fieldId,requestId,result,model){

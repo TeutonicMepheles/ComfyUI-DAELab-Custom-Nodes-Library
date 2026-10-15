@@ -19,12 +19,12 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         tree.body = [n for n in tree.body if
                      isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names
                      or isinstance(n, ast.Assign) and any(
-                         isinstance(target, ast.Name) and target.id in {'TABLE_CONCURRENCY', '_queue'}
+                         isinstance(target, ast.Name) and target.id in {'TABLE_CONCURRENCY', '_queue', '_local_queue'}
                          for target in n.targets)]
         def save(path, state):
             path.write_text(json.dumps(state), encoding='utf-8')
         self.api = dict(asyncio=asyncio, json=json, time=__import__('time'), generation_failure_reason=lambda _: None,
-                        LOCAL_MODEL='local-test', _local_runs={}, _tasks={}, _executions={}, _submissions=asyncio.Lock(), atomic_json=save,
+                        is_local_model=lambda model: model in ('qwen-test', 'h3-test'), bridge=lambda kind, model: object(), _local_runs={}, _tasks={}, _executions={}, _submissions=asyncio.Lock(), atomic_json=save,
                         receipt_path=lambda request_id: self.root / (request_id + '.json'))
         exec(compile(tree, str(source), 'exec'), self.api)
 
@@ -71,6 +71,31 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(self.api['receipt_path']('c').read_text())['phase'], 'stopped')
         self.assertFalse(self.api['_tasks'])
         self.assertFalse(self.api['_executions'])
+
+    async def test_local_qwen_and_h3_share_one_slot_across_batches(self):
+        started = []
+        release = threading.Event()
+        def execute(state):
+            started.append(state['requestId'])
+            release.wait(3)
+            return True
+        self.api['execute'] = execute
+        states = [self.state(n) for n in ('qwen', 'h3', 'qwen2')]
+        for index, state in enumerate(states):
+            state['input']['config'] = dict(kind='video' if index == 1 else 'image',
+                                            model='h3-test' if index == 1 else 'qwen-test')
+        tasks = [asyncio.create_task(self.api['run_batch']([state])) for state in states]
+        try:
+            await self.wait_for(lambda: len(started) == 1)
+            await asyncio.sleep(.05)
+            self.assertEqual(started, ['qwen'])
+            paused = dict(states[1], phase='paused')
+            self.api['atomic_json'](self.api['receipt_path']('h3'), paused)
+        finally:
+            release.set()
+            await asyncio.gather(*tasks)
+        self.assertEqual(started, ['qwen', 'qwen2'])
+        self.assertFalse(self.api['_local_runs'])
 
     async def test_aliases_do_not_execute_simultaneously(self):
         active = set()

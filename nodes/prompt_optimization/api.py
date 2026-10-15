@@ -5,6 +5,8 @@ from urllib.parse import urlsplit
 from aiohttp import web
 from .service import Service
 from .pricing import provider_for
+from .canvas import polish
+from .transport import TransportError
 
 _service = None
 
@@ -28,7 +30,7 @@ async def handle(request):
         import folder_paths
         _service = Service(Path(folder_paths.get_user_directory()) / 'daelab/prompt-optimization')
     action = request.match_info['action']
-    allowed = {'capabilities', 'estimate', 'lease', 'submit', 'query', 'recover', 'permit', 'advance', 'stop', 'continue', 'skip'}
+    allowed = {'polish', 'capabilities', 'estimate', 'lease', 'submit', 'query', 'recover', 'permit', 'advance', 'stop', 'continue', 'skip'}
     if action not in allowed:
         return web.json_response({'contractVersion': 1, 'error': '未知操作'}, status=404)
     try:
@@ -38,7 +40,9 @@ async def handle(request):
         auth = {'token': request.headers.get('Authorization', '').removeprefix('Bearer ').strip(),
                 'key': request.headers.get('X-API-Key', ''),
                 'deepseekKey': request.headers.get('X-DAELab-DeepSeek-Key', '')}
-        if action == 'advance':
+        if action == 'polish':
+            result = await polish(p)
+        elif action == 'advance':
             row = _service.row(_service.batch(p['batchId']), p['requestId'])
             if row and provider_for(row['snapshot']['model']) == 'comfy' and not (auth['token'] or auth['key']):
                 raise ValueError('请登录 ComfyUI 账号后开始优化')
@@ -48,7 +52,7 @@ async def handle(request):
         else:
             result = await getattr(_service, 'continue_batch' if action == 'continue' else action)(p)
         return web.json_response(result, headers={'Cache-Control': 'no-store'})
-    except ValueError as error:
+    except (ValueError, TransportError) as error:
         return web.json_response({'contractVersion': 1, 'error': str(error)}, status=409)
     except (KeyError, TypeError):
         return web.json_response({'contractVersion': 1, 'error': '请求字段不完整或格式无效'}, status=400)
@@ -59,4 +63,6 @@ async def handle(request):
 def register_routes():
     from server import PromptServer
     if getattr(PromptServer, 'instance', None) is not None:
+        from .local_qwen import install
+        install(PromptServer.instance)
         PromptServer.instance.routes.post('/daelab/prompt-optimization/{action}')(handle)

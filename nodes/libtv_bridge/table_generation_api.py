@@ -16,7 +16,8 @@ from .runtime import atomic_json, digest_file, CLI, generation_failure_reason
 from .recovery import recover_generation, is_network_error
 from .media_snapshot import freeze_media
 from .table_generation import ColumnBridge, compile_segments
-from .table_local_video import LOCAL_MODEL, LocalVideo, LocalVideoFailure, LocalVideoPaused
+from .table_local_models import is_local_model, local_bridge
+from .table_local_execution import LocalExecutionFailure, LocalExecutionPaused
 
 _tasks = {}
 _local_runs = {}
@@ -34,10 +35,10 @@ def paths():
 
 
 def bridge(kind, model=None):
-    if model == LOCAL_MODEL:
-        if kind != 'video':
-            raise ValueError('本地 H3 仅用于视频生成')
-        return LocalVideo()
+    if is_local_model(model):
+        return local_bridge(kind, model)
+    if isinstance(model, str) and '（本地）' in model:
+        raise ValueError('不支持的本地模型；未切换至云端')
     root, output = paths()
     return ColumnBridge(root / 'bridge', output / 'daelab/libtv/table', kind)
 
@@ -118,8 +119,8 @@ def check_result(state):
     if (query.get('type') != ['output'] or not file.is_relative_to(root)
             or not file.is_file()
             or state.get('resultHash') and digest_file(file) != state['resultHash']):
-        if state['input']['config']['model'] == LOCAL_MODEL:
-            return dict(state, phase='failed', error='本地视频缺失或已变化，请重新生成')
+        if is_local_model(state['input']['config']['model']):
+            return dict(state, phase='failed', error='本地结果缺失或已变化，请重新生成')
         return dict(state, phase='needs_recovery', error='本地结果缺失或已变化，请恢复任务重新下载')
     return state
 
@@ -147,7 +148,7 @@ def prepare(item):
         return check_result(state)
     cfg = data['config']
     transport = bridge(cfg['kind'], cfg['model'])
-    if cfg['model'] != LOCAL_MODEL and not data.get('project', '').strip():
+    if not is_local_model(cfg['model']) and not data.get('project', '').strip():
         raise ValueError('请选择 LibTV 目标画布')
     assets = data.get('assets', [])
     if len(assets) > 32:
@@ -224,7 +225,7 @@ def execute(state):
         for transient in ('error', 'detail', 'progress'):
             state.pop(transient, None)
         atomic_json(receipt_path(request_id), state)
-        transport = _local_runs[request_id] if cfg['model'] == LOCAL_MODEL else bridge(cfg['kind'], cfg['model'])
+        transport = _local_runs[request_id] if is_local_model(cfg['model']) else bridge(cfg['kind'], cfg['model'])
         transport.report = lambda stage, **info: mark(stage, detail=None, **info)
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
@@ -239,7 +240,7 @@ def execute(state):
             return transport.generate(
             data['project'], execution_id, cfg['model'], cfg.get('mode', ''),
             compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
-        result = generate_original() if cfg['model'] == LOCAL_MODEL else recover_generation(generate_original, record, progress)
+        result = generate_original() if is_local_model(cfg['model']) else recover_generation(generate_original, record, progress)
         transport.report = None
         file = Path(result['file'])
         subfolder = file.parent.relative_to(paths()[1]).as_posix()
@@ -249,7 +250,7 @@ def execute(state):
             state.update(phase='complete', resultHash=digest_file(file), result=dict(kind=cfg['kind'], name=file.name,
                 url='/view?' + urlencode(dict(filename=file.name, subfolder=subfolder, type='output'))))
             state.setdefault('timeline', []).append(dict(stage='complete', at=int(time.time() * 1000)))
-    except LocalVideoPaused:
+    except LocalExecutionPaused:
         with lock:
             for transient in ('error', 'errorDetail', 'detail', 'progress'):
                 state.pop(transient, None)
@@ -257,8 +258,8 @@ def execute(state):
     except Exception as error:
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
-        if cfg['model'] == LOCAL_MODEL:
-            message, failed = str(error).splitlines()[0][:500], isinstance(error, (LocalVideoFailure, ValueError))
+        if is_local_model(cfg['model']):
+            message, failed = str(error).splitlines()[0][:500], isinstance(error, (LocalExecutionFailure, ValueError))
         else:
             message, failed = diagnose(error, bridge(cfg['kind']).cache / (key + '.json'))
         with lock:
@@ -280,14 +281,14 @@ async def run_batch(states):
         entry = _executions.setdefault(key, [asyncio.Lock(), 0])
         entry[1] += 1
         try:
-            budget = _local_queue if state['input']['config']['model'] == LOCAL_MODEL else _queue
+            budget = _local_queue if is_local_model(state['input']['config']['model']) else _queue
             async with entry[0], budget:
                 saved = json.loads(receipt_path(state['requestId']).read_text('utf-8'))
                 if saved['phase'] in ('stopped', 'paused'):
                     return
                 # Register local control before handing execution to the worker.
-                if state['input']['config']['model'] == LOCAL_MODEL:
-                    _local_runs[state['requestId']] = LocalVideo()
+                if is_local_model(state['input']['config']['model']):
+                    _local_runs[state['requestId']] = bridge(state['input']['config']['kind'], state['input']['config']['model'])
                 state['phase'] = 'running'
                 atomic_json(receipt_path(state['requestId']), state)
                 await asyncio.to_thread(execute, state)
@@ -364,7 +365,7 @@ async def handle(request):
         if action == 'capabilities' and request.method == 'GET':
             kind, model = request.query['kind'], request.query['model']
             transport = bridge(kind, model)
-            if model != LOCAL_MODEL:
+            if not is_local_model(model):
                 transport.cli = CLI(timeout=25)
             result = await asyncio.to_thread(transport.capabilities, model)
         elif action in ('status', 'pause', 'stop') and request.method == 'POST':

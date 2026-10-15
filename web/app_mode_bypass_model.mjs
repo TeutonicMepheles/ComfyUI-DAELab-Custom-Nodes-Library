@@ -21,6 +21,7 @@ export const DAELAB_NODE_TYPES = Object.freeze([
     "DAELAB.StoryboardImport",
     "DAELAB.Table",
     "DAELAB.ScriptParser",
+    "DAELAB.LLMStylePreviewA", "DAELAB.LLMStylePreviewB", "DAELAB.LLMStylePreviewC", "DAELAB.LLMStylePreviewD", "DAELAB.LLMStylePreviewE",
     "GPTImage2MaterialPrompt",
     "DAELabBadgeMaterialRegionV1",
     "BadgeReliefPrompt",

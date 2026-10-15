@@ -10,7 +10,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
 
-PACKAGE = 'local_qwen_test_bridge'
+ROOT_PACKAGE = 'local_qwen_test_nodes'
+root_package = types.ModuleType(ROOT_PACKAGE)
+root_package.__path__ = [str(Path(__file__).resolve().parents[1] / 'nodes')]
+sys.modules[ROOT_PACKAGE] = root_package
+PACKAGE = ROOT_PACKAGE + '.libtv_bridge'
 package = types.ModuleType(PACKAGE)
 package.__path__ = [str(Path(__file__).resolve().parents[1] / 'nodes/libtv_bridge')]
 sys.modules[PACKAGE] = package
@@ -45,6 +49,66 @@ class QwenTests(unittest.TestCase):
         self.base = importlib.import_module(PACKAGE + '.table_local_execution')
         self.adapter = self.image.LocalImage()
         self.folders, self.nodes, self.execution = folders, node_module, execution
+
+    def test_native_enqueue_shares_llm_gate_and_resumes_after_release(self):
+        q = importlib.import_module(ROOT_PACKAGE + '.prompt_optimization.local_qwen')
+        record = dict(promptId='own-prompt', phase='preparing')
+        path = self.root / 'gate-job.json'
+        async def scenario():
+            async with q.admission():
+                with self.assertRaisesRegex(self.base.LocalExecutionPaused, '显卡'):
+                    await self.adapter.enqueue({}, record, path)
+                self.queue.put.assert_not_called()
+                self.assertEqual(json.loads(path.read_text())['phase'], 'paused')
+                self.assertEqual(self.base.PromptServer.instance.number, 0)
+            await self.adapter.enqueue({}, record, path)
+            self.queue.put.assert_called_once()
+            self.assertEqual(record['phase'], 'queued')
+            # Once native work is visible, LLM inference must refuse to start.
+            item = self.queue.put.call_args.args[0]
+            for queue_state in (([], [item]), ([item], [])):
+                self.queue.get_current_queue.return_value = queue_state
+                with patch.object(q, 'request', AsyncMock()) as request:
+                    with self.assertRaisesRegex(ValueError, '生图'):
+                        await q.generate('prompt', 'instruction')
+                    request.assert_not_awaited()
+        with patch.object(q, 'lock_path', return_value=self.root / 'gate.lock'), \
+             patch.object(q, '_quarantined', False), \
+             patch.object(q, '_server', self.base.PromptServer.instance):
+            asyncio.run(scenario())
+
+    def test_quarantined_native_enqueue_requires_confirmed_unload(self):
+        q = importlib.import_module(ROOT_PACKAGE + '.prompt_optimization.local_qwen')
+        gate = self.root / 'gate.lock'
+        gate.with_suffix('.quarantine').touch()
+        record = dict(promptId='own-prompt', phase='preparing')
+        path = self.root / 'quarantined-job.json'
+        async def scenario():
+            with patch.object(q, 'request', AsyncMock(side_effect=RuntimeError('offline'))):
+                with self.assertRaisesRegex(self.base.LocalExecutionPaused, '卸载'):
+                    await self.adapter.enqueue({}, record, path)
+            self.queue.put.assert_not_called()
+            self.assertEqual(record['phase'], 'paused')
+            with patch.object(q, 'request', AsyncMock(return_value={'models': []})):
+                await self.adapter.enqueue({}, record, path)
+            self.queue.put.assert_called_once()
+            self.assertFalse(gate.with_suffix('.quarantine').exists())
+        with patch.object(q, 'lock_path', return_value=gate), patch.object(q, '_quarantined', False):
+            asyncio.run(scenario())
+
+    def test_pause_during_unload_never_enqueues_and_releases_gate(self):
+        q = importlib.import_module(ROOT_PACKAGE + '.prompt_optimization.local_qwen')
+        async def unload():
+            self.adapter.pause_requested.set()
+        async def scenario():
+            with self.assertRaises(self.base.LocalExecutionPaused):
+                await self.adapter.enqueue({}, dict(promptId='own-prompt'), self.root / 'paused.json')
+            self.queue.put.assert_not_called()
+            async with q.admission():
+                pass
+        with patch.object(q, 'lock_path', return_value=self.root / 'gate.lock'), \
+             patch.object(q, '_quarantined', True), patch.object(q, 'ensure_unloaded', unload):
+            asyncio.run(scenario())
 
     def test_exact_installed_graph_and_safe_budget(self):
         graph = self.adapter.build_prompt('a blue ceramic cup', {'seed': 42}, [], 'sample')

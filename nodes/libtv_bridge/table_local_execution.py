@@ -45,11 +45,22 @@ class LocalExecution:
             raise LocalExecutionFailure('本地工作流无法执行：' + json.dumps(valid[3] or valid[1], ensure_ascii=False))
         if self.pause_requested.is_set():
             self.mark_paused(record, path)
-        record['phase'] = 'queued'
-        atomic_json(path, record)
-        number = server.number
-        server.number += 1
-        server.prompt_queue.put((number, record['promptId'], graph, {'create_time': int(time.time() * 1000)}, valid[2], {}))
+        from ..prompt_optimization.local_qwen import native_admission
+        try:
+            async with native_admission():
+                # Quarantine recovery can await; honor pauses before enqueueing.
+                if self.pause_requested.is_set():
+                    self.mark_paused(record, path)
+                record['phase'] = 'queued'
+                atomic_json(path, record)
+                number = server.number
+                server.number += 1
+                server.prompt_queue.put((number, record['promptId'], graph, {'create_time': int(time.time() * 1000)}, valid[2], {}))
+        except ValueError as error:
+            # No native task was submitted: keep explicit resume possible.
+            record['phase'] = 'paused'
+            atomic_json(path, record)
+            raise LocalExecutionPaused(str(error)) from error
 
     def generate(self, project, request_id, model, mode, prompt, settings, media):
         key = hashlib.sha256((project + '\n' + request_id).encode()).hexdigest()[:24]

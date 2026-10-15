@@ -71,15 +71,21 @@ async def ensure_unloaded():
     raise ValueError('无法确认本地模型已卸载，生图提交已暂时锁定；请恢复 Ollama 服务后重试')
 
 
+@asynccontextmanager
+async def native_admission():
+    """Guard every native enqueue, including internal table submissions."""
+    async with admission():
+        if _quarantined or lock_path().with_suffix('.quarantine').exists():
+            await ensure_unloaded()
+        yield
+
+
 @web.middleware
 async def gpu_middleware(req, handler):
-    global _quarantined
     if req.method != 'POST' or req.path not in ('/prompt', '/api/prompt'):
         return await handler(req)
     try:
-        async with admission():
-            if _quarantined or lock_path().with_suffix('.quarantine').exists():
-                await ensure_unloaded()
+        async with native_admission():
             return await handler(req)
     except ValueError as error:
         return web.json_response({'error': {'type': 'local_llm_busy', 'message': str(error)}, 'node_errors': {}}, status=409)

@@ -1,5 +1,6 @@
 // Provider adapter only; UI, review, apply and undo stay in the shared IO panel.
-export async function optimizeRow(row,mode,instruction,{fetcher=fetch}={}){
+export async function optimizeRow(row,mode,instruction,{fetcher=fetch,model='qwen'}={}){
+    if(!['qwen','deepseek'].includes(model))throw new Error('不支持的模型提供者');
     let imageDataUrl;
     if(mode==='reverse'){
         const url=row.image?.url;
@@ -9,9 +10,9 @@ export async function optimizeRow(row,mode,instruction,{fetcher=fetch}={}){
         imageDataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('参考图片读取失败'));reader.readAsDataURL(blob);});
     }
     const requestId=crypto.randomUUID();
-    const response=await fetcher('/daelab/prompt-optimization/polish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contractVersion:1,requestId,model:'qwen',mode,source:row.text||'',instruction,imageDataUrl})});
+    const response=await fetcher('/daelab/prompt-optimization/polish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contractVersion:1,requestId,model,mode,source:row.text||'',instruction,imageDataUrl})});
     const data=await response.json();
-    if(!response.ok)throw new Error(data.error||'本地 Qwen 请求失败，未自动重试');
+    if(!response.ok)throw new Error(data.error||'模型请求失败，未自动重试');
     if(data.requestId!==requestId||typeof data.result!=='string'||!data.result.trim())throw new Error('返回结果无效，未自动重试');
     return {...row,result:data.result,status:'completed',requestId,model:data.model,usage:data.usage};
 }

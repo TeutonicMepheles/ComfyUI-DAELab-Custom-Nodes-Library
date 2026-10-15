@@ -43,3 +43,13 @@
 - 业务仓库保存 LLM 双栏面板、Slot 自动解析与模式映射、已应用结果输出/撤销、本地 Qwen 串行调用与显存互斥、任务胶囊及 DeepSeek 本地环境加载。
 - 提交前回归：Canvas 36 项、业务相关 JavaScript 34 项、Python unittest 11 项通过；未增加模型请求。界面验收及主服务原生队列限制见上文。
 - 本地 .env 与 .env.local 不纳入版本；验收截图和用户工作流位于 ComfyUI user 目录，不随源代码提交。
+
+## 8000 真实双提供者验收（2026-10-15）
+
+- 重启尝试被工具审批策略拒绝（blocked by policy），没有执行进程停止或启动。随后直接读取 object_info，确认当前主服务已注册 LLMStylePreviewB、TextInput、PreviewAny，因此在现有进程完成以下测试，不标记为重启后验收。
+- 真实 Qwen3.5 图片反推：已有图文组正确映射图片与处理要求，返回包含金色黄昏光效的 133 字中文结果；模型 qwen3.5:9b-q4_K_M，请求 d53d9aa5-74d2-426b-bccd-3d0cda548bcb，prompt_eval_count=469、eval_count=96、模型耗时约 4.34 秒。
+- 实际点击应用、撤销、重新应用：下游文本随之更新、恢复上次已应用版本、再更新；保存刷新保留结果。
+- 从真实结果工程增加 TextInput→PreviewAny 连线，在页面点击“运行”，原生队列 015f255f-9e79-4093-b356-6d2fbe727dd3 成功，返回文本与已应用结果完全一致，无推理重发。
+- 当前面板缺少 DeepSeek 选项，已补齐并参数化现有 provider adapter；继续共用 Slot 解析、串行循环、应用/撤销与胶囊，未创建第二套交互。
+- DeepSeek 真实图片反推提交一次，返回“DeepSeek 网络连接错误；提交结果未知”。未自动重试、未使用模拟结果；同意更改不可用，下游为空。点击原生运行被“LLM 优化结果尚未应用，或输入已改变”拦截。DeepSeek 成功生成、应用/撤销及成功原生输出未通过验收。
+- 全部模型请求串行；未运行生图。工作流：user/default/workflows/8000真实LLM原生队列验收.json（DeepSeek 失败现场）；Qwen 成功原生记录：user/llm-slot-review/qwen-native-history.json；截图：user/llm-slot-review/deepseek-real-failure.png。

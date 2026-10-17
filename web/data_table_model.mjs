@@ -46,7 +46,7 @@ export function normalizeTable(value={}) {
         const values=clone(r.values||{}),assetIds=new Set();
         for(const f of fields.filter(f=>['assets','content'].includes(f.type)))for(const a of Array.isArray(values[f.id])?values[f.id]:[]){if(!a.id)a.id=uid();if(assetIds.has(a.id))throw new Error('行内素材 ID 重复，请检查复制的素材');assetIds.add(a.id);}
         for(const f of fields)if(isColumnPrompt(values[f.id]))values[f.id]=toColumnPrompt(values[f.id],{values});
-        return {...clone(r),id,selected:r.selected!==false,values};
+        return {...clone(r),id,selected:raw.meta?.material_columns?r.selected===true:r.selected!==false,values};
     });
     return migrateVideoReferences({version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})});
 }
@@ -57,7 +57,8 @@ export function addField(table,spec={}) {
 }
 export function removeField(table,id) {table.fields=table.fields.filter(f=>f.id!==id);for(const row of table.records)delete row.values[id];if(table.meta.asset_groups)table.meta.asset_groups=table.meta.asset_groups.filter(g=>g.field_id!==id);}
 export function addRecord(table,values={},afterId=null) {
-    const record={id:uid(),selected:true,values:clone(values)};
+    const record={id:uid(),selected:!table.meta?.material_columns,values:clone(values)};
+    if(table.meta?.material_columns){let number=table.records.length+1;while(table.records.some(row=>row.name===`任务${number}`))number++;record.name=`任务${number}`;}
     const at=afterId?table.records.findIndex(r=>r.id===afterId)+1:table.records.length;
     table.records.splice(at,0,record);return record;
 }

@@ -1,5 +1,5 @@
-import {createTableButton as button} from './table_controls.mjs?v=20261009-instructions-v5';
-import {deletePromptReference} from './table_inline_editor.mjs?v=20261001-table-perf';
+import {createTableButton as button} from './table_controls.mjs?v=20261017-row-header-drag';
+import {deletePromptReference} from './table_inline_editor.mjs?v=20261017-video-tasks';
 import {columnReferenceOptions,createReferenceMenu} from './table_reference_menu.mjs?v=20261001-table-perf';
 import {isColumnPrompt,effectivePrompt,toColumnPrompt,validateColumnPrompt,resolveColumnPrompt,setColumnTemplate} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};

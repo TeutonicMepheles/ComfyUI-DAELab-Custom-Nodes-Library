@@ -76,7 +76,7 @@ export function bindInlineEditor({cell,box,label,read,write,reset,draw,columns,g
   if(e.key==='Tab'){finish();return;}
  });
  box.addEventListener('blur',e=>{if(active&&!composing&&!box.contains(e.relatedTarget))finish();});
- const dispose=()=>closeMenu();
+ const dispose=()=>{closeMenu();cell.removeEventListener('dblclick',double);cell.removeEventListener('keydown',enter);cell.removeEventListener('dae-edit-text',edit);};
  onCleanup?.(dispose);
  return {start,finish,dispose};
 }

@@ -1,4 +1,4 @@
-import {createTableButton,tableIcon} from './table_controls.mjs?v=20261015-qwen5';
+import {createTableButton,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 import {availableModes,simulateRows,applyIOResult,undoIOResult} from './llm_io_model.mjs?v=20261015-mixed1';
 import {slotRows,slotSignature,outputText} from './llm_slot_model.mjs?v=20261015-mixed1';
 import {optimizeRow} from './llm_local_provider.mjs?v=20261015-provider2';

@@ -1,7 +1,7 @@
 import {generationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-instructions-v5';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 import {request,modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
-import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261017-task-prompt-source';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 const phaseNames={waiting:'等待提交',running:'生成中',pausing:'暂停中',paused:'已暂停',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
 const stageNames={local_queued:'本机排队',local_generating:'本机生成',preparing:'准备中',submitting:'提交平台',writing_back:'等待写回',verifying:'核对原任务',downloading:'下载中'};
@@ -29,14 +29,14 @@ export const generationTaskStyle=`
 @media(prefers-reduced-motion:reduce){.dae-ui .generation-progress{animation:none;border-style:dashed}}
 `;
 
-export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,getConfig}){
+export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,getConfig,onUpdate=()=>{},canGenerate=()=>true}){
  let alive=true,polling=false,submitting=false,epoch=0,lastCompletedCheck=0;
  const live=new Map();
  async function generate(fieldId,recordId=null,recover=false,fresh=false){
-  if(!alive||submitting)return;const captured=epoch;submitting=true;decorate();
+  if(!alive||submitting||!canGenerate())return;const captured=epoch;submitting=true;decorate();
   try{
    if(!recover)await prepareGeneration(fieldId,recordId);
-   if(!alive||captured!==epoch)return;
+   if(!alive||captured!==epoch||!canGenerate())return;
    const table=getTable(),rows=recordId?table.records.filter(r=>r.id===recordId):generationRows(table,fieldId),jobs=[];
    for(const row of rows){
     const old=row.meta?.generationColumns?.[fieldId];
@@ -50,7 +50,7 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
    }
    if(!jobs.length)throw new Error('没有可生成的行，请补充提示词或检查任务状态');
    const localModels=new Map(jobs.filter(job=>!job.recovery&&isLocalGenerationModel(job.input.config.model)).map(job=>[job.input.config.model,job.input.config]));for(const config of localModels.values())await modelCapabilities(config);
-   if(!alive||captured!==epoch)return;
+   if(!alive||captured!==epoch||!canGenerate())return;
    editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]=generationReceipt(job,row.meta.generationColumns[fieldId]);}});
    try{await request('submit',{jobs});}catch(error){
     if(!alive||captured!==epoch)return;
@@ -64,7 +64,7 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
   try{const response=await request('pause',{requestIds:states.map(s=>s.requestId)});if(response.notice)notify(response.notice);await poll(true);}catch(error){notify(error.message);}
  }
  async function resume(fieldId){
-  if(submitting)return;submitting=true;
+  if(submitting||!canGenerate())return;submitting=true;
   try{
    const jobs=getTable().records.map(r=>r.meta?.generationColumns?.[fieldId]).filter(s=>s?.phase==='paused').map(recoveryJob);
    if(jobs.length){
@@ -108,6 +108,7 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
  }
  function decorate(headers){
   if(!alive)return;
+  onUpdate();
   for(const run of editor.root.querySelectorAll('[data-generation-run]'))run.disabled=submitting;
   const table=getTable(),fields=table.fields.filter(isGeneration);if(!fields.length)return;
   headers||=new Map([...editor.root.querySelectorAll('th[data-column]')].map(h=>[h.dataset.column,h]));
@@ -168,5 +169,5 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
   if(refresh)refreshLive();
  }
  const timer=setInterval(()=>void poll(),3000);
- return {tasks:trackTaskCompletion(()=>generationTaskSnapshots(getTable(),live)),generate,decorate,get submitting(){return submitting;},invalidate(){epoch++;},destroy(){alive=false;epoch++;clearInterval(timer);live.clear();}};
+ return {tasks:trackTaskCompletion(()=>generationTaskSnapshots(getTable(),live)),generate,pause,resume,decorate,get submitting(){return submitting;},invalidate(){epoch++;},destroy(){alive=false;epoch++;clearInterval(timer);live.clear();}};
 }

@@ -1,5 +1,5 @@
 import {optimizationStatus} from './prompt_optimization_status.mjs?v=20261009-instructions-v5';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-instructions-v5';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 
 import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
 

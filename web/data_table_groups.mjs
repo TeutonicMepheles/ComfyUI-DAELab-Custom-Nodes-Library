@@ -1,5 +1,5 @@
 import {addField,addRecord,clone,uid,removeField} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {tableButton as button} from './data_table_editor.mjs?v=20261012-client-workflow-r2';
+import {tableButton as button} from './data_table_editor.mjs?v=20261017-video-tasks';
 import {localImageFromDrop} from './badge_image_drop_87.mjs';
 
 export function addAssetGroup(table) {

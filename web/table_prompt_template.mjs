@@ -12,6 +12,9 @@ export function effectivePrompt(table,row,fieldId) {
  const field=table.fields.find(f=>f.id===fieldId);
  return row?.values[fieldId] || field?.promptTemplate || null;
 }
+export function promptContent(table,row,fieldId){
+ return toColumnPrompt(effectivePrompt(table,row,fieldId),row).segments.map(s=>s.type==='frame'?{...s,binding:structuredClone(row.meta?.generationFrames?.[s.generationFieldId]?.[s.role]||null)}:s);
+}
 export function columnValue(table,row,fieldId,assetIndex,assetId) {
  const field=assetId?table.fields.find(f=>['assets','content'].includes(f.type)&&Array.isArray(row.values[f.id])&&row.values[f.id].some(a=>a.id===assetId)):table.fields.find(f=>f.id===fieldId);
  if(assetId&&!field)throw new Error('引用的素材已删除或移到其他行');

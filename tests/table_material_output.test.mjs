@@ -19,3 +19,20 @@ test('only rows without usable image or video results are skipped',()=>{
  const t=fixture();t.records[0].values.g=[];t.records[1].values.g=[{kind:'text',url:'/view?filename=b.png&type=output'}];t.records[2].values.g[0].kind='video';
  const out=generationMaterials(t,'g');assert.equal(out.skipped,2);assert.deepEqual(out.assets.map(a=>a.id),['c']);t.records[2].values.g=[];assert.equal(generationMaterials(t,'g').ready,false);
 });
+
+test('output groups keep task names, order and all results from each task',()=>{
+ const t=fixture();t.records[0].name='镜头甲';t.records[1].name='镜头甲';
+ t.records[0].values.g.push({id:'a2',kind:'video',url:'/view?filename=a2.mp4&type=output'});
+ t.records[2].values.g=[];t.records.reverse();
+ const out=generationMaterials(t,'g');
+ assert.deepEqual(out.groups,[{label:'镜头甲',count:1},{label:'镜头甲',count:2}]);
+ assert.deepEqual(out.assets.map(a=>a.id),['b','a','a2']);
+ assert.equal(out.skipped,1);
+ assert.equal(out.groups.reduce((sum,g)=>sum+g.count,0),out.assets.length);
+});
+
+test('unnamed rows use their row number, with no groups for empty results',()=>{
+ const t=fixture();t.records[0].values.g=[];
+ assert.deepEqual(generationMaterials(t,'g').groups,[{label:'任务2',count:1},{label:'任务3',count:1}]);
+ t.records.forEach(r=>r.values.g=[]);assert.deepEqual(generationMaterials(t,'g').groups,[]);
+});

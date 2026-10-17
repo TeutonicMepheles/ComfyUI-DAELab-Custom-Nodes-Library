@@ -1,7 +1,7 @@
 import {optimizationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
 import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
 import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261012-client-workflow-r2';
-import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261012-client-workflow-r2';
+import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261017-row-header-drag';
 
 const registries=new Map(),batchReferences=new Map();
 const activeStatuses=new Set(['submitting','submitted','polling']);

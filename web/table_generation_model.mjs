@@ -6,7 +6,10 @@ export const LOCAL_IMAGE_MODEL='Qwen-Image-2.1 Turbo（本地）';
 export const isLocalGenerationModel=model=>[LOCAL_IMAGE_MODEL,LOCAL_VIDEO_MODEL].includes(model);
 export const GENERATION_MODELS={image:[LOCAL_IMAGE_MODEL,'Lib Image','Lib Image 2.5 Pro','Lib Image 2.5 Fast'],video:['Seedance 2.0','Seedance 2.5','Minimax H3',LOCAL_VIDEO_MODEL]};
 export const isGeneration=field=>field?.presentation==='generation';
-export const rowGenerationConfig=(row,fieldId,defaults)=>row?.meta?.generationSettings?.[defaults?.promptFieldId]?.[fieldId]||defaults;
+export function rowGenerationConfig(row,fieldId,defaults){
+ const source=row?.meta?.generationPromptFields?.[fieldId]??defaults?.promptFieldId;
+ return row?.meta?.generationSettings?.[source]?.[fieldId]||(source!==defaults?.promptFieldId?{...defaults,promptFieldId:source}:defaults);
+}
 export function setRowGenerationConfig(row,fieldId,config){
  row.meta||={};row.meta.generationSettings||={};row.meta.generationSettings[config.promptFieldId]||={};
  row.meta.generationSettings[config.promptFieldId][fieldId]=structuredClone(config);
@@ -92,6 +95,24 @@ function generationPrompt(table,row,promptFieldId){
 }
 export const generationFrameRoles=config=>config.kind!=='video'?[]:config.mode==='frames2video'?['first','last']:config.mode==='singleImage2video'?['first']:[];
 export const generationFrameTagKey=config=>JSON.stringify([config.promptFieldId,generationFrameRoles(config)]);
+export function applyPromptContent(table,row,promptFieldId,segments,ownerId){
+ const previous=toColumnPrompt(effectivePrompt(table,row,promptFieldId),row),linked=table.fields.find(f=>isGeneration(f)&&f.generation.promptFieldId===promptFieldId);
+ const owner=generationConfigField(table,ownerId||linked?.id),frameId=owner?.id||previous.segments.find(s=>s.type==='frame')?.generationFieldId;
+ const frames=segments.filter(s=>s.type==='frame'),doc={...previous,segments:structuredClone(segments).map(s=>{
+  if(s.type!=='frame')return s;
+  const {binding,...tag}=s;return {...tag,generationFieldId:frameId||tag.generationFieldId};
+ })};
+ row.values[promptFieldId]=doc;
+ if(!isGeneration(owner)||!frames.length&&!previous.segments.some(s=>s.type==='frame'))return;
+ const active=rowGenerationConfig(row,owner.id,owner.generation)?.promptFieldId===promptFieldId;
+ const config=row.meta?.generationSettings?.[promptFieldId]?.[owner.id]||{...owner.generation,promptFieldId};
+ if(active){row.meta||={};row.meta.generationFrames||={};row.meta.generationFrames[owner.id]=Object.fromEntries(frames.filter(s=>s.binding).map(s=>[s.role,structuredClone(s.binding)]));}
+ if(config.kind==='video'){
+  const mode=frames.some(s=>s.role==='last')?'frames2video':frames.some(s=>s.role==='first')?'singleImage2video':'text2video';
+  const next={...config,promptFieldId,mode};setRowGenerationConfig(row,owner.id,next);
+  if(active){row.meta.generationFrameTags||={};row.meta.generationFrameTags[owner.id]=generationFrameTagKey(next);}
+ }
+}
 export function syncGenerationFrameTags(table,fieldId,defaults,recordId=null){
  const changed=new Set();
  for(const row of table.records){

@@ -1,6 +1,6 @@
 import {addGenerationColumn} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {addField,addRecord,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-instructions-v5';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 import {moveRows,moveColumn} from './table_structure_model.mjs';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);node.className=cls;if(text)node.textContent=text;return node;};
@@ -86,7 +86,9 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
     for(const row of rows()){
         const id=row.dataset.recordId,number=getTable().records.findIndex(r=>r.id===id)+1,gutter=row.querySelector('.table-choice'),old=row.querySelector('.row-grip');
         old?.remove();gutter.dataset.structureGutter='true';row.dataset.rowSelected=String(!!getTable().records.find(r=>r.id===id)?.selected);
-        const handle=makeHandle('row',id,`移动第 ${number} 行`);gutter.prepend(handle);
+        if(root.dataset.namedRows==='true'){
+            gutter.tabIndex=0;bindHandle(gutter,'row',id);gutter.title='双击重命名，拖动调整顺序，或 Alt + 方向键';
+        }else gutter.prepend(makeHandle('row',id,`移动第 ${number} 行`));
     }
     for(const header of headers()){
         header.draggable=false;header.ondragover=header.ondrop=null;
@@ -102,7 +104,7 @@ export function attachTableStructure({root,shell,table,getTable,change,notify}) 
     }
     function bindHandle(handle,kind,id){
         handle.dataset.structureKind=kind;handle.dataset.structureId=id;handle.title='拖动调整顺序，或 Alt + 方向键';handle.draggable=false;
-        listen(handle,'pointerdown',e=>{if(kind==='column'&&e.target.closest('button,input,select,a,[role=separator]'))return;start(e,kind,id,handle);});
+        listen(handle,'pointerdown',e=>{if(e.target!==handle&&e.target.closest('button,input,select,a,[role=separator]'))return;start(e,kind,id,handle);});
         listen(handle,'keydown',e=>{
             const keys=kind==='row'?['ArrowUp','ArrowDown']:['ArrowLeft','ArrowRight'];
             if(!e.altKey||!keys.includes(e.key))return;e.preventDefault();e.stopPropagation();

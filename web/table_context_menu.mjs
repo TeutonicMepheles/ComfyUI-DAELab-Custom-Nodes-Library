@@ -1,10 +1,11 @@
+import {applyMaterialCellToColumn} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
 import {isGeneration,rowGenerationConfig,setRowGenerationConfig,generationConfigField} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 import {isPrompt,promptField} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
 import {addField,addRecord,removeField,clone,uid,reorder,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button} from './table_controls.mjs?v=20261009-instructions-v5';
+import {createTableButton as button} from './table_controls.mjs?v=20261017-row-header-drag';
 import {applyPromptToColumn} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {previewContentAsset} from './table_content_view.mjs?v=20261012-client-workflow-r2';
-import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261012-client-workflow-r2';
+import {previewContentAsset} from './table_content_view.mjs?v=20261017-video-tasks';
+import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261017-row-header-drag';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 
@@ -19,7 +20,12 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
     const findCell=()=>{if(!selected?.record)return null;if(!cellAnchor?.isConnected||cellAnchor.dataset.field!==selected.field||cellAnchor.dataset.record!==selected.record)cellAnchor=root.querySelector(`td[data-field="${CSS.escape(selected.field)}"][data-record="${CSS.escape(selected.record)}"]`);return cellAnchor;};
     const field=()=>getTable().fields.find(f=>f.id===selected?.field);
     const mutate=fn=>{try{editor.change(fn);signature='';tick();}catch(e){notify(e.message);}};
-    function rename(){const f=field();if(!f)return;const d=editor.openDialog('重命名列'),input=el('input');input.value=f.name;input.setAttribute('aria-label','列名称');const save=()=>{if(!input.value.trim())return;mutate(t=>t.fields.find(x=>x.id===f.id).name=input.value.trim());d.remove();};d.append(input,button('保存',save),button('取消',()=>d.remove()));input.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)save();};input.focus();input.select();}
+    function rename(){
+        const row=selected?.kind==='row',item=row?getTable().records.find(r=>r.id===selected.record):field();if(!item)return;
+        const title=row?'行':'列',d=editor.openDialog('重命名'+title),input=el('input');input.value=item.name||(row?'任务'+(getTable().records.indexOf(item)+1):'');input.setAttribute('aria-label',title+'名称');
+        const save=()=>{if(!input.value.trim())return;mutate(t=>(row?t.records:t.fields).find(x=>x.id===item.id).name=input.value.trim());d.remove();};
+        d.append(input,button('保存',save),button('取消',()=>d.remove()));input.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)save();};input.focus();input.select();
+    }
     function build(){
         const prompt=isPrompt(field());
         optimizationEntry?.destroy();optimizationEntry=null;
@@ -37,9 +43,9 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
             toolbar.append(button('复制列',()=>mutate(t=>{const old=t.fields.find(f=>f.id===selected.field),next=addField(t,{...clone(old),id:uid(),name:old.name+' 副本'});reorder(t.fields,next.id,old.id,true);for(const r of t.records){r.values[next.id]=clone(r.values[old.id]??emptyValue(old));if(Array.isArray(r.values[next.id]))for(const a of r.values[next.id])a.id=uid();}selected={kind:'column',field:next.id};})),button('清空列',()=>mutate(t=>{const f=t.fields.find(f=>f.id===selected.field);delete f.promptTemplate;for(const r of t.records)r.values[f.id]=emptyValue(f);})),button('删除列',()=>mutate(t=>{removeField(t,selected.field);selected={kind:'table'};})));
         }else if(selected.kind==='row'){
             const recordId=selected.record;
-            toolbar.append(button('复制行',()=>mutate(t=>{
+            toolbar.append(button('重命名',rename),button('复制行',()=>mutate(t=>{
                 const source=clone(t.records.find(row=>row.id===recordId)),copy=addRecord(t,source.values,recordId);
-                Object.assign(copy,source,{id:copy.id});
+                Object.assign(copy,source,{id:copy.id,name:(source.name||'任务'+(t.records.findIndex(r=>r.id===recordId)+1))+' 副本',selected:false});
                 if(copy.meta){delete copy.meta.generation;delete copy.meta.generationColumns;}
                 selected={kind:'row',record:copy.id};
             })),button('清空行',()=>mutate(t=>{
@@ -48,10 +54,9 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
                 if(row.meta){delete row.meta.generation;delete row.meta.generationColumns;delete row.meta.generationFrames;}
             })),button('删除行',()=>mutate(t=>{t.records=t.records.filter(r=>r.id!==recordId);selected={kind:'table'};})));
         }else{
-            const f=field(),value=getTable().records.find(r=>r.id===selected.record)?.values[f?.id],asset=Array.isArray(value)&&value.length===1?value[0]:null;
+            const f=field(),value=getTable().records.find(r=>r.id===selected.record)?.values[f?.id];
             const region=editor.selection().flat(),many=region.length>1;
             if(!many&&f?.type==='content'&&!f.readonly)toolbar.append(button('添加图片',()=>findCell()?.dispatchEvent(new Event('dae-upload'))));
-            if(asset&&!many){const a=el('a','', '下载');a.href=asset.url;a.download=asset.name||'素材';toolbar.append(a);}
             toolbar.append(button('复制',()=>editor.copySelection()));
             if(!many&&prompt&&!f.readonly){const fill=button('应用到整列',()=>mutate(t=>{
                 const source=t.records.find(row=>row.id===selected.record);
@@ -61,8 +66,8 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
                     for(const row of t.records)setRowGenerationConfig(row,target.id,config);
                 }
             }));fill.title='覆盖本列所有行的提示词和当前生成配置；@列引用仍读取各自行的素材，配置不再跟随默认值，可撤销';toolbar.append(fill);}
+            if(!many&&['assets','content'].includes(f?.type)&&!f.readonly&&Array.isArray(value)&&value.length){const fill=button('应用到整列',()=>mutate(t=>applyMaterialCellToColumn(t,selected.field,selected.record)));fill.title='用当前格全部素材覆盖本列其他行，保留素材顺序，可撤销';toolbar.append(fill);}
             toolbar.append(button(many?'清空选区':'清空',()=>editor.clearCells(region.length?region:[{row:{id:selected.record},field:f}])));
-            toolbar.append(button('列操作',()=>{selected={kind:'column',field:selected.field};signature='';tick();}),button('表格操作',()=>{selected={kind:'table'};signature='';tick();}));
         }
     }
     function choose(e){
@@ -105,7 +110,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         if(r.bottom<bounds.top||r.top>bounds.bottom){toolbar.hidden=true;return;}
         toolbar.style.left=Math.max(bounds.left+8,Math.min(r.left,Math.min(bounds.right,document.documentElement.clientWidth)-w-16))+'px';toolbar.style.top=Math.max(bounds.top+8,Math.min(r.top-h-10>=bounds.top?r.top-h-10:r.bottom+10,bounds.bottom-h-8))+'px';
     }
-    const double=e=>{if(e.target.closest('button,input,.dae-column-divider'))return;const th=e.target.closest('th[data-column]');if(th&&root.contains(th)&&active()){e.preventDefault();e.stopPropagation();selected={kind:'column',field:th.dataset.column};rename();}};
+    const double=e=>{if(e.target.closest('button,input,.dae-column-divider'))return;const row=e.target.closest('.table-choice[data-content-row]');if(row&&root.contains(row)&&active()){e.preventDefault();e.stopPropagation();selected={kind:'row',record:row.dataset.contentRow};rename();return;}const th=e.target.closest('th[data-column]');if(th&&root.contains(th)&&active()){e.preventDefault();e.stopPropagation();selected={kind:'column',field:th.dataset.column};rename();}};
     const showPreview=e=>previewContentAsset(editor,e.detail);
     const nativeContext=e=>{
         if(context()||!editor.openPromptOptimization||e.target.closest('[data-inline-editing=true],input,textarea,select'))return;

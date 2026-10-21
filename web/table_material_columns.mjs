@@ -1,4 +1,5 @@
-import {addField,addRecord,emptyValue,normalizeTable,uid} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
+import {bindColumnAssets} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
+import {addField,addRecord,emptyValue,normalizeTable,uid,setValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {addGenerationColumn} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
 
 export function createMaterialTable(){
@@ -6,7 +7,7 @@ export function createMaterialTable(){
     addField(table,{name:'图片/视频',type:'content',width:260});
     const generation=addGenerationColumn(table,{name:'生成'});
     table.fields.find(f=>f.id===generation.generation.promptFieldId).width=420;
-    for(let i=0;i<3;i++)addRecord(table,Object.fromEntries(table.fields.map(f=>[f.id,emptyValue(f)]))).selected=false;
+    for(let i=0;i<3;i++)addRecord(table,Object.fromEntries(table.fields.map(f=>[f.id,emptyValue(f)])));
     return table;
 }
 
@@ -44,4 +45,14 @@ export function fillMaterialRow(table,recordId,collection){
     if(table.fields.length+Math.max(0,assets.length-fields.length)>64)throw new Error('表格最多 64 列，请减少横向填充的素材');
     while(fields.length<assets.length)fields.push(addField(table,{name:`列 ${table.fields.length+1}`,type:'content',width:260}));
     assets.forEach((asset,index)=>{const id=fields[index].id,old=row.values[id]?.[0];row.values[id]=[{...asset,id:old?.url===asset.url?old.id:asset.id}];});
+}
+
+export function applyMaterialCellToColumn(table,fieldId,recordId){
+    const field=table.fields.find(f=>f.id===fieldId),source=table.records.find(r=>r.id===recordId)?.values[fieldId];
+    if(!accepts(field)||!Array.isArray(source)||!source.length)throw new Error('请选择有素材的可编辑单元格');
+    for(const row of table.records){
+        if(row.id===recordId)continue;
+        bindColumnAssets(table,row.id,fieldId);
+        setValue(table,row.id,fieldId,source.map(asset=>({...asset,id:uid()})));
+    }
 }

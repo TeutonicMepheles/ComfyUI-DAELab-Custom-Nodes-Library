@@ -1,6 +1,6 @@
 import {appliedSnapshot,outputText} from './llm_slot_model.mjs?v=20261015-mixed1';
 import {app} from '/scripts/app.js';
-import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261015-provider2';
+import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261017-row-header-drag';
 
 // Slot inputs and explicitly approved output; model calls remain an explicit panel action.
 app.registerExtension({

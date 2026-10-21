@@ -1,13 +1,18 @@
 import {modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
-import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261009-instructions-v5';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261009-instructions-v5';
+import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261017-task-prompt-source';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 import {connectionPanel} from './libtv_connection.mjs';
-import {GENERATION_MODELS,LOCAL_VIDEO_MODEL,isLocalGenerationModel,isGeneration,rowGenerationConfig,setRowGenerationConfig,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationFrameRoles,generationFrames,generationFrameTagKey,syncGenerationFrameTags,syncGenerationPromptMode,syncGenerationPromptSource,generationConfigField,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {GENERATION_MODELS,LOCAL_VIDEO_MODEL,isLocalGenerationModel,isGeneration,rowGenerationConfig,setRowGenerationConfig,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationFrameRoles,generationFrames,generationFrameTagKey,syncGenerationFrameTags,syncGenerationPromptMode,syncGenerationPromptSource,generationConfigField,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261017-task-prompt-source';
 import {effectivePrompt,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {columnReferenceOptions,createReferenceMenu,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
-import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,normalizeLocalGenerationConfig,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261009-instructions-v5';
+import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,normalizeLocalGenerationConfig,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261017-row-header-drag';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
-export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate}){
+function applyModelDefaults(config,schema){
+ if(isLocalGenerationModel(config.model))normalizeLocalGenerationConfig(config,schema);
+ if(!config.mode)config.mode=Object.keys(schema.properties?.modeType?.items||{})[0]||(config.kind==='video'?'text2video':'');
+ for(const setting of generationSettingSpecs(schema,config.mode))if(config.settings[setting.name]===undefined&&setting.default!==undefined)config.settings[setting.name]=structuredClone(setting.default);
+}
+export function attachGenerationColumns({editor,getTable,notify,editPromptTemplate,observe=true,onRefresh=()=>{},canGenerate=()=>true,kinds=['video','image']}){
  let alive=true;
  const configPanels=new Map();
  const frameStamps=new WeakMap();
@@ -39,7 +44,7 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
  let frameMenu=null,frameAnchor=null,settingsMenu=null,promptSourceMenu=null,promptSourceTimer=null;
  let promptSourceCells=[];
  const frameConfig=(fieldId,row,promptFieldId)=>{const owner=generationConfigField(getTable(),fieldId,promptFieldId);const defaults=configPanels.get(owner?.id)?.draft||owner?.generation;return rowGenerationConfig(row,owner?.id,promptFieldId?{...defaults,promptFieldId}:defaults);};
- const tasks=attachGenerationTasks({editor,getTable,notify,getConfig:frameConfig,async prepareGeneration(fieldId,recordId){
+ const tasks=attachGenerationTasks({editor,getTable,notify,getConfig:frameConfig,onUpdate:onRefresh,canGenerate,async prepareGeneration(fieldId,recordId){
    const owner=generationConfigField(getTable(),fieldId),panel=configPanels.get(owner.id),targets=recordId?getTable().records.filter(r=>r.id===recordId):generationRows(getTable(),fieldId);
    if(panel&&(panel.draft.promptFieldId!==owner.generation.promptFieldId||targets.some(row=>rowGenerationConfig(row,owner.id,panel.draft)===panel.draft)))await panel.apply();
  }});
@@ -86,6 +91,7 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
   }
  }
  function refreshSettingBars(){
+  onRefresh();
   const table=getTable(),sources=new Map(),rows=new Map(table.records.map(row=>[row.id,row]));
   for(const target of table.fields.filter(isGeneration)){const field=generationConfigField(table,target.id),config=frameConfig(field.id);if(!sources.has(config.promptFieldId))sources.set(config.promptFieldId,{field,config});}
   refreshDefaultHeaders(sources);
@@ -99,6 +105,18 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
   }
  }
  function closeSettings(){settingsMenu?.close();}
+ async function setKind(fieldId,recordId,kind){
+  const row=()=>getTable().records.find(r=>r.id===recordId),field=findField(fieldId);if(!field||!row()||!kinds.includes(kind))return;
+  const before=JSON.stringify(frameConfig(fieldId,row())),config=structuredClone(frameConfig(fieldId,row()));if(config.kind===kind)return;
+  closeSettings();closeFrames();config.kind=kind;config.model=GENERATION_MODELS[kind][0];config.mode='';config.settings={};
+  let schema={},warning='';
+  try{schema=(await modelCapabilities(config)).schema;}catch(error){if(isLocalGenerationModel(config.model))throw error;warning='已保存，但未能确认模型兼容性：'+error.message;}
+  applyModelDefaults(config,schema);
+  if(!alive||!row()||!findField(fieldId))return;
+  if(!canGenerate()||tasks.submitting||JSON.stringify(frameConfig(fieldId,row()))!==before)throw new Error('任务已变化，请重新选择生成类型');
+  editor.change(t=>setRowGenerationConfig(t.records.find(r=>r.id===recordId),fieldId,config),{render:false});
+  syncFrameTags();refreshFrameTokens();refreshSettingBars();if(warning)notify(warning);
+ }
  async function chooseSetting(fieldId,recordId,key,anchor){
   if(settingsMenu?.anchor===anchor){closeSettings();return;}closeSettings();closeFrames();closePromptSources();
   const spec=PROMPT_SETTINGS_TEMPLATE.find(item=>item.key===key),field=findField(fieldId),row=()=>getTable().records.find(r=>r.id===recordId);if(!field||!row())return;
@@ -121,9 +139,7 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
     if(reset){
      status.textContent='正在读取模型选项…';
      if(!schema||next.kind!==draft.kind||next.model!==draft.model){try{const caps=await modelCapabilities(next);schema=caps.schema;schemaError='';}catch(error){schema={};schemaError=error.message;if(isLocalGenerationModel(next.model))throw error;}if(!active())return;}
-     if(isLocalGenerationModel(next.model))normalizeLocalGenerationConfig(next,schema);
-     if(!next.mode)next.mode=Object.keys(schema.properties?.modeType?.items||{})[0]||(next.kind==='video'?'text2video':'');
-     for(const setting of generationSettingSpecs(schema,next.mode))if(next.settings[setting.name]===undefined&&setting.default!==undefined)next.settings[setting.name]=structuredClone(setting.default);
+     applyModelDefaults(next,schema);
     }
     if(!active())return;current();
     editor.change(t=>setRowGenerationConfig(t.records.find(r=>r.id===recordId),fieldId,next),{render:false});
@@ -139,7 +155,7 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
    for(const [id,label] of items){const control=button(label,()=>{if(id===value){menu.close();return;}void commit(next=>select(next,id),true);});control.setAttribute('aria-pressed',String(id===(key==='mode'?generationModeChoice(value):value)));content.append(control);}
    (content.querySelector('[aria-pressed=true]')||content.querySelector('button'))?.focus({preventScroll:true});
   }
-  if(key==='kind')choices([['video','视频生成'],['image','图片生成']],draft.kind,(next,id)=>{next.kind=id;next.model=GENERATION_MODELS[id][0];next.mode='';next.settings={};});
+  if(key==='kind')choices([['video','视频生成'],['image','图片生成']].filter(([id])=>kinds.includes(id)),draft.kind,(next,id)=>{next.kind=id;next.model=GENERATION_MODELS[id][0];next.mode='';next.settings={};});
   else if(key==='model')choices(GENERATION_MODELS[draft.kind].map(name=>[name,name]),draft.model,(next,id)=>{next.model=id;if(next.kind==='video'&&typeof next.settings.duration==='number')next.settings.duration=Math.min(next.settings.duration,id===LOCAL_VIDEO_MODEL?15:30);});
   else {
    status.textContent='正在读取模型选项…';
@@ -312,10 +328,10 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
   }
   tasks.decorate(headers);
  }
- const observer=new MutationObserver(decorate);observer.observe(editor.root,{childList:true,subtree:true});
+ const observer=new MutationObserver(decorate);if(observe)observer.observe(editor.root,{childList:true,subtree:true});
  const promptInput=refreshSettingBars;editor.root.addEventListener('input',promptInput);
  decorate();
- return {tasks:tasks.tasks,open,renderFrame,syncPromptChanges(table,before){
+ return {tasks:tasks.tasks,generate:tasks.generate,pause:tasks.pause,resume:tasks.resume,chooseSetting,setKind,close(){closeFrames();closeSettings();closePromptSources();},refresh(){syncFrameTags();refreshFrameTokens();refreshSettingBars();},get submitting(){return tasks.submitting;},open,renderFrame,syncPromptChanges(table,before){
   for(const field of table.fields.filter(isGeneration)){
    syncGenerationPromptSource(table,before,field.generation);const panel=configPanels.get(field.id);
    const draftChanged=panel&&syncGenerationPromptSource(table,before,panel.draft);

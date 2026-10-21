@@ -13,7 +13,15 @@ export function bindIOPanel({node,root,source,instruction,select,run,upload,resu
     const paragraph=make('p','',''),status=make('div','llm-style-preview-status');status.setAttribute('role','status');
     const actions=make('div','llm-style-result-actions');result.replaceChildren(paragraph,status,actions);
     const changed=()=>{node.graph?.change?.();render();};
-    const apply=createTableButton('',()=>{if(applyIOResult(saved(),signature())){message='已应用 · 下游通过连线读取';changed();}});tableIcon(apply,'check-line','同意更改');
+    const apply=createTableButton('',()=>{
+        if(disposed||busy||node.mode||apply.disabled)return;
+        try{
+            const confirm=()=>applyIOResult(saved(),signature());
+            const context=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
+            if(context?.confirmOutput?context.confirmOutput(confirm):confirm())message=context?.confirmOutput?'已应用 · 结果文本框已连接':'已应用 · 下游通过连线读取';
+        }catch(error){message=error.message;}
+        changed();
+    });tableIcon(apply,'check-line','同意更改');
     const undo=createTableButton('',()=>{if(undoIOResult(saved())){message='已撤销应用';changed();}});tableIcon(undo,'arrow-go-back-line','撤销应用');
     const regenerate=createTableButton('',()=>run.click());tableIcon(regenerate,'restart-line','重新生成');
     for(const b of [apply,undo,regenerate])b.classList.add('llm-style-result-action');actions.append(apply,undo,regenerate);

@@ -11,6 +11,14 @@ Node: `DAELAB.LibTV.VideoGenerate` / **DAELAB · 生成节点**（保留原节�
 - 任务保存在 `task_data`，随工作流保存。原生输出读取当前任务最新完成的图片或视频：图片走末尾新增的 `image` 输出，视频走原视频输出，另一类型输出为空；原有端口顺序不变。`task_report` 包含所有任务结果，原生队列不会再次提交面板中的生成。没有 `task_data` 的旧脚本调用仍按下述原接口执行。
 - `video_tasks_model.mjs` 持有导入与任务数据，`video_tasks_panel.mjs` 持有视图和节点生命周期；提示词、参数菜单、提交／轮询、暂停及素材输出由现有表格模块提供，画布仅通过业务适配器借用面板。
 
+### 旧工作流恢复
+
+加载工作流时，`onAdded` 可能先于参数和属性恢复执行。生成面板在 `onConfigure` 后释放早期实例，再从已恢复的 `task_data` 创建；旧工作流缺少该字段时，使用恢复后的提示词、模型参数、画布 ID 和旧结果迁移。复用 `removeOwnedWidgets` 清理已有面板，避免重复 DOM widget。
+
+回归入口：在独立测试 ComfyUI 服务上运行 `node tools/video_tasks_restore_smoke.cjs`，服务地址由 `COMFY_URL` 指定（默认 `http://127.0.0.1:8225`）。脚本覆盖两个旧实例的提示词、参数、结果、原四个输出槽、单面板及新格式重载；不提交生成。
+
+`Business integration checks` CI 覆盖表格、LLM、LibTV 的纯模型及生命周期测试、模拟生成桥接后端和 Python 语法；真实 ComfyUI 恢复脚本仍需本地独立服务验收。此 CI 不是全仓库徽章功能验收。
+
 ## 原接口
 
 This node uses the official `libtv` executable and its existing local login. It spends

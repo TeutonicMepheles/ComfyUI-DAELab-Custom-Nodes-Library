@@ -15,7 +15,8 @@ jobs:
           node-version: '24'
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          # Match the ComfyUI runtime used for local integration acceptance.
+          python-version: '3.12'
       # Pure model/lifecycle tests; no ComfyUI server, credentials or paid calls.
       - name: Table, LLM and generation integration models
         run: >-

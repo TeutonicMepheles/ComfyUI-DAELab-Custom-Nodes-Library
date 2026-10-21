@@ -1,0 +1,32 @@
+name: Business integration checks
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  canvas-business-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          # Match the ComfyUI runtime used for local integration acceptance.
+          python-version: '3.12'
+      # Pure model/lifecycle tests; no ComfyUI server, credentials or paid calls.
+      - name: Table, LLM and generation integration models
+        run: >-
+          node --test tests/table*.test.mjs tests/llm*.test.mjs
+          tests/libtv*.test.mjs tests/dynamic_widget_lifecycle.test.mjs
+          tests/app_mode_bypass_model.test.mjs tests/task_snapshots.test.mjs
+      - name: Mocked generation bridge and table backend
+        # Match the locally validated media/HTTP dependencies; no model runtime.
+        run: |
+          python -m pip install av==17.1.0 numpy==2.3.5 pillow==12.2.0 aiohttp==3.14.1
+          python -m unittest tests.test_libtv_bridge tests.test_table_generation
+      - name: Python source syntax
+        run: python -m compileall -q nodes __init__.py

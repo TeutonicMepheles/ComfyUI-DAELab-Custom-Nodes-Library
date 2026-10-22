@@ -1,5 +1,47 @@
 # Table interaction refresh
 
+## Content body restoration, 2026-10-22
+
+The reported Desktop failure was a stale ES-module dependency: the context menu
+requested `applyMaterialCellToColumn` from the old cached material-column URL,
+which did not export it. This prevented both DataTable and ScriptParser extension
+registration, leaving native data widgets but no custom body widgets. Updating
+the dependency URL and both entry-to-panel import chains restores registration
+without clearing user storage or rewriting workflows. A fresh browser session
+had masked this failure; browser-only verification was insufficient.
+
+A separate reproducible lifecycle failure occurred when the native material-group tab hid the existing editor root. When Creative Canvas
+borrowed that root, content presentation hid the native group controls too,
+leaving only a floating title and ports despite valid records. Reproduced with
+two real tables (6 and 3 rows): the second card measured zero height.
+
+Reuse `installContentPresentation` and its public Canvas panel context. Its
+optional `onPresentationChange` callback runs before rendering and on both
+directions of layout transitions; the parser consumer needs no callback.
+`table_panel_views.mjs` extracts the existing native tab visibility logic and
+keeps its choice per instance. Content mode always shows the editor body;
+release restores the native selection. Records, serialization, history, styles
+and empty-table cleanup rules are unchanged.
+
+Browser verification: combined ComfyUI on 8000, two tables; native group/tab
+round trips, full-workflow switch and return, node deletion/undo, save/reload,
+43% and 67% zoom, cell keyboard focus and complete-height canvas scrolling.
+Standalone business package on temporary CPU port 8227 also rendered both
+tables and switched native tabs independently. No generation was submitted.
+Thirteen focused tests passed (material columns, panel presentation, deferred
+install and saved height); syntax and diff checks passed. Screenshots and
+DOM measurements: local `user/table-body-validation-20261022/`.
+
+Desktop verification: the original saved `创作画布测试`, Electron 40.4.1 /
+Comfy Desktop 1.1.7 on port 8000, now creates custom editor widgets for both
+Table 59 (6 rows) and Table 69 (3 rows). Both bodies have nonzero height at
+45% canvas zoom even with native graph zoom at 6.2%. Switching to another
+workflow and returning, moving a table then undoing, and saving preserve the
+bodies. Saved table widget values match the pre-diagnosis backup exactly.
+Temporary diagnostics were removed and a final Desktop refresh still rendered
+the body. Evidence: `user/table-body-validation-20261022/desktop-final-restored.png`.
+No generation or cache deletion was used.
+
 ## Row and column interaction review
 
 Creative-canvas content tables use a dedicated row gutter and column drag handles.

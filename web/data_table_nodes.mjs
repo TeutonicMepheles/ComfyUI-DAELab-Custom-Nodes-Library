@@ -7,7 +7,8 @@ import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_
 import {createMaterialTable} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
 import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-video-tasks';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {installContentPresentation} from './table_context_menu.mjs?v=20261017-video-tasks';
+import {installContentPresentation} from './table_context_menu.mjs?v=20261022-restore-body-r2';
+import {createTablePanelViews} from './table_panel_views.mjs';
 import {tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
 import {createWorkbench,showExistingPanel} from './table_workbench.mjs?v=20261017-video-tasks';
 import {workbenchTheme} from './table_workbench_theme.mjs?v=20261017-remove-validation-line';
@@ -88,8 +89,8 @@ function createPanel(node){
  const parseButton=button('解析选中行',()=>{syncDefaults();return promptUI.parse();},true);tools.append(parseButton);
  const groups=createAssetGroups({getTable:()=>node.__dataTable,change:fn=>editor.change(fn),upload,notify});
  const tableTab=button('任务表',()=>show(false)),groupTab=button('素材组',()=>show(true));tabs.append(tableTab,groupTab);
- function show(group){editor.root.hidden=group;groups.root.hidden=!group;tableTab.setAttribute('aria-selected',String(!group));groupTab.setAttribute('aria-selected',String(group));if(group)groups.render();}
- show(false);
+ const views=createTablePanelViews({editor,groups,tableTab,groupTab});
+ function show(group){views.show(group);}
  let importing=false;
  async function importFile(file){
   if(importing)return;importing=true;const snapshot=JSON.stringify(node.__dataTable);
@@ -140,7 +141,7 @@ function createPanel(node){
   const report=linkedReport(node);if(!report)return;
   const next=clone(node.__dataTable);writeGenerationResults(next,report);if(JSON.stringify(next)!==JSON.stringify(node.__dataTable)){save(node,next);editor.render();updateSummary();}
  };
- const presentation=isGeneric(node)?installContentPresentation({root,editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
+ const presentation=isGeneric(node)?installContentPresentation({root,editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id),onPresentationChange:active=>views.setContent(active)}):null;
  generationUI=isGeneric(node)?attachGenerationColumns({editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
  editor.render();return {tasks:()=>[...optimization.tasks(),...(generationUI?.tasks()||[]),...promptUI.tasks()],root:workbench.host,editor,height:workbench.height,close:()=>{optimization.pause();generationUI?.invalidate();presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{optimization.observe();workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{optimization.destroy();generationUI?.destroy();presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
 }

@@ -1,3 +1,5 @@
+import {syncApprovedTaskRows} from './video_task_rows.mjs?v=20261022-live-chain1';
+import {appliedSnapshot} from './llm_slot_model.mjs?v=20261022-live-chain1';
 import {createTableButton as button,tableIcon,tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
 import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-kind-tabs';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
@@ -154,6 +156,23 @@ export function installVideoTasks(node,app){
    if(!source||source.mode){inputError='输入节点不可用或已停用';continue;}
    if(source.type==='DAELAB.Table'){if(linked&&linked.node!==source){inputError='一次连接一个多维表格';continue;}linked={node:source,key:String(source.id)+':'+link.origin_slot,raw:widget(source,'table_data')?.value};}
   }
+  const rowInputs=(node.inputs||[]).filter(input=>input.link!=null).map(input=>{const link=node.graph?.links[input.link];return {input,link,source:node.graph?.getNodeById(link?.origin_id)};}).filter(({source,link})=>source?.type==='DAELAB.LLMStylePreviewB'&&link.origin_slot===1);
+  if(rowInputs.length){
+   linkedTable=null;inputBar.hidden=true;importButton.hidden=true;
+   try{
+    if(inputError)throw new Error(inputError);
+    if(rowInputs.length!==1||linked||(node.inputs||[]).filter(i=>i.link!=null).length!==1)throw new Error('逐行结果请单独连接，提示词和参考图已按镜头配对');
+    const {source}=rowInputs[0],snapshot=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.inputSnapshot?.(source)??appliedSnapshot(source);
+    if(!snapshot?.ready)throw new Error('等待上游选行、优化并同意更改；已有结果保留');
+    const key=String(source.id)+':1',stamp=JSON.stringify(snapshot);sourceKey=stamp;
+    if(state.approvedSource?.key!==key||state.approvedSource?.stamp!==stamp){
+     if(generation.submitting)throw new Error('提交结束后同步上游');
+     mutate(next=>{syncApprovedTaskRows(next,snapshot);next.approvedSource={key,stamp};delete next.source;},{group:'approved-row-sync'});
+    }
+   }catch(error){inputError=error.message;}
+   return;
+  }
+  if(state.approvedSource&&!linked){linkedTable=null;inputBar.hidden=true;importButton.hidden=true;inputError='逐行结果输入已断开；已有结果保留，请重新连接';return;}
   linkedTable=linked;inputBar.hidden=!linked&&!state.source;importButton.hidden=!linked;
   if(!linked){sourceKey='';syncLinkedMedia();return;}
   const sourceChanged=sourceKey!==linked.raw;sourceKey=linked.raw;
@@ -291,6 +310,7 @@ export function installVideoTasks(node,app){
   status.textContent=inputError||notice||(receipt?(phases[receipt.phase]||receipt.phase)+(receipt.error?' · '+receipt.error:''):'');
  }
  async function runTask(){
+  syncSource();
   if(node.mode||inputError||generation.submitting||changingType)return;
   notice='';
   const row=current(),receipt=row?.meta?.generationColumns?.[state.fieldId];

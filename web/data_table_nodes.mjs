@@ -1,3 +1,4 @@
+import {readTableView} from './table_exchange.mjs?v=20261022-live-chain1';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
@@ -143,16 +144,27 @@ function createPanel(node){
  };
  const presentation=isGeneric(node)?installContentPresentation({root,editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id),onPresentationChange:active=>views.setContent(active)}):null;
  generationUI=isGeneric(node)?attachGenerationColumns({editor,getTable:()=>node.__dataTable,notify,editPromptTemplate:id=>promptUI.editTemplate(id)}):null;
- editor.render();return {tasks:()=>[...optimization.tasks(),...(generationUI?.tasks()||[]),...promptUI.tasks()],root:workbench.host,editor,height:workbench.height,close:()=>{optimization.pause();generationUI?.invalidate();presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{optimization.observe();workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{optimization.destroy();generationUI?.destroy();presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
+ let sourceDisposed=false;
+ const sourceTimer=isGeneric(node)?setInterval(()=>{
+  if(sourceDisposed||!node.graph||node.mode||!node.inputs?.some(i=>i.name==='source_table'&&i.link!=null))return;
+  try{
+   const next=readTableView(node);
+   if(JSON.stringify(next)!==JSON.stringify(node.__dataTable)){save(node,next);editor.render();updateSummary();}
+   root.removeAttribute('data-source-error');
+  }catch(error){root.dataset.sourceError=error.message;}
+ },500):null;
+ editor.render();return {tasks:()=>[...optimization.tasks(),...(generationUI?.tasks()||[]),...promptUI.tasks()],root:workbench.host,editor,height:workbench.height,close:()=>{optimization.pause();generationUI?.invalidate();presentation?.close();promptUI.invalidate();promptUI.close();closeGeneration?.();editor.closeDialogs();workbench.close();},render:()=>{optimization.observe();workbench.restoreHeight();promptUI.observe();editor.render();groups.render();updateSource();updateSummary();},destroy:()=>{sourceDisposed=true;clearInterval(sourceTimer);optimization.destroy();generationUI?.destroy();presentation?.destroy();promptUI.destroy();delete node.__promptUI;delete node.__syncPromptDefaults;closeGeneration?.();workbench.destroy();editor.destroy();}};
 }
 
 function install(node){
  if(!node.graph)return;
+ if(isGeneric(node)&&!node.inputs?.some(i=>i.name==='source_table'))node.addInput('source_table','STRING');
  const duplicate=node.graph._nodes?.some(n=>n!==node&&n.properties?.[NAMESPACE]?.tableId&&n.properties[NAMESPACE].tableId===node.properties?.[NAMESPACE]?.tableId);ensureIdentity(node.graph,node,{duplicate});
  if(node.type==='DAELAB.ComfyTV.GPTImageStoryboardStage')recoverShiftedWorkflowValues(node);
  const raw=widget(node,dataName(node))?.value;
  try{const next=isGeneric(node)?(raw?normalizeTable(raw):createMaterialTable()):readStoryboard(raw);if(node.__dataTable){preserveGenerationHistory(node.__dataTable,next);assertTransition(node.__dataTable,next,{restoring:true});}node.__dataTable=next;}catch(e){notify(`表格未加载：${e.message}`,'error');return;}
  syncGenerationConfigOwners(node.__dataTable);
+ if(isGeneric(node)){const data=widget(node,'table_data');if(data)data.serializeValue=()=>{try{return JSON.stringify(readTableView(node));}catch{return data.value;}};}
  hideNative(node,dataName(node));hideNative(node,'main_prompt');save(node,node.__dataTable);
  if(node.__dataTablePanel){node.__dataTablePanel.render();return;}
  removeOwnedWidgets(node,OWNER);const panel=createPanel(node);node.__dataTablePanel=panel;node.__daelabStoryboardRender=panel.render;

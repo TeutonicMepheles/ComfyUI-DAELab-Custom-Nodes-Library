@@ -1,10 +1,22 @@
 // Public table exchange owned by the table package. No consumer reads panel internals.
 import {normalizeTable} from './data_table_model.mjs';
+import {projectTableSource,selectedTableOutput} from './table_source_model.mjs?v=20261022-live-chain1';
 import {promptContent} from './table_prompt_template.mjs?v=20261017-sync-frames';
-import {promptColumns,applyPromptContent} from './table_generation_model.mjs?v=20261017-sync-frames';
-export function readTableSnapshot(node){
-    if(node?.type!=='DAELAB.Table'||node.mode)throw new Error('多维表格不可用');
-    return normalizeTable(node.widgets?.find(w=>w.name==='table_data')?.value||'{}');
+import {promptColumns,applyPromptContent} from './table_generation_model.mjs?v=20261022-comfy-only';
+export function readTableView(node,seen=new Set()){
+    if(!['DAELAB.Table','DAELAB.ScriptParser'].includes(node?.type)||node.mode)throw new Error('多维表格不可用');
+    if(seen.has(node))throw new Error('表格输入连线形成循环');
+    seen=new Set(seen).add(node);
+    const local=normalizeTable(node.widgets?.find(w=>w.name==='table_data')?.value||'{}');
+    const input=node.inputs?.find(i=>i.name==='source_table');
+    if(input?.link==null){if(local.meta.liveSource)throw new Error('上游表格已断开，请重新连接');return local;}
+    const link=node.graph?.links[input.link],source=node.graph?.getNodeById(link?.origin_id);
+    if(link?.origin_slot!==0)throw new Error('请连接上游的 table_json 输出');
+    return projectTableSource(local,readTableSnapshot(source,seen));
+}
+export function readTableSnapshot(node,seen){
+    const table=readTableView(node,seen);
+    return table.meta.liveSource?selectedTableOutput(table):table;
 }
 export function writeTablePrompts(node,changes,{group=null}={}){
     const table=readTableSnapshot(node),editor=node.__dataTablePanel?.editor;

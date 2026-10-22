@@ -1,4 +1,4 @@
-import {bindIOPanel} from './llm_io_panel.mjs?v=20261021-integrated1';
+import {bindIOPanel} from './llm_io_panel.mjs?v=20261022-live-chain1';
 import {createTableButton,tableTheme} from './table_controls.mjs?v=20261017-row-header-drag';
 let sharedFields=null,sharedPanels=null;
 try{sharedFields=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_field.mjs');sharedPanels=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_panel_state.mjs');}catch{}

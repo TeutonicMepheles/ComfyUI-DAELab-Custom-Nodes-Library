@@ -1,3 +1,4 @@
+import {replaceLinkedTaskText,bindLinkedTaskReference} from './video_task_linked_prompt.mjs?v=20261022-reference1';
 import {syncApprovedTaskRows} from './video_task_rows.mjs?v=20261022-live-chain1';
 import {appliedSnapshot} from './llm_slot_model.mjs?v=20261022-live-chain1';
 import {createTableButton as button,tableIcon,tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
@@ -203,13 +204,14 @@ export function installVideoTasks(node,app){
     const row=state.table.records.find(r=>r.id===previous?.recordId)||current();if(!row||activeVideoTask(row))continue;
     mutate(next=>{
      const target=next.table.records.find(r=>r.id===row.id),output=next.table.fields.find(f=>f.id===next.fieldId),cfg=structuredClone(rowGenerationConfig(target,next.fieldId,output.generation));
-     if(input.name==='text_input'){if(!snapshot.texts)throw new Error('此接口需要文字');const doc=toColumnPrompt(effectivePrompt(next.table,target,cfg.promptFieldId),target);doc.segments=[...doc.segments.filter(s=>s.type==='frame'),{type:'text',text:snapshot.texts.join('\n')}];target.values[cfg.promptFieldId]=doc;}
+     if(input.name==='text_input'){if(!snapshot.texts)throw new Error('此接口需要文字');replaceLinkedTaskText(next.table,target,cfg,snapshot.texts);}
      else{
       const incoming=snapshot.assets||[];if(!incoming.length)throw new Error('上游没有可用素材');
       let column=next.table.fields.find(f=>f.videoInput===input.name);if(!column)column=addField(next.table,{name:({first_frame:'输入首帧',last_frame:'输入尾帧',reference_images:'参考图片',reference_video:'参考视频'})[input.name],type:'content',videoInput:input.name});
       const old=target.values[column.id]||[];target.values[column.id]=incoming.map(a=>{const url=a.url||'/view?'+new URLSearchParams({filename:a.filename,subfolder:a.subfolder||'',type:a.type||'input'});if(!url.startsWith('/view?'))throw new Error('请连接本地 Comfy 素材');return {id:old.find(item=>item.url===url)?.id||uid(),kind:a.kind||'image',url,name:a.name||a.filename||'参考素材'};});
       const role=input.name==='first_frame'?'first':input.name==='last_frame'?'last':null;
       if(role&&cfg.kind==='video'){target.meta||={};target.meta.generationFrames||={};const frames=target.meta.generationFrames[next.fieldId]||={};frames[role]={fieldId:column.id,assetId:target.values[column.id][0].id};cfg.mode=frames.last?'frames2video':'singleImage2video';setRowGenerationConfig(target,next.fieldId,cfg);syncGenerationFrameTags(next.table,next.fieldId,output.generation,target.id);}
+      else if(['reference_images','reference_video'].includes(input.name))bindLinkedTaskReference(next.table,target,next.fieldId,cfg,column);
      }
      next.inputs||={};next.inputs[input.name]={stamp,recordId:target.id};
     });

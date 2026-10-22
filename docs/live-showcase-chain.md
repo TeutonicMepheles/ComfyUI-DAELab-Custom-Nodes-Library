@@ -11,3 +11,7 @@ LLM 的处理要求、模式和模型继续参与审批签名。沿用现有“�
 复用现有表格复选框、LLM 工作台、提示词编辑器、首帧绑定和生成任务面板。没有增加样式或替换共享画布行为。生成节点保留历史类型名，但此链路没有使用 `ComfyTV.*` / `DAELAB.ComfyTV.*` 节点。
 
 回归入口：`node --test tests/live_chain.test.mjs tests/llm_slot_model.test.mjs`。实际 ComfyUI 检查需覆盖两张选行表、修改解析源、审批失效/恢复、任务结果保留、保存重载和播放；不得为了验收提交付费生成。
+
+单镜头比较多种生成方式时，同一 LLM 的槽位 0「结果」可以分别连接生成节点的 `text_input`，上传节点分别连接 `first_frame`、`last_frame` 或 `reference_video`。这条路径消费已经应用的优化结果；输入失效时阻止生成，不需导出表格。文生视频分支不连接生成参考素材，提示词优化阶段仍可读取剧本中的参考图。
+
+文字同步保留提示词中的首尾帧和素材引用；参考素材输入按当前素材 ID 更新绑定，避免更换视频后残留旧 ID。视频参考自动进入 `mixed2video`，图片参考进入 `image2video`，最终仍由具体模型能力校验。回归入口：`node --test tests/video_task_linked_prompt.test.mjs`。

@@ -1,7 +1,7 @@
 import {generationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
-import {request,modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
-import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261017-task-prompt-source';
+import {request,modelCapabilities} from './table_generation_api.mjs?v=20261022-comfy-auth-r2';
+import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,needsGenerationProject,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261022-comfy-seedance';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 const phaseNames={waiting:'等待提交',running:'生成中',pausing:'暂停中',paused:'已暂停',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
 const stageNames={local_queued:'本机排队',local_generating:'本机生成',preparing:'准备中',submitting:'提交平台',writing_back:'等待写回',verifying:'核对原任务',downloading:'下载中'};
@@ -45,7 +45,7 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
      if(!old?.input)throw new Error('原任务快照缺失');jobs.push(recoveryJob(old));continue;
     }
     // An abandoned original shares the input fingerprint; forceNew prevents reusing it.
-    try{const input=generationInput(table,fieldId,row.id);if(!isLocalGenerationModel(input.config.model)&&!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:fresh||Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
+    try{const input=generationInput(table,fieldId,row.id);if(needsGenerationProject(input.config.model)&&!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:fresh||Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
     catch(error){if(recordId||table.records.some(r=>r.selected))throw new Error(`第 ${table.records.indexOf(row)+1} 行：${error.message}`);}
    }
    if(!jobs.length)throw new Error('没有可生成的行，请补充提示词或检查任务状态');

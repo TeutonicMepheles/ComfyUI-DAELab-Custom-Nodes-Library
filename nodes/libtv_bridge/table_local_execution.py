@@ -19,12 +19,17 @@ class LocalExecutionPaused(RuntimeError):
 
 class LocalExecution:
     cache_folder = 'table-local'
+    queued_stage = 'local_queued'
+    running_stage = 'local_generating'
     def __init__(self):
         self.cache = Path(folder_paths.get_input_directory()) / ('daelab/' + self.cache_folder)
         self.cache.mkdir(parents=True, exist_ok=True)
         self.report = None
         self.pause_requested = threading.Event()
         self.prompt_id = None
+
+    def sensitive_data(self):
+        return {}
 
     def pause(self):
         self.pause_requested.set()
@@ -43,6 +48,7 @@ class LocalExecution:
         valid = await execution.validate_prompt(record['promptId'], graph, None)
         if not valid[0]:
             raise LocalExecutionFailure('本地工作流无法执行：' + json.dumps(valid[3] or valid[1], ensure_ascii=False))
+        sensitive = self.sensitive_data()
         if self.pause_requested.is_set():
             self.mark_paused(record, path)
         from ..prompt_optimization.local_qwen import native_admission
@@ -55,7 +61,7 @@ class LocalExecution:
                 atomic_json(path, record)
                 number = server.number
                 server.number += 1
-                server.prompt_queue.put((number, record['promptId'], graph, {'create_time': int(time.time() * 1000)}, valid[2], {}))
+                server.prompt_queue.put((number, record['promptId'], graph, {'create_time': int(time.time() * 1000)}, valid[2], sensitive))
         except ValueError as error:
             # No native task was submitted: keep explicit resume possible.
             record['phase'] = 'paused'
@@ -108,5 +114,5 @@ class LocalExecution:
                         self.mark_paused(record, path)
                     raise RuntimeError('原本地任务不在队列或历史中；未重复提交，请明确重新生成')
                 if self.report:
-                    self.report('local_generating' if active else 'local_queued', taskId=prompt_id)
+                    self.report(self.running_stage if active else self.queued_stage, taskId=prompt_id)
                 time.sleep(2)

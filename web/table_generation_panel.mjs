@@ -1,11 +1,11 @@
-import {modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
-import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261017-task-prompt-source';
+import {modelCapabilities} from './table_generation_api.mjs?v=20261022-comfy-auth-r2';
+import {attachGenerationTasks,generationTaskStyle} from './table_generation_tasks.mjs?v=20261022-comfy-auth-r2';
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 import {connectionPanel} from './libtv_connection.mjs';
-import {GENERATION_MODELS,LOCAL_VIDEO_MODEL,isLocalGenerationModel,isGeneration,rowGenerationConfig,setRowGenerationConfig,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationFrameRoles,generationFrames,generationFrameTagKey,syncGenerationFrameTags,syncGenerationPromptMode,syncGenerationPromptSource,generationConfigField,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261017-task-prompt-source';
+import {GENERATION_MODELS,LOCAL_VIDEO_MODEL,isLocalGenerationModel,isComfyGenerationModel,needsGenerationProject,isGeneration,rowGenerationConfig,setRowGenerationConfig,promptColumns,createGenerationPrompt,enableColumnPrompt,generationRows,generationFrameRoles,generationFrames,generationFrameTagKey,syncGenerationFrameTags,syncGenerationPromptMode,syncGenerationPromptSource,generationConfigField,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261022-comfy-seedance';
 import {effectivePrompt,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {columnReferenceOptions,createReferenceMenu,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
-import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,normalizeLocalGenerationConfig,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261017-row-header-drag';
+import {PROMPT_SETTINGS_TEMPLATE,createPromptSettingsBar,promptSettingsStyle,normalizeLocalGenerationConfig,generationModeLabels,generationModeChoice,generationSettingSpecs,generationModes,promptSettingSpecs,generationSettingWarning,createGenerationSetting,createSettingsPopover} from './table_prompt_settings.mjs?v=20261022-comfy-seedance';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 function applyModelDefaults(config,schema){
  if(isLocalGenerationModel(config.model))normalizeLocalGenerationConfig(config,schema);
@@ -264,12 +264,12 @@ ${generationTaskStyle}.dae-ui .generation-form{display:flex;flex-direction:colum
 
    async function capabilities(){
     refreshDefaults();
-    const local=isLocalGenerationModel(draft.model);project.parentElement.hidden=local;connection.hidden=local;
+    const local=isLocalGenerationModel(draft.model);project.parentElement.hidden=!needsGenerationProject(draft.model);connection.hidden=project.parentElement.hidden;
     const token=++sequence;schema=null;settings.replaceChildren();mode.replaceChildren();status.textContent='正在读取模型选项…';
     try{const caps=await modelCapabilities(draft);if(!alive||!body.isConnected||token!==sequence)return;
      schema=caps.schema;if(local)normalizeLocalGenerationConfig(draft,schema);let modes=Object.keys(schema.properties?.modeType?.items||{});if(!local&&draft.kind==='video'&&!modes.includes('text2video'))modes.unshift('text2video');if(!modes.length)modes=[''];
 
-     for(const m of new Set(modes.map(generationModeChoice)))mode.add(new Option(generationModeLabels[m]||m||'默认',m));if(!modes.includes(draft.mode))draft.mode=modes[0];mode.value=generationModeChoice(draft.mode);drawSettings();refreshDefaults();status.textContent=local&&draft.kind==='image'?'本地 Qwen Turbo · 文生图 · 8 步。默认 1024×1024；宽高为 32 的倍数，总像素最多 2097152。所有本地生成共用串行队列，无需 LibTV 登录。':local?'使用本机 FL 模型生成带声音的视频，按行排队。在表格中点击首尾帧标签选择同行图片；不支持视频参考。默认 768×448、约 2 秒，可调整。':'参考素材请在表格提示词中通过 @ 或首尾帧标签选择。';
+     for(const m of new Set(modes.map(generationModeChoice)))mode.add(new Option(generationModeLabels[m]||m||'默认',m));if(!modes.includes(draft.mode))draft.mode=modes[0];mode.value=generationModeChoice(draft.mode);drawSettings();refreshDefaults();status.textContent=local&&draft.kind==='image'?'本地 Qwen Turbo · 文生图 · 8 步。默认 1024×1024；宽高为 32 的倍数，总像素最多 2097152。所有本地生成共用串行队列，无需 LibTV 登录。':local?'使用本机 FL 模型生成带声音的视频，按行排队。在表格中点击首尾帧标签选择同行图片；不支持视频参考。默认 768×448、约 2 秒，可调整。':isComfyGenerationModel(draft.model)?'使用 ComfyUI 账户积分。首尾帧模式沿用参考图比例；不需要 LibTV 画布。':'参考素材请在表格提示词中通过 @ 或首尾帧标签选择。';
     }catch(error){if(token===sequence&&body.isConnected)status.textContent=error.message;}
    }
    const loadCapabilities=()=>pendingCapabilities=capabilities();

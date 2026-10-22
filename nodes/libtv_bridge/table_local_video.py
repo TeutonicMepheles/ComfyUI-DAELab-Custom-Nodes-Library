@@ -17,6 +17,22 @@ MODEL_FILES = {
     'audio_vae': 'minimax_h3_audio_vae_fp32.safetensors',
     'loras': 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors',
 }
+MODEL_ALTERNATIVES = {
+    'diffusion_models': ('MiniMax-H3_FL2VA-NVFP4.safetensors',),
+    'video_vae': ('minimax_h3_video_vae_fp16.safetensors',),
+}
+
+
+def installed_model_files():
+    """Prefer the existing stack; allow installed FL2VA quantizations only."""
+    result = dict(MODEL_FILES)
+    for key, alternatives in MODEL_ALTERNATIVES.items():
+        category = 'vae' if key.endswith('_vae') else key
+        for filename in (MODEL_FILES[key], *alternatives):
+            if folder_paths.get_full_path(category, filename):
+                result[key] = filename
+                break
+    return result
 MODES = {'text2video': 0, 'singleImage2video': 1, 'frames2video': 2}
 SETTINGS = {
     'width': dict(type='integer', displayName='宽度', default=768, min=32, max=nodes.MAX_RESOLUTION, step=32),
@@ -31,7 +47,7 @@ class LocalVideo(LocalExecution):
     cache_folder = 'table-local-h3'
 
     def check_models(self, turbo):
-        for key, filename in MODEL_FILES.items():
+        for key, filename in installed_model_files().items():
             if key == 'loras' and not turbo:
                 continue
             category = 'vae' if key.endswith('_vae') else key
@@ -73,6 +89,7 @@ class LocalVideo(LocalExecution):
         self.check_models(settings.get('turbo', True))
 
     def build_prompt(self, text, settings, media, key):
+        model_files = installed_model_files()
         values = {name: settings.get(name, spec['default']) for name, spec in SETTINGS.items()}
         seed = secrets.randbits(53) if values['seed'] == -1 else int(values['seed'])
         length = max(5, round(values['duration'] * 24))
@@ -83,10 +100,10 @@ class LocalVideo(LocalExecution):
         def node(kind, **inputs):
             return dict(class_type=kind, inputs=inputs)
         graph = {
-            'model': node('UNETLoader', unet_name=MODEL_FILES['diffusion_models'], weight_dtype='default'),
-            'clip': node('CLIPLoader', clip_name=MODEL_FILES['text_encoders'], type='minimax', device='default'),
-            'video_vae': node('VAELoader', vae_name=MODEL_FILES['video_vae']),
-            'audio_vae': node('VAELoader', vae_name=MODEL_FILES['audio_vae']),
+            'model': node('UNETLoader', unet_name=model_files['diffusion_models'], weight_dtype='default'),
+            'clip': node('CLIPLoader', clip_name=model_files['text_encoders'], type='minimax', device='default'),
+            'video_vae': node('VAELoader', vae_name=model_files['video_vae']),
+            'audio_vae': node('VAELoader', vae_name=model_files['audio_vae']),
             'condition': node('MiniMaxH3ImageToVideo', clip=['clip', 0], vae=['video_vae', 0], prompt=str(text),
                               width=int(values['width']), height=int(values['height']), length=length),
             'noise': node('RandomNoise', noise_seed=seed),

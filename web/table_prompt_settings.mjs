@@ -1,4 +1,4 @@
-import {LOCAL_VIDEO_MODEL} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {LOCAL_VIDEO_MODEL,isComfyGenerationModel} from './table_generation_model.mjs?v=20261022-comfy-seedance';
 import {createTableButton} from './table_controls.mjs?v=20261017-row-header-drag';
 
 // The order and setting keys are the contract documented in docs/prompt-settings-template.md.
@@ -144,17 +144,18 @@ export function createGenerationSetting(spec,config,onChange,unrestricted=false)
   const wrapper=document.createElement('div'),caption=document.createElement('span'),row=document.createElement('div'),track=document.createElement('div'),ticks=document.createElement('div'),input=document.createElement('input'),valueBox=document.createElement('div'),number=document.createElement('input'),unit=document.createElement('span');
   const values=(spec.enum||[]).map(item=>Number(typeof item==='object'?item.value:item)).filter(Number.isFinite);
   const maximum=config.model===LOCAL_VIDEO_MODEL?15:30;
+  const minimum=isComfyGenerationModel(config.model)?4:0,step=isComfyGenerationModel(config.model)?1:.5;
   let seconds=Number(config.settings.duration??spec.default??values[0]??.5);
   wrapper.className='generation-duration';wrapper.setAttribute('role','group');wrapper.setAttribute('aria-label','视频时长');caption.className='generation-duration-caption';caption.textContent='选择视频时长';row.className='generation-duration-row';track.className='generation-duration-track';ticks.className='generation-duration-ticks';ticks.setAttribute('aria-hidden','true');
-  input.type='range';input.className='generation-duration-slider';input.dataset.setting='duration';input.min='0';input.step='.5';input.setAttribute('aria-label','时长（秒），每格 0.5 秒');
-  valueBox.className='generation-duration-value';number.type='number';number.min='0';number.max=String(maximum);number.step='.5';number.setAttribute('aria-label','时长（秒）');unit.textContent='s';unit.setAttribute('aria-hidden','true');valueBox.append(number,unit);
-  for(let index=0;index<4;index++){const mark=document.createElement('span');mark.style.left=index/3*100+'%';mark.textContent=String(index*maximum/3);ticks.append(mark);}
+  input.type='range';input.className='generation-duration-slider';input.dataset.setting='duration';input.min=String(minimum);input.step=String(step);input.setAttribute('aria-label',`时长（秒），每格 ${step} 秒`);
+  valueBox.className='generation-duration-value';number.type='number';number.min=String(minimum);number.max=String(maximum);number.step=String(step);number.setAttribute('aria-label','时长（秒）');unit.textContent='s';unit.setAttribute('aria-hidden','true');valueBox.append(number,unit);
+  for(let index=0;index<4;index++){const mark=document.createElement('span');mark.style.left=index/3*100+'%';mark.textContent=String(Math.round((minimum+index*(maximum-minimum)/3)*10)/10);ticks.append(mark);}
   track.append(input,ticks);row.append(track,valueBox);wrapper.append(caption,row);
-  const show=()=>{input.max=String(maximum);input.value=String(seconds);const fraction=Math.max(0,Math.min(1,seconds/maximum));input.style.setProperty('--duration-fill',`calc(${fraction*100}% + var(--duration-thumb-width) * ${.5-fraction})`);input.setAttribute('aria-valuetext',seconds+' 秒');number.value=String(seconds);};show();
+  const show=()=>{input.max=String(maximum);input.value=String(seconds);const fraction=Math.max(0,Math.min(1,(seconds-minimum)/(maximum-minimum)));input.style.setProperty('--duration-fill',`calc(${fraction*100}% + var(--duration-thumb-width) * ${.5-fraction})`);input.setAttribute('aria-valuetext',seconds+' 秒');number.value=String(seconds);};show();
   config.settings.duration=seconds;
   const commit=()=>{if(config.settings.duration!==seconds){config.settings.duration=seconds;onChange();}};
   input.oninput=()=>{seconds=Number(input.value);show();};input.onchange=commit;
-  number.onchange=()=>{if(number.value===''||!number.reportValidity()){show();return;}const value=Number(number.value);if(value!==seconds)seconds=Math.max(0,Math.round(value*2)/2);show();commit();};
+  number.onchange=()=>{if(number.value===''||!number.reportValidity()){show();return;}const value=Number(number.value);if(value!==seconds)seconds=Math.max(minimum,Math.round(value/step)*step);show();commit();};
   return wrapper;
  }
 

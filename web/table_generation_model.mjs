@@ -4,6 +4,8 @@ import {effectivePrompt,isColumnPrompt,resolveColumnPrompt,columnValue,toColumnP
 export const LOCAL_VIDEO_MODEL='MiniMax H3 FL（本地）';
 export const LOCAL_IMAGE_MODEL='Qwen-Image-2.1 Turbo（本地）';
 export const isLocalGenerationModel=model=>[LOCAL_IMAGE_MODEL,LOCAL_VIDEO_MODEL].includes(model);
+export const isComfyGenerationModel=model=>model==='Seedance 2.5';
+export const needsGenerationProject=model=>!isLocalGenerationModel(model)&&!isComfyGenerationModel(model);
 export const GENERATION_MODELS={image:[LOCAL_IMAGE_MODEL,'Lib Image','Lib Image 2.5 Pro','Lib Image 2.5 Fast'],video:['Seedance 2.0','Seedance 2.5','Minimax H3',LOCAL_VIDEO_MODEL]};
 export const isGeneration=field=>field?.presentation==='generation';
 export function rowGenerationConfig(row,fieldId,defaults){
@@ -182,7 +184,7 @@ export function generationInput(table,fieldId,recordId){
   if(index<0){if(frameBindings&&generationFrameRoles(config).length)throw new Error('正文引用的素材未选为首尾帧，请调整图片选择或正文引用');index=assets.length;assets.push({id:asset.id,fieldId:asset.fieldId,kind:asset.kind,url:asset.url});}
   return {type:'asset',index};
  });
- return {recordId,fieldId,config:structuredClone(config),project:isLocalGenerationModel(config.model)?'':table.meta.generationProject||'',segments,assets};
+ return {recordId,fieldId,config:{...structuredClone(config),...(isComfyGenerationModel(config.model)?{provider:'comfy'}:{})},project:needsGenerationProject(config.model)?table.meta.generationProject||'':'',segments,assets};
 }
 export const inputStamp=input=>JSON.stringify(input);
 export function appendGenerationResult(table,row,fieldId,requestId,result,model){

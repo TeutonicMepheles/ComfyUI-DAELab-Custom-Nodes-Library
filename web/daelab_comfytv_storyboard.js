@@ -1,2 +1,2 @@
-import {registerTableNodes} from "./data_table_nodes.mjs?v=20261022-live-chain1";
+import {registerTableNodes} from "./data_table_nodes.mjs?v=20261023-h3-size-r3";
 registerTableNodes();

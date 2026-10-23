@@ -1,6 +1,6 @@
-import {bindColumnAssets} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {addField,addRecord,emptyValue,normalizeTable,uid,setValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {addGenerationColumn} from './table_generation_model.mjs?v=20261022-comfy-only';
+import {bindColumnAssets} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {addField,addRecord,emptyValue,normalizeTable,uid,setValue} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {addGenerationColumn} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 
 export function createMaterialTable(){
     const table=normalizeTable({meta:{material_columns:true}});
@@ -14,6 +14,8 @@ export function createMaterialTable(){
 // An explicit drop copies an ordered snapshot. It never establishes a hidden
 // runtime graph input or changes reviewed values again when the source changes.
 const accepts=field=>field&&!field.hidden&&!field.readonly&&['assets','content'].includes(field.type);
+export const columnDropTypes=field=>!field||field.hidden||field.readonly?[]:field.presentation==='prompt'?['text']:field.type==='content'?['image','video','text']:field.type==='assets'?['image','video']:['text','longtext'].includes(field.type)?['text']:[];
+export const columnFillCount=(itemCount,rowCount)=>itemCount===1?Math.max(1,rowCount):itemCount;
 function materialSnapshot(collection){
     const assets=collection?.assets;
     if(!Array.isArray(assets))throw new Error('素材组数据无效，未修改表格');
@@ -22,14 +24,25 @@ function materialSnapshot(collection){
 }
 export function fillMaterialColumn(table,fieldId,collection){
     const field=table.fields.find(f=>f.id===fieldId);
+    if(collection?.texts?.length){
+        if(!columnDropTypes(field).includes('text'))throw new Error('此列不能接收文本');
+        if(collection.ready===false||collection.assets?.length||!Array.isArray(collection.texts)||collection.texts.some(text=>typeof text!=='string'))throw new Error('文本素材数据无效，未修改表格');
+        const texts=collection.texts,count=columnFillCount(texts.length,table.records.length);
+        if(count>500)throw new Error('每张表最多 500 行');
+        while(table.records.length<count)addRecord(table);
+        for(let index=0;index<count;index++)setValue(table,table.records[index].id,fieldId,texts[texts.length===1?0:index]);
+        return;
+    }
     if(!accepts(field))throw new Error('此列不能接收素材');
     const assets=materialSnapshot(collection);
-    if(assets.length>500)throw new Error('每张表最多 500 行');
-    while(table.records.length<assets.length)addRecord(table);
-    assets.forEach((asset,index)=>{
+    const count=columnFillCount(assets.length,table.records.length);
+    if(count>500)throw new Error('每张表最多 500 行');
+    while(table.records.length<count)addRecord(table);
+    for(let index=0;index<count;index++){
+        const asset=assets[assets.length===1?0:index];
         const old=table.records[index].values[fieldId]?.[0];
-        table.records[index].values[fieldId]=[{...asset,id:old?.url===asset.url?old.id:asset.id}];
-    });
+        table.records[index].values[fieldId]=[{...asset,id:old?.url===asset.url?old.id:assets.length===1?uid():asset.id}];
+    }
 }
 export function fillMaterialCell(table,recordId,fieldId,collection){
     const row=table.records.find(r=>r.id===recordId),field=table.fields.find(f=>f.id===fieldId);

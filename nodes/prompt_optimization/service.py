@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from .instructions import INSTRUCTIONS, INSTRUCTION_VERSION, INSTRUCTION_DIGEST, INPUT_VERSION
 from .context_copy import context_copy_reason
-from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, TOKEN_ALGORITHM, tokens, cost, provider_for, deepseek_price
+from .pricing import OfficialPricing, MODEL, MODEL_LIMITS, TOKEN_ALGORITHM, tokens, cost, provider_for, deepseek_price, QWEN_MODEL, qwen_price
 from .transport import NativeTransport, TransportError, native_capabilities
 from .deepseek import DeepSeekTransport, key_configured, resolve_key, safe_usage
 
@@ -159,10 +159,12 @@ class Ledger:
 
 
 class Service:
-    def __init__(self, root, *, transport=None, pricing=None, models=None, deepseek_transport=None):
+    def __init__(self, root, *, transport=None, pricing=None, models=None, deepseek_transport=None, qwen_transport=None):
         self.ledger = Ledger(root)
         self.transport = transport or NativeTransport()
         self.deepseek_transport = deepseek_transport or DeepSeekTransport()
+        # Lazy import keeps legacy ledger tooling independent of GPU libraries.
+        self.qwen_transport = qwen_transport
         self.pricing = pricing or OfficialPricing()
         self.models = models or native_capabilities
         self.lock = asyncio.Lock()
@@ -170,8 +172,8 @@ class Service:
         for batch in self.ledger.all('batch'):
             batch['paused'] = True
             for row in batch['rows']:
-                if provider_for(row['snapshot']['model']) == 'deepseek' and row['status'] in INFLIGHT:
-                    row.update(status='unknown', error='DeepSeek 无远端任务查询；服务中断后仅保留本地记录，禁止自动重发')
+                if provider_for(row['snapshot']['model']) in ('deepseek', 'qwen') and row['status'] in INFLIGHT:
+                    row.update(status='unknown', error='服务中断，结果未知；仅保留本地记录，禁止自动重发')
                 elif row['status'] == 'submitting' and not row.get('remoteResponseId'):
                     row.update(status='unknown', error='服务中断，提交结果未知；禁止自动重发，可能已产生费用')
                 elif row['status'] in INFLIGHT:
@@ -208,28 +210,39 @@ class Service:
             provider = provider_for(model)
             try:
                 # A DeepSeek estimate never waits for Partner pricing/network.
-                rate = await self.rate(model) if provider == 'deepseek' or selected not in ('deepseek-flash', 'deepseek-v4-pro') else None
+                rate = await self.rate(model) if provider != 'comfy' or provider_for(selected) == 'comfy' else None
             except Exception:
                 rate = None
-            supported = provider == 'deepseek' or model in native_models
-            ready = supported and (bool(rate) or selected in ('deepseek-flash', 'deepseek-v4-pro'))
+            supported = provider != 'comfy' or model in native_models
+            ready = supported and (bool(rate) or provider_for(selected) != 'comfy')
+            reason = '' if ready else '当前原生节点或官方积分价格不可用'
+            if provider == 'qwen' and selected == model:
+                ready, reason = await self.local_transport().available()
             choices.append(dict(id=model, label=model, provider=provider, available=ready,
-                reason='' if ready else '当前原生节点或官方积分价格不可用',
+                reason=reason,
                 price=rate, **limits))
         current = next((choice for choice in choices if choice['id'] == selected), None)
         price = current['price'] if current else None
         available = bool(current and current['available'] and price)
         reason = current['reason'] if current else '模型不受支持，请重新选择'
         return dict(contractVersion=1, models=choices,
-            defaultModel=MODEL, instructionVersion=INSTRUCTION_VERSION, instructionDigest=INSTRUCTION_DIGEST,
+            defaultModel='deepseek-flash', instructionVersion=INSTRUCTION_VERSION, instructionDigest=INSTRUCTION_DIGEST,
             inputVersion=INPUT_VERSION, available=available, reason=reason, price=price,
             deepseekKeyConfigured=key_configured(),
             tokenAlgorithm=TOKEN_ALGORITHM)
 
     async def rate(self, model):
+        if model == QWEN_MODEL:
+            return qwen_price()
         if provider_for(model) == 'deepseek':
             return deepseek_price(model)
         return dict(await self.pricing.get(model), provider='comfy', currency='credits')
+
+    def local_transport(self):
+        if self.qwen_transport is None:
+            from .qwen import QwenTransport
+            self.qwen_transport = QwenTransport()
+        return self.qwen_transport
 
     async def estimate(self, p):
         selected = p.get('model', p['rows'][0]['model'] if p.get('rows') else MODEL)
@@ -299,7 +312,7 @@ class Service:
             raise ValueError('确认预算不足，请检查输出预算上界')
         # Quotes written before provider support are native credits quotes.
         provider = provider_for(selected)
-        q['price'] = dict(q['price'], provider=provider, currency='USD' if provider == 'deepseek' else 'credits')
+        q['price'] = dict(q['price'], provider=provider, currency={'deepseek': 'USD', 'qwen': 'local'}.get(provider, 'credits'))
         return q
 
     async def submit(self, p):
@@ -383,8 +396,8 @@ class Service:
                 raise ValueError('服务商与冻结模型不一致，请重新估算')
             # Resolve credentials before consuming the one-shot permit or writing
             # submitting. Keep only this provider's credentials in worker memory.
-            worker_auth = {'deepseekKey': resolve_key(auth)} if provider == 'deepseek' else {
-                k: v for k, v in (auth or {}).items() if k in ('token', 'key')}
+            worker_auth = {'deepseekKey': resolve_key(auth)} if provider == 'deepseek' else ({
+                k: v for k, v in (auth or {}).items() if k in ('token', 'key')} if provider == 'comfy' else {})
             permit = self.permits.pop(p['permitId'], None)
             if not permit or permit['expiresAt'] <= now() or any(permit[k] != p[k] for k in ('batchId', 'requestId', 'leaseId')):
                 raise ValueError('提交许可已过期或已消费')
@@ -410,8 +423,9 @@ class Service:
     async def _create(self, batch_id, request_id, auth):
         try:
             snapshot = self.row(self.batch(batch_id), request_id)['snapshot']
-            is_deepseek = provider_for(snapshot['model']) == 'deepseek'
-            transport = self.deepseek_transport if is_deepseek else self.transport
+            provider = provider_for(snapshot['model'])
+            is_deepseek = provider == 'deepseek'
+            transport = self.local_transport() if provider == 'qwen' else self.deepseek_transport if is_deepseek else self.transport
             response, evidence = await transport.create(snapshot, INSTRUCTIONS, auth)
             remote = response.get('id')
             if not isinstance(remote, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', remote):
@@ -419,12 +433,12 @@ class Service:
             async with self.lock:
                 batch = self.batch(batch_id)
                 row = self.row(batch, request_id)
-                if is_deepseek:
+                if provider != 'comfy':
                     usage = safe_usage(response.get('usage'))
                     row.update(remoteResponseId=remote, status='succeeded' if response.get('status') == 'completed' else 'failed',
                         costEvidence={'create': evidence}, actualCredits=None, usage=usage,
                         suggestion=suggestion(response, snapshot))
-                    if 'prompt_tokens' in usage and 'completion_tokens' in usage:
+                    if is_deepseek and 'prompt_tokens' in usage and 'completion_tokens' in usage:
                         row['usageCostUSD'] = cost(usage['prompt_tokens'], usage['completion_tokens'], batch['price'])
                     row.pop('error', None)
                     self.save(batch)  # Full stateless result is atomic; no remote GET.
@@ -437,7 +451,7 @@ class Service:
                 batch = self.batch(batch_id)
                 row = self.row(batch, request_id)
                 row['status'] = 'submitted' if row.get('remoteResponseId') and provider_for(row['snapshot']['model']) == 'comfy' else ('failed' if isinstance(error, TransportError) and error.definitely_rejected else 'unknown')
-                row['error'] = str(error) if isinstance(error, TransportError) else '提交结果未知，请勿自动重试；可能已产生费用'
+                row['error'] = str(error) if isinstance(error, TransportError) else ('本地模型结果未知，请显式重新生成' if provider_for(row['snapshot']['model']) == 'qwen' else '提交结果未知，请勿自动重试；可能已产生费用')
                 batch['paused'] = True
                 self.save(batch)
 

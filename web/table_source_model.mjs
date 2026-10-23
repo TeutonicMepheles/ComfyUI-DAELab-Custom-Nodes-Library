@@ -1,4 +1,4 @@
-import {normalizeTable} from './data_table_model.mjs';
+import {normalizeTable} from './data_table_model.mjs?v=20261023-h3-size-r3';
 
 // A linked table is a selection/view over its source, not an exported copy.
 // Keep row IDs and image objects unchanged so approvals survive save/reload.

@@ -18,6 +18,7 @@ module = importlib.util.module_from_spec(spec)
 sys.modules['promptopt'] = module
 spec.loader.exec_module(module)
 from promptopt.transport import NativeTransport, TransportError, native_request, native_context
+from promptopt.pricing import COMFY_GPT_MODEL
 from promptopt.instructions import INSTRUCTIONS
 from comfy_api_nodes.util._helpers import get_comfy_api_headers
 from comfy_api_nodes.util import request_logger
@@ -57,6 +58,7 @@ async def main():
             {'role':'developer','content':[{'text':INSTRUCTIONS,'type':'input_text'}]},
             {'role':'user','content':[{'text':fixture['inputText'],'type':'input_text'}]}]
         assert received[0]['max_output_tokens']==1024
+        assert 'reasoning' not in received[0]
         await t.query('resp_probe',auth)
         failure_status=503
         try:
@@ -66,6 +68,20 @@ async def main():
         else:
             raise AssertionError('Expected local 503')
         assert calls==['POST','GET','POST'],calls
+        failure_status = None
+        before = len(calls)
+        try:
+            await t.create(dict(snapshot, model=COMFY_GPT_MODEL), INSTRUCTIONS, {})
+        except TransportError as error:
+            assert error.definitely_rejected
+        else:
+            raise AssertionError('Expected missing Comfy authentication rejection')
+        assert len(calls) == before
+        await t.create(dict(snapshot, model=COMFY_GPT_MODEL), INSTRUCTIONS, auth)
+        assert received[-1]['model'] == COMFY_GPT_MODEL
+        assert received[-1]['reasoning'] == {'effort': 'none'}
+        assert received[-1]['max_output_tokens'] == 1024
+        assert received[-1]['input'] == received[0]['input']
         rejections = []
         for status, label in ((401, '登录已过期，请重新登录'), (402, 'ComfyUI 积分不足'),
                               (429, '请求过于频繁，请稍后显式重试')):
@@ -87,6 +103,7 @@ async def main():
             'instructionsExact':True,'inputExact':True,'inputRoles':['developer','user'],
             'topLevelInstructionsAbsent':True,'postRetryCount':0,'getSeparated':True,
             'headerCaptured':True,'logsRedacted':True,'realPaidRequests':0,'loopbackCalls':calls,
+            'lunaReasoningNone':True,'missingAuthNoPost':True,'legacyPayloadUnchanged':True,
             'localRejections':rejections}))
     await runner.cleanup()
 

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {setPromptSource} from '../web/table_prompt_source.mjs';
 import assert from 'node:assert/strict';
 import {createTableSnapshot,readTableSnapshot,writeTablePrompts} from '../web/table_exchange.mjs';
 import {promptContent,toColumnPrompt} from '../web/table_prompt_template.mjs';
@@ -17,6 +18,7 @@ test('output creation uses serialized table contract and avoids an existing neig
 
 function linkedTable(){
  const table={fields:[{id:'p',type:'content',presentation:'prompt',name:'提示词'},{id:'p2',type:'content',presentation:'prompt',name:'另一提示词'},{id:'m',type:'content',name:'素材'}],records:['r1','r2'].map(id=>({id,name:id,values:{p:toColumnPrompt('原文'+id),p2:toColumnPrompt('另一列'+id),m:[]}})),meta:{}};
+ setPromptSource(table,'p');
  const data={name:'table_data',value:JSON.stringify(table)},changes=[],refreshed=[];
  const node={type:'DAELAB.Table',mode:0,widgets:[data],__dataTablePanel:{editor:{change(update,options){const next=JSON.parse(data.value);update(next);data.value=JSON.stringify(next);changes.push(options);},refreshCells(...args){refreshed.push(args);}}}};
  return {node,data,changes,refreshed};
@@ -44,7 +46,7 @@ test('stale, deleted and inactive source cells reject writes without partial cha
 
 test('table edits sync by row and column identity while preserving task settings and results',()=>{
  const {node}=linkedTable(),previous=readTableSnapshot(node),state=importVideoTasks(previous,'p');
- selectTaskPrompt(state,'r2','p2');const row=state.table.records[1];
+ assert.throws(()=>selectTaskPrompt(state,'r2','p2'),/列头切换/);const row=state.table.records[1];
  row.values[state.fieldId]=[{id:'result',kind:'video',url:'/view?filename=done.mp4&type=output'}];
  row.meta.generationColumns={[state.fieldId]:{phase:'complete',requestId:'job'}};
  const saved=structuredClone({output:row.values[state.fieldId],meta:row.meta});

@@ -2,6 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generationDurationOptions,generationParameterSpecs,generationParameterModes,promptSettingsItems,generationParametersSummary} from '../web/table_prompt_settings.mjs';
 import {generationModelIconURL} from '../web/generation_model_icons.mjs';
+import {LOCAL_VIDEO_MODEL} from '../web/table_generation_model.mjs';
+import {LOCAL_VIDEO_SIZE_PRESETS,localVideoSizePresets,normalizeLocalGenerationConfig} from '../web/table_prompt_settings.mjs';
+
+test('H3 ratio presets use exact 32-aligned dimensions and obey live size bounds',()=>{
+ const schema={properties:{width:{min:32,max:8192,step:32},height:{min:32,max:8192,step:32}}};
+ assert.deepEqual(localVideoSizePresets(schema).map(p=>p.ratio),['16:9','9:16','1:1','4:3','3:4']);
+ for(const preset of LOCAL_VIDEO_SIZE_PRESETS){const [w,h]=preset.ratio.split(':').map(Number);assert.equal(preset.width*h,preset.height*w);assert.equal(preset.width%32,0);assert.equal(preset.height%32,0);}
+ assert.deepEqual(localVideoSizePresets({properties:{...schema.properties,width:{min:32,max:384,step:32}}}).map(p=>p.ratio),['9:16','1:1','3:4']);
+ assert.deepEqual(localVideoSizePresets({}),[]);
+});
+
+test('new local H3 uses a preset while old custom dimensions and unrelated settings survive',()=>{
+ const schema={properties:{modeType:{items:{text2video:[]}},width:{type:'integer',default:768,min:32,max:8192,step:32},height:{type:'integer',default:448,min:32,max:8192,step:32},seed:{type:'integer',default:-1,min:-1},turbo:{type:'boolean',default:false}},config:{settings:['width','height','seed','turbo']}};
+ const fresh=normalizeLocalGenerationConfig({model:LOCAL_VIDEO_MODEL,mode:'text2video',settings:{}},schema);
+ assert.deepEqual(fresh.settings,{width:512,height:288,seed:-1,turbo:false});
+ const old={model:LOCAL_VIDEO_MODEL,mode:'text2video',settings:{width:768,height:448,seed:42,turbo:false}};
+ assert.deepEqual(normalizeLocalGenerationConfig(structuredClone(old),schema),old);
+ const image={...old,model:'Qwen-Image-2.1 Turbo（本地）',settings:{}};
+ assert.equal(normalizeLocalGenerationConfig(image,schema).settings.width,768,'other local models retain their schema defaults');
+});
 
 test('combined video summary preserves saved values without mutating config or adding defaults',()=>{
  const config={kind:'video',model:'Seedance 2.5',mode:'frames2video',settings:{resolution:'720p',duration:9,enableSound:'off'}};

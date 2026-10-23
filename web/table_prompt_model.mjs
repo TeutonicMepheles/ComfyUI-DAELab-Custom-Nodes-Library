@@ -1,4 +1,4 @@
-import {isColumnPrompt,validateColumnPrompt,effectivePrompt,resolveColumnPrompt,columnPromptStamp,columnValue} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
+import {isColumnPrompt,validateColumnPrompt,effectivePrompt,resolveColumnPrompt,columnPromptStamp,columnValue} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
 // Pure shared contract; no ComfyUI, DOM or provider calls.
 import {videoReferenceFields,videoReferenceSpecs} from './table_video_references.mjs?v=20260929-refs3';
 const clone=v=>JSON.parse(JSON.stringify(v));

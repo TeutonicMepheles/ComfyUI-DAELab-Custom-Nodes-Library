@@ -1,4 +1,4 @@
-import {promptConfig,promptField,promptState,promptFingerprint} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
+import {promptConfig,promptField,promptState,promptFingerprint} from './table_prompt_model.mjs?v=20261023-h3-size-r3';
 import {videoReferenceSpecs} from './table_video_references.mjs?v=20260929-refs3';
 export function taskFingerprint(table,row) {
     if(table.meta.prompt_mode==='reviewed')return promptFingerprint(table,row);

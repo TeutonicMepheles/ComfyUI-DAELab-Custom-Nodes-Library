@@ -15,6 +15,8 @@ DAELab 维护的 ComfyUI 自定义节点库。
 - [Prompt 方案](nodes/daelab_comfytv_storyboard/PROMPT_PARSE_PLAN.md) · [分阶段验收与 4 个真实视频结果](nodes/daelab_comfytv_storyboard/PROMPT_PARSE_ACCEPTANCE.md)
 - [分镜视频模板](examples/libtv/Storyboard%20Studio.json) · [通用空表模板](examples/table/Generic%20Table.json)
 - [提示词优化：自有 DeepSeek API 配置与费用说明](docs/prompt-optimization-deepseek.md)（单格／整列建议，手动应用）
+- [唯一提示词来源与同行文本引用](docs/table-prompt-source.md) · [整列文本优化与模型设置](docs/table-column-optimization.md)
+- [生成输入与本地 H3 验证](docs/generation-input-validation-20261023.md) · [双仓库整合范围和待验收项](docs/integration-20261023.md)
 
 节点：`DAELAB.Table`（通用表格）、`DAELAB.StoryboardImport`（文稿分镜导入）、`DAELAB.LibTV.StoryboardBatch`（批量视频）及 `DAELAB.ComfyTV.GPTImageStoryboardStage`（既有独立图片生成）。安装新增依赖后重启 ComfyUI 并刷新前端；上游 ComfyTV 保持只读。
 

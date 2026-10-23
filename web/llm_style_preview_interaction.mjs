@@ -1,4 +1,4 @@
-import {createTableButton,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
+import {createTableButton,tableIcon} from './table_controls.mjs?v=20261023-h3-size-r3';
 // Text and image modes share the same server-side transport and explicit apply/undo.
 export function previewSignature(state) {
     return JSON.stringify([state.mode||'polish',state.source??'',state.instruction??'',state.model||'deepseek',state.mode==='reverse'?(state.previewImage?.revision||state.previewImage?.name||''):'']);

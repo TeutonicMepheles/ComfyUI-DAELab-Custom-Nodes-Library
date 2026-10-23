@@ -13,6 +13,7 @@ spec = importlib.util.spec_from_file_location('developer_helpers', ROOT / 'tests
 helpers = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helpers)
 from promptopt.transport import native_capabilities
+from promptopt.pricing import COMFY_GPT_MODEL, MODEL_LIMITS
 
 
 class AcceptedMessage:
@@ -42,6 +43,21 @@ def native_modules(message_type):
 
 
 class DeveloperCapabilityTests(unittest.TestCase):
+    def test_luna_requires_explicit_none_reasoning_support_without_breaking_legacy(self):
+        class Models(Enum):
+            MINI = 'gpt-4.1-mini'
+            LUNA = COMFY_GPT_MODEL
+        modules = native_modules(AcceptedMessage)
+        modules['comfy_api_nodes.nodes_openai'].SupportedOpenAIModel = Models
+        schema = modules['comfy_api_nodes.apis.openai']
+        with patch.dict(sys.modules, modules):
+            self.assertEqual(native_capabilities(), ['gpt-4.1-mini'])
+            schema.OpenAICreateResponse.model_fields['reasoning'] = None
+            schema.Reasoning = lambda **kwargs: SimpleNamespace(model_dump=lambda **unused: kwargs)
+            self.assertEqual(native_capabilities(), ['gpt-4.1-mini', COMFY_GPT_MODEL])
+            schema.Reasoning = lambda **kwargs: SimpleNamespace(model_dump=lambda **unused: {'effort': 'medium'})
+            self.assertEqual(native_capabilities(), ['gpt-4.1-mini'])
+
     def test_accepts_schema_that_serializes_developer_role(self):
         with patch.dict(sys.modules, native_modules(AcceptedMessage)):
             self.assertEqual(native_capabilities(), ['gpt-4.1-mini'])
@@ -58,6 +74,24 @@ class DeveloperCapabilityTests(unittest.TestCase):
 
 
 class DeveloperPricingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_luna_quote_uses_credits_and_rejects_long_context_price_tier(self):
+        snapshot = helpers.snapshot()
+        snapshot['model'] = COMFY_GPT_MODEL
+        snapshot['snapshotDigest'] = helpers.digest({k: v for k, v in snapshot.items() if k != 'snapshotDigest'})
+        with tempfile.TemporaryDirectory() as directory:
+            service = helpers.Service(directory, transport=helpers.Transport(), pricing=helpers.Price(),
+                                      models=lambda: [COMFY_GPT_MODEL])
+            try:
+                quote = await service.estimate({'rows': [snapshot]})
+                self.assertEqual(quote['status'], 'ready')
+                self.assertEqual((quote['provider'], quote['currency']), ('comfy', 'credits'))
+                self.assertLess(MODEL_LIMITS[COMFY_GPT_MODEL]['contextTokens'], 272000)
+                with patch('promptopt.service.tokens', return_value=(272000, 100)):
+                    with self.assertRaisesRegex(ValueError, '上下文限制'):
+                        await service.estimate({'rows': [snapshot]})
+            finally:
+                service.ledger.db.close()
+
     async def test_quote_counts_two_message_framing_and_explains_algorithm(self):
         snapshot = helpers.snapshot()
         count, _ = helpers.tokens(snapshot, helpers.INSTRUCTIONS)

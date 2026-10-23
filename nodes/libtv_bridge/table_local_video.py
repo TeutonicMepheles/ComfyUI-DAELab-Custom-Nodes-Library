@@ -35,8 +35,8 @@ def installed_model_files():
     return result
 MODES = {'text2video': 0, 'singleImage2video': 1, 'frames2video': 2}
 SETTINGS = {
-    'width': dict(type='integer', displayName='宽度', default=768, min=32, max=nodes.MAX_RESOLUTION, step=32),
-    'height': dict(type='integer', displayName='高度', default=448, min=32, max=nodes.MAX_RESOLUTION, step=32),
+    'width': dict(type='integer', displayName='宽度', default=512, min=32, max=nodes.MAX_RESOLUTION, step=32),
+    'height': dict(type='integer', displayName='高度', default=288, min=32, max=nodes.MAX_RESOLUTION, step=32),
     'duration': dict(type='number', displayName='时长（秒）', default=2, min=0.2, max=15),
     'turbo': dict(type='boolean', displayName='启用 8 步加速', default=True),
     'seed': dict(type='integer', displayName='种子（-1 为随机）', default=-1, min=-1, max=9007199254740991),
@@ -64,7 +64,7 @@ class LocalVideo(LocalExecution):
         props['turbo']['default'] = bool(folder_paths.get_full_path('loras', MODEL_FILES['loras']))
         props['modeType'] = dict(items={mode: [count, count] for mode, count in MODES.items()})
         return dict(model=model, kind='video', local=True, schema=dict(properties=props,
-                    config=dict(settings=['width', 'height', 'duration', 'turbo'], advancedSettings=['seed'])))
+                    config=dict(strictModes=True, settings=['width', 'height', 'duration', 'turbo'], advancedSettings=['seed'])))
 
     def validate_request(self, schema, mode, prompt, settings, media):
         if mode not in MODES:

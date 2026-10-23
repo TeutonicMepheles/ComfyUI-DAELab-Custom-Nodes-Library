@@ -1,9 +1,9 @@
-import {bindInlineEditor} from './table_inline_editor.mjs?v=20261017-video-tasks';
-import {isColumnPrompt,columnValue} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {columnReferenceOptions,materialReferenceLabel} from './table_reference_menu.mjs?v=20261001-table-perf';
-import {readPromptSegments} from './table_prompt_template_editor.mjs?v=20261017-video-tasks';
-import {uid,setValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button} from './table_controls.mjs?v=20261017-row-header-drag';
+import {bindInlineEditor} from './table_inline_editor.mjs?v=20261023-h3-size-r3';
+import {isColumnPrompt,columnValue} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {columnReferenceOptions,materialReferenceLabel} from './table_reference_menu.mjs?v=20261023-h3-size-r3';
+import {readPromptSegments} from './table_prompt_template_editor.mjs?v=20261023-h3-size-r3';
+import {uid,setValue} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {createTableButton as button} from './table_controls.mjs?v=20261023-h3-size-r3';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 

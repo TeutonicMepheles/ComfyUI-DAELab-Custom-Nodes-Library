@@ -1,5 +1,5 @@
-import {LOCAL_VIDEO_MODEL,isComfyGenerationModel,isLocalGenerationModel} from './table_generation_model.mjs?v=20261022-comfy-only';
-import {createTableButton} from './table_controls.mjs?v=20261017-row-header-drag';
+import {LOCAL_VIDEO_MODEL,isComfyGenerationModel,isLocalGenerationModel} from './table_generation_model.mjs?v=20261023-h3-size-r3';
+import {createTableButton} from './table_controls.mjs?v=20261023-h3-size-r3';
 import {generationModelIconURL,generationModelLabel} from './generation_model_icons.mjs?v=20261022-channel-label';
 
 // The order and setting keys are the contract documented in docs/prompt-settings-template.md.
@@ -10,7 +10,7 @@ export const PROMPT_SETTINGS_TEMPLATE=Object.freeze([
  {key:'size',label:'比例／分辨率',icon:'aspect-ratio-line',settings:['ratio','resolution','width','height']},
  {key:'duration',label:'时间',icon:'time-line',settings:['duration']},
 ]);
-export const generationModeLabels={text2video:'文生视频',singleImage2video:'首尾帧',frames2video:'首尾帧',image2video:'多图参考',mixed2video:'混合参考',text2image:'文生图',image2image:'参考图',audio2video:'音频参考'};
+export const generationModeLabels={text2video:'文生视频',singleImage2video:'首帧',frames2video:'首尾帧',image2video:'多图参考',mixed2video:'混合参考',text2image:'文生图',image2image:'参考图',audio2video:'音频参考'};
 function sizeLabel(settings){
  const width=Number(settings.width),height=Number(settings.height),dimensions=width>0&&height>0;
  let ratio=settings.ratio;
@@ -53,11 +53,11 @@ export const promptSettingsStyle=`
 .dae-ui .generation-parameter-section{display:flex;flex-direction:column;gap:8px;min-width:0}
 .dae-ui .generation-parameter-title{font-size:14px;font-weight:400;color:var(--dae-text-muted)}
 .dae-ui .generation-parameter-choices{display:flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:14px;background:color-mix(in srgb,var(--dae-surface-high) 88%,var(--dae-text) 12%)}
-.dae-ui.generation-settings-popover .generation-parameter-choices button{flex:1 1 60px;width:auto;min-width:0;min-height:42px;justify-content:center;text-align:center;padding:8px!important;border-radius:9px;white-space:normal}
-.dae-ui.generation-settings-popover .generation-parameter-choices button[aria-pressed]+button[aria-pressed]{margin:0}
-.dae-ui.generation-settings-popover .generation-parameter-choices button[aria-pressed=true]{background:color-mix(in srgb,var(--dae-surface-high) 76%,var(--dae-text) 24%);box-shadow:none}
-.dae-ui.generation-settings-popover .generation-parameter-choices button[aria-pressed=true]::after{display:none}
-.dae-ui.generation-settings-popover .generation-ratio-choices button{flex-direction:column;gap:6px;flex-basis:42px;font-size:12px!important}
+:is(.dae-ui.generation-form,.dae-ui .generation-form) .generation-parameter-choices button{flex:1 1 60px;width:auto;min-width:0;min-height:42px;justify-content:center;text-align:center;padding:8px!important;border-radius:9px;white-space:normal}
+:is(.dae-ui.generation-form,.dae-ui .generation-form) .generation-parameter-choices button[aria-pressed]+button[aria-pressed]{margin:0}
+:is(.dae-ui.generation-form,.dae-ui .generation-form) .generation-parameter-choices button[aria-pressed=true]{background:color-mix(in srgb,var(--dae-surface-high) 76%,var(--dae-text) 24%);box-shadow:none}
+:is(.dae-ui.generation-form,.dae-ui .generation-form) .generation-parameter-choices button[aria-pressed=true]::after{display:none}
+:is(.dae-ui.generation-form,.dae-ui .generation-form) .generation-ratio-choices button{flex-direction:column;gap:6px;flex-basis:42px;font-size:12px!important}
 .dae-ui .generation-ratio-shape{display:block;width:var(--ratio-width);height:var(--ratio-height);border:1.5px solid currentColor;border-radius:2px;opacity:.8}
 .dae-ui.generation-settings-popover .generation-parameter-sections>section:first-child button[aria-pressed=true]{box-shadow:inset 0 0 0 2px var(--dae-text)}
 .dae-ui .generation-duration-viewport{min-width:0;overflow:hidden;border-radius:14px;background:color-mix(in srgb,var(--dae-surface-high) 88%,var(--dae-text) 12%)}
@@ -140,26 +140,56 @@ export function generationDurationOptions(spec,current){
  return [...new Set(values)].sort((a,b)=>a-b);
 }
 export function generationParameterModes(config,schema){
+ if(isLocalGenerationModel(config.model))return Object.keys(schema.properties?.modeType?.items||{});
  const declared=Object.keys(schema.properties?.modeType?.items||{}).map(generationModeChoice);
  if(!declared.length)return generationModes(schema,config.kind);
  if(config.kind==='video'&&!schema.config?.strictModes)declared.unshift('text2video');
  // Retain a saved unsupported mode visibly; opening this panel must not migrate data.
- if(config.mode)declared.push(generationModeChoice(config.mode));
+ if(config.mode&&!schema.config?.strictModes)declared.push(generationModeChoice(config.mode));
  return [...new Set(declared)];
 }
+export const LOCAL_VIDEO_SIZE_PRESETS=Object.freeze([
+ {ratio:'16:9',width:512,height:288},{ratio:'9:16',width:288,height:512},
+ {ratio:'1:1',width:384,height:384},{ratio:'4:3',width:512,height:384},{ratio:'3:4',width:384,height:512},
+].map(Object.freeze));
+export function localVideoSizePresets(schema){
+ return LOCAL_VIDEO_SIZE_PRESETS.filter(preset=>['width','height'].every(key=>{
+  const spec=schema.properties?.[key];return spec&&preset[key]>=(spec.min??0)&&preset[key]<=(spec.max??Infinity)&&(!spec.step||preset[key]%spec.step===0);
+ }));
+}
+function parameterChoices(parent,name,items,value,select){
+ const group=document.createElement('div');group.className='generation-parameter-choices';group.setAttribute('role','group');group.setAttribute('aria-label',name);parent.append(group);
+ for(const [id,label] of items){const control=createTableButton(label,()=>select(id));control.dataset.focusKey=name+':'+String(id);control.setAttribute('aria-pressed',String(id===value));group.append(control);}
+ return group;
+}
+function decorateRatioChoices(group,options){
+ group.classList.add('generation-ratio-choices');
+ [...group.children].forEach((control,index)=>{const ratio=String(options[index][0]).match(/^(\d+):(\d+)$/);if(!ratio)return;const shape=document.createElement('span'),r=Number(ratio[1])/Number(ratio[2]);shape.className='generation-ratio-shape';shape.setAttribute('aria-hidden','true');shape.style.setProperty('--ratio-width',`${r>=1?20:20*r}px`);shape.style.setProperty('--ratio-height',`${r>=1?20/r:20}px`);control.prepend(shape);});
+}
+export function createLocalVideoSizePicker(config,schema,onChange){
+ const root=document.createElement('section'),title=document.createElement('div');root.className='generation-parameter-section';root.dataset.parameter='ratio';title.className='generation-parameter-title';title.textContent='比例';root.append(title);
+ const presets=localVideoSizePresets(schema),settings=config.settings||{};
+ const current=presets.find(p=>p.width===settings.width&&p.height===settings.height),options=presets.map(p=>[p.ratio,p.ratio]);
+ const group=parameterChoices(root,'比例',options,current?.ratio,id=>{const preset=presets.find(p=>p.ratio===id);if(preset&&preset!==current)onChange({width:preset.width,height:preset.height});});
+ decorateRatioChoices(group,options);
+ if(!current&&settings.width&&settings.height){const saved=document.createElement('small');saved.textContent=`当前 ${settings.width}×${settings.height}，选择比例后应用预设`;root.append(saved);}
+ return root;
+}
 // One view over the existing schema and setting editor. It never saves or submits by itself.
-export function createGenerationParameters(config,schema,{onMode,onSetting}){
+export function createGenerationParameters(config,schema,{onMode,onSetting,onSettings}){
  const root=document.createElement('div');root.className='generation-parameter-sections';
  const cleanups=[];root.dispose=()=>{for(const cleanup of cleanups.splice(0))cleanup();};
  const section=(name,parent=root)=>{const block=document.createElement('section'),title=document.createElement('div');block.className='generation-parameter-section';title.className='generation-parameter-title';title.textContent=name;block.append(title);parent.append(block);return block;};
- const choices=(parent,name,items,value,select)=>{
-  const group=document.createElement('div');group.className='generation-parameter-choices';group.setAttribute('role','group');group.setAttribute('aria-label',name);parent.append(group);
-  for(const [id,label] of items){const control=createTableButton(label,()=>select(id));control.dataset.focusKey=name+':'+String(id);control.setAttribute('aria-pressed',String(id===value));group.append(control);}
-  return group;
- };
+ const choices=parameterChoices;
  const modes=generationParameterModes(config,schema),modeSection=section('生成方式');
- choices(modeSection,'生成方式',modes.map(id=>[id,generationModeLabels[id]||id||'默认']),generationModeChoice(config.mode),id=>{if(id!==config.mode)return onMode(id);});
- for(const spec of generationParameterSpecs(schema,config.mode)){
+ const selectedMode=isLocalGenerationModel(config.model)?config.mode:generationModeChoice(config.mode);
+ choices(modeSection,'生成方式',modes.map(id=>[id,generationModeLabels[id]||id||'默认']),selectedMode,id=>{if(id!==config.mode)return onMode(id);});
+ if(config.mode&&!modes.includes(selectedMode)){
+  const warning=document.createElement('p');warning.setAttribute('role','status');warning.textContent='当前模型不支持已保存的生成方式，请重新选择。';modeSection.append(warning);
+ }
+ const localVideo=config.model===LOCAL_VIDEO_MODEL;
+ if(localVideo)root.append(createLocalVideoSizePicker(config,schema,onSettings));
+ for(const spec of generationParameterSpecs(schema,config.mode).filter(spec=>!localVideo||!['width','height','ratio','resolution'].includes(spec.name))){
   const title=({resolution:'清晰度',duration:'生成时长',enableSound:'生成音频',sound:'生成音频',generateAudio:'生成音频'})[spec.name]||spec.displayName||spec.title||spec.name,block=section(title);block.dataset.parameter=spec.name;
   const value=config.settings?.[spec.name]??spec.default,items=spec.enum?.map(item=>typeof item==='object'?[item.value,String(item.displayName||item.label||item.value)]:[item,String(item)]);
   if(spec.name==='duration'){
@@ -182,10 +212,7 @@ export function createGenerationParameters(config,schema,{onMode,onSetting}){
    if(spec.name==='ratio')for(const item of options){if(item[0]==='adaptive')item[1]='自动';}
    if(spec.name==='enableSound')for(const item of options){if(item[0]==='on')item[1]='开启';if(item[0]==='off')item[1]='关闭';}
    const group=choices(block,title,options,value,id=>onSetting(spec.name,id));
-   if(spec.name==='ratio'){
-    group.classList.add('generation-ratio-choices');
-    [...group.children].forEach((control,index)=>{const ratio=String(options[index][0]).match(/^(\d+):(\d+)$/);if(!ratio)return;const shape=document.createElement('span'),r=Number(ratio[1])/Number(ratio[2]);shape.className='generation-ratio-shape';shape.setAttribute('aria-hidden','true');shape.style.setProperty('--ratio-width',`${r>=1?20:20*r}px`);shape.style.setProperty('--ratio-height',`${r>=1?20/r:20}px`);control.prepend(shape);});
-   }
+   if(spec.name==='ratio')decorateRatioChoices(group,options);
   }else{
    const edit=structuredClone(config),control=createGenerationSetting(spec,edit,()=>onSetting(spec.name,edit.settings[spec.name]),!isLocalGenerationModel(config.model));
    if(control.tagName==='LABEL'&&control.firstChild?.nodeType===3)control.firstChild.remove();block.append(control);
@@ -215,6 +242,7 @@ export function normalizeLocalGenerationConfig(config,schema){
   if(valid)settings[spec.name]=value;
   else if(spec.default!==undefined)settings[spec.name]=structuredClone(spec.default);
  }
+ if(config.model===LOCAL_VIDEO_MODEL&&previous.width===undefined&&previous.height===undefined){const preset=localVideoSizePresets(schema)[0];if(preset)Object.assign(settings,{width:preset.width,height:preset.height});}
  config.settings=settings;return config;
 }
 export function promptSettingSpecs(schema,mode,key,settings={}){
@@ -270,13 +298,13 @@ export function createGenerationSetting(spec,config,onChange,unrestricted=false)
  input.onchange=()=>{if(!input.reportValidity())return;if(unrestricted&&input.type!=='checkbox'&&input.value==='')delete config.settings[spec.name];else config.settings[spec.name]=input.type==='checkbox'?input.checked:select?values[Number(input.value)]:input.type==='number'?Number(input.value):input.value;onChange();};
  return wrapper;
 }
-export function createSettingsPopover(anchor,title,onClose){
+export function createSettingsPopover(anchor,title,onClose,{placement='below',onEscape=()=>false}={}){
  const root=document.createElement('div');root.className='dae-ui generation-settings-popover generation-form';root.id='generation-setting-'+crypto.randomUUID();root.setAttribute('role','dialog');root.setAttribute('aria-label',title);
  const heading=document.createElement('strong');heading.textContent=title;root.append(heading);document.body.append(root);anchor.setAttribute('aria-expanded','true');anchor.setAttribute('aria-controls',root.id);
  let closed=false;
- const place=()=>{if(!anchor.isConnected||!anchor.getClientRects().length){close();return;}const r=anchor.getBoundingClientRect();root.style.left=Math.max(8,Math.min(r.left,innerWidth-root.offsetWidth-8))+'px';root.style.top=Math.max(8,Math.min(r.bottom+8,innerHeight-root.offsetHeight-8))+'px';};
+ const place=()=>{if(!anchor.isConnected||!anchor.getClientRects().length){close();return;}const r=anchor.getBoundingClientRect();root.style.left=Math.max(8,Math.min(r.left,innerWidth-root.offsetWidth-8))+'px';root.style.top=Math.max(8,Math.min(placement==='above'?r.top-root.offsetHeight-8:r.bottom+8,innerHeight-root.offsetHeight-8))+'px';};
  const outside=e=>{if(!root.contains(e.target)&&!anchor.contains(e.target))close();};
- const keys=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();anchor.focus({preventScroll:true});}};
+ const keys=e=>{if(e.key==='Escape'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();e.stopPropagation();if(onEscape())return;close();anchor.focus({preventScroll:true});}};
  function close(){if(closed)return;closed=true;observer.disconnect();document.removeEventListener('pointerdown',outside,true);document.removeEventListener('keydown',keys,true);document.removeEventListener('scroll',place,true);window.removeEventListener('resize',place);globalThis.removeEventListener('dae-canvas-layout',place);root.remove();anchor.removeAttribute('aria-controls');anchor.setAttribute('aria-expanded','false');onClose();}
  for(const name of ['pointerdown','mousedown','click','dblclick','keydown'])root.addEventListener(name,e=>e.stopPropagation());
  root.addEventListener('wheel',e=>{if(!e.ctrlKey&&!e.metaKey)e.stopPropagation();},{passive:true});

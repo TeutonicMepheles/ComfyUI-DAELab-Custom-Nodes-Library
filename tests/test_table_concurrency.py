@@ -15,7 +15,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.root = Path(self.directory.name)
         source = Path(__file__).resolve().parents[1] / 'nodes/libtv_bridge/table_generation_api.py'
         tree = ast.parse(source.read_text('utf-8'))
-        names = {'run_batch', 'submit', 'public'}
+        names = {'run_batch', 'submit', 'public', 'require_current_provider'}
         tree.body = [n for n in tree.body if
                      isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in names
                      or isinstance(n, ast.Assign) and any(
@@ -29,7 +29,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         exec(compile(tree, str(source), 'exec'), self.api)
 
     def state(self, name, execution=None):
-        state = dict(requestId=name, phase='waiting', input={'project': 'p', 'config': {'model':'cloud-test'}})
+        state = dict(requestId=name, phase='waiting', provider='comfy', input={'project': 'p', 'config': {'model':'cloud-test'}})
         if execution:
             state['executionId'] = execution
         self.api['atomic_json'](self.api['receipt_path'](name), state)
@@ -44,7 +44,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.api['_queue'] = asyncio.Semaphore(2)
         started = []
         release = threading.Event()
-        def execute(state):
+        def execute(state, auth=None):
             started.append(state['requestId'])
             if not release.wait(3):
                 raise AssertionError('scheduler did not release workers')
@@ -75,7 +75,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     async def test_local_qwen_and_h3_share_one_slot_across_batches(self):
         started = []
         release = threading.Event()
-        def execute(state):
+        def execute(state, auth=None):
             started.append(state['requestId'])
             release.wait(3)
             return True
@@ -101,7 +101,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         active = set()
         overlap = []
         guard = threading.Lock()
-        def execute(state):
+        def execute(state, auth=None):
             key = state.get('executionId', state['requestId'])
             with guard:
                 if key in active:
@@ -116,7 +116,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(overlap, [])
 
     async def test_worker_exception_becomes_recoverable_and_other_rows_finish(self):
-        def execute(state):
+        def execute(state, auth=None):
             if state['requestId'] == 'broken':
                 raise RuntimeError('worker interrupted')
             state['phase'] = 'complete'
@@ -133,7 +133,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     async def test_fixed_32_jobs_across_batches(self):
         started = []
         release = threading.Event()
-        def execute(state):
+        def execute(state, auth=None):
             started.append(state['requestId'])
             if not release.wait(5):
                 raise AssertionError('workers not released')
@@ -156,7 +156,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     async def test_out_of_order_completion_keeps_receipt_identity(self):
         release = threading.Event()
         finished = []
-        def execute(state):
+        def execute(state, auth=None):
             if state['requestId'] == 'slow':
                 release.wait(3)
             state.update(phase='complete', result={'name': state['requestId']})
@@ -178,16 +178,16 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     async def test_duplicate_submit_and_preflight_failure(self):
         release = threading.Event()
         started = []
-        def execute(state):
+        def execute(state, auth=None):
             started.append(state['requestId'])
             release.wait(3)
             return True
         state = self.state('a')
         self.api.update(execute=execute, prepare=lambda item: state)
-        await self.api['submit']([{}])
+        await self.api['submit']([{'input': {'config': {}}}])
         try:
             await self.wait_for(lambda: bool(started))
-            await self.api['submit']([{}])
+            await self.api['submit']([{'input': {'config': {}}}])
             self.assertEqual(started, ['a'])
         finally:
             release.set()
@@ -198,7 +198,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             return self.state('b')
         self.api['prepare'] = prepare
         with self.assertRaises(ValueError):
-            await self.api['submit']([{}, {'invalid': True}])
+            await self.api['submit']([{'input': {'config': {}}}, {'invalid': True, 'input': {'config': {}}}])
         self.assertFalse(self.api['_tasks'])
         self.assertEqual(started, ['a'])
 

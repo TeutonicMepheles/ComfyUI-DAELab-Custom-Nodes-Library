@@ -1,4 +1,4 @@
-import {normalizeTable} from './data_table_model.mjs';
+import {normalizeTable} from './data_table_model.mjs?v=20261023-h3-size-r3';
 export const MODE_LABELS={polish:'提示词润色',reverse:'图片反推',custom:'自定义'};
 export function tableInput(table){
     const fields=table.fields.filter(f=>!f.hidden), images=fields.filter(f=>['assets','content'].includes(f.type)&&table.records.some(r=>Array.isArray(r.values[f.id])&&r.values[f.id].length)), texts=fields.filter(f=>['text','longtext','content'].includes(f.type)&&table.records.some(r=>typeof r.values[f.id]==='string'&&r.values[f.id].trim()));

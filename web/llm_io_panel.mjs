@@ -1,7 +1,7 @@
-import {createTableButton,tableIcon,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
+import {createTableButton,tableIcon,tableHistory} from './table_controls.mjs?v=20261023-h3-size-r3';
 import {app} from '/scripts/app.js';
-import {availableModes,simulateRows,applyIOResult,undoIOResult} from './llm_io_model.mjs?v=20261015-mixed1';
-import {slotRows,slotSignature,outputText} from './llm_slot_model.mjs?v=20261022-live-chain1';
+import {availableModes,simulateRows,applyIOResult,undoIOResult} from './llm_io_model.mjs?v=20261023-h3-size-r3';
+import {slotRows,slotSignature,outputText} from './llm_slot_model.mjs?v=20261023-h3-size-r3';
 import {optimizeRow} from './llm_local_provider.mjs?v=20261015-provider2';
 import {createLLMTask} from './llm_task_model.mjs?v=20261015-provider2';
 export function bindIOPanel({node,root,source,instruction,select,run,upload,result,materialHint}){

@@ -1,5 +1,9 @@
 # Remix Icon assets
 
+2026-10-23: Added `Logos/openai-fill.svg` from the official v4.6.0 source for the ComfyUI GPT model option:
+https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Logos/openai-fill.svg.
+The bundled Remix Icon license applies.
+
 Project UI icon source: https://remixicon.com/ (user-selected).
 
 These original SVGs were retrieved on 2026-09-07 from the official repository:

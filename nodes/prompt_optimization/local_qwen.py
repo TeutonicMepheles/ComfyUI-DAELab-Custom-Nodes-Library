@@ -99,7 +99,7 @@ def image_payload(data_url):
     return base64.b64encode(output.getvalue()).decode()
 
 
-async def _generate(text, instructions, image):
+async def _generate(text, instructions, image, context_tokens=8192, max_output_tokens=768):
     global _active
     async with admission():
         if _quarantined or lock_path().with_suffix('.quarantine').exists():
@@ -123,7 +123,7 @@ async def _generate(text, instructions, image):
             mm.unload_all_models(); mm.soft_empty_cache()
             body = {'model': MODEL, 'system': instructions, 'prompt': text,
                     'stream': False, 'think': False, 'keep_alive': 0,
-                    'options': {'num_ctx': 8192, 'num_predict': 768, 'temperature': 0.4}}
+                    'options': {'num_ctx': context_tokens, 'num_predict': max_output_tokens, 'temperature': 0.4}}
             if image:
                 body['images'] = [image_payload(image)]
             try:
@@ -142,9 +142,9 @@ async def _generate(text, instructions, image):
                 _active = False
 
 
-async def generate(text, instructions, image=''):
+async def generate(text, instructions, image='', *, context_tokens=8192, max_output_tokens=768):
     # A disconnected browser cannot release GPU admission while inference is alive.
-    task = asyncio.create_task(_generate(text, instructions, image))
+    task = asyncio.create_task(_generate(text, instructions, image, context_tokens, max_output_tokens))
     try:
         return await asyncio.shield(task)
     except asyncio.CancelledError:

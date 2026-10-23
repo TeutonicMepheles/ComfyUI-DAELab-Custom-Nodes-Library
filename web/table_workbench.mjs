@@ -1,4 +1,4 @@
-import {tableDialog,tableButton} from './data_table_editor.mjs?v=20261017-video-tasks';
+import {tableDialog,tableButton} from './data_table_editor.mjs?v=20261023-h3-size-r3';
 import {isNodeAvailableInAppMode} from './app_mode_bypass_model.mjs';
 
 // Move the existing UI, preserving its state, handlers and undo history.

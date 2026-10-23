@@ -1,4 +1,4 @@
-import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
+import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
 
 // This module lives only in this page. Never expose the value through state,
 // serialized payloads, preferences, storage, or diagnostic messages.
@@ -63,7 +63,7 @@ export function createPromptOptimizationApi({fetchApi, getAuth} = {}) {
     if(provider==='deepseek'&&action==='advance'){
       if(!pageDeepSeekKey&&!serverDeepSeekKeyConfigured)throw new Error('请先保存本页 DeepSeek API 密钥，或配置服务器 DEEPSEEK_API_KEY，再点击继续剩余行');
       if(pageDeepSeekKey)headers['X-DAELab-DeepSeek-Key']=pageDeepSeekKey;
-    }else if (provider!=='deepseek'&&!localOnly&&['advance', 'query', 'recover'].includes(action)) {
+    }else if (provider==='comfy'&&!localOnly&&['advance', 'query', 'recover'].includes(action)) {
       auth = getAuth ? await getAuth() : await nativeOptimizationAuth({required:action==='advance'});
       if (auth?.headers?.Authorization) headers.Authorization=auth.headers.Authorization;
       else if(auth?.headers?.['X-API-Key']) headers['X-API-Key']=auth.headers['X-API-Key'];
@@ -74,7 +74,7 @@ export function createPromptOptimizationApi({fetchApi, getAuth} = {}) {
     if(beforeSend&&beforeSend()===false)throw new Error('当前视图或目标已变化，未发送请求');
     let response;
     try { response = await fetcher(`/daelab/prompt-optimization/${action}`, {
-      method: 'POST', headers, body: JSON.stringify({...payload,...(provider==='deepseek'?{provider}:{}),contractVersion: 1}),
+      method: 'POST', headers, body: JSON.stringify({...payload,...(provider!=='comfy'?{provider}:{}),contractVersion: 1}),
     }); } catch(error) {
       if(provider==='deepseek')throw new Error('DeepSeek 请求连接中断；请查询原任务，不要自动重新提交');
       throw error;

@@ -24,15 +24,15 @@ export function tableTheme() {
     document.head.append(bundled);
     const sheet = document.createElement('link');
     sheet.id = 'dae-table-ui-css'; sheet.rel = 'stylesheet';
-    sheet.href = new URL('./table_ui.css?v=20261017-row-header-drag', import.meta.url).href;
+    sheet.href = new URL('./table_ui.css?v=20261023-prompt-source', import.meta.url).href;
     document.head.append(sheet);
 }
 
 export function tableIcon(button, name, label) {
     button.title = label; button.setAttribute('aria-label', label);
     const bundled=['sparkling-line','arrow-left-right-line'].includes(name);
-    if (!shared && !bundled && !['delete-bin-line','check-line','arrow-go-back-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)) { button.textContent = label; return button; }
+    if (!shared && !bundled && !['settings-3-line','chat-ai-line','delete-bin-line','check-line','arrow-go-back-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)) { button.textContent = label; return button; }
     const icon = document.createElement('span');icon.className='dae-table-icon';icon.setAttribute('aria-hidden','true');
-    icon.style.setProperty('--table-icon', `url("${bundled?new URL('./vendor/prompt-optimization-shared/vendor/remixicon/'+name+'.svg',import.meta.url).href:['delete-bin-line','draggable','settings-3-line','check-line','arrow-go-back-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
+    icon.style.setProperty('--table-icon', `url("${bundled?new URL('./vendor/prompt-optimization-shared/vendor/remixicon/'+name+'.svg',import.meta.url).href:['chat-ai-line','delete-bin-line','draggable','settings-3-line','check-line','arrow-go-back-line','error-warning-line','restart-line','play-line','pause-fill','folder-image-line'].includes(name)?new URL('./vendor/remixicon/'+name+'.svg',import.meta.url).href:'/extensions/ComfyUI-DAELab-Creative-Canvas/vendor/remixicon/'+name+'.svg'}")`);
     button.replaceChildren(icon); return button;
 }

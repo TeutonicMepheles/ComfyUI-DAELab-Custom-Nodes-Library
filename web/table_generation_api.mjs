@@ -1,5 +1,5 @@
-import {isLocalGenerationModel,isComfyGenerationModel} from './table_generation_model.mjs?v=20261022-comfy-only';
-import {nativeOptimizationAuth} from './prompt_optimization_api.mjs?v=20261022-comfy-auth-r2';
+import {isLocalGenerationModel,isComfyGenerationModel} from './table_generation_model.mjs?v=20261023-h3-size-r3';
+import {nativeOptimizationAuth} from './prompt_optimization_api.mjs?v=20261023-h3-size-r3';
 
 export async function request(action,body){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),action==='submit'?120000:30000);
@@ -21,6 +21,8 @@ export async function modelCapabilities(config){
  try{
   const caps=await request('capabilities?'+new URLSearchParams({kind:config.kind,model:config.model}));
   if(local&&caps.local!==true)throw new Error(restart);
+  // Also enforce the capability contract against already-running older backends.
+  if(local&&caps.schema)caps.schema.config={...caps.schema.config,strictModes:true};
   if(isComfyGenerationModel(config.model)&&caps.provider!=='comfy')throw new Error('Comfy 积分生成服务尚未加载，请重启 ComfyUI 后刷新；未提交生成');
   return caps;
  }catch(error){if(local&&error.message==='Unsupported model')throw new Error(restart);throw error;}

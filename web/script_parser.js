@@ -1,11 +1,11 @@
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
-import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
-import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261017-row-header-drag';
+import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
+import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261023-h3-size-r3';
 import {app} from '/scripts/app.js';
-import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261022-restore-body-r2';
-import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261008-auto-import';
-import {generationMaterials} from './table_material_output.mjs';
+import {createScriptParserPanel} from './script_parser_panel.mjs?v=20261023-h3-size-r3';
+import {readScriptTable,assertTransition} from './script_parser_model.mjs?v=20261023-h3-size-r3';
+import {generationMaterials} from './table_material_output.mjs?v=20261023-h3-size-r3';
 const TYPE='DAELAB.ScriptParser',widget=node=>node.widgets?.find(w=>w.name==='table_data');
 const notify=(message,severity='info')=>app.extensionManager?.toast?.add?.({severity,summary:'分镜解析器',detail:message,life:8000});
 function install(node){

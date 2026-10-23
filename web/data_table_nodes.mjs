@@ -1,27 +1,27 @@
-import {readTableView} from './table_exchange.mjs?v=20261022-live-chain1';
+import {readTableView} from './table_exchange.mjs?v=20261023-h3-size-r3';
 import {removeEmptyTableNode} from './table_empty_node.mjs';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
-import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
-import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261017-row-header-drag';
-import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
-import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261022-comfy-only';
-import {createMaterialTable} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261022-comfy-only';
-import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {installContentPresentation} from './table_context_menu.mjs?v=20261022-restore-body-r2';
+import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
+import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261023-h3-size-r3';
+import {assertTransition} from './script_parser_model.mjs?v=20261023-h3-size-r3';
+import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261023-h3-size-r3';
+import {createMaterialTable} from './table_material_columns.mjs?v=20261023-h3-size-r3';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261023-h3-size-r3';
+import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {installContentPresentation} from './table_context_menu.mjs?v=20261023-h3-size-r3';
 import {createTablePanelViews} from './table_panel_views.mjs';
-import {tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
-import {createWorkbench,showExistingPanel} from './table_workbench.mjs?v=20261017-video-tasks';
+import {tableTheme,tableHistory} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {createWorkbench,showExistingPanel} from './table_workbench.mjs?v=20261023-h3-size-r3';
 import {workbenchTheme} from './table_workbench_theme.mjs?v=20261017-remove-validation-line';
-import {storyboardTaskState,selectedTaskSummary} from './storyboard_task_state.mjs?v=20261001-frame-tags-dedup';
+import {storyboardTaskState,selectedTaskSummary} from './storyboard_task_state.mjs?v=20261023-h3-size-r3';
 import {app} from '/scripts/app.js';
-import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
-import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20261021-empty-node';
-import {createAssetGroups} from './data_table_groups.mjs?v=20261017-video-tasks';
-import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';
+import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20261023-h3-size-r3';
+import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20261023-h3-size-r3';
+import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20261023-h3-size-r3';
+import {createAssetGroups} from './data_table_groups.mjs?v=20261023-h3-size-r3';
+import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs?v=20261023-h3-size-r3';
 import {previewImport} from './daelab_storyboard_import.mjs?v=20260927-multiref';
 import {studioTheme} from './daelab_studio_theme.mjs?v=20260927-ux1';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
@@ -150,7 +150,13 @@ function createPanel(node){
   if(sourceDisposed||!node.graph||node.mode||!node.inputs?.some(i=>i.name==='source_table'&&i.link!=null))return;
   try{
    const next=readTableView(node);
-   if(JSON.stringify(next)!==JSON.stringify(node.__dataTable)){save(node,next);editor.render();updateSummary();}
+   if(JSON.stringify(next)!==JSON.stringify(node.__dataTable)){
+    // A live projection is part of the upstream edit, not another user edit.
+    // Otherwise the 500 ms refresh can consume the first Undo with an unchanged
+    // source table, and its next refresh can erase Redo after a restore.
+    const update=()=>{save(node,next);editor.render();updateSummary();};
+    const history=tableHistory(app);if(history?.amend)history.amend(update);else update();
+   }
    root.removeAttribute('data-source-error');
   }catch(error){root.dataset.sourceError=error.message;}
  },500):null;

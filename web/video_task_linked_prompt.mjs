@@ -1,5 +1,5 @@
-import {effectivePrompt,toColumnPrompt} from './table_prompt_template.mjs?v=20261017-sync-frames';
-import {setRowGenerationConfig,syncGenerationFrameTags} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {effectivePrompt,toColumnPrompt} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {LOCAL_VIDEO_MODEL,setRowGenerationConfig,syncGenerationFrameTags} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 
 export function replaceLinkedTaskText(table,row,config,texts){
  const doc=toColumnPrompt(effectivePrompt(table,row,config.promptFieldId),row);
@@ -8,6 +8,7 @@ export function replaceLinkedTaskText(table,row,config,texts){
 }
 
 export function bindLinkedTaskReference(table,row,fieldId,config,column){
+ if(config.model===LOCAL_VIDEO_MODEL)throw new Error('本地 H3 FL 不支持多图或视频参考，请使用首帧／尾帧接口，或点击提示词中的帧标签选择图片');
  const doc=toColumnPrompt(effectivePrompt(table,row,config.promptFieldId),row);
  // Bind the current linked assets by identity; replacing a video must not leave
  // its previous asset ID in the prompt, or add duplicate references on reload.

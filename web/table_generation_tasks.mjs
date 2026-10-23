@@ -1,7 +1,7 @@
 import {generationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
-import {request,modelCapabilities} from './table_generation_api.mjs?v=20261022-comfy-only';
-import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,needsGenerationProject,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261022-comfy-only';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {request,modelCapabilities} from './table_generation_api.mjs?v=20261023-h3-size-r3';
+import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,needsGenerationProject,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 const phaseNames={waiting:'等待提交',running:'生成中',pausing:'暂停中',paused:'已暂停',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
 const stageNames={local_queued:'本机排队',local_generating:'本机生成',preparing:'准备中',submitting:'提交平台',writing_back:'等待写回',verifying:'核对原任务',downloading:'下载中'};
@@ -76,7 +76,14 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
  }
  async function poll(force=false){
   if(!alive||polling||submitting&&!force)return;const captured=epoch,jobs=[],checkCompleted=force||Date.now()-lastCompletedCheck>30000;if(checkCompleted)lastCompletedCheck=Date.now();
-  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
+  const table=getTable(),sourceFields=table.meta?.liveSource?.fields||{},ownedFields=new Set(table.fields.filter(f=>isGeneration(f)&&!Object.hasOwn(sourceFields,f.id)).map(f=>f.id));
+  for(const row of table.records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
+   // Source projections retain row metadata for compatibility, but only the
+   // owning generation column may reconcile its remote receipt. Generated
+   // outputs can be readonly locally; source mappings determine ownership.
+   // Polling copied receipts marks them stale, then the source refresh replaces
+   // that change: this false edit used to consume Undo and clear Redo.
+   if(!ownedFields.has(fieldId))continue;
    if(['waiting','running','pausing'].includes(state.phase)||checkCompleted&&['complete','needs_recovery','stopped','paused','failed','stale'].includes(state.phase))jobs.push({recordId:row.id,fieldId,...state});
    if(checkCompleted)for(const old of state.history||[])if(!old.result?.url)jobs.push({recordId:row.id,fieldId,...old,historical:true});
   }

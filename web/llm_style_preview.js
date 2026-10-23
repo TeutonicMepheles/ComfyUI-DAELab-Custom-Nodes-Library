@@ -1,6 +1,6 @@
-import {appliedSnapshot,outputText,outputRows} from './llm_slot_model.mjs?v=20261022-live-chain1';
+import {appliedSnapshot,outputText,outputRows} from './llm_slot_model.mjs?v=20261023-h3-size-r3';
 import {app} from '/scripts/app.js';
-import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261022-live-chain1';
+import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261023-h3-size-r3';
 
 // Slot inputs and explicitly approved output; model calls remain an explicit panel action.
 app.registerExtension({

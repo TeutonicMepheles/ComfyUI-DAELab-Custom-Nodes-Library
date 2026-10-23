@@ -1,7 +1,9 @@
-import {addField,uid} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {effectivePrompt,isColumnPrompt,resolveColumnPrompt,columnValue,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
+import {addField,uid} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {isTextColumn,promptSourceId,setPromptSource,requirePromptSource} from './table_prompt_source.mjs';
+import {effectivePrompt,isColumnPrompt,resolveColumnPrompt,columnValue,toColumnPrompt} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
 
 export const LOCAL_VIDEO_MODEL='MiniMax H3 FL（本地）';
+export const LOCAL_VIDEO_MODES=['text2video','singleImage2video','frames2video'];
 export const LOCAL_IMAGE_MODEL='Qwen-Image-2.1 Turbo（本地）';
 export const isLocalGenerationModel=model=>[LOCAL_IMAGE_MODEL,LOCAL_VIDEO_MODEL].includes(model);
 export const COMFY_VIDEO_MODELS=['Seedance 2.0','Seedance 2.0 Fast','Seedance 2.0 Mini','Seedance 2.5','Minimax H3'];
@@ -18,7 +20,7 @@ export function setRowGenerationConfig(row,fieldId,config){
  row.meta||={};row.meta.generationSettings||={};row.meta.generationSettings[config.promptFieldId]||={};
  row.meta.generationSettings[config.promptFieldId][fieldId]=structuredClone(config);
 }
-export const promptColumns=table=>table.fields.filter(f=>!f.readonly&&(['text','longtext'].includes(f.type)||f.presentation==='prompt'));
+export const promptColumns=table=>table.fields.filter(f=>isTextColumn(table,f));
 export function generationConfigField(table,fieldId,promptFieldId){
  const field=table.fields.find(f=>f.id===fieldId);if(!isGeneration(field))return field;
  const source=promptFieldId??field.generation.promptFieldId,prompt=table.fields.find(f=>f.id===source);
@@ -49,9 +51,10 @@ export function syncGenerationConfigOwners(table,before=table){
  }
 }
 export function syncGenerationPromptSource(table,before,config){
+ if(table.meta?.generationInput){const id=promptSourceId(table)||'';if(config.promptFieldId===id)return false;config.promptFieldId=id;return true;}
  const source=config.promptFieldId;
  if(!source||table.fields.some(f=>f.id===source)||!before.fields.some(f=>f.id===source))return false;
- config.promptFieldId=promptColumns(table)[0]?.id||'';
+ config.promptFieldId='';
  return true;
 }
 export function enableColumnPrompt(table,fieldId){
@@ -65,7 +68,7 @@ export function enableColumnPrompt(table,fieldId){
 export function addGenerationColumn(table,spec={}){
  const field=addField(table,{...spec,type:'content',presentation:'generation',readonly:true,width:340,generation:{version:1,kind:'image',model:LOCAL_IMAGE_MODEL,promptFieldId:'',mode:'text2image',settings:{width:1024,height:1024,seed:-1}}});
  const prompts=promptColumns(table);
- if(prompts.length===1)field.generation.promptFieldId=prompts[0].id;
+ if(promptSourceId(table))field.generation.promptFieldId=promptSourceId(table);
  else if(!prompts.length)field.generation.promptFieldId=createGenerationPrompt(table,field.id).id;
  for(const row of table.records)row.values[field.id]=[];
  return field;
@@ -75,7 +78,7 @@ export function createGenerationPrompt(table,fieldId){
  const prompt=addField(table,{name:'提示词',type:'json',presentation:'prompt',generationPrompt:true,width:360});
  table.fields.splice(table.fields.indexOf(prompt),1);table.fields.splice(table.fields.indexOf(target),0,prompt);
  for(const row of table.records)row.values[prompt.id]='';
- target.generation.promptFieldId=prompt.id;return prompt;
+ target.generation.promptFieldId=prompt.id;setPromptSource(table,prompt.id);return prompt;
 }
 export function generationRows(table,fieldId){
  const selected=table.records.filter(r=>r.selected);
@@ -87,7 +90,7 @@ function generationPrompt(table,row,promptFieldId){
  const value=effectivePrompt(table,row,source.id);
  let document;
  if(typeof value==='string')document={segments:[{type:'text',text:value}],references:[],assets:[]};
- else if(isColumnPrompt(value))document=resolveColumnPrompt(value,table,row);
+ else if(isColumnPrompt(value))document=resolveColumnPrompt(value,table,row,promptFieldId);
  else if(value?.segments){
   const references=value.references||[];
   document={...value,assets:references.filter(r=>r.included!==false).map(ref=>{
@@ -107,6 +110,15 @@ export function applyPromptContent(table,row,promptFieldId,segments,ownerId){
   const {binding,...tag}=s;return {...tag,generationFieldId:frameId||tag.generationFieldId};
  })};
  row.values[promptFieldId]=doc;
+ // A source table can carry frame choices without owning a generation column.
+ // Keep these bindings with the serialized tag IDs for exchange and re-import.
+ if(!isGeneration(owner)){
+  if(!frames.length&&!previous.segments.some(s=>s.type==='frame'))return;
+  row.meta||={};row.meta.generationFrames||={};
+  const ids=new Set([...previous.segments,...doc.segments].filter(s=>s.type==='frame').map(s=>s.generationFieldId));
+  for(const id of ids)row.meta.generationFrames[id]=Object.fromEntries(frames.filter(s=>(frameId||s.generationFieldId)===id&&s.binding).map(s=>[s.role,structuredClone(s.binding)]));
+  return;
+ }
  if(!isGeneration(owner)||!frames.length&&!previous.segments.some(s=>s.type==='frame'))return;
  const active=rowGenerationConfig(row,owner.id,owner.generation)?.promptFieldId===promptFieldId;
  const config=row.meta?.generationSettings?.[promptFieldId]?.[owner.id]||{...owner.generation,promptFieldId};
@@ -122,6 +134,7 @@ export function syncGenerationFrameTags(table,fieldId,defaults,recordId=null){
  for(const row of table.records){
   if(recordId!==null&&row.id!==recordId)continue;
   const config=rowGenerationConfig(row,fieldId,defaults),roles=generationFrameRoles(config),key=generationFrameTagKey(config);
+  if(!config.promptFieldId||!table.fields.some(f=>f.id===config.promptFieldId))continue;
   const previous=row.meta?.generationFrameTags?.[fieldId];if(previous===key||!previous&&!roles.length)continue;
   if(roles.length)enableColumnPrompt(table,config.promptFieldId);
   let frames;try{frames=generationFrames(table,row,fieldId,config);}catch{frames=[];}
@@ -169,7 +182,9 @@ export function generationFrames(table,row,fieldId,config){
 export function generationInput(table,fieldId,recordId){
  const field=table.fields.find(f=>f.id===fieldId),row=table.records.find(r=>r.id===recordId);
  if(!isGeneration(field)||!row)throw new Error('生成列或记录已删除');
- const owner=generationConfigField(table,fieldId),config=rowGenerationConfig(row,owner.id,owner.generation),document=generationPrompt(table,row,config.promptFieldId);
+ if(row.meta?.generationSourceMissing)throw new Error('来源表格中的任务行已删除；已有结果保留');
+ const source=requirePromptSource(table),owner=generationConfigField(table,fieldId),config={...rowGenerationConfig(row,owner.id,owner.generation),promptFieldId:source.id},document=generationPrompt(table,row,source.id);
+ if(config.model===LOCAL_VIDEO_MODEL&&!LOCAL_VIDEO_MODES.includes(config.mode))throw new Error('本地 H3 FL 仅支持文生视频、首帧和首尾帧，请重新选择生成方式');
  if(!document.segments.some(s=>s.type==='ref'||s.text?.trim()))throw new Error('本行提示词为空');
  const assets=[],frameBindings=row.meta?.generationFrames?.[owner.id];
  if(frameBindings)for(const frame of generationFrames(table,row,owner.id,config)){

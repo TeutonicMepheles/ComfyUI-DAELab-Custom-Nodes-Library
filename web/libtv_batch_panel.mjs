@@ -1,5 +1,5 @@
 import {batchTask} from './libtv_task_snapshots.mjs';
-import {selectedTaskSummary} from './storyboard_task_state.mjs?v=20261001-frame-tags-dedup';
+import {selectedTaskSummary} from './storyboard_task_state.mjs?v=20261023-h3-size-r3';
 import { validateResultUrl, addVideoToCanvas } from './libtv_canvas_result.mjs?v=20260925-1';
 
 const value=(node,key)=>node?.widgets?.find(w=>w.name===key)?.value;

@@ -1,5 +1,5 @@
-import {addField,uid} from './data_table_model.mjs';
-import {rowGenerationConfig,setRowGenerationConfig,applyPromptContent} from './table_generation_model.mjs?v=20261022-comfy-only';
+import {addField,uid} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {rowGenerationConfig,setRowGenerationConfig,applyPromptContent} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 
 const active=row=>Object.values(row.meta?.generationColumns||{}).some(s=>['waiting','running','queued','preparing','submitting','recovering','pausing'].includes(s.phase));
 

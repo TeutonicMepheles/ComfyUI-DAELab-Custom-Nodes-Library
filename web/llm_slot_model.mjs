@@ -1,5 +1,5 @@
-import {pairInputs,tableInput} from './llm_io_model.mjs?v=20261015-mixed1';
-import {readTableSnapshot} from './table_exchange.mjs?v=20261022-live-chain1';
+import {pairInputs,tableInput} from './llm_io_model.mjs?v=20261023-h3-size-r3';
+import {readTableSnapshot} from './table_exchange.mjs?v=20261023-h3-size-r3';
 const API=Symbol.for('DAELAB.CreativeCanvas.API.v1');
 export function slotRows(node,seen=new Set()){
     if(seen.has(node))throw new Error('输入连线形成循环');

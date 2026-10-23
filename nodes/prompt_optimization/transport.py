@@ -2,6 +2,7 @@
 import json
 import re
 from types import SimpleNamespace
+from .pricing import COMFY_GPT_MODEL
 
 
 class TransportError(Exception):
@@ -24,18 +25,32 @@ def native_capabilities():
             return []
         if developer.model_dump(exclude_none=True).get('role') != 'developer':
             return []
-        return [v.value for v in SupportedOpenAIModel]
+        models = [v.value for v in SupportedOpenAIModel]
+        if COMFY_GPT_MODEL in models:
+            try:
+                from comfy_api_nodes.apis.openai import Reasoning
+                if 'reasoning' not in fields or Reasoning(effort='none').model_dump(exclude_none=True).get('effort') != 'none':
+                    models.remove(COMFY_GPT_MODEL)
+            except (ImportError, AttributeError, TypeError, ValueError):
+                models.remove(COMFY_GPT_MODEL)
+        return models
     except (ImportError, AttributeError, TypeError, ValueError):
         return []
 
 
 def native_request(snapshot, instructions):
     from comfy_api_nodes.apis.openai import OpenAICreateResponse, InputMessage, InputTextContent
+    # Focused rewriting uses no reasoning tokens, preserving the existing output
+    # budget and response validator. Older frozen models keep their old schema.
+    options = {}
+    if snapshot['model'] == COMFY_GPT_MODEL:
+        from comfy_api_nodes.apis.openai import Reasoning
+        options['reasoning'] = Reasoning(effort='none')
     return OpenAICreateResponse(model=snapshot['model'],
         input=[InputMessage(role='developer', content=[InputTextContent(text=instructions)]),
                InputMessage(role='user', content=[InputTextContent(text=snapshot['inputText'])])],
         max_output_tokens=snapshot['maxOutputTokens'], store=True, stream=False,
-        previous_response_id=None, truncation='disabled')
+        previous_response_id=None, truncation='disabled', **options)
 
 
 def native_context(auth):

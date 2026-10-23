@@ -1,5 +1,7 @@
 # Table generation columns
 
+Current transport (2026-10-22): all new cloud jobs use Comfy account credits; LibTV submission and recovery are disabled. See [Comfy credit generation](comfy-credit-generation.md). LibTV details below describe the historical implementation, not an active payment route.
+
 Status: implementation in progress. Product decisions confirmed by the user.
 
 ## Local image generation

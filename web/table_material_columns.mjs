@@ -1,6 +1,6 @@
 import {bindColumnAssets} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {addField,addRecord,emptyValue,normalizeTable,uid,setValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {addGenerationColumn} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {addGenerationColumn} from './table_generation_model.mjs?v=20261022-comfy-only';
 
 export function createMaterialTable(){
     const table=normalizeTable({meta:{material_columns:true}});

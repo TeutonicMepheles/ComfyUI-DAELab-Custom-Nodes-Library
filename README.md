@@ -4,9 +4,11 @@
 
 DAELab 维护的 ComfyUI 自定义节点库。
 
+2026-10-22 起，本库生成节点与表格的新云端任务统一使用 **ComfyUI 账户积分**，LibTV 通道已停用。Seedance 2.0 / Fast / Mini / 2.5、MiniMax H3 和明确列出的 GPT Image 型号使用 Comfy 原生 API 节点；本地模型继续本机执行。旧 Lib Image 配置需要重新选型，旧 LibTV 分镜批量节点请改用表格生成列或将表格导入生成节点。详见 [通道、兼容性与验证](docs/comfy-credit-generation.md)。
+
 ## 分镜与视频工作流
 
-从文稿导入或空表开始，在同一表格中整理逐行任务、标记视频参考图片列、解析并编辑最终 Prompt，再连接现有 LibTV 批量生成节点。
+从文稿导入或空表开始，在同一表格中整理逐行任务、标记视频参考图片列、解析并编辑最终 Prompt，再使用表格生成列或连接生成节点。
 
 - [交付范围、启动方式与复验入口](nodes/daelab_comfytv_storyboard/DELIVERY.md)
 - [表格操作与参考列规则](nodes/daelab_comfytv_storyboard/TABLE.md)

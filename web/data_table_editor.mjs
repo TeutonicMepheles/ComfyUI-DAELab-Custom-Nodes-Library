@@ -42,7 +42,7 @@ function styles(){
 export function tableDialog(title){tableTheme();const d=element('dialog','dae-ui dae-table-dialog');d.setAttribute('aria-label',title);const h=element('h3','',d);h.textContent=title;d.addEventListener('pointerdown',stopCanvasPropagation);d.oncancel=()=>d.remove();document.body.append(d);d.showModal();return d;}
 
 // The very same editor is used by every template. Integrations only supply data and upload I/O.
-export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRowState=null,renderCell=null,decorateAsset=null,onRestore=()=>{},displayContent=()=>false,nativeHistory=null,promptColumnsOnly=false,validateChange=()=>{},textPanelHost=undefined}) {
+export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRowState=null,renderCell=null,decorateAsset=null,onRestore=()=>{},displayContent=()=>false,nativeHistory=null,promptColumnsOnly=false,validateChange=()=>{},textPanelHost=undefined,removeEmptyNode=null}) {
  const observers=new Set();const observed=()=>{for(const fn of observers)fn();};
  const cleanups=new Set(),cellBindings=new WeakMap();const clearBindings=()=>{for(const fn of cleanups)fn();cleanups.clear();};
  const dialogs=new Set();const openDialog=title=>{const d=tableDialog(title);dialogs.add(d);return d;};const closeDialogs=()=>{textSide.closeAll();for(const d of dialogs){d.querySelectorAll('video').forEach(v=>v.pause());d.remove();}dialogs.clear();};
@@ -73,7 +73,7 @@ export function createTableEditor({getTable,setTable,upload,notify=()=>{},getRow
     }
     const before=JSON.stringify(previous),after=JSON.stringify(next);history.record(before,after,group);
     const boundary=nativeHistory&&displayContent()&&before!==after&&!group;if(boundary)nativeHistory.begin();
-    try{setTable(next);if(width!==null)context.resizeWidth(width);observed();if(draw)render();else updateFooter();}finally{if(boundary)nativeHistory.end();}
+    try{if(displayContent()&&removeEmptyNode?.(next))return;setTable(next);if(width!==null)context.resizeWidth(width);observed();if(draw)render();else updateFooter();}finally{if(boundary)nativeHistory.end();}
  }
  function safely(fn){try{return fn();}catch(e){notify(e.message);return null;}}
  function clearCells(cells=selection().flat()){safely(()=>change(t=>{const fields=new Map(t.fields.map(f=>[f.id,f])),records=new Map(t.records.map(r=>[r.id,r]));for(const {row,field} of cells){const f=fields.get(field.id),r=records.get(row.id);if(!f||!r||f.readonly)continue;r.values[f.id]=f.promptTemplate?{kind:'column-template',version:1,segments:[]}:emptyValue(f);}}));}

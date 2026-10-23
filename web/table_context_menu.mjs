@@ -1,5 +1,5 @@
 import {applyMaterialCellToColumn} from './table_material_columns.mjs?v=20261022-material-column-exports';
-import {isGeneration,rowGenerationConfig,setRowGenerationConfig,generationConfigField} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {isGeneration,rowGenerationConfig,setRowGenerationConfig,generationConfigField} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {isPrompt,promptField} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
 import {addField,addRecord,removeField,clone,uid,reorder,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {createTableButton as button} from './table_controls.mjs?v=20261017-row-header-drag';

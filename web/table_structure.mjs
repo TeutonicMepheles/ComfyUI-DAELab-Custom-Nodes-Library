@@ -1,4 +1,4 @@
-import {addGenerationColumn} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {addGenerationColumn} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {addField,addRecord,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
 import {moveRows,moveColumn} from './table_structure_model.mjs';

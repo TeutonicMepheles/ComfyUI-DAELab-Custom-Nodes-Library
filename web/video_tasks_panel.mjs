@@ -2,18 +2,18 @@ import {replaceLinkedTaskText,bindLinkedTaskReference} from './video_task_linked
 import {syncApprovedTaskRows} from './video_task_rows.mjs?v=20261022-live-chain1';
 import {appliedSnapshot} from './llm_slot_model.mjs?v=20261022-live-chain1';
 import {createTableButton as button,tableIcon,tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-kind-tabs';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261022-comfy-only';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
-import {createPromptSettingsBar} from './table_prompt_settings.mjs?v=20261017-row-header-drag';
+import {createPromptSettingsBar} from './table_prompt_settings.mjs?v=20261022-generation-panel10';
 import {createTextSide} from './table_text_side.mjs?v=20261017-row-header-drag';
 import {readTableSnapshot,previewTableRow,writeTablePrompts} from './table_exchange.mjs?v=20261017-sync-frames';
 import {effectivePrompt,toColumnPrompt,promptContent} from './table_prompt_template.mjs?v=20261017-sync-frames';
 import {tableAssets,promptText} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {rowGenerationConfig,setRowGenerationConfig,promptColumns,syncGenerationFrameTags} from './table_generation_model.mjs?v=20261017-task-prompt-source';
+import {rowGenerationConfig,setRowGenerationConfig,promptColumns,syncGenerationFrameTags} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {videoResultAssets} from './libtv_video_model.mjs?v=20261012-client-workflow-r2';
 import {addField,uid} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {fillMaterialCell} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
-import {createVideoTasks,importVideoTasks,addVideoTask,activeVideoTask,videoTaskAssets,selectTaskPrompt,syncVideoTaskInputs} from './video_tasks_model.mjs?v=20261017-sync-frames';
+import {createVideoTasks,importVideoTasks,addVideoTask,activeVideoTask,videoTaskAssets,selectTaskPrompt,syncVideoTaskInputs} from './video_tasks_model.mjs?v=20261022-comfy-only';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
 import {bindMaterialThumbnail} from './table_content_view.mjs?v=20261017-video-tasks';
 
@@ -23,7 +23,7 @@ const phases={waiting:'排队中',running:'生成中',pausing:'暂停中',paused
 
 export function installVideoTasks(node,app){
  tableTheme();
- if(!document.getElementById('dae-video-tasks-css')){const sheet=element('link',document.head);sheet.id='dae-video-tasks-css';sheet.rel='stylesheet';sheet.href=new URL('./video_tasks.css?v=20261017-spacing-14',import.meta.url).href;}
+ if(!document.getElementById('dae-video-tasks-css')){const sheet=element('link',document.head);sheet.id='dae-video-tasks-css';sheet.rel='stylesheet';sheet.href=new URL('./video_tasks.css?v=20261022-unified-surface',import.meta.url).href;}
  if(['视频生成','DAELAB · 视频生成'].includes(node.title))node.title='生成节点';
  node.properties||={};
  let data=widget(node,'task_data');if(!data)data=node.addWidget('text','task_data','',()=>{},{serialize:true});
@@ -43,8 +43,9 @@ export function installVideoTasks(node,app){
  }
  const history=tableHistory(app),root=element('div',null,'dae-ui dae-video-tasks');
  const header=element('header',root,'video-task-heading');
+ const billing=element('small',header,'video-task-billing','云端生成使用 ComfyUI 积分');billing.setAttribute('role','note');
  let changingType=false;
- const typeTabs=element('div',header,'video-task-types');typeTabs.setAttribute('role','group');typeTabs.setAttribute('aria-label','生成类型');
+ const typeTabs=element('div',header,'video-task-types');typeTabs.setAttribute('role','group');typeTabs.setAttribute('aria-label','生成类型');typeTabs.after(billing);
  const typeButtons=new Map();
  for(const [kind,label,icon] of [['image','图片','image-line'],['video','视频','film-line']]){
   const control=button('',()=>changeType(kind));control.className='video-task-type';control.title=label+'生成';typeTabs.append(control);
@@ -69,8 +70,8 @@ export function installVideoTasks(node,app){
  let materialPreviews=[];
  function clearMaterialPreviews(){for(const dispose of materialPreviews)dispose();materialPreviews=[];releaseThumbnails(materials);}
  const prompt=element('div',body,'video-task-prompt');prompt.tabIndex=0;
- const bottom=element('footer',root,'video-task-bottom');
- const settings=createPromptSettingsBar((key,anchor)=>{if(current())void generation.chooseSetting(state.fieldId,state.currentId,key,anchor);});bottom.append(settings.root);
+ const bottom=element('footer',body,'video-task-bottom');
+ const settings=createPromptSettingsBar((key,anchor)=>{if(current())void generation.chooseSetting(state.fieldId,state.currentId,key,anchor);},{combined:true});bottom.append(settings.root);
  const actions=element('div',bottom,'video-task-actions');
  const run=button('运行',()=>runTask(),true);actions.append(run);
  const status=element('div',root,'video-task-status');status.setAttribute('role','status');

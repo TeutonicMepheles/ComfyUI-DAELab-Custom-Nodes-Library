@@ -54,117 +54,16 @@ class CLIError(RuntimeError):
 
 
 class CLI:
+    """Compatibility tombstone: retained imports cannot start a LibTV process."""
     def __init__(self, executable=None, timeout=None, cwd=None):
-        self.executable = executable or os.environ.get("DAELAB_LIBTV_CLI") or shutil.which("libtv") or str(Path.home() / ".libtv" / ("libtv.exe" if os.name == "nt" else "libtv"))
-        self.timeout, self.cwd = timeout, cwd
+        self.executable, self.timeout, self.cwd = executable, timeout, cwd
 
-    def refresh_model_catalog(self, kind, key):
-        """Invalidate only CLI catalog envelopes; never credentials or tool specs.
+    def __call__(self, *args, **kwargs):
+        raise RuntimeError('LibTV 通道已停用，请使用 Comfy 积分生成')
 
-        CLI 1.1.3 caches its incomplete built-in catalog after a remote failure.
-        A subsequent official search fetches the remote catalog again.
-        """
-        with _MODEL_CATALOG_LOCK:
-            root = Path(tempfile.gettempdir()) / 'libtv-cli/model-cache'
-            for path in root.glob('*.json'):
-                try:
-                    envelope = json.loads(path.read_text('utf-8-sig'))
-                    data = envelope.get('data', {})
-                    if not isinstance(data, dict) or not isinstance(data.get(kind), list):
-                        continue
-                    if any(row.get('modelKey') == key and row.get('modelName') != key
-                           for row in data[kind] if isinstance(row, dict)):
-                        continue
-                    if 'writtenAt' in envelope and 'ttlMs' in envelope:
-                        atomic_json(path, dict(envelope, writtenAt=0))
-                except (OSError, ValueError, TypeError):
-                    continue
-            matches = self('model', 'search', '--type', kind, key).get('matches', [])
-            found = [m for m in matches if m.get('modelKey') == key
-                     and m.get('modelName') and m['modelName'] != key]
-            if len(found) != 1:
-                raise RuntimeError('LibTV 模型目录刷新后仍缺少固定模型；请检查网络后恢复，未提交生成')
-            return found[0]
-
-    def _stream(self, args, on_stderr):
-        """Run to completion while forwarding stderr lines (CLI progress) as they arrive."""
-        proc = subprocess.Popen([self.executable, *map(str, args)], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
-                                encoding="utf-8", errors="replace",
-                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), cwd=self.cwd)
-        lines = []
-
-        def pump():
-            for line in proc.stderr:
-                lines.append(line)
-                if on_stderr:
-                    with contextlib.suppress(Exception):
-                        on_stderr(line.rstrip())
-        reader = threading.Thread(target=pump, daemon=True)
-        reader.start()
-        stdout = proc.stdout.read()
-        proc.wait()
-        reader.join()
-        return subprocess.CompletedProcess(args, proc.returncode, stdout, ''.join(lines))
-
-    def __call__(self, *args, on_stderr=None):
-        # Retry only an explicit allowlist of read-only commands. In particular,
-        # never replay --run, upload, create, or node updates after uncertainty.
-        readonly = (args and args[0] == 'model' or
-                    len(args) >= 2 and args[0] == 'node' and
-                    args[1] not in ('create', 'delete') and
-                    all(args[i] in ('-p', '--project', '-g', '--group')
-                        for i in range(2, len(args), 2)))
-        for attempt in range(3):
-            try:
-                return self._call_once(*args, on_stderr=on_stderr)
-            except RuntimeError as error:
-                network = any(word in str(error).lower() for word in
-                              ('econnreset', 'etimedout', 'eai_again', 'fetch failed', 'socket disconnected'))
-                if not readonly or not network or attempt == 2:
-                    raise
-                time.sleep(attempt + 1)
-
-    def _call_once(self, *args, on_stderr=None):
-        # --run is synchronous; never add a timeout/retry around a paid submission.
-        if '--run' in args:
-            proc = self._stream(args, on_stderr)
-        else:
-            try:
-                proc = subprocess.run([self.executable, *map(str, args)], capture_output=True,
-                                  encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
-                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                                  timeout=900 if args and args[0] == 'download' else (self.timeout or 30),
-                                  cwd=self.cwd)
-            except subprocess.TimeoutExpired as error:
-                raise RuntimeError('LibTV 查询超时 ETIMEDOUT；请恢复原任务，不要重新生成') from error
-        try:
-            values = json_stream(proc.stdout)
-        except ValueError:
-            values = []
-        if proc.returncode:
-            detail = next((v.get("data", {}).get("taskInfo", {}).get("failedReason")
-                           for v in reversed(values) if isinstance(v, dict)
-                           and v.get("data", {}).get("taskInfo", {}).get("failedReason")), None)
-            result = next((v for v in reversed(values) if isinstance(v, dict)
-                           and isinstance(v.get('data'), dict) and v['data'].get('url')), None)
-            message = detail or proc.stderr[-2000:] or "LibTV CLI failed"
-            raise CLIError(message, result, detail or generation_failure_reason(message))
-        if not values:
-            if args and args[0] == "download":
-                # Official CLI prints downloaded paths, not JSON. The caller
-                # independently verifies the file and decodes its video frames.
-                return {"download_output": proc.stdout.strip()}
-            if args and args[0] == "node" and "--run" in args:
-                # A successful synchronous run may print progress instead of JSON.
-                # Reconcile once with a read-only query; never repeat --run.
-                return self(*(arg for arg in args if arg != "--run"))
-            raise RuntimeError("LibTV returned no JSON; no generation will be retried automatically")
-        if args and (args[0] == "upload" or tuple(args[:2]) == ("node", "create")):
-            created = next((v for v in reversed(values) if isinstance(v, dict) and v.get("nodeKey")), None)
-            if created:
-                return created
-        return values[-1]
+    refresh_model_catalog = __call__
+    _stream = __call__
+    _call_once = __call__
 
 
 def digest_file(path):

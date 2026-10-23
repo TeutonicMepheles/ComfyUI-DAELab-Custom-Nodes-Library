@@ -1,4 +1,4 @@
-import {isLocalGenerationModel,isComfyGenerationModel} from './table_generation_model.mjs?v=20261022-comfy-seedance';
+import {isLocalGenerationModel,isComfyGenerationModel} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {nativeOptimizationAuth} from './prompt_optimization_api.mjs?v=20261022-comfy-auth-r2';
 
 export async function request(action,body){
@@ -17,11 +17,11 @@ export async function request(action,body){
 }
 export async function modelCapabilities(config){
  const local=isLocalGenerationModel(config.model);
- const restart='本地模型服务尚未加载，请重启 ComfyUI 后刷新页面；本地模型无需 LibTV 画布或登录。';
+ const restart='本地模型服务尚未加载，请重启 ComfyUI 后刷新页面；本地模型无需云端积分。';
  try{
   const caps=await request('capabilities?'+new URLSearchParams({kind:config.kind,model:config.model}));
   if(local&&caps.local!==true)throw new Error(restart);
-  if(isComfyGenerationModel(config.model)&&caps.provider!=='comfy')throw new Error('Comfy Seedance 接入尚未加载，请重启 ComfyUI 后刷新；未切换至 LibTV');
+  if(isComfyGenerationModel(config.model)&&caps.provider!=='comfy')throw new Error('Comfy 积分生成服务尚未加载，请重启 ComfyUI 后刷新；未提交生成');
   return caps;
  }catch(error){if(local&&error.message==='Unsupported model')throw new Error(restart);throw error;}
 }

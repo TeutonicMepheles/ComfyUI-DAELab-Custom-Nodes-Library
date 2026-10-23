@@ -5,7 +5,7 @@ import { stopCanvasPropagation } from "./list_editor_controls.mjs";
 import { removeOwnedWidgets } from './dynamic_widget_lifecycle.mjs';
 import { addVideoToCanvas } from "./libtv_canvas_result.mjs?v=20260925-1";
 import { connectionPanel, connectionRequest, compatibleValues, fallbackCapabilities } from "./libtv_connection.mjs";
-import {installVideoTasks} from './video_tasks_panel.mjs?v=20261022-live-chain1';
+import {installVideoTasks} from './video_tasks_panel.mjs?v=20261022-comfy-only';
 
 // DAELab-owned adaptation of ComfyTV's StageParamsPanel grouping and theme.
 // No dependency on the upstream Vue application or its node registrations.
@@ -42,6 +42,16 @@ function install(node) {
         return;
     }
     if(node.type===TYPE){node.__libtvPanel=installVideoTasks(node,app);nodes.add(node);return;}
+    if(node.type===BATCH_TYPE){
+        tableTheme();
+        const root=document.createElement('div');root.className='dae-ui dae-libtv';
+        const status=document.createElement('p');status.textContent='旧 LibTV 分镜入口已停用。请将表格导入生成节点，使用 ComfyUI 积分生成。';root.append(status);
+        const batchResults=document.createElement('section');root.append(batchResults);
+        const panel=node.addDOMWidget(PANEL,'custom',root,{serialize:false,hideOnZoom:false});panel.serialize=false;panel.__daelabLibTVPanel=true;panel.inputEl=root;
+        panel.computeSize=width=>[width,180];
+        node.__libtvPanel={root,status,batchResults,batchApp:app,controls:{},creativeButtons:[],creativeFields:[],sync(){},dispose(){}};
+        nodes.add(node);showBatchReport(node,node.properties?.daelabLibTVBatch);return;
+    }
     studioTheme();tableTheme();
     styles();
     const root = document.createElement("div"); root.className = "dae-libtv dae-studio dae-ui";

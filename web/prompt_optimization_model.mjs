@@ -1,6 +1,6 @@
 import {effectivePrompt,columnValue,validateColumnPrompt,isColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {validatePrompt,resolvePromptAsset} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {copiesReferenceContext,CONTEXT_COPY_REASON} from './prompt_optimization_context_copy.mjs';
 
 export const CONTRACT_VERSION=1;

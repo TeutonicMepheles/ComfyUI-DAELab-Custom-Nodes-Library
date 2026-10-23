@@ -1,7 +1,7 @@
 import {createTableEditor} from './data_table_editor.mjs?v=20261017-video-tasks';
 import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-video-tasks';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261022-comfy-only';
 import {installContentPresentation} from './table_context_menu.mjs?v=20261022-restore-body-r2';
 import {createWorkbench} from './table_workbench.mjs?v=20261017-video-tasks';
 import {workbenchTheme} from './table_workbench_theme.mjs?v=20261017-remove-validation-line';

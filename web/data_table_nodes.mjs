@@ -1,12 +1,13 @@
 import {readTableView} from './table_exchange.mjs?v=20261022-live-chain1';
+import {removeEmptyTableNode} from './table_empty_node.mjs';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
 import {attachPromptOptimization} from './prompt_optimization_controller.mjs?v=20261017-row-header-drag';
 import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
-import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {enableColumnPrompt,syncGenerationConfigOwners} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {createMaterialTable} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-video-tasks';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261022-comfy-only';
 import {isColumnPrompt,effectivePrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
 import {installContentPresentation} from './table_context_menu.mjs?v=20261022-restore-body-r2';
 import {createTablePanelViews} from './table_panel_views.mjs';
@@ -18,7 +19,7 @@ import {app} from '/scripts/app.js';
 import {normalizeTable,clone,addField} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
 import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
 import {promptConfig,promptField,promptFingerprint} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20261017-video-tasks';
+import {createTableEditor,tableButton as button} from './data_table_editor.mjs?v=20261021-empty-node';
 import {createAssetGroups} from './data_table_groups.mjs?v=20261017-video-tasks';
 import {readStoryboard,projectStoryboard,serializeStoryboardTable,importRows,writeGenerationResults,addGenerationFields,STORYBOARD_ROLES} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';
 import {previewImport} from './daelab_storyboard_import.mjs?v=20260927-multiref';
@@ -80,7 +81,7 @@ function createPanel(node){
  const tabs=document.createElement('nav');tabs.className='studio-tabs';heading.append(tabs);root.append(heading);
  let tools=document.createElement('div');tools.className='studio-group-head';root.append(tools);
  let updateSummary=()=>{},promptUI=null,generationUI=null;
- const editor=createTableEditor({validateChange:assertTransition,promptColumnsOnly:isGeneric(node),nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)?.presentation==='content',getTable:()=>node.__dataTable,setTable:t=>{generationUI?.syncPromptChanges(t,node.__dataTable);save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>{promptUI?.invalidate();generationUI?.invalidate();}});
+ const editor=createTableEditor({removeEmptyNode:table=>removeEmptyTableNode(node,table),validateChange:assertTransition,promptColumnsOnly:isGeneric(node),nativeHistory:tableHistory(app),displayContent:()=>isGeneric(node)&&globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root)?.presentation==='content',getTable:()=>node.__dataTable,setTable:t=>{generationUI?.syncPromptChanges(t,node.__dataTable);save(node,t);updateSummary();},upload,notify,getRowState:(t,r)=>isGeneric(node)&&!t.meta.prompt_config?{issues:[],hint:''}:storyboardTaskState(t,r),renderCell:args=>promptUI?.renderCell(args),decorateAsset:(...args)=>promptUI?.decorateAsset(...args),onRestore:()=>{promptUI?.invalidate();generationUI?.invalidate();}});
  const optimization=attachPromptOptimization({node,graph:node.graph,editor,getTable:()=>node.__dataTable,identity:ensureIdentity(node.graph,node),fetchApi:app.api.fetchApi.bind(app.api)});
  function defaults(){const batch=node.graph?._nodes.find(n=>n.type==='DAELAB.LibTV.StoryboardBatch'&&n.inputs?.some(i=>i.name==='storyboard_json'&&node.graph.links[i.link]?.origin_id===node.id));return batch?Object.fromEntries(['model','mode','duration','resolution','ratio','sound'].map(k=>[k,widget(batch,k)?.value])):promptConfig(node.__dataTable).defaults||{};}
  function syncDefaults(){const next=defaults();if(JSON.stringify(next)!==JSON.stringify(promptConfig(node.__dataTable).defaults||{}))editor.change(t=>{t.meta.prompt_config||=clone(promptConfig(t));t.meta.prompt_config.defaults=next;});}
@@ -164,6 +165,13 @@ function install(node){
  const raw=widget(node,dataName(node))?.value;
  try{const next=isGeneric(node)?(raw?normalizeTable(raw):createMaterialTable()):readStoryboard(raw);if(node.__dataTable){preserveGenerationHistory(node.__dataTable,next);assertTransition(node.__dataTable,next,{restoring:true});}node.__dataTable=next;}catch(e){notify(`表格未加载：${e.message}`,'error');return;}
  syncGenerationConfigOwners(node.__dataTable);
+ // Recover legacy empty cards after configuration, before acquiring any panel.
+ if(isGeneric(node)&&node.graph.extra?.daelabCreativeCanvasV1?.active&&
+    !node.inputs?.some(i=>i.name==='source_table'&&i.link!=null)&&
+    (!node.__dataTable.fields.length||!node.__dataTable.records.length)){
+  const history=tableHistory(app);history?.begin();
+  try{if(removeEmptyTableNode(node,node.__dataTable))return;}finally{history?.end();}
+ }
  if(isGeneric(node)){const data=widget(node,'table_data');if(data)data.serializeValue=()=>{try{return JSON.stringify(readTableView(node));}catch{return data.value;}};}
  hideNative(node,dataName(node));hideNative(node,'main_prompt');save(node,node.__dataTable);
  if(node.__dataTablePanel){node.__dataTablePanel.render();return;}

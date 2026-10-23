@@ -1,17 +1,17 @@
 import {createMaterialTable} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
 import {addField,addRecord,uid,normalizeTable} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {LOCAL_VIDEO_MODEL,GENERATION_MODELS,isGeneration,promptColumns,rowGenerationConfig,setRowGenerationConfig,generationConfigField,syncGenerationFrameTags,applyPromptContent} from './table_generation_model.mjs?v=20261017-sync-frames';
+import {LOCAL_VIDEO_MODEL,GENERATION_MODELS,isGeneration,promptColumns,rowGenerationConfig,setRowGenerationConfig,generationConfigField,syncGenerationFrameTags,applyPromptContent} from './table_generation_model.mjs?v=20261022-comfy-only';
 import {effectivePrompt,toColumnPrompt,promptContent} from './table_prompt_template.mjs?v=20261017-sync-frames';
 import {generationMaterials} from './table_material_output.mjs?v=20261017-task-groups';
 
 export const activeVideoTask=row=>Object.values(row?.meta?.generationColumns||{}).some(s=>['waiting','running','pausing'].includes(s.phase));
 export function taskConfig(config={},promptFieldId){
- if(GENERATION_MODELS[config.kind]?.includes(config.model))return {...structuredClone(config),promptFieldId};
+ if(config.model&&config.kind)return {...structuredClone(config),promptFieldId};
  return {version:1,kind:'video',model:LOCAL_VIDEO_MODEL,promptFieldId,mode:'text2video',settings:{width:768,height:448,duration:2,turbo:true,seed:-1}};
 }
 export function createVideoTasks(values={}){
  const table=createMaterialTable(),field=table.fields.find(isGeneration),row=table.records[0];table.records=[row];
- const model=GENERATION_MODELS.video.includes(values.model)?values.model:LOCAL_VIDEO_MODEL;
+ const model=values.model||LOCAL_VIDEO_MODEL;
  field.generation=model===LOCAL_VIDEO_MODEL?taskConfig({},field.generation.promptFieldId):{version:1,kind:'video',model,promptFieldId:field.generation.promptFieldId,mode:values.mode||'text2video',settings:{duration:Number(values.duration)||5,resolution:values.resolution||'720p',ratio:values.ratio||'16:9',...(model==='Minimax H3'?{}:{enableSound:values.sound?'on':'off'})}};
  table.meta.generationProject=values.project_uuid||'';
  row.values[field.generation.promptFieldId]=toColumnPrompt(values.prompt||'',row);

@@ -4,9 +4,11 @@ import {effectivePrompt,isColumnPrompt,resolveColumnPrompt,columnValue,toColumnP
 export const LOCAL_VIDEO_MODEL='MiniMax H3 FL（本地）';
 export const LOCAL_IMAGE_MODEL='Qwen-Image-2.1 Turbo（本地）';
 export const isLocalGenerationModel=model=>[LOCAL_IMAGE_MODEL,LOCAL_VIDEO_MODEL].includes(model);
-export const isComfyGenerationModel=model=>model==='Seedance 2.5';
-export const needsGenerationProject=model=>!isLocalGenerationModel(model)&&!isComfyGenerationModel(model);
-export const GENERATION_MODELS={image:[LOCAL_IMAGE_MODEL,'Lib Image','Lib Image 2.5 Pro','Lib Image 2.5 Fast'],video:['Seedance 2.0','Seedance 2.5','Minimax H3',LOCAL_VIDEO_MODEL]};
+export const COMFY_VIDEO_MODELS=['Seedance 2.0','Seedance 2.0 Fast','Seedance 2.0 Mini','Seedance 2.5','Minimax H3'];
+export const COMFY_IMAGE_MODELS=['GPT Image 2','GPT Image 2.5 Flare','GPT Image 2.5 Sunburst'];
+export const isComfyGenerationModel=model=>[...COMFY_VIDEO_MODELS,...COMFY_IMAGE_MODELS].includes(model);
+export const needsGenerationProject=()=>false;
+export const GENERATION_MODELS={image:[LOCAL_IMAGE_MODEL,...COMFY_IMAGE_MODELS],video:[...COMFY_VIDEO_MODELS,LOCAL_VIDEO_MODEL]};
 export const isGeneration=field=>field?.presentation==='generation';
 export function rowGenerationConfig(row,fieldId,defaults){
  const source=row?.meta?.generationPromptFields?.[fieldId]??defaults?.promptFieldId;

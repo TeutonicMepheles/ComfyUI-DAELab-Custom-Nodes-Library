@@ -85,6 +85,54 @@ class ComfyVideoTests(unittest.TestCase):
             self.adapter.generate('', 'request-id', 'Seedance 2.5', 'text2video', 'orbit', {}, [])
         self.queue.put.assert_not_called()
 
+    def test_fast_mini_and_h3_keep_exact_model_and_payment_route(self):
+        self.nodes.NODE_CLASS_MAPPINGS.update(dict.fromkeys(('MinimaxHailuo03TextToVideoNode',
+            'MinimaxHailuo03FirstLastFrameNode', 'MinimaxHailuo03ReferenceNode', 'ByteDance2ReferenceNodeV2')))
+        for model in self.comfy.MODELS:
+            with self.subTest(model=model):
+                adapter = self.comfy.ComfyVideo(model=model)
+                caps = adapter.capabilities(model)
+                self.assertEqual(caps['provider'], 'comfy')
+                adapter.validate_request(None, 'text2video', 'orbit', {}, [])
+                graph = adapter.build_prompt('orbit', {}, [], 'exact-model')
+                self.assertEqual(graph['seedance']['inputs']['model'], 'MiniMax H3' if model == 'Minimax H3' else model)
+                self.assertFalse(graph['seedance']['inputs']['watermark'])
+                if model.endswith(('Fast', 'Mini')):
+                    for settings in ({'duration': 16}, {'resolution': '1080p'}):
+                        with self.assertRaises(ValueError):
+                            adapter.validate_request(None, 'text2video', 'orbit', settings, [])
+                if model.startswith('Seedance 2.0'):
+                    frames = [dict(kind='image', path=str(self.root / 'first.png'))]
+                    adapter.validate_request(None, 'singleImage2video', 'orbit', {}, frames)
+                    inputs = adapter.build_prompt('orbit', {}, frames, 'frames')['seedance']['inputs']
+                    self.assertEqual(inputs['model.ratio'], 'adaptive')
+                    self.assertNotIn('model.output_format', inputs)
+        self.queue.put.assert_not_called()
+
+    def test_multimodal_reference_order_survives_transport_change(self):
+        self.nodes.NODE_CLASS_MAPPINGS['ByteDance2ReferenceNodeV2'] = None
+        adapter = self.comfy.ComfyVideo(model='Seedance 2.0 Fast')
+        media = [dict(kind=kind, path=str(self.root / name)) for kind, name in
+                 [('image', 'a.png'), ('video', 'b.mp4'), ('image', 'c.png'), ('audio', 'd.wav')]]
+        adapter.validate_request(None, 'mixed2video', 'orbit', {}, media)
+        graph = adapter.build_prompt('orbit', {}, media, 'mixed')
+        inputs = graph['seedance']['inputs']
+        self.assertEqual(inputs['model.reference_images.image_2'], ['image_2', 0])
+        self.assertEqual(inputs['model.reference_videos.video_1'], ['video_1', 0])
+        self.assertEqual(inputs['model.reference_audios.audio_1'], ['audio_1', 0])
+        self.assertEqual(graph['video_1']['inputs']['file'], 'b.mp4')
+        self.assertEqual(graph['image_2']['inputs']['image'], 'c.png')
+
+    def test_legacy_cli_cannot_start_even_read_only_or_internal_commands(self):
+        runtime = importlib.import_module(fixtures.PACKAGE + '.runtime')
+        with patch.object(runtime.subprocess, 'run') as run, patch.object(runtime.subprocess, 'Popen') as popen:
+            cli = runtime.CLI()
+            for method in (cli, cli._stream, cli._call_once, cli.refresh_model_catalog):
+                with self.assertRaisesRegex(RuntimeError, '已停用'):
+                    method('node', '--run')
+            run.assert_not_called()
+            popen.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

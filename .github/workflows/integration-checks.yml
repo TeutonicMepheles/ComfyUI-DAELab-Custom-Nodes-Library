@@ -18,8 +18,16 @@ jobs:
           # Match the ComfyUI runtime used for local integration acceptance.
           python-version: '3.12'
       # Pure model/lifecycle tests; no ComfyUI server, credentials or paid calls.
-      - name: Frontend models and lifecycle
-        run: node --test tests/*.test.mjs
+      - name: Table, optimization and generation models
+        # Some legacy badge suites require a user's untracked ComfyUI workflow.
+        # Keep this job reproducible from a clean checkout without that file.
+        run: >-
+          node --test tests/table*.test.mjs tests/llm*.test.mjs
+          tests/libtv*.test.mjs tests/prompt_optimization*.test.mjs
+          tests/column_optimization.test.mjs tests/generation*.test.mjs
+          tests/video*.test.mjs tests/live_chain.test.mjs
+          tests/dynamic_widget_lifecycle.test.mjs tests/app_mode_bypass_model.test.mjs
+          tests/task_snapshots.test.mjs tests/badge_color_map_87.test.mjs
       - name: Mocked generation bridge and table backend
         # Match the locally validated media/HTTP dependencies; no model runtime.
         run: |

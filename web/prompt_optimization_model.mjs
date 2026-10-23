@@ -1,7 +1,8 @@
-import {effectivePrompt,columnValue,validateColumnPrompt,isColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {validatePrompt,resolvePromptAsset} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {effectivePrompt,columnValue,validateColumnPrompt,isColumnPrompt} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {validatePrompt,resolvePromptAsset} from './table_prompt_model.mjs?v=20261023-h3-size-r3';
+import {generationFrames,rowGenerationConfig} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 import {copiesReferenceContext,CONTEXT_COPY_REASON} from './prompt_optimization_context_copy.mjs';
+import {isTextColumn} from './table_prompt_source.mjs?v=20261023-h3-size-r3';
 
 export const CONTRACT_VERSION=1;
 export const INSTRUCTION_VERSION='daelab.prompt-opt.v5';
@@ -10,7 +11,10 @@ export const INPUT_VERSION='daelab.prompt-opt.input.v1';
 export const DEFAULT_REQUIREMENTS='提升清晰度和可执行性，消除重复与含混表达，保持原意，不主动扩写。';
 export const NAMESPACE='daelabPromptOptimizationV1';
 // Provider remains derivable from the frozen model, including old snapshots.
-export const optimizationProvider=model=>String(model||'').startsWith('deepseek-')?'deepseek':'comfy';
+export const QWEN_MODEL='qwen3.5:9b-q4_K_M';
+export const COMFY_GPT_MODEL='gpt-6-luna';
+export const OPTIMIZATION_MODELS=[{id:'deepseek-flash',label:'DeepSeek API',logo:'deepseek'},{id:QWEN_MODEL,label:'Qwen3.5-9B（本地）',logo:'qwen'},{id:COMFY_GPT_MODEL,label:'GPT-6 Luna（ComfyUI）',logo:'openai'}];
+export const optimizationProvider=model=>model===QWEN_MODEL?'qwen':String(model||'').startsWith('deepseek-')?'deepseek':'comfy';
 // Workflow properties can be Vue proxies. These snapshots are JSON data;
 // clone through the same serialization boundary used by workflow save/load.
 const copy=v=>JSON.parse(JSON.stringify(v));
@@ -42,13 +46,13 @@ export function prepareWorkflowIdentity(data){
   for(const node of data.nodes||[])if(node.properties?.[NAMESPACE])node.properties[NAMESPACE]={version:1,tableId:uuid(),revisions:{},batches:[]};
  }else if(old&&data.id)old.nativeWorkflowId=data.id;
 }
-const editable=f=>f&&!f.readonly&&(f.presentation==='prompt'||['text','longtext'].includes(f.type));
+const editable=(table,f)=>f&&!f.readonly&&isTextColumn(table,f);
 const safeLabel=text=>String(text||'引用').replace(/(?:https?:\/\/|file:\/\/|[A-Z]:[\\/])\S+/gi,'[位置已隐藏]');
 
 /** Read only. Keep editable text separate from protected structural anchors. */
 export function inspectTarget(table,recordId,fieldId,known={}){
  const field=known.field||table.fields.find(f=>f.id===fieldId),row=known.row||table.records.find(r=>r.id===recordId);
- if(!editable(field)||!row)throw new Error('目标行或可编辑提示词列已删除');
+ if(!editable(table,field)||!row)throw new Error(field?.readonly?'此列由上游同步，请在上游原始列优化':'目标行或可编辑文本列已删除');
  const original=effectivePrompt(table,row,fieldId);
  if(original==null||original==='')throw new Error('提示词为空');
  if(typeof original==='string'){if(!original.trim())throw new Error('提示词为空');}
@@ -90,13 +94,13 @@ export class OptimizationRevisions{
  observeTarget(table,r,f,known={}){
   const key=this.key(r,f),old=this.entries.get(key);let stamp;
   const row=known.row||table.records.find(row=>row.id===r),field=known.field||table.fields.find(field=>field.id===f);
-  if(!row||!editable(field)){if(old&&old.stamp!=='deleted')this.entries.set(key,{...old,stamp:'deleted',revision:old.revision+1});return this.read(r,f);}
+  if(!row||!editable(table,field)){if(old&&old.stamp!=='deleted')this.entries.set(key,{...old,stamp:'deleted',revision:old.revision+1});return this.read(r,f);}
   try{stamp=inspectTarget(table,r,f,{row,field}).stamp;}catch(e){stamp='invalid:'+e.message;}
   if(!old||old.stamp!==stamp)this.entries.set(key,{stamp,revision:(old?.revision||0)+1,requestSeq:old?.requestSeq||0});
   return this.entries.get(key);
  }
  observe(table){
-  const live=new Set(),fields=table.fields.filter(editable);for(const row of table.records)for(const field of fields){
+  const live=new Set(),fields=table.fields.filter(f=>editable(table,f));for(const row of table.records)for(const field of fields){
    live.add(this.key(row.id,field.id));this.observeTarget(table,row.id,field.id,{row,field});
   }
   for(const [key,old] of this.entries)if(!live.has(key)&&old.stamp!=='deleted')this.entries.set(key,{...old,stamp:'deleted',revision:old.revision+1});
@@ -146,6 +150,21 @@ export function restoreSuggestion(frozen,text,{status='completed'}={}){
 export function matchesSnapshot(table,identity,revisions,frozen,{observed=false}={}){
  const s=frozen.wire;if(s.target.documentId!==identity.documentId||s.target.tableId!==identity.tableId)return false;
  try{const now=observed?revisions.read(s.target.recordId,s.target.fieldId):revisions.current(table,s.target.recordId,s.target.fieldId);return now.revision===s.revision&&now.requestSeq===s.requestSeq&&now.stamp===frozen.local.stamp;}catch{return false;}
+}
+// An application receipt is historical evidence, not the current cell state.
+// Re-encode current anchors with the frozen tokens for display only. This must
+// never relax matchesSnapshot or make an old suggestion applicable again.
+export function appliedSuggestionStatus(table,item){
+ const snapshot=item.frozen?.wire||item.snapshot;
+ try{
+  const current=inspectTarget(table,snapshot.target.recordId,snapshot.target.fieldId);
+  const tokens=snapshot.input.protected_tokens,contexts=snapshot.input.reference_context.map(({token,...context})=>context);
+  if(tokens.length!==current.anchors.length||canonical(contexts)!==canonical(current.anchors.map(a=>a.context)))return 'stale';
+  if(item.frozen&&canonical(item.frozen.local.anchors.map(a=>a.segment))!==canonical(current.anchors.map(a=>a.segment)))return 'stale';
+  let index=0;const text=current.segments.map(s=>s.type==='text'?s.text:tokens[index++]).join('');
+  if(text===item.suggestion?.text)return 'applied';
+  return text===snapshot.input.prompt_text?'reverted':'stale';
+ }catch{return 'stale';}
 }
 export function applySuggestions({table,identity,revisions,items,change}){
  const candidates=[],conflicts=[];for(const item of items){

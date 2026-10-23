@@ -1,5 +1,5 @@
-import {pairInputs,tableInput} from './llm_io_model.mjs?v=20261015-mixed1';
-import {readTableSnapshot} from './table_exchange.mjs';
+import {pairInputs,tableInput} from './llm_io_model.mjs?v=20261023-h3-size-r3';
+import {readTableSnapshot} from './table_exchange.mjs?v=20261023-h3-size-r3';
 const API=Symbol.for('DAELAB.CreativeCanvas.API.v1');
 export function slotRows(node,seen=new Set()){
     if(seen.has(node))throw new Error('输入连线形成循环');
@@ -33,6 +33,8 @@ export function slotSignature(node,seen){const s=node.properties?.llmStylePrevie
 export function appliedSnapshot(node,seen){
     const a=node.properties?.llmStylePreview?.appliedIO;
     if(node.mode||!a?.complete||a.signature!==slotSignature(node,seen))return {version:1,ready:false,texts:[]};
-    return {version:1,ready:true,texts:a.rows.map(r=>r.result||'')};
+    return {version:1,ready:true,texts:a.rows.map(r=>r.result||''),rows:a.rows.map((r,i)=>({id:r.id||`input-${i+1}`,index:i+1,text:r.result||'',image:r.image||null}))};
 }
 export function outputText(node){const snapshot=appliedSnapshot(node);if(!snapshot.ready)throw new Error('LLM 优化结果尚未应用，或输入已改变');return snapshot.texts.join('\n\n');}
+
+export function outputRows(node){const snapshot=appliedSnapshot(node);if(!snapshot.ready)throw new Error('LLM 优化结果尚未应用，或输入已改变');return JSON.stringify(snapshot);}

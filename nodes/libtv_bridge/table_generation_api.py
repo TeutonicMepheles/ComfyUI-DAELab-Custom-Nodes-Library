@@ -34,13 +34,23 @@ def paths():
     return root, Path(folder_paths.get_output_directory())
 
 
-def bridge(kind, model=None):
+def bridge(kind, model=None, provider='comfy', auth=None):
     if is_local_model(model):
         return local_bridge(kind, model)
-    if isinstance(model, str) and '（本地）' in model:
-        raise ValueError('不支持的本地模型；未切换至云端')
-    root, output = paths()
-    return ColumnBridge(root / 'bridge', output / 'daelab/libtv/table', kind)
+    if provider != 'comfy':
+        raise ValueError('LibTV 通道已停用；原任务不会重新提交，请明确新建 Comfy 积分任务')
+    from .table_comfy_video import ComfyVideo, MODELS as VIDEO_MODELS
+    from .table_comfy_image import ComfyImage, MODELS as IMAGE_MODELS
+    if kind == 'video' and model in VIDEO_MODELS:
+        return ComfyVideo(auth, model)
+    if kind == 'image' and model in IMAGE_MODELS:
+        return ComfyImage(auth, model)
+    raise ValueError('此模型已停用或尚未接入 Comfy 积分，请重新选择模型；未提交生成')
+
+
+def require_current_provider(state):
+    if not is_local_model(state['input']['config']['model']) and state.get('provider') != 'comfy':
+        raise ValueError('LibTV 通道已停用；保留原结果，未恢复或重跑，请明确新建 Comfy 积分任务')
 
 
 def receipt_path(request_id):
@@ -91,11 +101,13 @@ def diagnose(error, record):
             message = '准备任务时网络中断，尚未启用生成；请恢复原任务'
         elif original.get('phase') == 'generated' and remote.get('data', {}).get('url'):
             message = '生成结果地址已保存；请恢复原任务继续写回或下载，不会重新生成'
-        elif (original.get('sync_failed') or task.get('status') == 2) and not remote.get('data', {}).get('url'):
+        elif task.get('status') == 2 and not remote.get('data', {}).get('url'):
             code = next((t.upper() for t in ('econnreset', 'etimedout', 'eai_again', 'fetch failed')
                          if t in str(original.get('error', '')).lower()), '')
             message = ('平台已生成，但 CLI 写回 LibTV 画布失败' + (f'（{code}）' if code else '')
                        + '，结果地址未保存；已禁止自动重跑。请在 LibTV 画布确认该节点，或明确重新生成')
+        elif original.get('sync_failed') and not remote.get('data', {}).get('url'):
+            message = 'CLI 同步任务状态失败，无法确认生成是否完成；请恢复原任务查询，未重复提交'
         elif original.get('phase') == 'submitted_or_uncertain' and 'Original task has no video yet' in str(error):
             if task.get('taskId') or remote.get('taskId'):
                 message = (f"平台进度停在 {task.get('progressPercent', 0)}%，CLI 已退出无法继续跟踪；"
@@ -147,9 +159,10 @@ def prepare(item):
         atomic_json(path, state)
         return check_result(state)
     cfg = data['config']
-    transport = bridge(cfg['kind'], cfg['model'])
-    if not is_local_model(cfg['model']) and not data.get('project', '').strip():
-        raise ValueError('请选择 LibTV 目标画布')
+    provider = 'local' if is_local_model(cfg['model']) else cfg.get('provider')
+    if provider not in ('local', 'comfy'):
+        raise ValueError('云端生成已改用 ComfyUI 积分，请刷新页面后新建任务；不会继续使用 LibTV')
+    transport = bridge(cfg['kind'], cfg['model'], provider=provider)
     assets = data.get('assets', [])
     if len(assets) > 32:
         raise ValueError('Too many reference assets')
@@ -160,7 +173,7 @@ def prepare(item):
     caps = transport.capabilities(cfg['model'])
     transport.validate_request(caps['schema'], cfg.get('mode', ''), prompt, cfg.get('settings', {}), media)
     media = freeze_media(transport, data['project'], request_id, media)
-    state = dict(requestId=request_id, fingerprint=fingerprint, input=data, media=media, phase='waiting')
+    state = dict(requestId=request_id, fingerprint=fingerprint, input=data, media=media, phase='waiting', provider=provider)
     atomic_json(path, state)
     atomic_json(lookup, {'requestId': request_id})
     return state
@@ -192,7 +205,7 @@ def reuse_completed_input(state):
     return recovered
 
 
-def execute(state):
+def execute(state, auth=None):
     data, request_id = state['input'], state['requestId']
     cfg = data['config']
     lock = threading.Lock()
@@ -221,11 +234,14 @@ def execute(state):
             state['updatedAt'] = now
             atomic_json(receipt_path(request_id), state)
     try:
+        require_current_provider(state)
         state['phase'] = 'running'
         for transient in ('error', 'detail', 'progress'):
             state.pop(transient, None)
         atomic_json(receipt_path(request_id), state)
-        transport = _local_runs[request_id] if is_local_model(cfg['model']) else bridge(cfg['kind'], cfg['model'])
+        native = is_local_model(cfg['model']) or state.get('provider') == 'comfy'
+        transport = (_local_runs[request_id] if is_local_model(cfg['model']) else
+                     bridge(cfg['kind'], cfg['model'], provider=state.get('provider', 'libtv'), auth=auth))
         transport.report = lambda stage, **info: mark(stage, detail=None, **info)
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
@@ -240,7 +256,7 @@ def execute(state):
             return transport.generate(
             data['project'], execution_id, cfg['model'], cfg.get('mode', ''),
             compile_segments(data['segments'], state['media']), cfg.get('settings', {}), state['media'])
-        result = generate_original() if is_local_model(cfg['model']) else recover_generation(generate_original, record, progress)
+        result = generate_original() if native else recover_generation(generate_original, record, progress)
         transport.report = None
         file = Path(result['file'])
         subfolder = file.parent.relative_to(paths()[1]).as_posix()
@@ -258,13 +274,17 @@ def execute(state):
     except Exception as error:
         execution_id = state.get('executionId', request_id)
         key = hashlib.sha256((data['project'] + '\n' + execution_id).encode()).hexdigest()[:24]
-        if is_local_model(cfg['model']):
+        if is_local_model(cfg['model']) or state.get('provider') == 'comfy':
             message, failed = str(error).splitlines()[0][:500], isinstance(error, (LocalExecutionFailure, ValueError))
         else:
-            message, failed = diagnose(error, bridge(cfg['kind']).cache / (key + '.json'))
+            message, failed = str(error).splitlines()[0][:500], True
         with lock:
             state.pop('detail', None)
-            state.update(phase='failed' if failed else 'needs_recovery', errorDetail=str(error)[-2000:], error=message)
+            detail = str(error)[-2000:]
+            for secret in (auth or {}).values():
+                if secret:
+                    message, detail = message.replace(secret, '[已隐藏]'), detail.replace(secret, '[已隐藏]')
+            state.update(phase='failed' if failed else 'needs_recovery', errorDetail=detail, error=message)
     with lock:
         saved = json.loads(receipt_path(request_id).read_text('utf-8'))
         if saved.get('phase') == 'stopped':
@@ -274,7 +294,7 @@ def execute(state):
     return state['phase'] == 'complete'
 
 
-async def run_batch(states):
+async def run_batch(states, auth=None):
     async def run_one(state):
         # Restored browser receipts may share the same paid execution identity.
         key = (state['input']['project'], state.get('executionId', state['requestId']))
@@ -291,7 +311,7 @@ async def run_batch(states):
                     _local_runs[state['requestId']] = bridge(state['input']['config']['kind'], state['input']['config']['model'])
                 state['phase'] = 'running'
                 atomic_json(receipt_path(state['requestId']), state)
-                await asyncio.to_thread(execute, state)
+                await asyncio.to_thread(execute, state, auth)
         except Exception as error:
             # A worker failure must not leave a live-looking receipt forever.
             saved = json.loads(receipt_path(state['requestId']).read_text('utf-8'))
@@ -307,9 +327,14 @@ async def run_batch(states):
     await asyncio.gather(*(run_one(state) for state in states))
 
 
-async def submit(items):
+async def submit(items, auth=None):
     async with _submissions:
+        if any(i['input']['config'].get('provider') == 'comfy' for i in items) and not any((auth or {}).values()):
+            raise ValueError('请登录 ComfyUI 账号后继续；未提交生成')
         states = [await asyncio.to_thread(prepare, item) for item in items]
+        for state in states:
+            if state.get('phase') != 'complete':
+                require_current_provider(state)
         finishing = [_tasks[s['requestId']] for s in states if s['phase'] == 'paused' and s['requestId'] in _tasks]
         if finishing:
             await asyncio.gather(*finishing, return_exceptions=True)
@@ -323,7 +348,7 @@ async def submit(items):
                 state.setdefault('timeline', []).append(dict(stage='queued', at=now))
                 atomic_json(receipt_path(state['requestId']), state)
             for state in pending:
-                _tasks[state['requestId']] = asyncio.create_task(run_batch([state]))
+                _tasks[state['requestId']] = asyncio.create_task(run_batch([state], auth))
         return {'jobs': [public(s) for s in states]}
 
 
@@ -359,14 +384,13 @@ async def pause_jobs(ids):
 
 async def handle(request):
     if not local_request(request):
-        return web.json_response({'error': '请通过本机 localhost 使用 LibTV'}, status=403)
+        return web.json_response({'error': '请通过本机 localhost 使用生成服务'}, status=403)
     try:
         action = request.match_info['action']
         if action == 'capabilities' and request.method == 'GET':
             kind, model = request.query['kind'], request.query['model']
-            transport = bridge(kind, model)
-            if not is_local_model(model):
-                transport.cli = CLI(timeout=25)
+            provider = 'local' if is_local_model(model) else 'comfy'
+            transport = bridge(kind, model, provider=provider)
             result = await asyncio.to_thread(transport.capabilities, model)
         elif action in ('status', 'pause', 'stop') and request.method == 'POST':
             ids = (await request.json())['requestIds']
@@ -399,7 +423,10 @@ async def handle(request):
             if len({i['requestId'] for i in items}) != len(items):
                 raise ValueError('Duplicate task IDs')
             # Preflight the entire batch before any remote write or paid command.
-            result = await submit(items)
+            headers = getattr(request, 'headers', {})
+            auth = {'token': headers.get('Authorization', '').removeprefix('Bearer ').strip(),
+                    'key': headers.get('X-API-Key', '')}
+            result = await submit(items, auth)
         else:
             return web.json_response({'error': 'Unknown action'}, status=404)
         return web.json_response(result, headers={'Cache-Control': 'no-store'})

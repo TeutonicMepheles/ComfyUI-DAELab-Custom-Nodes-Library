@@ -58,6 +58,14 @@ class DiagnosisTests(unittest.TestCase):
         message, _ = self.diagnose('Original task has no video yet', {'phase': 'submitted_or_uncertain', 'remote': {'data': {}}})
         self.assertIn('未登记', message)
 
+    def test_progress_write_failure_does_not_claim_completed_generation(self):
+        for remote in ({}, {'data': {'taskInfo': {'taskId': 't', 'status': 1, 'progressPercent': 11}}}):
+            message, failed = self.diagnose('nodesBatch 写回失败 503', {
+                'phase': 'submitted_or_uncertain', 'sync_failed': True, 'remote': remote})
+            self.assertFalse(failed)
+            self.assertIn('无法确认生成是否完成', message)
+            self.assertNotIn('平台已生成', message)
+
     def test_saved_result_is_not_reported_as_lost(self):
         message, failed = self.diagnose('ECONNRESET', {
             'phase': 'generated', 'sync_failed': True,

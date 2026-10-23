@@ -39,27 +39,20 @@ class ColumnTests(unittest.TestCase):
                                             {'duration':duration}, [{'kind':'image'}])
             self.assertEqual(generation.setting_specs(schema,'videoEdit2video')['duration']['enum'],[0])
 
-    def test_catalog_refresh_expires_only_incomplete_catalog_envelope(self):
-        import json
+    def test_retired_catalog_refresh_preserves_existing_cache(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)/'libtv-cli/model-cache'
+            root = Path(directory) / 'libtv-cli/model-cache'
             root.mkdir(parents=True)
-            catalog = root/'catalog.json'
-            specs = root/'specs.json'
-            complete = root/'complete.json'
-            runtime.atomic_json(catalog, {'writtenAt':123, 'ttlMs':300000, 'data':{'video':[]}})
-            runtime.atomic_json(specs, {'writtenAt':123, 'ttlMs':300000, 'data':{'code':0, 'data':{'tools':[]}}})
-            runtime.atomic_json(complete, {'writtenAt':123, 'ttlMs':300000, 'data':{'video':[
-                {'modelKey':'star-video2', 'modelName':'Seedance 2.0 VIP'}]}})
+            catalog = root / 'catalog.json'
+            payload = {'writtenAt': 123, 'ttlMs': 300000, 'data': {'video': []}}
+            runtime.atomic_json(catalog, payload)
+            before = catalog.read_bytes()
             with patch.object(runtime.tempfile, 'gettempdir', return_value=directory), \
-                 patch.object(runtime.CLI, '__call__', return_value={'matches':[
-                     {'modelKey':'star-video2', 'modelName':'Seedance 2.0 VIP'}]}) as call:
-                result=runtime.CLI('libtv').refresh_model_catalog('video','star-video2')
-            self.assertEqual(result['modelName'], 'Seedance 2.0 VIP')
-            self.assertEqual(json.loads(catalog.read_text())['writtenAt'],0)
-            self.assertEqual(json.loads(specs.read_text())['writtenAt'],123)
-            self.assertEqual(json.loads(complete.read_text())['writtenAt'],123)
-            call.assert_called_once_with('model','search','--type','video','star-video2')
+                 patch.object(runtime.subprocess, 'run') as run:
+                with self.assertRaisesRegex(RuntimeError, 'LibTV.*Comfy'):
+                    runtime.CLI('libtv').refresh_model_catalog('video', 'star-video2')
+                run.assert_not_called()
+            self.assertEqual(catalog.read_bytes(), before)
 
     def test_echoed_key_without_catalog_never_guesses_name(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -246,9 +239,9 @@ class ColumnTests(unittest.TestCase):
                     if args[:2] == ('model', 'search'):
                         return {'matches': [{'modelKey': 'lib-image-2', 'modelName': 'Image-2'}]}
                     return {'modelKey': 'lib-image-2', 'modelName': 'Image-2', 'schema': SCHEMA}
-                make_bridge = lambda kind, model=None: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
+                make_bridge = lambda kind, model=None, **options: generation.ColumnBridge(root/'cache', root/'output', kind, cli)
                 with patch.object(api, 'bridge', make_bridge):
-                    data = {'project': 'p', 'config': {'kind': 'image', 'model': 'Image-2', 'mode': 'image2image', 'settings': {}},
+                    data = {'project': 'p', 'config': {'kind': 'image', 'model': 'Image-2', 'provider': 'comfy', 'mode': 'image2image', 'settings': {}},
                             'segments': [{'type': 'text', 'text': 'prompt'}], 'assets': []}
                     one = api.prepare({'requestId': 'request-111111111', 'input': data})
                     restored = api.prepare({'requestId': 'request-222222222', 'input': data})
@@ -266,6 +259,7 @@ class ColumnTests(unittest.TestCase):
                     output.unlink()
                     class Request:
                         method = 'POST'
+                        headers = {'Authorization': 'Bearer fixture-only-token'}
                         def __init__(self, action, body):
                             self.match_info = {'action': action}
                             self.body = body

@@ -1,5 +1,7 @@
 # Table generation columns
 
+Current transport (2026-10-22): all new cloud jobs use Comfy account credits; LibTV submission and recovery are disabled. See [Comfy credit generation](comfy-credit-generation.md). LibTV details below describe the historical implementation, not an active payment route.
+
 Status: implementation in progress. Product decisions confirmed by the user.
 
 ## Local image generation
@@ -165,3 +167,19 @@ Local table development contains existing uncommitted surface changes; these are
 
 - 切换提示词来源列只同步新来源列，保留原列的首尾帧标签及同行素材绑定；原列标签仍可显示和选择图片。
 - 当前提示词格删除尾帧、保留首帧时，该格配置改为首帧模式；全部帧标签删除时改为文生视频，底栏同步更新。显式改变模式仍由模式设置同步标签，避免反向覆盖；沿用现有行配置和撤销通道。
+
+## Seedance 2.5 Comfy account transport (2026-10-22)
+
+Seedance 2.5 new requests use the native Comfy Partner node and the signed-in
+Comfy workspace, not LibTV credits. Only request routing/authentication and model
+capabilities change; retain the existing panels, shared controls, task lifecycle,
+slots and styling. Reuse `nativeOptimizationAuth` for transient workspace-aware
+headers. Credentials must remain outside workflow JSON, receipts and public queue
+data. Existing LibTV receipts retain their provider and are never reinterpreted as
+Comfy submissions. A missing/failed native prompt is queried by its original ID,
+never automatically resubmitted. Local H3 and Qwen remain local.
+
+Initial supported native modes are text, first frame, and first/last frame,
+with 480p/720p/1080p, 4–30 seconds, audio and seed options. First/last frame
+generation preserves the image aspect ratio. Integration validation and the paid
+smoke test are recorded separately; passing tests does not prove paid generation.

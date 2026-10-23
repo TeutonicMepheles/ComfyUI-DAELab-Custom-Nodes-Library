@@ -1,4 +1,4 @@
-import {isGeneration} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
+import {isGeneration} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 export function generationMaterials(table,fieldId){
  const field=table.fields.find(f=>f.id===fieldId);if(!isGeneration(field))return {version:1,ready:false,assets:[],skipped:0};
  const assets=[],groups=[];let skipped=0;

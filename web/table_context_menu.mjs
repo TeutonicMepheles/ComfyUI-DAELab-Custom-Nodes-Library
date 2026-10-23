@@ -1,17 +1,18 @@
-import {applyMaterialCellToColumn} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
-import {isGeneration,rowGenerationConfig,setRowGenerationConfig,generationConfigField} from './table_generation_model.mjs?v=20261002-shared-prompt-generation-config';
-import {isPrompt,promptField} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {addField,addRecord,removeField,clone,uid,reorder,emptyValue} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {createTableButton as button} from './table_controls.mjs?v=20261017-row-header-drag';
-import {applyPromptToColumn} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
-import {previewContentAsset} from './table_content_view.mjs?v=20261017-video-tasks';
-import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261017-row-header-drag';
+import {applyMaterialCellToColumn} from './table_material_columns.mjs?v=20261023-h3-size-r3';
+import {isGeneration,rowGenerationConfig,setRowGenerationConfig,generationConfigField} from './table_generation_model.mjs?v=20261023-h3-size-r3';
+import {isPrompt,promptField} from './table_prompt_model.mjs?v=20261023-h3-size-r3';
+import {addField,addRecord,removeField,clone,uid,reorder,emptyValue} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {createTableButton as button} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {applyPromptToColumn} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {previewContentAsset} from './table_content_view.mjs?v=20261023-h3-size-r3';
+import {createPromptOptimizationEntry} from './prompt_optimization_panel.mjs?v=20261023-h3-size-r3';
+import {isTextColumn} from './table_prompt_source.mjs?v=20261023-h3-size-r3';
 
 const el=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text)e.textContent=text;return e;};
 
 // One instance-owned contextual menu; the existing editor remains the transaction
 // owner. This module never reads another plugin's node or private application state.
-export function installContentPresentation({root,editor,getTable,notify,editPromptTemplate,enabled=()=>true}){
+export function installContentPresentation({root,editor,getTable,notify,editPromptTemplate,enabled=()=>true,onPresentationChange=()=>{}}){
     const toolbar=el('aside','dae-ui content-context');toolbar.setAttribute('role','toolbar');toolbar.setAttribute('aria-label','表格选中操作');toolbar.hidden=true;document.body.append(toolbar);
     let selected=null,signature='',disposed=false,columnGrid=null,columnSelection=null,rowGrid=null,rowSelection=null,cellAnchor=null,columnAnchor=null,rowAnchor=null,optimizationEntry=null,nativeMenuOpen=false;
     const context=()=>globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
@@ -30,8 +31,8 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         const prompt=isPrompt(field());
         optimizationEntry?.destroy();optimizationEntry=null;
         toolbar.replaceChildren();const label=el('span','content-context-label',selected.kind==='table'?'表格':selected.kind==='column'?field()?.name:selected.kind==='row'?'行':'单元格');toolbar.append(label);
-        if(prompt&&!field()?.readonly&&editor.openPromptOptimization&&editor.promptOptimizationEstimate&&(selected.kind==='column'||selected.kind==='cell'&&(nativeActive()||editor.selection().flat().length<=1))){
-            const menuEditor={promptOptimizationEstimate:target=>editor.promptOptimizationEstimate(target),openPromptOptimization:target=>{editor.openPromptOptimization(target);if(nativeMenuOpen){nativeMenuOpen=false;toolbar.hidden=true;}}};
+        if(isTextColumn(getTable(),field())&&editor.openPromptOptimization&&(selected.kind==='column'||selected.kind==='cell'&&(nativeActive()||editor.selection().flat().length<=1))){
+            const menuEditor={openPromptOptimization:target=>editor.openPromptOptimization({...target,anchor:target.scope==='column'?columnAnchor||target.anchor:findCell()||target.anchor})};
             optimizationEntry=createPromptOptimizationEntry({editor:menuEditor,target:{scope:selected.kind==='column'?'column':'cell',fieldId:selected.field,...(selected.kind==='cell'?{recordId:selected.record}:{})}});toolbar.append(optimizationEntry.element);
         }
         if(nativeActive())return;
@@ -71,7 +72,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         }
     }
     function choose(e){
-        if(toolbar.contains(e.target)||e.target.closest('dialog,.dae-table-material-preview,.table-text-side,.table-column-popover,.table-structure-control,.table-choice input,.generation-actions,.generation-cell-state'))return;
+        if(toolbar.contains(e.target)||e.target.closest('.prompt-opt-popover,.table-prompt-toggle,dialog,.dae-table-material-preview,.table-text-side,.table-column-popover,.table-structure-control,.table-choice input,.generation-actions,.generation-cell-state'))return;
         if(nativeMenuOpen){nativeMenuOpen=false;selected=null;toolbar.hidden=true;}
         if(e.type==='focusin'&&!root.contains(e.target))return;
         if(!active()||!context()?.contains(e.target)){if(selected)editor.clearSelection();selected=null;toolbar.hidden=true;queueMicrotask(tick);return;}
@@ -81,7 +82,7 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
         if(selected.kind==='column')editor.selectColumn(selected.field);else if(selected.kind!=='cell')editor.clearSelection();signature='';queueMicrotask(tick);
     }
     function tick(){
-        if(disposed)return;const showing=String(active());if(root.dataset.contentPresentation!==showing){root.dataset.contentPresentation=showing;editor.render();}
+        if(disposed)return;const showing=String(Boolean(active()));if(root.dataset.contentPresentation!==showing){root.dataset.contentPresentation=showing;onPresentationChange(showing==='true');editor.render();}
         const chosen=String(showing==='true'&&!!context()?.selected||nativeActive());if(root.dataset.contentSelected!==chosen)root.dataset.contentSelected=chosen;
         if(chosen==='false'&&selected){selected=null;editor.clearSelection();}
         if(showing!=='true'&&!nativeActive()){columnGrid=null;columnSelection=null;rowGrid=null;rowSelection=null;toolbar.hidden=true;return;}
@@ -115,10 +116,10 @@ export function installContentPresentation({root,editor,getTable,notify,editProm
     const nativeContext=e=>{
         if(context()||!editor.openPromptOptimization||e.target.closest('[data-inline-editing=true],input,textarea,select'))return;
         const cell=e.target.closest('td[data-field]'),header=e.target.closest('th[data-column]'),fieldId=cell?.dataset.field||header?.dataset.column;
-        const f=getTable().fields.find(item=>item.id===fieldId);if(!isPrompt(f)||f.readonly)return;
+        const f=getTable().fields.find(item=>item.id===fieldId);if(!isTextColumn(getTable(),f))return;
         e.preventDefault();e.stopPropagation();nativeMenuOpen=true;selected=cell?{kind:'cell',field:fieldId,record:cell.dataset.record}:{kind:'column',field:fieldId};signature='';tick();
     };
-    const layout=()=>{if(root.dataset.contentPresentation!=='true'&&context()?.presentation==='content')tick();else positionToolbar();};
+    const layout=()=>{if(root.dataset.contentPresentation!==String(Boolean(active())))tick();else positionToolbar();};
     const escape=e=>{if(e.key==='Escape'&&!e.isComposing&&!e.target.matches('input,textarea,select')){nativeMenuOpen=false;selected=null;editor.clearSelection();toolbar.hidden=true;tick();}};
     for(const type of ['pointerdown','focusin'])document.addEventListener(type,choose,true);
     document.addEventListener('keydown',escape,true);root.addEventListener('dblclick',double,true);root.addEventListener('dae-preview',showPreview);root.addEventListener('contextmenu',nativeContext);

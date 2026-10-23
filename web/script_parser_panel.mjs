@@ -1,13 +1,13 @@
-import {createTableEditor} from './data_table_editor.mjs?v=20261017-video-tasks';
-import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
-import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-video-tasks';
-import {installContentPresentation} from './table_context_menu.mjs?v=20261017-video-tasks';
-import {createWorkbench} from './table_workbench.mjs?v=20261017-video-tasks';
+import {createTableEditor} from './data_table_editor.mjs?v=20261023-h3-size-r3';
+import {createTableButton as button,tableTheme,tableHistory} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20261023-h3-size-r3';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261023-h3-size-r3';
+import {installContentPresentation} from './table_context_menu.mjs?v=20261023-h3-size-r3';
+import {createWorkbench} from './table_workbench.mjs?v=20261023-h3-size-r3';
 import {workbenchTheme} from './table_workbench_theme.mjs?v=20261017-remove-validation-line';
-import {createSettingsPopover} from './table_prompt_settings.mjs?v=20261017-row-header-drag';
+import {createSettingsPopover} from './table_prompt_settings.mjs?v=20261023-h3-size-r3';
 import {studioTheme} from './daelab_studio_theme.mjs';
-import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,reviseImport,hasActiveGeneration,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261008-auto-import';
+import {ROLE_LABELS,KIND_LABELS,initialChoices,importTasks,reviseImport,hasActiveGeneration,assertTransition,ParserRequests} from './script_parser_model.mjs?v=20261023-h3-size-r3';
 
 const el=(tag,parent,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent?.append(e);return e;};
 function select(parent,label,options,value,onChange){const wrap=el('label',parent,label),s=el('select',wrap);s.setAttribute('aria-label',label);for(const [v,n] of options)s.add(new Option(n,v));s.value=value??'';s.onchange=()=>onChange(s.value);return s;}

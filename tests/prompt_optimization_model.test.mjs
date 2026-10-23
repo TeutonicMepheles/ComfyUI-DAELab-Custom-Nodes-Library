@@ -1,9 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {OptimizationRevisions,freezeSnapshot,inspectTarget,matchesSnapshot,restoreSuggestion,applySuggestions,ensureIdentity,forkDocumentIdentity,prepareWorkflowIdentity,NAMESPACE} from '../web/prompt_optimization_model.mjs';
+import {OptimizationRevisions,freezeSnapshot,inspectTarget,matchesSnapshot,restoreSuggestion,applySuggestions,appliedSuggestionStatus,ensureIdentity,forkDocumentIdentity,prepareWorkflowIdentity,NAMESPACE} from '../web/prompt_optimization_model.mjs';
 const identity={documentId:'doc',tableId:'table'};
 function table(){return {fields:[{id:'scene',name:'画面',type:'text'},{id:'p',name:'图片提示词',type:'json',presentation:'prompt',promptTemplate:{kind:'column-template',version:1,segments:[{type:'column',fieldId:'scene'}]}},{id:'q',name:'视频提示词',type:'json',presentation:'prompt'}],records:[{id:'r',selected:false,values:{scene:'雨后的街道',q:{kind:'column-template',version:1,segments:[{type:'text',text:'女孩合上书，然后起身。'}]}}},{id:'r2',values:{scene:'白猫'}},{id:'empty',values:{}}],meta:{}};}
 const target=(r='r',f='p')=>({...identity,recordId:r,fieldId:f});
+
+test('applied display follows undo, redo, reload and reference changes without reauthorizing application',async()=>{
+ const t=table(),before=structuredClone(t),revisions=new OptimizationRevisions(),frozen=await freezeSnapshot(t,target(),revisions,{begin:true});
+ const item={requestId:'result',frozen,suggestion:restoreSuggestion(frozen,frozen.wire.input.prompt_text+'。层次清晰。')};
+ applySuggestions({table:t,identity,revisions,items:[item],change:fn=>fn(t)});
+ assert.equal(appliedSuggestionStatus(t,item),'applied');assert.equal(appliedSuggestionStatus(before,item),'reverted');
+ const recovered={snapshot:frozen.wire,suggestion:item.suggestion};
+ assert.equal(appliedSuggestionStatus(structuredClone(t),recovered),'applied');assert.equal(appliedSuggestionStatus(before,recovered),'reverted');
+ t.records[0].values.scene='另一条街道';assert.equal(appliedSuggestionStatus(t,item),'stale');
+ t.records[0].values.scene=before.records[0].values.scene;t.fields[0].id='replacement';t.records[0].values.replacement=t.records[0].values.scene;t.records[0].values.p.segments[0].fieldId='replacement';
+ assert.equal(appliedSuggestionStatus(t,item),'stale');
+});
 test('structured dynamic references freeze and round-trip without materializing text',async()=>{
  const t=table(),rev=new OptimizationRevisions(),f=await freezeSnapshot(t,target(),rev,{begin:true,nonce:'test'});
  assert.deepEqual(f.wire.input.protected_tokens,['⟦DAE_REF_test_0001⟧']);assert.equal(f.wire.input.reference_context[0].text,'雨后的街道');

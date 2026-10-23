@@ -62,7 +62,7 @@ def image_files(tensor, single=False):
 class LibTVVideo(io.ComfyNode):
     @classmethod
     def define_schema(cls):
-        return io.Schema(node_id=NODE_ID, display_name="DAELAB · 生成节点", category="DAELab/LibTV",
+        return io.Schema(node_id=NODE_ID, display_name="DAELAB · 生成节点", category="DAELab/Generation",
             description="在节点内编辑并运行图片或视频任务；连接多维表格后每行对应一个任务。原生输出读取当前任务已完成的结果。",
             is_output_node=True, not_idempotent=True,
             inputs=[
@@ -110,34 +110,8 @@ class LibTVVideo(io.ComfyNode):
                 raise ValueError('当前任务结果不是图片或视频')
             return io.NodeOutput(InputImpl.VideoFromFile(media['path']), asset['url'], media['path'], report, None,
                                  ui={'daelab_video_task_result': [asset['url']]})
-        if table_json:
-            raise ValueError('请刷新页面，在生成节点中导入表格任务后运行')
-        if text_input is not None:
-            prompt = text_input
-        files = json.loads(reference_files)
-        if not isinstance(files, list) or not all(isinstance(p, str) for p in files):
-            raise ValueError("reference_files must be a JSON array of paths")
-        if last_frame is not None and first_frame is None:
-            raise ValueError("A last frame requires a first frame")
-        media = image_files(first_frame, True) + image_files(last_frame, True) + image_files(reference_images)
-        media += [local_media(p) for p in files]
-        if reference_video:
-            media.append(local_media(reference_video))
-        settings = dict(duration=duration, resolution=resolution, ratio=ratio)
-        if model != "Minimax H3":
-            settings["enableSound"] = "on" if sound else "off"
-        elif sound:
-            raise ValueError("Minimax H3 does not expose a sound setting")
-        output = Path(folder_paths.get_output_directory())
-        bridge = Bridge(Path(folder_paths.get_user_directory()) / "daelab/libtv/jobs", output / "daelab/libtv")
-        state = bridge.generate(project_uuid, request_id, model, mode, prompt, settings, media)
-        path = Path(state["file"])
-        subfolder = path.parent.relative_to(output).as_posix()
-        url = "/view?" + urlencode(dict(filename=path.name, subfolder=subfolder, type="output"))
-        report = json.dumps({k: state.get(k) for k in ("phase", "model_name", "node_key", "task_id", "width", "height", "sha256")}, ensure_ascii=False)
-        return io.NodeOutput(InputImpl.VideoFromFile(str(path)), url, str(path), report, None,
-                             ui={**ui.PreviewVideo([ui.SavedResult(path.name, subfolder, io.FolderType.output)]).as_dict(),
-                                 'daelab_video_identity': [json.dumps([project_uuid, request_id, model], ensure_ascii=False, separators=(',', ':'))]})
+        raise ValueError('LibTV 通道已停用；请刷新页面，在生成节点面板中使用 Comfy 积分运行任务，再读取原生输出')
+
 
 
 NODE_CLASS_MAPPINGS = {NODE_ID: LibTVVideo}

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {badgeText} from '../web/badge_ui_text.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {normalizeImageSelection,buildImageViewPath} from '../web/app_mode_load_image_preview_model.mjs';
@@ -12,7 +13,7 @@ const body=source.slice(source.indexOf('    const {app}'),source.lastIndexOf('}'
     .replace(/^    const \{(?:app|api|getBadgeNativeQueue)\} = await import\([^\n]+\);\r?\n/gm,'');
 const run=new (Object.getPrototypeOf(async function(){}).constructor)(
     'graph','pixels','cancelled','regenerate','allowGenerate','app','api','getBadgeNativeQueue',
-    'queueBadge87','promptForRequest','normalizeImageSelection','buildImageViewPath','Image','document','BADGE87_IMAGE_MODEL','refinedBadge87','selectedBadgeModel',body);
+    'queueBadge87','promptForRequest','normalizeImageSelection','buildImageViewPath','Image','document','BADGE87_IMAGE_MODEL','refinedBadge87','selectedBadgeModel','badgeText',body);
 async function fixture(allowGenerate, cached=false, model=BADGE87_IMAGE_MODEL) {
     let submissions=0;
     const image={filename:'target.png',subfolder:'',type:'input'};
@@ -20,11 +21,11 @@ async function fixture(allowGenerate, cached=false, model=BADGE87_IMAGE_MODEL) {
     if(cached) meta.gptColorMap={model,sourceKey:JSON.stringify(image),source:image,quality:'low',image:{...image,filename:'map.png'}};
     const graph={extra:{daelabBadgePrototypeV1:meta,daelabBadgeExecutionV1:{executorNodeId:200}},getNodeById:()=>({widgets:[{name:'image',value:'target.png'}]}),serialize:()=>({})};
     const result=await run(graph,{width:32,height:32},()=>false,false,allowGenerate,{},
-        {apiURL:x=>x,fetchApi:async()=>({ok:true,json:async()=>({job:{outputs:{113:{images:[{...image,filename:'map.png'}]}}}})})},
+        {apiURL:x=>x,fetchApi:async()=>({ok:true,json:async()=>({job:{outputs:{badge87_color_map:{badge87_auxiliary_images:[{...image,filename:'map.png'}]}}}})})},
         ()=>()=>{},async()=>{submissions++;return {prompt_id:'job'}},()=>({}),
         normalizeImageSelection,buildImageViewPath,
         class {naturalWidth=32;naturalHeight=32;async decode(){}},
-        {createElement:()=>({getContext:()=>({drawImage(){},getImageData:()=>({ready:true})})})},BADGE87_IMAGE_MODEL,refinedBadge87,selectedBadgeModel);
+        {createElement:()=>({getContext:()=>({drawImage(){},getImageData:()=>({ready:true})})})},BADGE87_IMAGE_MODEL,refinedBadge87,selectedBadgeModel,badgeText);
     return {submissions,result};
 }
 test('entering a map source without a saved map cannot submit GPT work',async()=>{

@@ -1,6 +1,7 @@
-import {createTableButton,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
-import {availableModes,simulateRows,applyIOResult,undoIOResult} from './llm_io_model.mjs?v=20261015-mixed1';
-import {slotRows,slotSignature,outputText} from './llm_slot_model.mjs?v=20261015-mixed1';
+import {createTableButton,tableIcon,tableHistory} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {app} from '/scripts/app.js';
+import {availableModes,simulateRows,applyIOResult,undoIOResult} from './llm_io_model.mjs?v=20261023-h3-size-r3';
+import {slotRows,slotSignature,outputText} from './llm_slot_model.mjs?v=20261023-h3-size-r3';
 import {optimizeRow} from './llm_local_provider.mjs?v=20261015-provider2';
 import {createLLMTask} from './llm_task_model.mjs?v=20261015-provider2';
 export function bindIOPanel({node,root,source,instruction,select,run,upload,result,materialHint}){
@@ -18,7 +19,10 @@ export function bindIOPanel({node,root,source,instruction,select,run,upload,resu
         try{
             const confirm=()=>applyIOResult(saved(),signature());
             const context=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.getPanelContext?.(root);
-            if(context?.confirmOutput?context.confirmOutput(confirm):confirm())message=context?.confirmOutput?'已应用 · 结果文本框已连接':'已应用 · 下游通过连线读取';
+            if(node.outputs?.[1]?.links?.length){
+                const history=tableHistory(app);history?.begin();
+                try{if(confirm())message='已应用 · 逐行结果通过连线传递';}finally{history?.end();}
+            }else if(context?.confirmOutput?context.confirmOutput(confirm):confirm())message=context?.confirmOutput?'已应用 · 结果文本框已连接':'已应用 · 下游通过连线读取';
         }catch(error){message=error.message;}
         changed();
     });tableIcon(apply,'check-line','同意更改');

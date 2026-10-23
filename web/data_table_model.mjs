@@ -1,7 +1,8 @@
 // Business-independent table model. No storyboard, ComfyUI or provider dependencies.
-import {isPrompt,validatePrompt} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {isColumnPrompt,validateColumnPrompt,bindColumnAssets,toColumnPrompt} from './table_prompt_template.mjs?v=20261001-frame-tags-dedup';
+import {isPrompt,validatePrompt} from './table_prompt_model.mjs?v=20261023-h3-size-r3';
+import {isColumnPrompt,validateColumnPrompt,bindColumnAssets,toColumnPrompt} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
 import {migrateVideoReferences} from './table_video_references.mjs?v=20260929-refs3';
+import {migratePromptSource,promptSourceId,setPromptSource} from './table_prompt_source.mjs';
 export const COLUMN_MINIMUM_WIDTH=100;
 export const FIELD_TYPES = ['text','longtext','number','checkbox','select','assets','content','json'];
 export const clone = value => JSON.parse(JSON.stringify(value));
@@ -48,14 +49,14 @@ export function normalizeTable(value={}) {
         for(const f of fields)if(isColumnPrompt(values[f.id]))values[f.id]=toColumnPrompt(values[f.id],{values});
         return {...clone(r),id,selected:raw.meta?.material_columns?r.selected===true:r.selected!==false,values};
     });
-    return migrateVideoReferences({version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})});
+    return migratePromptSource(migrateVideoReferences({version:1,fields,records,view:raw.view==='cards'?'cards':'table',meta:clone(raw.meta||{})}));
 }
 export function addField(table,spec={}) {
     const field={id:uid(),name:'新字段',type:'text',width:180,hidden:false,...(['assets','content'].includes(spec.type)?{video_reference:false}:{}),...spec};
     if(table.fields.some(f=>f.id===field.id))throw new Error('字段 ID 已存在');
     table.fields.push(field);return field;
 }
-export function removeField(table,id) {table.fields=table.fields.filter(f=>f.id!==id);for(const row of table.records)delete row.values[id];if(table.meta.asset_groups)table.meta.asset_groups=table.meta.asset_groups.filter(g=>g.field_id!==id);}
+export function removeField(table,id) {if(promptSourceId(table)===id)setPromptSource(table,null);table.fields=table.fields.filter(f=>f.id!==id);for(const row of table.records)delete row.values[id];if(table.meta.asset_groups)table.meta.asset_groups=table.meta.asset_groups.filter(g=>g.field_id!==id);}
 export function addRecord(table,values={},afterId=null) {
     const record={id:uid(),selected:!table.meta?.material_columns,values:clone(values)};
     if(table.meta?.material_columns){let number=table.records.length+1;while(table.records.some(row=>row.name===`任务${number}`))number++;record.name=`任务${number}`;}
@@ -74,10 +75,10 @@ export function setValue(table,recordId,fieldId,value) {
     const field=table.fields.find(f=>f.id===fieldId),record=table.records.find(r=>r.id===recordId);
     if(!field || !record)throw new Error('字段或记录已不存在');if(field.readonly)throw new Error('此字段由数据来源更新');
     if(isPrompt(field)&&typeof value==='string'&&value){
-        const old=record.values[fieldId]||toColumnPrompt('');
+        const old=toColumnPrompt(record.values[fieldId]||'');
         value={...clone(old),segments:[{type:'text',text:value}],editOrigin:'edited'};
     }
-    const converted=convertValue(field,value);
+    const converted=isPrompt(field)&&value===''&&field.promptTemplate?{kind:'column-template',version:1,segments:[]}:convertValue(field,value);
     if(['assets','content'].includes(field.type)&&Array.isArray(converted))for(const asset of converted)if(table.fields.some(f=>f.id!==fieldId&&Array.isArray(record.values[f.id])&&record.values[f.id].some(a=>a.id===asset.id)))asset.id=uid();
     record.values[fieldId]=converted;
 }

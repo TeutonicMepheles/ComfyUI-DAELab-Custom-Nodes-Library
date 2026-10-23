@@ -17,14 +17,22 @@ SCHEMA = {"properties": {"duration": {"min": 4, "max": 15}, "resolution": {"enum
 
 
 class BridgeTests(unittest.TestCase):
-    def test_cli_structured_failure_is_preserved(self):
+    def test_retired_cli_rejects_every_entry_without_starting_processes(self):
         from unittest.mock import patch
-        node = {'data': {'taskInfo': {'failedReason': 'model rejected input'}}}
-        finished = r.subprocess.CompletedProcess([], 1, json.dumps(node), '')
-        with patch.object(r.CLI, '_stream', return_value=finished):
-            with self.assertRaises(r.CLIError) as caught:
-                r.CLI('libtv')('node', 'n', '--run')
-        self.assertEqual(caught.exception.failure_reason, 'model rejected input')
+        cli = r.CLI('libtv', timeout=5)
+        entries = [(cli, args) for args in (
+            ('node', 'n', '-p', 'p'), ('node', 'n', '--run'),
+            ('node', 'create', 'n'), ('upload', 'n'),
+            ('node', 'n', '-u', 'url=[]'), ('download', '-n', 'n'))]
+        entries += [(cli.refresh_model_catalog, ('video', 'star-video2')),
+                    (cli._stream, ('node', 'n', '--run')),
+                    (cli._call_once, ('node', 'n'))]
+        with patch.object(r.subprocess, 'run') as run, patch.object(r.subprocess, 'Popen') as popen:
+            for entry, args in entries:
+                with self.subTest(entry=entry, args=args), self.assertRaisesRegex(RuntimeError, 'LibTV.*Comfy'):
+                    entry(*args)
+            run.assert_not_called()
+            popen.assert_not_called()
 
     def test_terminal_failure_receipt_is_persisted(self):
         reason = '视频生成失败，积分将会在2小时内返还，请稍后重试'
@@ -41,43 +49,6 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaises(r.CLIError):
             bridge.generate('p', 'r', 'Seedance 2.0', 'text2video', 'hello', {})
         self.assertEqual(len(calls), count)
-
-    def test_only_non_paid_commands_have_a_timeout(self):
-        from unittest.mock import patch
-        from types import SimpleNamespace
-        response = SimpleNamespace(returncode=0, stdout='{"data":{"url":["result"]}}', stderr='')
-        done = r.subprocess.CompletedProcess([], 0, response.stdout, '')
-        with patch.object(r.subprocess, 'run', return_value=response) as run, \
-                patch.object(r.CLI, '_stream', return_value=done) as stream:
-            cli = r.CLI('libtv', timeout=5)
-            cli('node', 'n', '-p', 'p')
-            self.assertEqual(run.call_args.kwargs['timeout'], 5)
-            cli('download', '-n', 'n')
-            self.assertEqual(run.call_args.kwargs['timeout'], 900)
-            calls = run.call_count
-            cli('node', 'n', '-p', 'p', '--run')
-            self.assertEqual(run.call_count, calls)
-            self.assertEqual(stream.call_count, 1)
-        with patch.object(r.subprocess, 'run', side_effect=r.subprocess.TimeoutExpired('libtv', 30)), patch.object(r.time, 'sleep'):
-            with self.assertRaisesRegex(RuntimeError, 'ETIMEDOUT'):
-                r.CLI('libtv')('node', 'n', '-p', 'p')
-
-    def test_run_forwards_progress_lines_before_exit(self):
-        import io
-        from unittest.mock import patch
-        seen = []
-        class Process:
-            returncode = 0
-            stdout = io.StringIO('{"data":{"url":["result"]}}')
-            stderr = io.StringIO('[run] task=t1 status=1 progress=35%\n[run] task=t1 status=2 progress=100%\n')
-            def wait(self):
-                return 0
-        with patch.object(r.subprocess, 'Popen', return_value=Process()) as popen:
-            result = r.CLI('libtv')('node', 'n', '-p', 'p', '--run', on_stderr=seen.append)
-        self.assertEqual(result['data']['url'], ['result'])
-        self.assertNotIn('timeout', popen.call_args.kwargs)
-        self.assertEqual([r.RUN_PROGRESS.search(line).groups() for line in seen],
-                         [('t1', '1', '35'), ('t1', '2', '100')])
 
     def run_bridge(self, run, query):
         """Drive generate with a fake CLI; returns (bridge, calls, stages)."""
@@ -122,27 +93,6 @@ class BridgeTests(unittest.TestCase):
         # Watcher reports stop once --run has returned.
         self.assertNotIn("generating", names[names.index("downloading"):])
         self.assertEqual(sum("--run" in c for c in calls), 1)
-
-    def test_only_read_commands_retry_network_failure(self):
-        from unittest.mock import patch
-        for args, expected in [(('node', 'n', '-p', 'p'), 3),
-                               (('node', 'n', '-p', 'p', '--run'), 1),
-                               (('node', 'create', 'n'), 1),
-                               (('upload', 'n'), 1),
-                               (('node', 'n', '-u', 'url=[]'), 1)]:
-            with self.subTest(args=args), patch.object(r.CLI, '_call_once', side_effect=RuntimeError('ECONNRESET')) as call, patch.object(r.time, 'sleep'):
-                with self.assertRaises(RuntimeError):
-                    r.CLI('libtv')(*args)
-                self.assertEqual(call.call_count, expected)
-
-    def test_failed_cli_preserves_result_for_recovery(self):
-        from unittest.mock import patch
-        node = {'nodeKey': 'n', 'data': {'url': ['https://example.invalid/result.png']}}
-        finished = r.subprocess.CompletedProcess([], 1, json.dumps(node), 'nodesBatch ECONNRESET')
-        with patch.object(r.CLI, '_stream', return_value=finished):
-            with self.assertRaises(r.CLIError) as caught:
-                r.CLI('libtv')('node', 'n', '--run')
-        self.assertEqual(caught.exception.result, node)
 
     def test_failed_write_back_is_recorded_and_never_rerun(self):
         def run():
@@ -211,26 +161,6 @@ class BridgeTests(unittest.TestCase):
                 list(pool.map(lambda i: r.atomic_json(path, {'value': i}), range(40)))
             self.assertIn(json.loads(path.read_text())['value'], range(40))
             self.assertEqual(list(Path(directory).glob('*.tmp')), [])
-
-    def test_create_keeps_node_key_before_link_response(self):
-        from unittest.mock import patch
-        from types import SimpleNamespace
-        output = '{"nodeKey":"created"}\n{"linked":true}'
-        with patch.object(r.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=output, stderr="")):
-            self.assertEqual(r.CLI("libtv")("node", "create", "demo")["nodeKey"], "created")
-
-    def test_plain_text_cli_success_recovers_without_resubmission(self):
-        from unittest.mock import patch
-        from types import SimpleNamespace
-        response = lambda text: SimpleNamespace(returncode=0, stdout=text, stderr="")
-        finished = r.subprocess.CompletedProcess([], 0, "finished", "")
-        with patch.object(r.CLI, "_stream", return_value=finished) as stream, \
-                patch.object(r.subprocess, "run", return_value=response('{"data":{"url":["video"]}}')) as run:
-            self.assertEqual(r.CLI("libtv")("node", "n", "-p", "p", "--run")["data"]["url"], ["video"])
-            self.assertEqual(stream.call_count, 1)
-            self.assertNotIn("--run", run.call_args.args[0])
-        with patch.object(r.subprocess, "run", return_value=response("C:/output/video.mp4")):
-            self.assertIn("download_output", r.CLI("libtv")("download", "-n", "n"))
 
     def test_success_cache_and_download_recovery_do_not_regenerate(self):
         import av

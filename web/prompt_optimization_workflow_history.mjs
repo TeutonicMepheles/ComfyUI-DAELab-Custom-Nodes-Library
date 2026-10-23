@@ -1,7 +1,7 @@
-import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
+import {NAMESPACE,OptimizationRevisions,prepareWorkflowIdentity} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
-import {assertTransition} from './script_parser_model.mjs?v=20261007-parser-review';
-import {serializeStoryboardTable} from './storyboard_table_adapter.mjs?v=20261001-frame-tags-dedup';
+import {assertTransition} from './script_parser_model.mjs?v=20261023-h3-size-r3';
+import {serializeStoryboardTable} from './storyboard_table_adapter.mjs?v=20261023-h3-size-r3';
 
 const widgetNames={
  'DAELAB.Table':'table_data',

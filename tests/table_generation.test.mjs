@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {setPromptSource} from '../web/table_prompt_source.mjs';
 import assert from 'node:assert/strict';
 import {normalizeTable,duplicateSelected} from '../web/data_table_model.mjs';
 import {generationReceipt,recoveryJob,addGenerationColumn,enableColumnPrompt,generationRows,generationInput,inputStamp,applyGenerationResult} from '../web/table_generation_model.mjs';
@@ -37,7 +38,7 @@ test('retained generation results remain usable while a replacement is running',
 });
 test('binding existing text preserves values when enabling the shared column prompt editor',()=>{
  const t=normalizeTable({fields:[{id:'p',type:'text',name:'描述'}],records:[{id:'r',values:{p:'保留原文'}}]});
- const f=addGenerationColumn(t);assert.equal(f.generation.promptFieldId,'p');
+ const f=addGenerationColumn(t);assert.equal(f.generation.promptFieldId,'');setPromptSource(t,'p');assert.equal(f.generation.promptFieldId,'p');
  enableColumnPrompt(t,'p');assert.equal(generationInput(t,f.id,'r').segments[0].text,'保留原文');
 });
 test('duplicating records clears job identities and generated outputs',()=>{

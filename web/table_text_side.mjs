@@ -1,4 +1,4 @@
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261023-h3-size-r3';
 
 // Instance-owned, non-modal text dock. Collapsing preserves the current draft.
 export function createTextSide({root,getHost=()=>document.body}) {

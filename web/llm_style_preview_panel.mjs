@@ -1,5 +1,5 @@
-import {bindIOPanel} from './llm_io_panel.mjs?v=20261021-integrated1';
-import {createTableButton,tableTheme} from './table_controls.mjs?v=20261017-row-header-drag';
+import {bindIOPanel} from './llm_io_panel.mjs?v=20261023-h3-size-r3';
+import {createTableButton,tableTheme} from './table_controls.mjs?v=20261023-h3-size-r3';
 let sharedFields=null,sharedPanels=null;
 try{sharedFields=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_field.mjs');sharedPanels=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_panel_state.mjs');}catch{}
 

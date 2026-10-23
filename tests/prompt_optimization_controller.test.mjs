@@ -1,3 +1,4 @@
+import {Element,installDom} from './prompt_optimization_dom.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createOptimizationController,attachPromptOptimization} from '../web/prompt_optimization_controller.mjs';
@@ -227,30 +228,34 @@ test('applied suggestion cannot be reapplied after undo/redo and request sequenc
  assert.equal(c.getState().rows[0].reason,'');assert.equal(c.getState().rows[0].suggestionStatus,'applied');
  const applied=clone(table),high=revisions.current(table,'r','p'),count=history.length;
  Object.assign(table,clone(history[0]));c.observe();const undo=revisions.current(table,'r','p');
+ assert.equal(c.getState().rows[0].suggestionStatus,'reverted');assert.match(c.getState().rows[0].reason,/已撤销/);
  assert.ok(undo.revision>high.revision);assert.equal(undo.requestSeq,high.requestSeq);
  await c.apply(row.requestId);assert.equal(history.length,count);
  Object.assign(table,applied);c.observe();assert.ok(revisions.current(table,'r','p').revision>undo.revision);
+ assert.equal(c.getState().rows[0].suggestionStatus,'applied');
+ table.records[0].values.p='后来手动修改的内容';c.observe();assert.equal(c.getState().rows[0].suggestionStatus,'stale');
  assert.equal(s.count('advance'),1);
 });
 
 function mountHarness(t,{references=[],discovered=[],discoveryGate=null}={}){
+ const doc=installDom(t);
  const table=makeTable(),identity={documentId:crypto.randomUUID(),tableId:crypto.randomUUID()},graph={};
  const node={graph,properties:{[NAMESPACE]:{tableId:identity.tableId,revisions:{},batches:clone(references)}}},calls=[];
  const fetchApi=async(url,options)=>{
   const action=url.split('/').at(-1),payload=JSON.parse(options.body);calls.push({action,payload});
   if(action==='query'&&discoveryGate)await discoveryGate;
   const result=action==='query'?{batches:clone(discovered)}:action==='recover'?{batchId:payload.batchId,rows:[]}
-   :action==='capabilities'?{available:true,models:['gpt-4.1-mini']}:{status:'ready',quoteId:'estimate',expiresAt:Date.now()+300000};
+   :action==='capabilities'?{available:true,deepseekKeyConfigured:true,models:['gpt-4.1-mini','deepseek-flash']}:{status:'ready',quoteId:'estimate',expiresAt:Date.now()+300000};
   return {ok:true,json:async()=>result};
  };
  const mounts=[];
  function mount(){
   // Skip rendering the panel; exercise actual attach/discovery/recovery code.
-  const editor={change(){},onTableChange(){return()=>{};},openTextSide(){}};
+  const editor={root:new Element('div'),change(){},onTableChange(){return()=>{};}};
   const lifecycle=attachPromptOptimization({node,graph,editor,getTable:()=>table,identity,fetchApi});mounts.push(lifecycle);
   editor.openPromptOptimization({scope:'cell',fieldId:'p',recordId:'r'});return lifecycle;
  }
- t.after(()=>mounts.forEach(m=>m.destroy()));
+ t.after(()=>{mounts.forEach(m=>m.destroy());doc.restore();});
  return {node,calls,mount,identity};
 }
 
@@ -387,22 +392,18 @@ test('slow initial Comfy capabilities never blocks provider or overwrites curren
 });
 
 test('reopening the same controller observes Active mode without discarding its quote',async t=>{
- class Element extends EventTarget{
-  constructor(tag){super();this.tagName=tag;this.children=[];this.dataset={};this.value='';this.style={setProperty(){}};this.classList={add(){}};}
-  append(...nodes){for(const e of nodes){e.parentNode=this;this.children.push(e);}}replaceChildren(...nodes){this.children=[];this.append(...nodes);}setAttribute(name,value){this[name]=value;}remove(){this.parentNode?.children.splice(this.parentNode.children.indexOf(this),1);}
- }
- const previous=globalThis.document;globalThis.document={createElement:tag=>new Element(tag),activeElement:null};t.after(()=>globalThis.document=previous);
+ const doc=installDom(t);
  const table=makeTable(),identity={documentId:crypto.randomUUID(),tableId:crypto.randomUUID()},graph={},node={graph,mode:4,properties:{[NAMESPACE]:{tableId:identity.tableId,revisions:{},batches:[]}}};
  let container,cleanup,estimates=0;const estimated=deferred();
- const editor={change(){},onTableChange(){return()=>{};},openTextSide(_record,_field,_title,render){cleanup?.();container=new Element('div');container.onCleanup=fn=>cleanup=fn;render(container);}};
- const fetchApi=async(url)=>{const action=url.split('/').at(-1);if(action==='estimate'){estimates++;estimated.resolve();}return {ok:true,json:async()=>action==='query'?{batches:[]}:action==='capabilities'?{available:true,models:['gpt-4.1-mini']}:{status:'ready',quoteId:'retained',estimatedCredits:1,expiresAt:Date.now()+300000}};};
- const lifecycle=attachPromptOptimization({node,graph,editor,getTable:()=>table,identity,fetchApi});t.after(()=>{cleanup?.();lifecycle.destroy();});
+ const editor={root:new Element('div'),change(){},onTableChange(){return()=>{};}};
+ const fetchApi=async(url)=>{const action=url.split('/').at(-1);if(action==='estimate'){estimates++;estimated.resolve();}return {ok:true,json:async()=>action==='query'?{batches:[]}:action==='capabilities'?{available:true,deepseekKeyConfigured:true,models:['gpt-4.1-mini','deepseek-flash']}:{status:'ready',quoteId:'retained',estimatedCredits:1,expiresAt:Date.now()+300000}};};
+ const lifecycle=attachPromptOptimization({node,graph,editor,getTable:()=>table,identity,fetchApi});t.after(()=>{cleanup?.();lifecycle.destroy();doc.restore();});
  const target={scope:'cell',fieldId:'p',recordId:'r'},find=(root,test)=>test(root)?root:root.children.map(e=>find(e,test)).find(Boolean);
- editor.openPromptOptimization(target);await estimated.promise;await flush();assert.equal(estimates,1);
- assert.equal(find(container,e=>e.textContent==='开始优化').disabled,true);assert.ok(find(container,e=>e.className==='prompt-opt-warning'&&e.textContent?.includes('停用')));
+ editor.openPromptOptimization(target);container=doc.body;await estimated.promise;await flush();assert.equal(estimates,1);
+ assert.equal(find(container,e=>e['aria-label']==='开始改写').disabled,true);assert.ok(find(container,e=>e.className==='opt-message'&&e.textContent?.includes('停用')));
  node.mode=0;editor.openPromptOptimization(target);await flush();assert.equal(estimates,1,'Mode refresh preserves the existing quote');
- assert.equal(find(container,e=>e.textContent==='开始优化').disabled,false);
- const inactive=find(container,e=>e.className==='prompt-opt-warning'&&e.role==='status');assert.equal(inactive.hidden,true);
+ assert.equal(find(container,e=>e['aria-label']==='开始改写').disabled,false);
+ const inactive=find(container,e=>e.className==='opt-message');assert.ok(!inactive.textContent.includes('停用'));
 });
 
 
@@ -439,6 +440,7 @@ test('editing after unknown cannot bypass acknowledgement; explicit submit carri
 
 test('saved application receipts restore as applied and cannot become a second edit after reload',async t=>{
  const s=fakeService(),table=makeTable(),revisions=new OptimizationRevisions(),receipts=new Map();
+ const original=clone(table);
  t.mock.timers.enable({apis:['setTimeout']});const identity={documentId:'doc',tableId:'table'};
  const common={getTable:()=>table,identity,revisions,persist(){},change:fn=>fn(table),api:s.api,scope:'cell',fieldId:'p',recordId:'r',instanceId:'receipt-view',getAppliedRequestIds:id=>receipts.get(id)||[],onApplied:(id,ids)=>receipts.set(id,ids)};
  const c=createOptimizationController(common);s.hooks.advance=async(_b,row)=>{row.status='succeeded';row.suggestion={status:'valid',text:'一只白猫。'};};
@@ -448,6 +450,10 @@ test('saved application receipts restore as applied and cannot become a second e
  let writes=0;const restored=createOptimizationController({...common,revisions:new OptimizationRevisions(revisions.serialize()),change(){writes++;}});t.after(()=>restored.destroy());
  await restored.recover(batchId);assert.equal(restored.getState().rows[0].suggestionStatus,'applied');assert.equal(restored.getState().rows[0].reason,'');
  await restored.apply(row.requestId);assert.equal(writes,0);assert.equal(s.count('advance'),1);
+ restored.destroy();Object.assign(table,original);
+ const undone=createOptimizationController({...common,revisions:new OptimizationRevisions(revisions.serialize()),change(){writes++;}});t.after(()=>undone.destroy());
+ await undone.recover(batchId);assert.equal(undone.getState().rows[0].suggestionStatus,'reverted');
+ await undone.apply(row.requestId);assert.equal(writes,0);assert.equal(s.count('advance'),1);
 });
 
 

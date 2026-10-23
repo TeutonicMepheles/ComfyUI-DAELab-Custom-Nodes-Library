@@ -1,4 +1,4 @@
-import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
+import {optimizationProvider} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
 
 // This module lives only in this page. Never expose the value through state,
 // serialized payloads, preferences, storage, or diagnostic messages.
@@ -9,13 +9,13 @@ const keyChanged=()=>{for(const fn of keyListeners)fn(Boolean(pageDeepSeekKey));
 /** Contract K. Only the native account's transient auth reaches local headers. */
 export async function nativeOptimizationAuth({root=globalThis,required=false}={}) {
   try {
-  // Frontend 1.52.7 exposes only isLoggedIn on the public extension manager.
+  // Frontends 1.52.7 and 1.53.10 expose only isLoggedIn on the public extension manager.
   // Its api.authToken is populated ONLY around queuePrompt, then deleted.
   // Keep the version-locked Pinia compatibility seam here; never scrape storage,
   // import hashed chunks, queue a workflow, or persist account credentials.
   const manager=root.comfyAPI?.app?.app?.extensionManager,stores=manager?._p?._s;
-  const unsupported=()=>{if(required)throw new Error('当前前端登录接入不可用，请使用已验证的 ComfyUI 前端 1.52.7');return {};};
-  if(root.__COMFYUI_FRONTEND_VERSION__!=='1.52.7'||manager?.$id!=='workspace'||typeof stores?.get!=='function')return unsupported();
+  const unsupported=()=>{if(required)throw new Error('当前前端登录接入不可用，请使用已验证的 ComfyUI 前端 1.52.7 或 1.53.10');return {};};
+  if(!['1.52.7','1.53.10'].includes(root.__COMFYUI_FRONTEND_VERSION__)||manager?.$id!=='workspace'||typeof stores?.get!=='function')return unsupported();
   const auth=stores.get('auth'),workspace=stores.get('teamWorkspace'),keys=stores.get('apiKeyAuth');
   if(auth?.$id!=='auth'||workspace?.$id!=='teamWorkspace'||typeof auth.getWorkspaceAuthToken!=='function'||typeof auth.currentUserIdentity!=='function'||typeof workspace.waitForWorkspaceSwitch!=='function')return unsupported();
   const identity=auth.currentUserIdentity();
@@ -46,7 +46,7 @@ export async function nativeOptimizationAuth({root=globalThis,required=false}={}
     // Ledger recovery remains available offline or after account refresh fails.
     // Without auth the local service cannot poll or submit to the provider.
     if(!required)return {};
-    const safe=['当前前端登录接入不可用，请使用已验证的 ComfyUI 前端 1.52.7','登录身份或工作空间已变化，请重新确认后继续','请登录 ComfyUI 账号后继续'];
+    const safe=['当前前端登录接入不可用，请使用已验证的 ComfyUI 前端 1.52.7 或 1.53.10','登录身份或工作空间已变化，请重新确认后继续','请登录 ComfyUI 账号后继续'];
     throw new Error(safe.includes(error?.message)?error.message:'无法取得当前工作空间的登录授权，请重新登录后继续');
   }
 }
@@ -63,7 +63,7 @@ export function createPromptOptimizationApi({fetchApi, getAuth} = {}) {
     if(provider==='deepseek'&&action==='advance'){
       if(!pageDeepSeekKey&&!serverDeepSeekKeyConfigured)throw new Error('请先保存本页 DeepSeek API 密钥，或配置服务器 DEEPSEEK_API_KEY，再点击继续剩余行');
       if(pageDeepSeekKey)headers['X-DAELab-DeepSeek-Key']=pageDeepSeekKey;
-    }else if (provider!=='deepseek'&&!localOnly&&['advance', 'query', 'recover'].includes(action)) {
+    }else if (provider==='comfy'&&!localOnly&&['advance', 'query', 'recover'].includes(action)) {
       auth = getAuth ? await getAuth() : await nativeOptimizationAuth({required:action==='advance'});
       if (auth?.headers?.Authorization) headers.Authorization=auth.headers.Authorization;
       else if(auth?.headers?.['X-API-Key']) headers['X-API-Key']=auth.headers['X-API-Key'];
@@ -74,7 +74,7 @@ export function createPromptOptimizationApi({fetchApi, getAuth} = {}) {
     if(beforeSend&&beforeSend()===false)throw new Error('当前视图或目标已变化，未发送请求');
     let response;
     try { response = await fetcher(`/daelab/prompt-optimization/${action}`, {
-      method: 'POST', headers, body: JSON.stringify({...payload,...(provider==='deepseek'?{provider}:{}),contractVersion: 1}),
+      method: 'POST', headers, body: JSON.stringify({...payload,...(provider!=='comfy'?{provider}:{}),contractVersion: 1}),
     }); } catch(error) {
       if(provider==='deepseek')throw new Error('DeepSeek 请求连接中断；请查询原任务，不要自动重新提交');
       throw error;

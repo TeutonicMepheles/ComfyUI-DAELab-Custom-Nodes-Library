@@ -6,7 +6,8 @@ def effective_prompt(table, row):
     cfg = table.get('meta', {}).get('prompt_config', table.get('meta', {}).get('storyboard', {}))
     fid = cfg.get('bindings', {}).get('final_prompt')
     field = next((f for f in table['fields'] if f['id'] == fid), {})
-    return row['values'].get(fid) or field.get('promptTemplate')
+    value = row['values'].get(fid)
+    return field.get('promptTemplate', value) if value is None or value == '' else value
 
 
 def is_column_prompt(doc):
@@ -46,9 +47,18 @@ def resolve_columns(doc, table, row):
         field = fields.get(fid)
         if not field:
             raise ValueError('引用列已删除')
-        if field.get('presentation') == 'prompt' or field.get('readonly'):
-            raise ValueError('不能引用提示词或生成结果列：' + field['name'])
+        value_type = segment.get('valueType')
+        if value_type is not None and value_type != 'text':
+            raise ValueError('引用值类型无效')
+        if value_type == 'text' and (field.get('presentation') == 'generation' or not (field.get('type') in ('text', 'longtext', 'content') or field.get('presentation') == 'prompt') or any(isinstance(r['values'].get(fid), list) and r['values'][fid] for r in table['records'])):
+            raise ValueError('引用的文本列类型已变化：' + field['name'])
         value = row['values'].get(fid)
+        if value is None or value == '':
+            value = field.get('promptTemplate', value)
+        if is_column_prompt(value):
+            if value.get('version') != 1 or not isinstance(value.get('segments'), list) or any(not isinstance(s, dict) or s.get('type') != 'text' or not isinstance(s.get('text'), str) for s in value['segments']):
+                raise ValueError('不能嵌套引用提示词单元格：' + field['name'])
+            value = ''.join(s['text'] for s in value['segments'])
         if isinstance(value, list):
             if field.get('type') not in ('assets', 'content'):
                 raise ValueError('不支持的引用列：' + field['name'])
@@ -75,7 +85,7 @@ def resolve_columns(doc, table, row):
         else:
             if asset_id or 'assetIndex' in segment:
                 raise ValueError('引用的素材已删除或移到其他行：' + field['name'])
-            if field.get('type') not in ('text', 'longtext', 'select', 'number', 'checkbox', 'content'):
+            if field.get('type') not in ('text', 'longtext', 'select', 'number', 'checkbox', 'content') and field.get('presentation') != 'prompt':
                 raise ValueError('不支持的引用列：' + field['name'])
             if value is None or str(value).strip() == '':
                 raise ValueError('本行缺少文字：' + field['name'])

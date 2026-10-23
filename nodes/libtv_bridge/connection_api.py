@@ -26,29 +26,7 @@ def local_request(request):
 
 
 async def handle(request):
-    global _connection
-    if not local_request(request):
-        return web.json_response({'error': 'Open ComfyUI on this machine using localhost to manage LibTV connection.'}, status=403)
-    if _connection is None:
-        _connection = Connection(folder_paths.get_user_directory() + '/daelab/libtv/connection')
-    action = request.match_info['action']
-    try:
-        if action == 'status' and request.method == 'GET':
-            result = await asyncio.to_thread(_connection.status)
-        elif action == 'login' and request.method == 'POST':
-            result = await asyncio.to_thread(_connection.login)
-        elif action == 'projects' and request.method == 'GET':
-            page = int(request.query.get('page', '1'))
-            if not 1 <= page <= 1000:
-                raise ValueError()
-            result = await asyncio.to_thread(_connection.projects, page)
-        elif action == 'capabilities' and request.method == 'GET':
-            result = await asyncio.to_thread(_connection.capabilities, request.query.get('model', ''))
-        else:
-            return web.json_response({'error': 'Unknown action'}, status=404)
-        return web.json_response(result, headers={'Cache-Control': 'no-store'})
-    except Exception:
-        return web.json_response({'error': 'LibTV connection request failed. Check local CLI installation, login and network; no generation was submitted.'}, status=400)
+    return web.json_response({'error': 'LibTV 通道已停用，请在 ComfyUI 中登录并使用账户积分生成'}, status=410)
 
 
 PromptServer.instance.routes.get('/daelab/libtv/connection/{action}')(handle)

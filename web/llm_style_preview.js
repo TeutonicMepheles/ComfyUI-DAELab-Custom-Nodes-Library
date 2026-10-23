@@ -1,6 +1,6 @@
-import {appliedSnapshot,outputText} from './llm_slot_model.mjs?v=20261015-mixed1';
+import {appliedSnapshot,outputText,outputRows} from './llm_slot_model.mjs?v=20261023-h3-size-r3';
 import {app} from '/scripts/app.js';
-import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261021-integrated1';
+import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261023-h3-size-r3';
 
 // Slot inputs and explicitly approved output; model calls remain an explicit panel action.
 app.registerExtension({
@@ -18,14 +18,18 @@ app.registerExtension({
                     if(variant.id==='B'){this.addInput('素材组','DAELAB_ASSETS');this.addInput('多维表格','STRING');}
                     if(variant.id==='B'){
                         this.addInput('其他输入','*');
+                        this.addOutput('逐行结果','STRING');
                         const output=this.addWidget('text','applied_text','',()=>{}, {serialize:true});
                         output.hidden=true;output.computeSize=()=>[0,-4];
-                        output.serializeValue=()=>this.outputs?.[0]?.links?.length?outputText(this):'';
+                        output.serializeValue=()=>{try{return outputText(this);}catch{return '';}};
+                        const rows=this.addWidget('text','applied_rows','',()=>{}, {serialize:true});
+                        rows.hidden=true;rows.computeSize=()=>[0,-4];
+                        rows.serializeValue=()=>{try{return outputRows(this);}catch{return '';}};
                     }
                     this.size=[variant.width,variant.height+80];
                 }
                 onAdded(){this.installPanel();}
-                onConfigure(){if(variant.id==='B'){if(this.title==='LLM 优化 · B 双栏工作台')this.title='LLM优化功能';for(const [name,type] of [['素材组','DAELAB_ASSETS'],['多维表格','STRING'],['其他输入','*']])if(!this.inputs?.some(i=>i.name===name))this.addInput(name,type);}this.__llmStylePanel?.sync();}
+                onConfigure(){if(variant.id==='B'){if(!this.outputs?.some(o=>o.name==='逐行结果'))this.addOutput('逐行结果','STRING');if(this.title==='LLM 优化 · B 双栏工作台')this.title='LLM优化功能';for(const [name,type] of [['素材组','DAELAB_ASSETS'],['多维表格','STRING'],['其他输入','*']])if(!this.inputs?.some(i=>i.name===name))this.addInput(name,type);}this.__llmStylePanel?.sync();}
                 installPanel(){
                     if(this.__llmStylePanel)return;
                     const panel=createLLMStylePanel(this,variant);this.__llmStylePanel=panel;
@@ -36,7 +40,7 @@ app.registerExtension({
                 }
                 onConnectInput(){return variant.id==='B';}
                 onConnectOutput(){return variant.id==='B';}
-                onExecute(){if(variant.id==='B'){try{this.setOutputData(0,outputText(this));}catch{this.setOutputData(0,null);}}}
+                onExecute(){if(variant.id==='B'){try{this.setOutputData(0,outputText(this));this.setOutputData(1,outputRows(this));}catch{this.setOutputData(0,null);this.setOutputData(1,null);}}}
                 onRemoved(){this.__llmStylePanel?.destroy();delete this.__llmStylePanel;for(const w of this.widgets||[])if(w.name==='llm_style_preview')w.onRemove?.();this.widgets=(this.widgets||[]).filter(w=>w.name!=='llm_style_preview');}
             }
             LLMStylePreview.title=variant.id==='B'?'LLM优化功能':`LLM 优化 · ${variant.label}`;

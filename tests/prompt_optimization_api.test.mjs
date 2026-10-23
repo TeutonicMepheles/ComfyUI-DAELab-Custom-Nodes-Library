@@ -31,6 +31,14 @@ function nativeAccount(){
   return {root,auth,workspace,keys};
 }
 
+test('verified frontend 1.53.10 retains workspace auth and account-switch guard',async()=>{
+  const {root,workspace}=nativeAccount();root.__COMFYUI_FRONTEND_VERSION__='1.53.10';
+  const result=await nativeOptimizationAuth({root,required:true});
+  assert.equal(result.headers.Authorization,'Bearer workspace-token');
+  workspace.workspaceTransitionGeneration++;
+  assert.throws(result.assertCurrent,/工作空间已变化/);
+});
+
 test('logged-in native account works without queuePrompt transient credentials',async()=>{
   const {root}=nativeAccount(),calls=[];
   const api=createPromptOptimizationApi({getAuth:()=>nativeOptimizationAuth({root,required:true}),fetchApi:async(url,options)=>{calls.push({url,...options});return {ok:true,json:async()=>({batchId:'b'})};}});

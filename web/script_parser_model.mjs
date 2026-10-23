@@ -1,5 +1,5 @@
 // Pure named operations. No DOM, keyboard events, network, or shared current node.
-import {clone,uid,normalizeTable} from './data_table_model.mjs';
+import {clone,uid,normalizeTable} from './data_table_model.mjs?v=20261023-h3-size-r3';
 
 export const ROLE_LABELS={shot_no:'镜号',time_range:'时间',scene:'画面',narration:'旁白',subtitle:'字幕',notes:'备注',chapter:'章节',reference:'参考说明',other:'其他原文'};
 export const KIND_LABELS={task:'任务',title:'标题 / 章节',header:'表头',blank:'空白',review:'待确认'};

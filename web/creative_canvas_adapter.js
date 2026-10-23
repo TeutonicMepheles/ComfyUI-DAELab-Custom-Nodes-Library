@@ -1,8 +1,8 @@
-import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
-import {generationMaterials} from './table_material_output.mjs?v=20261017-task-groups';
+import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
+import {generationMaterials} from './table_material_output.mjs?v=20261023-h3-size-r3';
 // Optional integration: business nodes work without the canvas extension.
 // This repository alone owns knowledge of its private panel implementations.
-import {createMaterialTable,fillMaterialColumn,fillMaterialRow,fillMaterialCell} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
+import {createMaterialTable,fillMaterialColumn,fillMaterialRow,fillMaterialCell,columnDropTypes,columnFillCount} from './table_material_columns.mjs?v=20261023-column-fill';
 import {app} from '/scripts/app.js';
 import {materialItem} from './table_material_item.mjs?v=20261012-client-workflow-r2';
 import {videoResultAssets} from './libtv_video_model.mjs?v=20261012-client-workflow-r2';
@@ -21,10 +21,11 @@ function register(){
             if(node.type==='DAELAB.LibTV.VideoGenerate')return node.__libtvPanel?.materialTargets?.()||[];
             const root=node.__dataTablePanel?.root;if(!root)return [];
             const grid=root.querySelector('table'),cached=materialTargetCache.get(node);if(cached?.grid===grid&&cached.cellsRevision===grid?.dataset.cellsRevision)return cached.targets;
-            const columns=[...root.querySelectorAll('[data-material-column]')],ids=new Set(columns.map(e=>e.dataset.materialColumn));
+            const fields=node.__dataTable?.fields||[];
+            const columns=[...root.querySelectorAll('th[data-column]')].filter(e=>columnDropTypes(fields.find(f=>f.id===e.dataset.column)).length),ids=new Set(columns.filter(e=>columnDropTypes(fields.find(f=>f.id===e.dataset.column)).includes('image')).map(e=>e.dataset.column));
             const cells=[...root.querySelectorAll('td[data-field]')].filter(e=>ids.has(e.dataset.field));
             const target=(element,key,label,project=true)=>({element,key,label,project,clipElement:element.closest('.dae-table-scroll')});
-            const targets=[...columns.map(e=>{const columnCells=cells.filter(c=>c.dataset.field===e.dataset.materialColumn);return {...target(e,e.dataset.materialColumn,'松开按列向下填充'),previewElements:count=>[e,...columnCells.slice(0,count)]};}),
+            const targets=[...columns.map(e=>{const columnCells=[...root.querySelectorAll('td[data-field]')].filter(c=>c.dataset.field===e.dataset.column);return {...target(e,e.dataset.column,'单个素材填满整列，多个素材按序向下填充'),accepts:columnDropTypes(fields.find(f=>f.id===e.dataset.column)),previewElements:count=>[e,...columnCells.slice(0,columnFillCount(count,columnCells.length))]};}),
                 ...[...root.querySelectorAll('.table-choice[data-content-row]')].map(e=>({...target(e,JSON.stringify(['row',e.dataset.contentRow]),'松开按行向右填充',false),previewElements:[e,...cells.filter(c=>c.dataset.record===e.dataset.contentRow)]})),
                 ...cells.map(e=>target(e,JSON.stringify(['cell',e.dataset.record,e.dataset.field]),'松开将全部素材加入此格',false))];
             materialTargetCache.set(node,{grid,targets,cellsRevision:grid?.dataset.cellsRevision});return targets;

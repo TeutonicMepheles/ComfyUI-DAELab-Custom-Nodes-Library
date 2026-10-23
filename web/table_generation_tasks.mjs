@@ -1,7 +1,7 @@
 import {generationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
-import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261017-row-header-drag';
-import {request,modelCapabilities} from './table_generation_api.mjs?v=20261002-table-module-responsibilities';
-import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261017-task-prompt-source';
+import {createTableButton as button,tableIcon} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {request,modelCapabilities} from './table_generation_api.mjs?v=20261023-h3-size-r3';
+import {generationReportNeedsApply,generationReceipt,recoveryJob,isLocalGenerationModel,needsGenerationProject,isGeneration,generationRows,generationInput,applyGenerationResult,appendGenerationResult} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 const el=(tag,parent,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node;};
 const phaseNames={waiting:'等待提交',running:'生成中',pausing:'暂停中',paused:'已暂停',stopped:'已停止后续提交',failed:'生成失败',needs_input:'待补充',needs_recovery:'待恢复',complete:'已完成',stale:'输入已变化'};
 const stageNames={local_queued:'本机排队',local_generating:'本机生成',preparing:'准备中',submitting:'提交平台',writing_back:'等待写回',verifying:'核对原任务',downloading:'下载中'};
@@ -45,11 +45,11 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
      if(!old?.input)throw new Error('原任务快照缺失');jobs.push(recoveryJob(old));continue;
     }
     // An abandoned original shares the input fingerprint; forceNew prevents reusing it.
-    try{const input=generationInput(table,fieldId,row.id);if(!isLocalGenerationModel(input.config.model)&&!input.project)throw new Error('请先在生成配置中选择 LibTV 画布');jobs.push({requestId:crypto.randomUUID(),input,forceNew:fresh||Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
+    try{const input=generationInput(table,fieldId,row.id);jobs.push({requestId:crypto.randomUUID(),input,forceNew:fresh||Boolean(row.values[fieldId]?.length)||old?.phase==='failed'});}
     catch(error){if(recordId||table.records.some(r=>r.selected))throw new Error(`第 ${table.records.indexOf(row)+1} 行：${error.message}`);}
    }
    if(!jobs.length)throw new Error('没有可生成的行，请补充提示词或检查任务状态');
-   const localModels=new Map(jobs.filter(job=>!job.recovery&&isLocalGenerationModel(job.input.config.model)).map(job=>[job.input.config.model,job.input.config]));for(const config of localModels.values())await modelCapabilities(config);
+   const localModels=new Map(jobs.filter(job=>!job.recovery).map(job=>[job.input.config.model,job.input.config]));for(const config of localModels.values())await modelCapabilities(config);
    if(!alive||captured!==epoch||!canGenerate())return;
    editor.change(t=>{for(const job of jobs){const row=t.records.find(r=>r.id===job.input.recordId);row.meta||={};row.meta.generationColumns||={};row.meta.generationColumns[fieldId]=generationReceipt(job,row.meta.generationColumns[fieldId]);}});
    try{await request('submit',{jobs});}catch(error){
@@ -76,7 +76,14 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
  }
  async function poll(force=false){
   if(!alive||polling||submitting&&!force)return;const captured=epoch,jobs=[],checkCompleted=force||Date.now()-lastCompletedCheck>30000;if(checkCompleted)lastCompletedCheck=Date.now();
-  for(const row of getTable().records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
+  const table=getTable(),sourceFields=table.meta?.liveSource?.fields||{},ownedFields=new Set(table.fields.filter(f=>isGeneration(f)&&!Object.hasOwn(sourceFields,f.id)).map(f=>f.id));
+  for(const row of table.records)for(const [fieldId,state] of Object.entries(row.meta?.generationColumns||{})){
+   // Source projections retain row metadata for compatibility, but only the
+   // owning generation column may reconcile its remote receipt. Generated
+   // outputs can be readonly locally; source mappings determine ownership.
+   // Polling copied receipts marks them stale, then the source refresh replaces
+   // that change: this false edit used to consume Undo and clear Redo.
+   if(!ownedFields.has(fieldId))continue;
    if(['waiting','running','pausing'].includes(state.phase)||checkCompleted&&['complete','needs_recovery','stopped','paused','failed','stale'].includes(state.phase))jobs.push({recordId:row.id,fieldId,...state});
    if(checkCompleted)for(const old of state.history||[])if(!old.result?.url)jobs.push({recordId:row.id,fieldId,...old,historical:true});
   }
@@ -151,7 +158,7 @@ export function attachGenerationTasks({editor,getTable,notify,prepareGeneration,
     else if(state){const indicator=tableIcon(button(label,()=>notify(label)),phase==='complete'?'check-line':phase==='paused'?'pause-fill':'error-warning-line',label);indicator.classList.add('generation-state-icon');status.append(indicator);}
     if(busy&&phase!=='pausing')status.append(tableIcon(button('暂停此行',()=>pause([state])),'pause-fill','暂停此行；本地中断后从头生成，云端已提交任务继续完成'));
     if(!busy){const recover=phase==='needs_recovery'||phase==='stopped'||phase==='paused',retry=Boolean(state);const actionLabel=phase==='paused'?'继续生成':recover?'恢复原任务':retry?'重新生成':'生成此行';status.append(tableIcon(button(actionLabel,()=>generate(field.id,row.id,recover)),retry&&phase!=='paused'?'restart-line':'play-line',actionLabel));
-     if(recover&&phase!=='paused')status.append(tableIcon(button('放弃原任务并重新生成',()=>{const dialog=editor.openDialog('重新生成本行');el('p',dialog,isLocalGenerationModel(getConfig(field.id,getTable().records.find(r=>r.id===row.id))?.model)?'将提交一个新的本地生成任务，原任务不再查询。':'将提交一个新的付费生成任务，原任务不再查询。');dialog.append(button('确认重新生成',()=>{dialog.remove();void generate(field.id,row.id,false,true);},true),button('取消',()=>dialog.remove()));}),'play-line','放弃原任务并重新生成'));}
+     if(recover&&phase!=='paused')status.append(tableIcon(button('放弃原任务并重新生成',()=>{const dialog=editor.openDialog('重新生成本行');el('p',dialog,isLocalGenerationModel(getConfig(field.id,getTable().records.find(r=>r.id===row.id))?.model)?'将提交一个新的本地生成任务，原任务不再查询。':'将使用 ComfyUI 积分提交一个新任务，原任务不再查询。');dialog.append(button('确认重新生成',()=>{dialog.remove();void generate(field.id,row.id,false,true);},true),button('取消',()=>dialog.remove()));}),'play-line','放弃原任务并重新生成'));}
     const completedHistory=[...(state?.history||[]),...(phase==='stale'&&state?.result?[state]:[])].filter(s=>s.result?.url);
     if(completedHistory.length)status.append(tableIcon(button('已有生成结果',()=>{
      const dialog=editor.openDialog('已有生成结果');el('p',dialog,'将此前已完成的结果追加到本行，已有素材和当前任务保留；同一结果不会重复添加。');

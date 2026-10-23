@@ -1,18 +1,22 @@
-import {createTableButton as button,tableIcon,tableTheme,tableHistory} from './table_controls.mjs?v=20261017-row-header-drag';
-import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261017-kind-tabs';
-import {createPromptEditor} from './table_prompt_editor.mjs?v=20261017-video-tasks';
-import {createPromptSettingsBar} from './table_prompt_settings.mjs?v=20261017-row-header-drag';
-import {createTextSide} from './table_text_side.mjs?v=20261017-row-header-drag';
-import {readTableSnapshot,previewTableRow,writeTablePrompts} from './table_exchange.mjs?v=20261017-sync-frames';
-import {effectivePrompt,toColumnPrompt,promptContent} from './table_prompt_template.mjs?v=20261017-sync-frames';
-import {tableAssets,promptText} from './table_prompt_model.mjs?v=20261001-frame-tags-dedup';
-import {rowGenerationConfig,setRowGenerationConfig,promptColumns,syncGenerationFrameTags} from './table_generation_model.mjs?v=20261017-task-prompt-source';
+import {requirePromptSource,promptSourceId} from './table_prompt_source.mjs';
+import {replaceLinkedTaskText,bindLinkedTaskReference} from './video_task_linked_prompt.mjs?v=20261023-h3-size-r3';
+import {syncApprovedTaskRows} from './video_task_rows.mjs?v=20261023-h3-size-r3';
+import {appliedSnapshot} from './llm_slot_model.mjs?v=20261023-h3-size-r3';
+import {createTableButton as button,tableIcon,tableTheme,tableHistory} from './table_controls.mjs?v=20261023-h3-size-r3';
+import {attachGenerationColumns} from './table_generation_panel.mjs?v=20261023-h3-size-r3';
+import {createPromptEditor} from './table_prompt_editor.mjs?v=20261023-h3-size-r3';
+import {createPromptSettingsBar} from './table_prompt_settings.mjs?v=20261023-h3-size-r3';
+import {createTextSide} from './table_text_side.mjs?v=20261023-h3-size-r3';
+import {isTableSource,readTableSnapshot,previewTableRow,writeTablePrompts} from './table_exchange.mjs?v=20261023-h3-size-r3';
+import {effectivePrompt,toColumnPrompt,promptContent} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
+import {tableAssets,promptText} from './table_prompt_model.mjs?v=20261023-h3-size-r3';
+import {rowGenerationConfig,setRowGenerationConfig,promptColumns,syncGenerationFrameTags} from './table_generation_model.mjs?v=20261023-h3-size-r3';
 import {videoResultAssets} from './libtv_video_model.mjs?v=20261012-client-workflow-r2';
-import {addField,uid} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
-import {fillMaterialCell} from './table_material_columns.mjs?v=20261002-shared-prompt-generation-config';
-import {createVideoTasks,importVideoTasks,addVideoTask,activeVideoTask,videoTaskAssets,selectTaskPrompt,syncVideoTaskInputs} from './video_tasks_model.mjs?v=20261017-sync-frames';
+import {addField,uid,normalizeTable} from './data_table_model.mjs?v=20261023-h3-size-r3';
+import {fillMaterialCell} from './table_material_columns.mjs?v=20261023-h3-size-r3';
+import {createVideoTasks,importVideoTasks,addVideoTask,activeVideoTask,videoTaskAssets,selectTaskPrompt,syncVideoTaskInputs} from './video_tasks_model.mjs?v=20261023-h3-size-r3';
 import {stopCanvasPropagation} from './list_editor_controls.mjs';
-import {bindMaterialThumbnail} from './table_content_view.mjs?v=20261017-video-tasks';
+import {bindMaterialThumbnail} from './table_content_view.mjs?v=20261023-h3-size-r3';
 
 const widget=(node,name)=>node.widgets?.find(w=>w.name===name);
 const element=(tag,parent,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;parent?.append(el);return el;};
@@ -20,12 +24,13 @@ const phases={waiting:'排队中',running:'生成中',pausing:'暂停中',paused
 
 export function installVideoTasks(node,app){
  tableTheme();
- if(!document.getElementById('dae-video-tasks-css')){const sheet=element('link',document.head);sheet.id='dae-video-tasks-css';sheet.rel='stylesheet';sheet.href=new URL('./video_tasks.css?v=20261017-spacing-14',import.meta.url).href;}
+ if(!document.getElementById('dae-video-tasks-css')){const sheet=element('link',document.head);sheet.id='dae-video-tasks-css';sheet.rel='stylesheet';sheet.href=new URL('./video_tasks.css?v=20261022-unified-surface',import.meta.url).href;}
  if(['视频生成','DAELAB · 视频生成'].includes(node.title))node.title='生成节点';
  node.properties||={};
  let data=widget(node,'task_data');if(!data)data=node.addWidget('text','task_data','',()=>{},{serialize:true});
  if(!node.inputs?.some(i=>i.name==='table_json'))node.addInput('table_json','STRING');
  let state=data.value?JSON.parse(data.value):createVideoTasks(Object.fromEntries((node.widgets||[]).map(w=>[w.name,w.value])));
+ state.table=normalizeTable(state.table);
  if(!data.value){const saved=videoResultAssets(node);if(saved.ready)state.table.records[0].values[state.fieldId]=saved.assets.map(a=>({...a,id:uid()}));}
  let disposed=false,frame=null,generation=null,promptUI=null,binding=null,promptStamp='',resultsStamp='',lastStored='',sourceKey='',inputError='',linkedTable=null,lastMode=node.mode,notice='';
  let highlightedNode=null,highlightedRecord='',releaseRowHighlight=null;
@@ -40,8 +45,9 @@ export function installVideoTasks(node,app){
  }
  const history=tableHistory(app),root=element('div',null,'dae-ui dae-video-tasks');
  const header=element('header',root,'video-task-heading');
+ const billing=element('small',header,'video-task-billing','云端生成使用 ComfyUI 积分');billing.setAttribute('role','note');
  let changingType=false;
- const typeTabs=element('div',header,'video-task-types');typeTabs.setAttribute('role','group');typeTabs.setAttribute('aria-label','生成类型');
+ const typeTabs=element('div',header,'video-task-types');typeTabs.setAttribute('role','group');typeTabs.setAttribute('aria-label','生成类型');typeTabs.after(billing);
  const typeButtons=new Map();
  for(const [kind,label,icon] of [['image','图片','image-line'],['video','视频','film-line']]){
   const control=button('',()=>changeType(kind));control.className='video-task-type';control.title=label+'生成';typeTabs.append(control);
@@ -62,12 +68,12 @@ export function installVideoTasks(node,app){
  emptyMaterial.ondragover=event=>{if(event.dataTransfer.types.includes('Files')){event.preventDefault();event.stopPropagation();}};
  emptyMaterial.ondrop=event=>{if(event.dataTransfer.files.length){event.preventDefault();event.stopPropagation();void uploadMaterials([...event.dataTransfer.files],state.currentId);}};
  const inputBar=element('div',bodyTop,'video-task-input');inputBar.hidden=true;
- const promptSource=element('select',inputBar);promptSource.setAttribute('aria-label','表格提示词来源');promptSource.title='选择提示词来源';
+ const promptSource=element('select',inputBar);promptSource.setAttribute('aria-label','表格提示词来源');promptSource.title='提示词来源由表格列头设置';
  let materialPreviews=[];
  function clearMaterialPreviews(){for(const dispose of materialPreviews)dispose();materialPreviews=[];releaseThumbnails(materials);}
  const prompt=element('div',body,'video-task-prompt');prompt.tabIndex=0;
- const bottom=element('footer',root,'video-task-bottom');
- const settings=createPromptSettingsBar((key,anchor)=>{if(current())void generation.chooseSetting(state.fieldId,state.currentId,key,anchor);});bottom.append(settings.root);
+ const bottom=element('footer',body,'video-task-bottom');
+ const settings=createPromptSettingsBar((key,anchor)=>{if(current())void generation.chooseSetting(state.fieldId,state.currentId,key,anchor);},{combined:true});bottom.append(settings.root);
  const actions=element('div',bottom,'video-task-actions');
  const run=button('运行',()=>runTask(),true);actions.append(run);
  const status=element('div',root,'video-task-status');status.setAttribute('role','status');
@@ -102,11 +108,13 @@ export function installVideoTasks(node,app){
   const text=JSON.stringify(state);if(text===lastStored)return;data.value=text;lastStored=text;node.graph?.setDirtyCanvas?.(true,true);node.graph?.change?.();
  }
  function schedule(){if(!disposed&&frame===null)frame=requestAnimationFrame(()=>{frame=null;render();});}
+ let historyGroup=null;
  function mutate(update,{render:draw=true,group=null,writePrompts=false}={}){
   const next=structuredClone(state);update(next);generation?.syncPromptChanges(next.table,state.table);
   if(JSON.stringify(next)===JSON.stringify(state))return;
   notice='';
-  if(!group)history?.begin();try{
+  const derived=['table-input-sync','approved-row-sync'].includes(group),continuing=group&&group===historyGroup;
+  const write=()=>{
    if(writePrompts&&linkedTable&&state.source?.key===linkedTable.key){
     const source=JSON.parse(state.source.stamp),changes=[];
     for(const row of next.table.records){
@@ -119,7 +127,10 @@ export function installVideoTasks(node,app){
     if(changes.length){writeTablePrompts(linkedTable.node,changes,{group:group||crypto.randomUUID()});linkedTable.raw=widget(linkedTable.node,'table_data').value;syncVideoTaskInputs(next,readTableSnapshot(linkedTable.node),source);next.source.stamp=linkedTable.raw;}
    }
    state=next;persist();
-  }finally{if(!group)history?.end();}
+  };
+  if((derived||continuing)&&history?.amend)history.amend(write);
+  else {history?.begin();try{write();}finally{history?.end();}}
+  historyGroup=group;
   if(draw)promptStamp='';schedule();
  }
  const editor={root,change:(update,options)=>mutate(next=>update(next.table),{...options,writePrompts:true}),
@@ -152,15 +163,33 @@ export function installVideoTasks(node,app){
    if(input.link==null)continue;
    const link=node.graph?.links[input.link],source=node.graph?.getNodeById(link?.origin_id);
    if(!source||source.mode){inputError='输入节点不可用或已停用';continue;}
-   if(source.type==='DAELAB.Table'){if(linked&&linked.node!==source){inputError='一次连接一个多维表格';continue;}linked={node:source,key:String(source.id)+':'+link.origin_slot,raw:widget(source,'table_data')?.value};}
+   if(isTableSource(source)){if(link.origin_slot!==0){inputError='请连接上游的 table_json 输出';continue;}if(linked&&linked.node!==source){inputError='一次连接一个多维表格';continue;}linked={node:source,key:String(source.id)+':'+link.origin_slot,raw:widget(source,'table_data')?.value};}
   }
+  const rowInputs=(node.inputs||[]).filter(input=>input.link!=null).map(input=>{const link=node.graph?.links[input.link];return {input,link,source:node.graph?.getNodeById(link?.origin_id)};}).filter(({source,link})=>source?.type==='DAELAB.LLMStylePreviewB'&&link.origin_slot===1);
+  if(rowInputs.length){
+   linkedTable=null;inputBar.hidden=true;importButton.hidden=true;
+   try{
+    if(inputError)throw new Error(inputError);
+    if(rowInputs.length!==1||linked||(node.inputs||[]).filter(i=>i.link!=null).length!==1)throw new Error('逐行结果请单独连接，提示词和参考图已按镜头配对');
+    const {source}=rowInputs[0],snapshot=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')]?.inputSnapshot?.(source)??appliedSnapshot(source);
+    if(!snapshot?.ready)throw new Error('等待上游选行、优化并同意更改；已有结果保留');
+    const key=String(source.id)+':1',stamp=JSON.stringify(snapshot);sourceKey=stamp;
+    if(state.approvedSource?.key!==key||state.approvedSource?.stamp!==stamp){
+     if(generation.submitting)throw new Error('提交结束后同步上游');
+     mutate(next=>{syncApprovedTaskRows(next,snapshot);next.approvedSource={key,stamp};delete next.source;},{group:'approved-row-sync'});
+    }
+   }catch(error){inputError=error.message;}
+   return;
+  }
+  if(state.approvedSource&&!linked){linkedTable=null;inputBar.hidden=true;importButton.hidden=true;inputError='逐行结果输入已断开；已有结果保留，请重新连接';return;}
   linkedTable=linked;inputBar.hidden=!linked&&!state.source;importButton.hidden=!linked;
-  if(!linked){sourceKey='';syncLinkedMedia();return;}
+  if(!linked){sourceKey='';if(state.source){inputError='表格输入已断开；已有结果保留，请重新连接';return;}syncLinkedMedia();return;}
+  try{requirePromptSource(readTableSnapshot(linked.node));}catch(error){inputError=error.message;}
   const sourceChanged=sourceKey!==linked.raw;sourceKey=linked.raw;
   importButton.disabled=state.table.records.some(activeVideoTask)||generation.submitting||!!node.mode;
   importButton.title=state.source?.stamp===linked.raw?'重新导入表格':'更新表格任务';importButton.setAttribute('aria-label',importButton.title);
   if(!inputError&&state.source?.key!==linked.key&&!state.table.records.some(activeVideoTask))importSource();
-  else if(!inputError&&state.source?.key===linked.key&&(sourceChanged||state.source.stamp!==linked.raw)){
+  else if(state.source?.key===linked.key&&(sourceChanged||state.source.stamp!==linked.raw)){
    try{
     const source=readTableSnapshot(linked.node),previous=JSON.parse(state.source.stamp);
     mutate(next=>{
@@ -184,13 +213,14 @@ export function installVideoTasks(node,app){
     const row=state.table.records.find(r=>r.id===previous?.recordId)||current();if(!row||activeVideoTask(row))continue;
     mutate(next=>{
      const target=next.table.records.find(r=>r.id===row.id),output=next.table.fields.find(f=>f.id===next.fieldId),cfg=structuredClone(rowGenerationConfig(target,next.fieldId,output.generation));
-     if(input.name==='text_input'){if(!snapshot.texts)throw new Error('此接口需要文字');const doc=toColumnPrompt(effectivePrompt(next.table,target,cfg.promptFieldId),target);doc.segments=[...doc.segments.filter(s=>s.type==='frame'),{type:'text',text:snapshot.texts.join('\n')}];target.values[cfg.promptFieldId]=doc;}
+     if(input.name==='text_input'){if(!snapshot.texts)throw new Error('此接口需要文字');replaceLinkedTaskText(next.table,target,cfg,snapshot.texts);}
      else{
       const incoming=snapshot.assets||[];if(!incoming.length)throw new Error('上游没有可用素材');
       let column=next.table.fields.find(f=>f.videoInput===input.name);if(!column)column=addField(next.table,{name:({first_frame:'输入首帧',last_frame:'输入尾帧',reference_images:'参考图片',reference_video:'参考视频'})[input.name],type:'content',videoInput:input.name});
       const old=target.values[column.id]||[];target.values[column.id]=incoming.map(a=>{const url=a.url||'/view?'+new URLSearchParams({filename:a.filename,subfolder:a.subfolder||'',type:a.type||'input'});if(!url.startsWith('/view?'))throw new Error('请连接本地 Comfy 素材');return {id:old.find(item=>item.url===url)?.id||uid(),kind:a.kind||'image',url,name:a.name||a.filename||'参考素材'};});
       const role=input.name==='first_frame'?'first':input.name==='last_frame'?'last':null;
       if(role&&cfg.kind==='video'){target.meta||={};target.meta.generationFrames||={};const frames=target.meta.generationFrames[next.fieldId]||={};frames[role]={fieldId:column.id,assetId:target.values[column.id][0].id};cfg.mode=frames.last?'frames2video':'singleImage2video';setRowGenerationConfig(target,next.fieldId,cfg);syncGenerationFrameTags(next.table,next.fieldId,output.generation,target.id);}
+      else if(['reference_images','reference_video'].includes(input.name))bindLinkedTaskReference(next.table,target,next.fieldId,cfg,column);
      }
      next.inputs||={};next.inputs[input.name]={stamp,recordId:target.id};
     });
@@ -203,8 +233,7 @@ export function installVideoTasks(node,app){
    next.source={key:linkedTable.key,stamp:linkedTable.raw,promptId:next.table.fields.find(f=>f.id===next.fieldId).generation.promptFieldId};
    if(sameSource){
     for(const row of next.table.records){const old=state.table.records.find(r=>r.id===row.id);if(!old)continue;
-     const sourceId=rowGenerationConfig(old,state.fieldId,field().generation).promptFieldId;
-     if(promptColumns(next.table).some(f=>f.id===sourceId))selectTaskPrompt(next,row.id,sourceId);
+     // Keep results, but the imported table binding owns all new task inputs.
      row.values[next.fieldId]=structuredClone(old.values[state.fieldId]||[]);
      if(old.meta?.generationColumns?.[state.fieldId])row.meta.generationColumns={[next.fieldId]:structuredClone(old.meta.generationColumns[state.fieldId])};
     }
@@ -255,7 +284,7 @@ export function installVideoTasks(node,app){
   for(const card of existing.values()){releaseThumbnails(card);card.remove();}
  }
  function renderPrompt(){
-  const row=current(),cfg=config();if(!row||!cfg){binding?.dispose();binding=null;prompt.replaceChildren();clearMaterialPreviews();materials.replaceChildren();return;}
+  const row=current(),cfg=config();if(!row||!cfg||!state.table.fields.some(f=>f.id===cfg.promptFieldId)){binding?.dispose();binding=null;prompt.replaceChildren();clearMaterialPreviews();materials.replaceChildren();return;}
   const stamp=JSON.stringify([row.id,cfg.promptFieldId,effectivePrompt(state.table,row,cfg.promptFieldId),tableAssets(state.table,row).filter(a=>a.fieldId!==state.fieldId)]);
   if(promptStamp===stamp||prompt.dataset.inlineEditing==='true'&&prompt.dataset.record===row.id)return;promptStamp=stamp;binding?.dispose();delete prompt.dataset.inlineEditing;prompt.replaceChildren();
   prompt.dataset.record=row.id;prompt.dataset.field=cfg.promptFieldId;
@@ -277,9 +306,9 @@ export function installVideoTasks(node,app){
   renderCards();renderPrompt();syncRowHighlight();body.hidden=!row;bodyTop.hidden=!linkedTable&&!state.source&&!materials.children.length;
   const locked=busy||!!node.mode||generation.submitting||changingType;
   emptyMaterial.disabled=locked||!!uploadController||!row;
-  const columns=promptColumns(state.table),columnStamp=JSON.stringify(columns.map(f=>[f.id,f.name]));
+  const columns=promptColumns(state.table).filter(f=>f.id===promptSourceId(state.table)),columnStamp=JSON.stringify(columns.map(f=>[f.id,f.name]));
   if(promptSource.dataset.columns!==columnStamp){promptSource.dataset.columns=columnStamp;promptSource.replaceChildren(...columns.map(f=>new Option(f.name,f.id)));}
-  promptSource.value=cfg?.promptFieldId||'';promptSource.disabled=locked||!row;
+  promptSource.value=cfg?.promptFieldId||'';promptSource.disabled=true;
   root.dataset.kind=cfg?.kind||'video';typeTabs.setAttribute('aria-busy',String(changingType));for(const [kind,control] of typeButtons){control.disabled=locked||!row;control.setAttribute('aria-pressed',String(cfg?.kind===kind));}
   prompt.inert=locked;
   if(cfg)settings.update(cfg,'当前任务');settings.root.hidden=!row;settings.root.inert=locked;
@@ -291,6 +320,7 @@ export function installVideoTasks(node,app){
   status.textContent=inputError||notice||(receipt?(phases[receipt.phase]||receipt.phase)+(receipt.error?' · '+receipt.error:''):'');
  }
  async function runTask(){
+  syncSource();
   if(node.mode||inputError||generation.submitting||changingType)return;
   notice='';
   const row=current(),receipt=row?.meta?.generationColumns?.[state.fieldId];

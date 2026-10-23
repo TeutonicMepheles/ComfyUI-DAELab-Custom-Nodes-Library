@@ -1,4 +1,4 @@
-import {createReferenceMenu} from './table_reference_menu.mjs?v=20261001-table-perf';
+import {createReferenceMenu} from './table_reference_menu.mjs?v=20261023-h3-size-r3';
 
 export function deletePromptReference(box,event){
  if(!['Backspace','Delete'].includes(event.key)||event.isComposing||event.ctrlKey||event.metaKey||event.altKey)return false;

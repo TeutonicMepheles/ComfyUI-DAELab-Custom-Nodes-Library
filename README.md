@@ -4,15 +4,19 @@
 
 DAELab 维护的 ComfyUI 自定义节点库。
 
+2026-10-22 起，本库生成节点与表格的新云端任务统一使用 **ComfyUI 账户积分**，LibTV 通道已停用。Seedance 2.0 / Fast / Mini / 2.5、MiniMax H3 和明确列出的 GPT Image 型号使用 Comfy 原生 API 节点；本地模型继续本机执行。旧 Lib Image 配置需要重新选型，旧 LibTV 分镜批量节点请改用表格生成列或将表格导入生成节点。详见 [通道、兼容性与验证](docs/comfy-credit-generation.md)。
+
 ## 分镜与视频工作流
 
-从文稿导入或空表开始，在同一表格中整理逐行任务、标记视频参考图片列、解析并编辑最终 Prompt，再连接现有 LibTV 批量生成节点。
+从文稿导入或空表开始，在同一表格中整理逐行任务、标记视频参考图片列、解析并编辑最终 Prompt，再使用表格生成列或连接生成节点。
 
 - [交付范围、启动方式与复验入口](nodes/daelab_comfytv_storyboard/DELIVERY.md)
 - [表格操作与参考列规则](nodes/daelab_comfytv_storyboard/TABLE.md)
 - [Prompt 方案](nodes/daelab_comfytv_storyboard/PROMPT_PARSE_PLAN.md) · [分阶段验收与 4 个真实视频结果](nodes/daelab_comfytv_storyboard/PROMPT_PARSE_ACCEPTANCE.md)
 - [分镜视频模板](examples/libtv/Storyboard%20Studio.json) · [通用空表模板](examples/table/Generic%20Table.json)
 - [提示词优化：自有 DeepSeek API 配置与费用说明](docs/prompt-optimization-deepseek.md)（单格／整列建议，手动应用）
+- [唯一提示词来源与同行文本引用](docs/table-prompt-source.md) · [整列文本优化与模型设置](docs/table-column-optimization.md)
+- [生成输入与本地 H3 验证](docs/generation-input-validation-20261023.md) · [双仓库整合范围和待验收项](docs/integration-20261023.md)
 
 节点：`DAELAB.Table`（通用表格）、`DAELAB.StoryboardImport`（文稿分镜导入）、`DAELAB.LibTV.StoryboardBatch`（批量视频）及 `DAELAB.ComfyTV.GPTImageStoryboardStage`（既有独立图片生成）。安装新增依赖后重启 ComfyUI 并刷新前端；上游 ComfyTV 保持只读。
 

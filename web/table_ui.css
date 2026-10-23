@@ -300,7 +300,29 @@
 .dae-ui .dae-table[data-structure] td[data-row-resize-hover]::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--dae-focus);pointer-events:none;z-index:6}
 
 .dae-table[data-named-rows=true] .content-row-number{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:1;cursor:text}
+/* Figma 557:721: one source badge, with the action hint inside the header. */
+.dae-ui .dae-table th[data-prompt-source]{height:52px!important;vertical-align:middle;padding-top:10px!important;padding-bottom:10px!important}
+.dae-ui .dae-table th[data-prompt-source]>.field-settings{display:none!important}
+.dae-ui .dae-table th[data-prompt-source] .field-title{padding-right:42px!important;font:500 15px/22px var(--dae-font-family)!important}
+.dae-ui .dae-table th[data-prompt-source] .field-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dae-ui .table-prompt-badge{flex:none;display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:6px;background:var(--dae-accent);color:var(--dae-text-on-accent);font:500 12px/22px var(--dae-font-family)}
+.dae-ui .dae-table button.table-prompt-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-width:32px;min-height:32px;padding:6px!important;margin:0;border:0!important;border-radius:8px!important;background:transparent!important;color:#686868!important;cursor:pointer}
+.dae-ui .table-prompt-toggle .dae-table-icon{width:20px;height:20px}
+.dae-ui .dae-table th[data-prompt-source]:is(:hover,:focus-within) .table-prompt-toggle{background:var(--dae-surface-hover)!important;color:var(--dae-text)!important}
+.dae-ui .dae-table th[data-prompt-source] button.table-prompt-toggle[aria-pressed=true]{background:var(--dae-accent)!important;color:var(--dae-text-on-accent)!important}
+.dae-ui .table-prompt-toggle:focus-visible{outline:2px solid var(--dae-focus);outline-offset:2px}
+.dae-ui .table-prompt-hint{display:none;position:absolute;right:52px;top:50%;transform:translateY(-50%);max-width:calc(100% - 60px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12px/22px var(--dae-font-family);color:var(--dae-text-muted);pointer-events:none}
+.dae-ui .dae-table th[data-prompt-source]:is(:hover,:focus-within)>.table-prompt-hint{display:block}
+.dae-ui .dae-table th[data-prompt-source]:is(:hover,:focus-within) .field-title{padding-right:118px!important}
+.dae-ui .dae-inline-columns button.dae-reference-text-option,.dae-ui.dae-inline-columns button.dae-reference-text-option{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.dae-ui .dae-reference-text-option small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dae-text-muted);font-size:12px}
+.dae-ui.dae-inline-columns button[data-active=true]{background:var(--dae-primary-container);color:var(--dae-on-primary-container)}
+.dae-ui .dae-prompt-ref:not([data-invalid=true]):not([data-frame-role]){background:var(--dae-secondary-container);color:var(--dae-on-secondary-container)}
 [data-canvas-panel=true] [data-content-presentation=true] .dae-table[data-named-rows=true][data-structure] .table-choice .content-row-number{left:36px;right:12px;top:12px;line-height:20px;opacity:1;pointer-events:auto;text-align:left;cursor:grab;touch-action:none;user-select:none}
 [data-canvas-panel=true] [data-content-presentation=true] .dae-table[data-named-rows=true][data-structure] .table-choice input{left:12px;right:auto;opacity:1}
 [data-canvas-panel=true] [data-content-presentation=true] .dae-table[data-named-rows=true][data-structure] tbody .table-choice input{top:14px}
 [data-canvas-panel=true] .dae-table[data-named-rows=true][data-structure] tbody .table-choice{cursor:grab;touch-action:none;user-select:none}
+
+.dae-ui .dae-table th[data-prompt-source] .generation-header-row{padding-right:40px;min-width:0}
+.dae-ui .dae-table th[data-prompt-source] .generation-header-row>.field-title{padding-right:0!important;min-width:0;flex:1}
+.dae-ui .dae-table th[data-prompt-source]:is(:hover,:focus-within) .generation-header-row{padding-right:118px}

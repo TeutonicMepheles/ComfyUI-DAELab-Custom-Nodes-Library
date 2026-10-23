@@ -5,7 +5,7 @@ export function optimizationStatus(state,{now=Date.now(),composing=false,keyDraf
  const rows=state.rows||[],request=state.requestActivity,count=predicate=>rows.filter(predicate).length;
  const total=rows.length,settled=count(r=>terminal.has(r.status)),waiting=count(r=>['queued','preparing'].includes(r.status)&&(!request||r.requestId!==request.requestId));
  const unknown=count(r=>r.status==='unknown'),failed=count(r=>r.status==='failed'||r.suggestionStatus==='invalid'),stale=count(r=>r.suggestionStatus==='stale');
- const applied=count(r=>r.suggestionStatus==='applied'),usable=count(r=>r.canApply),stopped=count(r=>r.status==='stopped');
+ const applied=count(r=>r.suggestionStatus==='applied'),reverted=count(r=>r.suggestionStatus==='reverted'),usable=count(r=>r.canApply),stopped=count(r=>r.status==='stopped');
  const current=rows.find(r=>active.has(r.status));
  const result={total,settled,usable,showResults:total>0,progress:total?`已结束 ${settled}/${total} 行 · 等待 ${waiting} 行`:''};
  const show=(phase,title,detail,tone='neutral')=>({...result,phase,title,detail,tone});
@@ -25,6 +25,7 @@ export function optimizationStatus(state,{now=Date.now(),composing=false,keyDraf
   if(unknown)return show('unknown','处理结束，存在未知结果',`${unknown} 行未取得确定结果，可能已经计费。先查看结果说明；不会自动重发。`,'warning');
   if(failed||stale)return show('attention','处理结束，部分结果需处理',`失败或无效 ${failed} 行 · 已过期 ${stale} 行 · 可应用 ${usable} 行。`,'warning');
   if(stopped)return show('stopped','已停止',`${stopped} 行未继续提交。已有结果仍可查看。`);
+  if(reverted)return show('reverted','应用已撤销',`已撤销 ${reverted} 行${applied?` · 已应用 ${applied} 行`:''}；可使用重做恢复结果。`);
   if(applied)return show('applied',usable?'部分建议已应用':'建议已应用',`已应用 ${applied} 行${usable?`，还有 ${usable} 行可应用`: '；可使用撤销恢复原文'}。`,'success');
   if(usable)return show('completed','优化完成，等待应用',`${usable} 行有有效建议。查看对比后应用，原提示词尚未改动。`,'success');
   return show('completed','处理完成',rows.some(r=>r.suggestionStatus==='unchanged')?'未发现可安全改进的内容，原提示词保持不变。':'没有可应用的建议，请查看各行结果说明。','success');

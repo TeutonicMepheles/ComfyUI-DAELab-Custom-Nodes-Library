@@ -21,14 +21,30 @@ DEEPSEEK_SOURCE = 'https://api-docs.deepseek.com/quick_start/pricing/'
 DEEPSEEK_RATES = {'deepseek-flash': (0.3, 1.2), 'deepseek-v4-pro': (1.32, 3.96)}
 MODEL_LIMITS.update({name: {'maxOutputTokens': 393216, 'contextTokens': 1000000,
     'source': DEEPSEEK_SOURCE, 'checkedAt': '2026-10-08'} for name in DEEPSEEK_RATES})
+QWEN_MODEL = 'qwen3.5:9b-q4_K_M'
+COMFY_GPT_MODEL = 'gpt-6-luna'
+# Deliberate optimizer input+output cap stays below the 272K long-context price
+# tier. This is an application limit, not the model's 1,050,000-token window.
+MODEL_LIMITS[COMFY_GPT_MODEL] = {'maxOutputTokens': 128000, 'contextTokens': 262144,
+    'source': 'https://developers.openai.com/api/docs/models/gpt-6-luna', 'checkedAt': '2026-10-23'}
+# Batch reference-protection instructions and their conservative UTF-8 bound
+# need more context than the short LLM-node polish instruction.
+MODEL_LIMITS[QWEN_MODEL] = {'maxOutputTokens': 1024, 'contextTokens': 16384}
 
 
 def provider_for(model):
+    if model == QWEN_MODEL:
+        return 'qwen'
     if model in DEEPSEEK_RATES:
         return 'deepseek'
     if model in MODEL_LIMITS:
         return 'comfy'
     raise ValueError('模型不受支持，请重新选择')
+
+
+def qwen_price():
+    return dict(provider='qwen', currency='local', model=QWEN_MODEL, input=0, output=0,
+        version='local-qwen-v1', unit='本地运行', basis='使用本机资源，不产生 API 费用')
 
 
 def deepseek_price(model):

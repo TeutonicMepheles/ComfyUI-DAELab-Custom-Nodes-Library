@@ -1,7 +1,9 @@
 import {optimizationTaskSnapshots,trackTaskCompletion} from './task_snapshots.mjs';
-import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider} from './prompt_optimization_model.mjs?v=20261012-client-workflow-r2';
-import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261012-client-workflow-r2';
-import {createPromptOptimizationPanel} from './prompt_optimization_panel.mjs?v=20261017-row-header-drag';
+import {OptimizationRevisions,freezeSnapshot,matchesSnapshot,restoreSuggestion,applySuggestions,appliedSuggestionStatus,inspectTarget,displaySuggestion,NAMESPACE,optimizationProvider,OPTIMIZATION_MODELS} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
+import {createPromptOptimizationApi} from './prompt_optimization_api.mjs?v=20261023-h3-size-r3';
+import {createOptimizationComposer,createOptimizationSourceView} from './prompt_optimization_composer.mjs?v=20261023-h3-size-r3';
+import {createSettingsPopover} from './table_prompt_settings.mjs?v=20261023-h3-size-r3';
+import {describeTableSource,focusTableSource} from './table_exchange.mjs?v=20261023-h3-size-r3';
 
 const registries=new Map(),batchReferences=new Map();
 const activeStatuses=new Set(['submitting','submitted','polling']);
@@ -28,9 +30,9 @@ export function createOptimizationController({getTable,identity,revisions,persis
   state.provider=optimizationProvider(state.model);state.pageDeepSeekKeyConfigured=Boolean(api.hasDeepSeekKey?.());
   state.deepseekKeyRequired=state.provider==='deepseek'&&!state.pageDeepSeekKeyConfigured&&!state.deepseekKeyConfigured;
   const rowNumbers=new Map(getTable().records.map((row,index)=>[row.id,index+1]));
-  state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen,{observed:true});const suggestionStatus=item.applied?'applied':item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
-   const provider=optimizationProvider(s?.model),currency=provider==='deepseek'?'USD':'credits';
-   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${rowNumbers.get(s?.target.recordId)||0} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:item.applied?'':!match&&item.suggestion?.status==='valid'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),provider,currency,actualCredits:provider==='deepseek'?null:item.actualCredits??null,usageCostUSD:provider==='deepseek'?item.usageCostUSD??null:null};});
+  state.rows=[...items.values()].map(item=>{const s=item.frozen?.wire||item.snapshot;const match=item.frozen&&matchesSnapshot(getTable(),identity,revisions,item.frozen,{observed:true});const suggestionStatus=item.applied?appliedSuggestionStatus(getTable(),item):item.suggestion?.status==='valid'&&!match?'stale':item.suggestion?.status;
+   const provider=optimizationProvider(s?.model),currency=provider==='qwen'?'local':provider==='deepseek'?'USD':'credits';
+   return {requestId:item.requestId,recordId:s?.target.recordId,label:`第 ${rowNumbers.get(s?.target.recordId)||0} 行`,before:s?displaySuggestion({wire:s},s.input.prompt_text):'',after:s?displaySuggestion({wire:s},item.suggestion?.text||''):'',status:item.status,suggestionStatus,reason:suggestionStatus==='applied'?'':suggestionStatus==='reverted'?'本次应用已撤销，可使用重做恢复结果':suggestionStatus==='stale'?'目标或依赖已变化，建议仅供查看':item.suggestion?.reason||item.error||'',canApply:suggestionStatus==='valid'&&match&&isActive(),provider,currency,actualCredits:provider==='deepseek'?null:item.actualCredits??null,usageCostUSD:provider==='deepseek'?item.usageCostUSD??null:null};});
   state.unknownRequests=(state.unknownRequests||[]).map(r=>({...r,label:rowNumbers.has(r.target?.recordId)?`第 ${rowNumbers.get(r.target.recordId)} 行`:'历史目标'}));
   const inFlight=Boolean(state.requestActivity)||[...items.values()].some(i=>activeStatuses.has(i.status)),queued=[...items.values()].some(i=>['queued','preparing'].includes(i.status));
   const resumable=[...items.values()].some(i=>['queued','preparing','stopped'].includes(i.status));
@@ -133,8 +135,8 @@ export function createOptimizationController({getTable,identity,revisions,persis
   state.draftActive=true;state.model=id;state.quote=null;prepared=[];continuationQuoteId=null;epoch++;state.error='';
   onPreferences({model:id,requirements:state.requirements});update();void loadCapabilities();return true;
  }
- const controller={getState:()=>state,subscribe(fn){listeners.add(fn);fn(state);return()=>listeners.delete(fn);},setRequirements(text){state.draftActive=true;state.requirements=text;onPreferences({model:state.model,requirements:text});state.quote=null;epoch++;update();},setModel,
- setProvider(provider){return setModel(provider==='deepseek'?'deepseek-flash':'gpt-4.1-mini');},
+ const controller={getState:()=>state,subscribe(fn){listeners.add(fn);fn(state);return()=>listeners.delete(fn);},setRequirements(text){if(providerLocked())return false;state.draftActive=true;state.requirements=text;onPreferences({model:state.model,requirements:text});state.quote=null;epoch++;update();return true;},setModel,
+ setProvider(provider){return setModel(provider==='qwen'?'qwen3.5:9b-q4_K_M':provider==='deepseek'?'deepseek-flash':'gpt-4.1-mini');},
  setDeepSeekKey(value){const configured=Boolean(api.setDeepSeekKey?.(value));state.error='';update();return configured;},
  clearDeepSeekKey(){api.clearDeepSeekKey?.();update();return false;},estimate,submit,stop:()=>operation(async()=>{requiresContinue=true;await controlLease();ingest(await api.stop({batchId:state.batchId,leaseId:lease.leaseId}));},'stop'),recover,continue:()=>operation(async()=>{
   const life=lifecycle;
@@ -169,16 +171,27 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
  const key=JSON.stringify(identity);let revisions=registries.get(key);if(!revisions){revisions=new OptimizationRevisions(saved().revisions);registries.set(key,revisions);}else revisions.merge(saved().revisions);
  const references=batchReferences.get(key)||new Map();batchReferences.set(key,references);
  for(const item of saved().batches||[])references.set(item.batchId,item);
- const persist=()=>{saved().revisions=revisions.serialize();saved().batches=[...references.values()];};const api=createPromptOptimizationApi({fetchApi});const controllers=new Map(),instanceId=uuid();let dead=false;
+ const persist=()=>{saved().revisions=revisions.serialize();saved().batches=[...references.values()];};const api=createPromptOptimizationApi({fetchApi});const controllers=new Map(),instanceId=uuid();let dead=false,popover=null,view=null,visibilityTimer=null;
+ const defaultModel=()=>OPTIMIZATION_MODELS.some(m=>m.id===saved().preferences?.model)?saved().preferences.model:'deepseek-flash';
+ const closeView=()=>{clearInterval(visibilityTimer);visibilityTimer=null;popover?.close();popover=null;view?.destroy();view=null;};
  function obtain(target){const key=JSON.stringify([target.scope,target.fieldId,target.recordId||'']);if(controllers.has(key))return controllers.get(key);
-  const controller=createOptimizationController({getTable,identity,revisions,persist,change:editor.change,api,...target,instanceId,preferences:{model:saved().preferences?.model,requirements:saved().drafts?.[key]||''},onPreferences:value=>{saved().preferences={model:value.model};saved().drafts||={};saved().drafts[key]=value.requirements;},isActive:()=>!dead&&node.graph===graph&&isActive(),onMissingBatch:batchId=>{references.delete(batchId);persist();},getAppliedRequestIds:batchId=>references.get(batchId)?.appliedRequestIds||[],onApplied:(batchId,ids)=>{const reference=references.get(batchId);if(reference){reference.appliedRequestIds=[...new Set([...(reference.appliedRequestIds||[]),...ids])];persist();}},onBatch:(batchId,range)=>{references.set(batchId,{...references.get(batchId),batchId,...range,updatedAt:Date.now()});persist();}});controllers.set(key,controller);
+  const controller=createOptimizationController({getTable,identity,revisions,persist,change:editor.change,api,...target,instanceId,preferences:{model:defaultModel(),requirements:saved().drafts?.[key]||''},onPreferences:value=>{saved().preferences={model:value.model};saved().drafts||={};saved().drafts[key]=value.requirements;},isActive:()=>!dead&&node.graph===graph&&isActive(),onMissingBatch:batchId=>{references.delete(batchId);persist();},getAppliedRequestIds:batchId=>references.get(batchId)?.appliedRequestIds||[],onApplied:(batchId,ids)=>{const reference=references.get(batchId);if(reference){reference.appliedRequestIds=[...new Set([...(reference.appliedRequestIds||[]),...ids])];persist();}},onBatch:(batchId,range)=>{references.set(batchId,{...references.get(batchId),batchId,...range,updatedAt:Date.now()});persist();}});controllers.set(key,controller);
   const last=saved().batches?.filter(b=>b.scope===target.scope&&b.fieldId===target.fieldId&&b.recordId===target.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);return controller;
  }
- editor.openPromptOptimization=target=>{const controller=obtain(target);controller.observe();editor.openTextSide(target.recordId||'',target.fieldId,target.scope==='column'?'优化整列提示词':'优化提示词',container=>{const panel=createPromptOptimizationPanel({controller,container});container.onCleanup(()=>panel?.destroy?.());},{kind:'optimization',returnFocus:target.anchor});if(!controller.getState().quote&&!controller.getState().batchId)void controller.estimate();};
+ editor.openPromptOptimization=target=>{
+  closeView();const field=getTable().fields.find(f=>f.id===target.fieldId);if(!field)return;
+  const anchor=target.anchor||editor.root;
+  popover=createSettingsPopover(anchor,'优化'+field.name,()=>{clearInterval(visibilityTimer);visibilityTimer=null;view?.destroy();view=null;popover=null;},{placement:'above',onEscape:()=>view?.closeNested?.()});
+  visibilityTimer=setInterval(()=>{if(dead||node.graph!==graph||!isActive()){closeView();for(const c of controllers.values())c.pause();}else if(!anchor.isConnected||!anchor.getClientRects().length)closeView();},200);
+  if(field.readonly){const source=describeTableSource(node,getTable(),field.id);view=createOptimizationSourceView({container:popover.root,source,onLocate:()=>{closeView();focusTableSource(node,source);}});return;}
+  const controller=obtain(target);controller.observe();view=createOptimizationComposer({controller,container:popover.root,fieldName:field.name});
+  if(!controller.getState().quote&&!controller.getState().batchId)void controller.estimate();
+ };
+
  editor.promptOptimizationEstimate=async target=>{
   const table=getTable(),rows=target.scope==='cell'?table.records.filter(r=>r.id===target.recordId):table.records,temporary=new OptimizationRevisions(revisions.serialize()),frozen=[],skipped=[];
-  for(const row of rows)try{frozen.push((await freezeSnapshot(table,{...identity,recordId:row.id,fieldId:target.fieldId},temporary,{begin:true,model:saved().preferences?.model||'gpt-4.1-mini',requirements:saved().drafts?.[JSON.stringify([target.scope,target.fieldId,target.recordId||''])]||''})).wire);}catch(e){skipped.push({recordId:row.id,reason:e.message});}
-  return api.estimate({rows:frozen,skipped,model:saved().preferences?.model||'gpt-4.1-mini',maxOutputTokens:1024});
+  for(const row of rows)try{frozen.push((await freezeSnapshot(table,{...identity,recordId:row.id,fieldId:target.fieldId},temporary,{begin:true,model:defaultModel(),requirements:saved().drafts?.[JSON.stringify([target.scope,target.fieldId,target.recordId||''])]||''})).wire);}catch(e){skipped.push({recordId:row.id,reason:e.message});}
+  return api.estimate({rows:frozen,skipped,model:defaultModel(),maxOutputTokens:1024});
  };
  void api.query({target:identity},{localOnly:true}).then(result=>{if(dead)return;for(const item of result.batches||[]){
   // A late discovery is not an edit. Keep existing stable query references;
@@ -189,5 +202,5 @@ export function attachPromptOptimization({node,graph,editor,getTable,identity,fe
  for(const ref of references.values())if(['cell','column'].includes(ref.scope)&&getTable().fields.some(f=>f.id===ref.fieldId)&&(ref.scope==='column'||getTable().records.some(r=>r.id===ref.recordId)))obtain({scope:ref.scope,fieldId:ref.fieldId,...(ref.scope==='cell'?{recordId:ref.recordId}:{})});
  for(const controller of controllers.values()){const state=controller.getState();if(state.batchId)continue;const last=[...references.values()].filter(b=>b.scope===state.scope&&b.fieldId===state.fieldId&&b.recordId===state.recordId).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];if(last)void controller.recover(last.batchId);}}).catch(()=>{/* Offline ledger discovery can be retried on next mount. */});
  const unobserve=editor.onTableChange(()=>{revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();});
- return {tasks:trackTaskCompletion(()=>optimizationTaskSnapshots([...controllers.values()].map(c=>c.getState()))),observe(){revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();},pause(){for(const c of controllers.values())c.pause();},destroy(){dead=true;unobserve();for(const c of controllers.values())c.destroy();controllers.clear();delete editor.openPromptOptimization;delete editor.promptOptimizationEstimate;}};
+ return {tasks:trackTaskCompletion(()=>optimizationTaskSnapshots([...controllers.values()].map(c=>c.getState()))),observe(){revisions.observe(getTable());persist();for(const c of controllers.values())c.observe();},pause(){closeView();for(const c of controllers.values())c.pause();},destroy(){dead=true;closeView();unobserve();for(const c of controllers.values())c.destroy();controllers.clear();delete editor.openPromptOptimization;delete editor.promptOptimizationEstimate;}};
 }

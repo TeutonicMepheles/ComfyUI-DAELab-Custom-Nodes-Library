@@ -1,4 +1,4 @@
-import {COLUMN_MINIMUM_WIDTH} from './data_table_model.mjs?v=20261001-frame-tags-dedup';
+import {COLUMN_MINIMUM_WIDTH} from './data_table_model.mjs?v=20261023-h3-size-r3';
 // Column layout only. Values and prompt bindings remain keyed by field ID.
 export function resizeColumnPair(left, right, delta, leftMin=COLUMN_MINIMUM_WIDTH, rightMin=COLUMN_MINIMUM_WIDTH) {
     const movement = Math.max(Math.max(leftMin - left, right - 600),

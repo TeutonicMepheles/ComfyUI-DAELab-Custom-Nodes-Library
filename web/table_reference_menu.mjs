@@ -1,9 +1,27 @@
+import {isTextColumn} from './table_prompt_source.mjs';
+import {columnValue,effectivePrompt} from './table_prompt_template.mjs?v=20261023-h3-size-r3';
 export const materialReferenceLabel=(asset,index)=>`${asset.kind==='video'?'视频':'图片'}${index+1}${asset.name?' · '+asset.name:''}`;
 export function columnReferenceOptions(table,row){
-    return table.fields.filter(f=>(!f.readonly||f.presentation==='generation')&&f.presentation!=='prompt'&&['assets','content'].includes(f.type)&&Array.isArray(row?.values[f.id])&&row.values[f.id].length).map(f=>{
+    return table.fields.flatMap(f=>{
+        if(isTextColumn(table,f)){
+            const doc=effectivePrompt(table,row,f.id);
+            if(doc?.segments?.some(s=>s.type!=='text'))return [];
+            let preview;try{preview=columnValue(table,row,f.id).text;}catch(error){preview=error.message;}
+            return [{...f,textPreview:preview,valueType:'text'}];
+        }
         const value=row.values[f.id];
+        if(!['assets','content'].includes(f.type)||!Array.isArray(value)||!value.length)return [];
         if(value.length===1)return {...f,assetIndex:0,asset:value[0]};
-        return {...f,children:value.map((asset,assetIndex)=>({...f,assetIndex,asset}))};
+        return [{...f,children:value.map((asset,assetIndex)=>({...f,assetIndex,asset}))}];
+    });
+}
+
+export function frameReferenceOptions(table,row,fieldId){
+    const image=option=>option.asset&&(!option.asset.kind||option.asset.kind==='image');
+    return columnReferenceOptions(table,row).filter(f=>f.id!==fieldId).flatMap(f=>{
+        if(f.asset)return image(f)?[f]:[];
+        const children=(f.children||[]).filter(image);
+        return children.length===1?[children[0]]:children.length?[{...f,children}]:[];
     });
 }
 
@@ -37,7 +55,7 @@ export function createReferenceMenu({options,onChoose,onLayout=()=>{}}){
         mark();onLayout();layout();
     }
     function makeButton(label,choose){const b=document.createElement('button');b.type='button';b.tabIndex=-1;b.setAttribute('role','menuitem');b.textContent=label;b.onpointerdown=e=>e.preventDefault();b.onclick=e=>{e.stopPropagation();choose();};return b;}
-    options.forEach((option,i)=>{const b=makeButton('@'+option.name+(option.asset?' · '+materialReferenceLabel(option.asset,option.assetIndex):option.children?' ›':''),()=>{if(option.children)show(i);else onChoose(option);});b.id=root.id+'-'+i;if(option.asset)b.title=option.asset.name||'素材';if(option.children)b.setAttribute('aria-haspopup','menu');b.onpointerenter=()=>{if(index!==i||opened!==i)show(i);};columns.append(b);});
+    options.forEach((option,i)=>{const b=makeButton('@'+option.name+(option.asset?' · '+materialReferenceLabel(option.asset,option.assetIndex):option.children?' ›':''),()=>{if(option.children)show(i);else onChoose(option);});b.id=root.id+'-'+i;if(option.textPreview!==undefined){b.classList.add('dae-reference-text-option');const preview=document.createElement('small');preview.textContent=option.textPreview;b.append(preview);}if(option.asset)b.title=option.asset.name||'素材';if(option.children)b.setAttribute('aria-haspopup','menu');b.onpointerenter=()=>{if(index!==i||opened!==i)show(i);};columns.append(b);});
     mark();
     return {root,layout,get activeId(){return child>=0?items.children[child]?.id:columns.children[index]?.id;},keydown(key){
         if(!options.length)return false;

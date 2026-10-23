@@ -131,6 +131,10 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.api['_executions'])
 
     async def test_fixed_32_jobs_across_batches(self):
+        from concurrent.futures import ThreadPoolExecutor
+        # Exercise the scheduler's 32-job cap, not a low-core CI runner's
+        # smaller default executor. IsolatedAsyncioTestCase closes the pool.
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=40))
         started = []
         release = threading.Event()
         def execute(state, auth=None):

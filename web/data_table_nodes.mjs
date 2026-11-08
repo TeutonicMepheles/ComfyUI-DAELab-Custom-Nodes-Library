@@ -1,3 +1,4 @@
+import {YIELDED_EXTENSIONS} from '/daelab/coexistence.js';
 import {readTableView} from './table_exchange.mjs?v=20261023-h3-size-r3';
 import {removeEmptyTableNode} from './table_empty_node.mjs';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
@@ -188,6 +189,7 @@ function install(node){
  requestAnimationFrame(()=>fit(node));
 }
 export function registerTableNodes(){
+ if(YIELDED_EXTENSIONS.includes('DAELab.DataTable'))return;
  if(globalThis.__DAELAB_TABLE_VERSION===VERSION)return;globalThis.__DAELAB_TABLE_VERSION=VERSION;
  app.registerExtension({name:'DAELab.DataTable',beforeRegisterNodeDef(type,data){
   if(!TYPES.includes(data.name))return;

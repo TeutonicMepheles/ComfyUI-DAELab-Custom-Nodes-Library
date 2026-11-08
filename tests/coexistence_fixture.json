@@ -1,0 +1,35 @@
+{
+  "allowLegacyPackages": ["ComfyUI-DAELab-Custom-Nodes-Library"],
+  "layerOwners": {
+    "canvas": "studio",
+    "business": "studio",
+    "generation": "studio",
+    "prompt-optimization": "studio"
+  },
+  "nodeOwners": {
+    "DAELAB.Table": "studio",
+    "DAELAB.ScriptParser": "studio",
+    "DAELAB.LLMStylePreviewB": "studio",
+    "DAELAB.ComfyTV.GPTImageStoryboardStage": "cnl"
+  },
+  "routeOwners": {
+    "POST /daelab/storyboard/import_document": "studio",
+    "POST /daelab/storyboard/parse-prompts": "studio",
+    "POST /daelab/script-parser/document": "studio",
+    "POST /daelab/script-parser/normalize": "studio",
+    "POST /daelab/script-parser/classify": "studio",
+    "GET /daelab/script-parser/ai-status": "studio"
+  },
+  "routePrefixes": {
+    "POST /daelab/prompt-optimization/": {
+      "owner": "studio",
+      "allowedActions": ["polish", "capabilities", "estimate", "lease", "submit", "query", "recover", "permit", "advance", "stop", "interrupt", "continue", "skip", "fence"]
+    }
+  },
+  "extensionOwners": {
+    "DAELab.DataTable": "studio",
+    "DAELab.ScriptParser": "studio",
+    "DAELab.LLMStylePreview": "studio",
+    "DAELab.PromptOptimization.Identity.v1": "studio"
+  }
+}

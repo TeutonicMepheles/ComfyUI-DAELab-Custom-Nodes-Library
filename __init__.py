@@ -1,3 +1,10 @@
+from .coexistence import resolve_yield, register_frontend_yield_route
+
+# Resolve the three-package coexistence yield once, before any node or route is
+# registered. ``None`` means "register everything as before" (no arbitration file
+# or CNL not authorised); a malformed arbitration file fails closed here.
+_yield = resolve_yield()
+
 from .nodes.boolean_list import (
     NODE_CLASS_MAPPINGS as BOOLEAN_CLASS_MAPPINGS,
     NODE_DISPLAY_NAME_MAPPINGS as BOOLEAN_DISPLAY_NAME_MAPPINGS,
@@ -146,10 +153,14 @@ NODE_DISPLAY_NAME_MAPPINGS.update(LIBTV_NAMES)
 
 WEB_DIRECTORY = "./web"
 
-from .nodes.prompt_optimization import register as register_prompt_optimization
-register_prompt_optimization()
+if not (_yield and _yield["prompt_optimization"]):
+    from .nodes.prompt_optimization import register as register_prompt_optimization
+    register_prompt_optimization()
+
+register_frontend_yield_route(_yield)
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
-from .nodes.prompt_optimization.approved_result import ApprovedLLMResult
-NODE_CLASS_MAPPINGS["DAELAB.LLMStylePreviewB"] = ApprovedLLMResult
-NODE_DISPLAY_NAME_MAPPINGS["DAELAB.LLMStylePreviewB"] = "LLM优化功能"
+if not (_yield and "DAELAB.LLMStylePreviewB" in _yield["nodes"]):
+    from .nodes.prompt_optimization.approved_result import ApprovedLLMResult
+    NODE_CLASS_MAPPINGS["DAELAB.LLMStylePreviewB"] = ApprovedLLMResult
+    NODE_DISPLAY_NAME_MAPPINGS["DAELAB.LLMStylePreviewB"] = "LLM优化功能"

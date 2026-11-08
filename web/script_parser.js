@@ -1,3 +1,4 @@
+import {YIELDED_EXTENSIONS} from './coexistence_gate.js';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
@@ -21,11 +22,13 @@ function install(node){
  const removed=w.onRemove?.bind(w);w.onRemove=()=>{panel.destroy();removed?.();panel.root.remove();};
  requestAnimationFrame(()=>{if(node.graph)node.setSize?.([Math.max(1060,node.size[0]),Math.max(580,node.computeSize()[1])]);});
 }
+if(!YIELDED_EXTENSIONS.includes('DAELab.ScriptParser')){
 app.registerExtension({name:'DAELab.ScriptParser',beforeRegisterNodeDef(type,data){
  if(data.name!==TYPE)return;
  for(const method of ['onNodeCreated','onAdded','onConfigure']){const prev=type.prototype[method];type.prototype[method]=function(...args){const result=prev?.apply(this,args);if(method==='onConfigure')this.__scriptPanel?.close();scheduleTableInstall(this,install);return result;};}
  const removed=type.prototype.onRemoved;type.prototype.onRemoved=function(...args){this.__scriptPanel?.destroy();delete this.__scriptPanel;delete this.__scriptTable;return removed?.apply(this,args);};
 }});
+}
 let registered=false;
 function register(){const api=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')];if(registered||api?.version!==1)return;
  api.registerAdapter('daelab.script-parser',{matches:node=>node.type===TYPE,menu:[{label:'分镜剧本解析器',type:TYPE,icon:'file-text-line'}],presentation:'content',expanded:true,collapsible:false,resizable:true,fullHeight:true,workspace:()=>false,compactWidth:0,width:1060,

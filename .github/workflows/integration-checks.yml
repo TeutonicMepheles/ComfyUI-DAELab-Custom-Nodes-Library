@@ -35,10 +35,10 @@ jobs:
           python - <<'PY'
           import unittest
           suite = unittest.TestSuite()
-          for pattern in ('test_libtv_bridge.py', 'test_table*.py', 'test_prompt*.py', 'test_live_chain.py'):
+          for pattern in ('test_libtv_bridge.py', 'test_table*.py', 'test_prompt*.py', 'test_live_chain.py', 'test_coexistence.py'):
               suite.addTests(unittest.defaultTestLoader.discover('tests', pattern=pattern))
           result = unittest.TextTestRunner(verbosity=1).run(suite)
           raise SystemExit(not result.wasSuccessful())
           PY
       - name: Python source syntax
-        run: python -m compileall -q nodes __init__.py
+        run: python -m compileall -q nodes __init__.py coexistence.py

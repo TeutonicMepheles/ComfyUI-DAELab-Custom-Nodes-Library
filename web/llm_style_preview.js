@@ -1,4 +1,4 @@
-import {YIELDED_EXTENSIONS} from '/daelab/coexistence.js';
+import {YIELDED_EXTENSIONS} from './coexistence_gate.js';
 import {appliedSnapshot,outputText,outputRows} from './llm_slot_model.mjs?v=20261023-h3-size-r3';
 import {app} from '/scripts/app.js';
 import {createLLMStylePanel, STYLE_VARIANTS} from './llm_style_preview_panel.mjs?v=20261023-h3-size-r3';

@@ -1,4 +1,4 @@
-import {YIELDED_EXTENSIONS} from '/daelab/coexistence.js';
+import {YIELDED_EXTENSIONS} from './coexistence_gate.js';
 import {readTableView} from './table_exchange.mjs?v=20261023-h3-size-r3';
 import {removeEmptyTableNode} from './table_empty_node.mjs';
 import {preserveGenerationHistory} from './table_generation_history.mjs';

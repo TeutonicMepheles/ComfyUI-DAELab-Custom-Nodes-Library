@@ -1,4 +1,4 @@
-import {YIELDED_EXTENSIONS} from '/daelab/coexistence.js';
+import {YIELDED_EXTENSIONS} from './coexistence_gate.js';
 import {preserveGenerationHistory} from './table_generation_history.mjs';
 import {scheduleTableInstall} from './table_node_install.mjs';
 import {ensureIdentity,NAMESPACE} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';

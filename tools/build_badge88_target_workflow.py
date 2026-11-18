@@ -6,7 +6,7 @@ from pathlib import Path
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-NAME = '#8.8 - Badge Workflow.json'
+NAME = 'DAELab-徽章设计-v8.8.json'
 LEGACY = '#8.8-Legacy - Badge Local Materials.json'
 
 

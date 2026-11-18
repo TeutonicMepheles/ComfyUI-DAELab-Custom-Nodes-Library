@@ -1,8 +1,8 @@
 {
   "id": "2c2b50c7-d390-5d8f-9774-ba4202c0dba7",
   "revision": 1,
-  "last_node_id": 200,
-  "last_link_id": 13,
+  "last_node_id": 207,
+  "last_link_id": 16,
   "nodes": [
     {
       "id": 1,
@@ -62,11 +62,11 @@
         "daelab_app_preview_heading": "取色参考图｜徽章平面图（用于背景、镂空和特殊材质区域）"
       },
       "widgets_values": [
-        "",
+        "BaseColor.png",
         "image"
       ],
       "widgets_values_named": {
-        "image": "",
+        "image": "BaseColor.png",
         "upload": "image"
       }
     },
@@ -128,11 +128,11 @@
         "daelab_app_preview_heading": "取色参考图｜高度层次图（请从这里吸色）"
       },
       "widgets_values": [
-        "",
+        "Height.png",
         "image"
       ],
       "widgets_values_named": {
-        "image": "",
+        "image": "Height.png",
         "upload": "image"
       }
     },
@@ -148,7 +148,7 @@
         604
       ],
       "flags": {},
-      "order": 2,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -239,7 +239,7 @@
         154
       ],
       "flags": {},
-      "order": 3,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -293,7 +293,7 @@
         452
       ],
       "flags": {},
-      "order": 4,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
@@ -412,7 +412,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 5,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -489,10 +489,10 @@
       ],
       "size": [
         570,
-        701.328125
+        809.328125
       ],
       "flags": {},
-      "order": 6,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -603,7 +603,7 @@
       "properties": {
         "boolean_list_width": 570,
         "Node name for S&R": "BooleanListHierarchy",
-        "boolean_list_items": "[{\"id\":\"badge.path\",\"label\":\"制作路径\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.path.flat_height\",\"label\":\"从平面图 + 层次图生成\",\"value\":true,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.path.flat_height.special_material\",\"label\":\"特殊材质\",\"value\":true,\"parent_id\":\"badge.path.flat_height\"},{\"id\":\"badge.path.effect\",\"label\":\"从现有效果图开始\",\"value\":false,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}]",
+        "boolean_list_items": "[{\"id\":\"badge.path\",\"label\":\"制作路径\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.path.flat_height\",\"label\":\"从平面图 + 层次图生成\",\"value\":true,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.path.flat_height.special_material\",\"label\":\"特殊材质\",\"value\":true,\"parent_id\":\"badge.path.flat_height\"},{\"id\":\"badge.path.effect\",\"label\":\"从现有效果图开始\",\"value\":false,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}]",
         "boolean_list_count": 13,
         "daelab_app_heading": "制作流程与后处理选项",
         "badge_confirmation_policy": {
@@ -621,10 +621,10 @@
         }
       },
       "widgets_values": [
-        "[{\"id\":\"badge.path\",\"label\":\"制作路径\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.path.flat_height\",\"label\":\"从平面图 + 层次图生成\",\"value\":true,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.path.flat_height.special_material\",\"label\":\"特殊材质\",\"value\":true,\"parent_id\":\"badge.path.flat_height\"},{\"id\":\"badge.path.effect\",\"label\":\"从现有效果图开始\",\"value\":false,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}]"
+        "[{\"id\":\"badge.path\",\"label\":\"制作路径\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.path.flat_height\",\"label\":\"从平面图 + 层次图生成\",\"value\":true,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.path.flat_height.special_material\",\"label\":\"特殊材质\",\"value\":true,\"parent_id\":\"badge.path.flat_height\"},{\"id\":\"badge.path.effect\",\"label\":\"从现有效果图开始\",\"value\":false,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}]"
       ],
       "widgets_values_named": {
-        "config_json": "[{\"id\":\"badge.path\",\"label\":\"制作路径\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.path.flat_height\",\"label\":\"从平面图 + 层次图生成\",\"value\":true,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.path.flat_height.special_material\",\"label\":\"特殊材质\",\"value\":true,\"parent_id\":\"badge.path.flat_height\"},{\"id\":\"badge.path.effect\",\"label\":\"从现有效果图开始\",\"value\":false,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}]"
+        "config_json": "[{\"id\":\"badge.path\",\"label\":\"制作路径\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.path.flat_height\",\"label\":\"从平面图 + 层次图生成\",\"value\":true,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.path.flat_height.special_material\",\"label\":\"特殊材质\",\"value\":true,\"parent_id\":\"badge.path.flat_height\"},{\"id\":\"badge.path.effect\",\"label\":\"从现有效果图开始\",\"value\":false,\"parent_id\":\"badge.path\",\"exclusive_group_id\":\"badge.path.choice\"},{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}]"
       }
     },
     {
@@ -639,7 +639,7 @@
         484.1875
       ],
       "flags": {},
-      "order": 7,
+      "order": 5,
       "mode": 4,
       "inputs": [
         {
@@ -703,8 +703,8 @@
         154
       ],
       "flags": {},
-      "order": 8,
-      "mode": 4,
+      "order": 26,
+      "mode": 0,
       "inputs": [
         {
           "localized_name": "images",
@@ -735,14 +735,14 @@
       "properties": {
         "multi_color_mask_v1_width": 440,
         "Node name for S&R": "DAELabMultiColorMaskV1",
-        "multi_color_mask_v1_config": "{\"version\":1,\"groups\":[{\"id\":\"local_region_1\",\"color\":\"#ff1744\",\"threshold\":12,\"invert\":false}],\"output\":\"combined_mask\"}",
+        "multi_color_mask_v1_config": "{\"version\":1,\"groups\":[{\"id\":\"mask_legacy_1\",\"color\":\"#0000ff\",\"threshold\":30,\"invert\":false}],\"output\":\"combined_mask\"}",
         "daelab_app_heading": "局部修改选区（按上方参考图取色）"
       },
       "widgets_values": [
-        "{\"version\":1,\"groups\":[{\"id\":\"local_region_1\",\"color\":\"#ff1744\",\"threshold\":12,\"invert\":false}],\"output\":\"combined_mask\"}"
+        "{\"version\":1,\"groups\":[{\"id\":\"mask_legacy_1\",\"color\":\"#0000ff\",\"threshold\":30,\"invert\":false}],\"output\":\"combined_mask\"}"
       ],
       "widgets_values_named": {
-        "config_json": "{\"version\":1,\"groups\":[{\"id\":\"local_region_1\",\"color\":\"#ff1744\",\"threshold\":12,\"invert\":false}],\"output\":\"combined_mask\"}"
+        "config_json": "{\"version\":1,\"groups\":[{\"id\":\"mask_legacy_1\",\"color\":\"#0000ff\",\"threshold\":30,\"invert\":false}],\"output\":\"combined_mask\"}"
       }
     },
     {
@@ -759,8 +759,8 @@
       "flags": {
         "collapsed": true
       },
-      "order": 9,
-      "mode": 4,
+      "order": 6,
+      "mode": 0,
       "inputs": [
         {
           "localized_name": "material_id",
@@ -813,16 +813,16 @@
       "title": "局部修改｜选择目标材质",
       "properties": {
         "Node name for S&R": "GPTImage2MaterialPrompt",
-        "gpt_image2_material_id": "satin_gold",
+        "gpt_image2_material_id": "satin_silver",
         "daelab_app_heading": "局部修改｜选择目标材质"
       },
       "widgets_values": [
-        "亚金",
+        "亚银",
         "仅把选中区域转换为指定材质。",
         "保持形状、文字与未选区域完全不变。"
       ],
       "widgets_values_named": {
-        "material_id": "亚金",
+        "material_id": "亚银",
         "base_prompt": "仅把选中区域转换为指定材质。",
         "additional_details": "保持形状、文字与未选区域完全不变。"
       }
@@ -839,7 +839,7 @@
         218
       ],
       "flags": {},
-      "order": 10,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -871,7 +871,7 @@
         218
       ],
       "flags": {},
-      "order": 11,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
@@ -903,7 +903,7 @@
         218
       ],
       "flags": {},
-      "order": 12,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
@@ -935,7 +935,7 @@
         218
       ],
       "flags": {},
-      "order": 13,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
@@ -967,7 +967,7 @@
         218
       ],
       "flags": {},
-      "order": 14,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
@@ -999,7 +999,7 @@
         218
       ],
       "flags": {},
-      "order": 15,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
@@ -1031,7 +1031,7 @@
         247.328125
       ],
       "flags": {},
-      "order": 16,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -1101,7 +1101,7 @@
         247.328125
       ],
       "flags": {},
-      "order": 17,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -1166,10 +1166,10 @@
       ],
       "size": [
         410,
-        367.328125
+        347.328125
       ],
       "flags": {},
-      "order": 18,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -1191,6 +1191,24 @@
           "type": "BOOLEAN",
           "links": [
             6
+          ]
+        },
+        {
+          "label": "按颜色选区",
+          "localized_name": "按颜色选区",
+          "name": "按颜色选区",
+          "type": "BOOLEAN",
+          "links": [
+            9
+          ]
+        },
+        {
+          "label": "自绘遮罩",
+          "localized_name": "自绘遮罩",
+          "name": "自绘遮罩",
+          "type": "BOOLEAN",
+          "links": [
+            10
           ]
         },
         {
@@ -1229,24 +1247,6 @@
           "name": "棚拍效果图",
           "type": "BOOLEAN",
           "links": []
-        },
-        {
-          "label": "按颜色选区",
-          "localized_name": "按颜色选区",
-          "name": "按颜色选区",
-          "type": "BOOLEAN",
-          "links": [
-            9
-          ]
-        },
-        {
-          "label": "自绘遮罩",
-          "localized_name": "自绘遮罩",
-          "name": "自绘遮罩",
-          "type": "BOOLEAN",
-          "links": [
-            10
-          ]
         }
       ],
       "title": "[Control Get] 局部修改",
@@ -1256,14 +1256,14 @@
         "boolean_get_include_root": false,
         "boolean_get_width": 410,
         "Node name for S&R": "BooleanListHierarchyGet",
-        "boolean_get_snapshot": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\"]}",
+        "boolean_get_snapshot": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\"]}",
         "daelab_preserve_mode": true
       },
       "widgets_values": [
-        "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\"]}"
+        "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\"]}"
       ],
       "widgets_values_named": {
-        "config_json": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\"]}"
+        "config_json": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\"]}"
       }
     },
     {
@@ -1275,10 +1275,10 @@
       ],
       "size": [
         410,
-        367.328125
+        347.328125
       ],
       "flags": {},
-      "order": 19,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -1297,6 +1297,20 @@
           "label": "局部修改",
           "localized_name": "局部修改",
           "name": "局部修改",
+          "type": "BOOLEAN",
+          "links": []
+        },
+        {
+          "label": "按颜色选区",
+          "localized_name": "按颜色选区",
+          "name": "按颜色选区",
+          "type": "BOOLEAN",
+          "links": []
+        },
+        {
+          "label": "自绘遮罩",
+          "localized_name": "自绘遮罩",
+          "name": "自绘遮罩",
           "type": "BOOLEAN",
           "links": []
         },
@@ -1336,20 +1350,6 @@
           "links": [
             7
           ]
-        },
-        {
-          "label": "按颜色选区",
-          "localized_name": "按颜色选区",
-          "name": "按颜色选区",
-          "type": "BOOLEAN",
-          "links": []
-        },
-        {
-          "label": "自绘遮罩",
-          "localized_name": "自绘遮罩",
-          "name": "自绘遮罩",
-          "type": "BOOLEAN",
-          "links": []
         }
       ],
       "title": "[Control Get] 棚拍",
@@ -1359,14 +1359,14 @@
         "boolean_get_include_root": false,
         "boolean_get_width": 410,
         "Node name for S&R": "BooleanListHierarchyGet",
-        "boolean_get_snapshot": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\"]}",
+        "boolean_get_snapshot": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\"]}",
         "daelab_preserve_mode": true
       },
       "widgets_values": [
-        "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\"]}"
+        "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\"]}"
       ],
       "widgets_values_named": {
-        "config_json": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":false,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\"]}"
+        "config_json": "{\"version\":2,\"valid\":true,\"source_node_id\":\"95\",\"root_item_id\":\"badge.post\",\"include_root\":false,\"items\":[{\"id\":\"badge.post\",\"label\":\"后处理\",\"value\":true,\"parent_id\":null},{\"id\":\"badge.post.local\",\"label\":\"局部修改\",\"value\":true,\"parent_id\":\"badge.post\"},{\"id\":\"badge.post.local.selection.color\",\"label\":\"按颜色选区\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.selection.polygon\",\"label\":\"自绘遮罩\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.local.selection.mode\"},{\"id\":\"badge.post.local.color_id_map\",\"label\":\"使用颜色编号图（Color ID Map）\",\"value\":false,\"parent_id\":\"badge.post.local\",\"requires_ids\":[\"badge.post.local.selection.color\"]},{\"id\":\"badge.post.local.semantic\",\"label\":\"纯语义修改\",\"value\":false,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.material\",\"label\":\"转换为特定材质\",\"value\":true,\"parent_id\":\"badge.post.local\",\"exclusive_group_id\":\"badge.edit.mode\"},{\"id\":\"badge.post.local.apply\",\"label\":\"应用局部修改\",\"value\":false,\"parent_id\":\"badge.post.local\"},{\"id\":\"badge.post.studio\",\"label\":\"棚拍效果图\",\"value\":false,\"parent_id\":\"badge.post\"}],\"output_item_ids\":[\"badge.post.local\",\"badge.post.local.selection.color\",\"badge.post.local.selection.polygon\",\"badge.post.local.color_id_map\",\"badge.post.local.semantic\",\"badge.post.local.material\",\"badge.post.local.apply\",\"badge.post.studio\"]}"
       }
     },
     {
@@ -1378,10 +1378,10 @@
       ],
       "size": [
         750,
-        950
+        970
       ],
       "flags": {},
-      "order": 20,
+      "order": 27,
       "mode": 4,
       "showAdvanced": false,
       "inputs": [
@@ -1395,52 +1395,52 @@
           "localized_name": "vertex_count",
           "name": "vertex_count",
           "type": "INT",
-          "link": null,
           "widget": {
             "name": "vertex_count"
-          }
+          },
+          "link": null
         },
         {
           "localized_name": "color",
           "name": "color",
           "type": "COLOR",
-          "link": null,
           "widget": {
             "name": "color"
-          }
+          },
+          "link": null
         },
         {
           "localized_name": "fill_opacity",
           "name": "fill_opacity",
           "type": "INT",
-          "link": null,
           "widget": {
             "name": "fill_opacity"
-          }
+          },
+          "link": null
         },
         {
           "localized_name": "outline_width",
           "name": "outline_width",
           "type": "INT",
-          "link": null,
           "widget": {
             "name": "outline_width"
-          }
+          },
+          "link": null
         },
         {
           "localized_name": "polygon_data",
           "name": "polygon_data",
           "type": "STRING",
-          "link": null,
           "widget": {
             "name": "polygon_data"
-          }
+          },
+          "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "masked_image",
-          "name": "masked_image",
+          "localized_name": "selection_preview",
+          "name": "selection_preview",
           "type": "IMAGE",
           "links": []
         },
@@ -1451,33 +1451,35 @@
           "links": []
         }
       ],
+      "title": "徽章选区｜画笔 / Polygon",
       "properties": {
         "Node name for S&R": "DAELAB.BadgeSelectionMaskV1",
-        "polygon_info": "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"\"}",
-        "polygon_canvas_height": 430,
-        "vertex_count_value": 3,
+        "polygon_info": "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"load-image:146:Badge88/build_00021_.png [output]\",\"brush_strokes\":[]}",
+        "polygon_canvas_height": 450,
+        "vertex_count_value": 6,
         "color_value": "#FF1744",
         "fill_opacity_value": 35,
         "outline_width_value": 3,
-        "polygon_data_value": "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"\"}",
-        "source_image_hash": "",
+        "polygon_data_value": "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"load-image:146:Badge88/build_00021_.png [output]\",\"brush_strokes\":[]}",
+        "source_image_hash": "load-image:146:Badge88/build_00021_.png [output]",
         "daelab_app_heading": "徽章选区｜画笔 / Polygon"
       },
       "widgets_values": [
-        3,
+        6,
         "#FF1744",
         35,
         3,
-        "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"\"}"
+        "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"load-image:146:Badge88/build_00021_.png [output]\",\"brush_strokes\":[]}",
+        ""
       ],
       "widgets_values_named": {
-        "vertex_count": 3,
+        "vertex_count": 6,
         "color": "#FF1744",
         "fill_opacity": 35,
         "outline_width": 3,
-        "polygon_data": "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"\"}"
-      },
-      "title": "徽章选区｜画笔 / Polygon"
+        "polygon_data": "{\"polygons\":[],\"selectedIndex\":-1,\"cleared\":true,\"image\":\"load-image:146:Badge88/build_00021_.png [output]\",\"brush_strokes\":[]}",
+        "polygon_canvas": ""
+      }
     },
     {
       "id": 144,
@@ -1491,7 +1493,7 @@
         218
       ],
       "flags": {},
-      "order": 21,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
@@ -1507,7 +1509,8 @@
         "target_group_id": "daelab-badge-local-color",
         "invert": false
       },
-      "widgets_values": []
+      "widgets_values": [],
+      "widgets_values_named": {}
     },
     {
       "id": 145,
@@ -1521,7 +1524,7 @@
         218
       ],
       "flags": {},
-      "order": 22,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
@@ -1537,7 +1540,8 @@
         "target_group_id": "daelab-badge-local-polygon",
         "invert": false
       },
-      "widgets_values": []
+      "widgets_values": [],
+      "widgets_values_named": {}
     },
     {
       "id": 105,
@@ -1551,35 +1555,37 @@
         250
       ],
       "flags": {},
-      "order": 23,
-      "mode": 4,
-      "title": "局部修改｜语义描述",
+      "order": 11,
+      "mode": 0,
       "inputs": [
         {
+          "label": "局部修改｜语义描述",
+          "localized_name": "值",
           "name": "value",
           "type": "STRING",
           "widget": {
             "name": "value"
           },
-          "label": "局部修改｜语义描述",
           "link": null
         }
       ],
       "outputs": [
         {
+          "localized_name": "字符串",
           "name": "STRING",
           "type": "STRING",
           "links": []
         }
       ],
+      "title": "局部修改｜语义描述",
       "properties": {
         "Node name for S&R": "PrimitiveStringMultiline"
       },
       "widgets_values": [
-        "仅修改选中区域，保持轮廓、文字、颜色和未选区域不变。"
+        "把遮罩选区转为哑光银材质"
       ],
       "widgets_values_named": {
-        "value": "仅修改选中区域，保持轮廓、文字、颜色和未选区域不变。"
+        "value": "把遮罩选区转为哑光银材质"
       }
     },
     {
@@ -1594,27 +1600,29 @@
         250
       ],
       "flags": {},
-      "order": 24,
+      "order": 12,
       "mode": 4,
-      "title": "棚拍效果｜提示词",
       "inputs": [
         {
+          "label": "棚拍效果｜提示词",
+          "localized_name": "值",
           "name": "value",
           "type": "STRING",
           "widget": {
             "name": "value"
           },
-          "label": "棚拍效果｜提示词",
           "link": null
         }
       ],
       "outputs": [
         {
+          "localized_name": "字符串",
           "name": "STRING",
           "type": "STRING",
           "links": []
         }
       ],
+      "title": "棚拍效果｜提示词",
       "properties": {
         "Node name for S&R": "PrimitiveStringMultiline"
       },
@@ -1637,8 +1645,8 @@
         484.1875
       ],
       "flags": {},
-      "order": 25,
-      "mode": 4,
+      "order": 13,
+      "mode": 0,
       "inputs": [
         {
           "label": "原型素材｜局部选区参考图",
@@ -1684,11 +1692,11 @@
         "daelab_app_preview_heading": "原型素材｜局部选区参考图"
       },
       "widgets_values": [
-        "",
+        "Badge88/build_00021_.png [output]",
         "image"
       ],
       "widgets_values_named": {
-        "image": "",
+        "image": "Badge88/build_00021_.png [output]",
         "upload": "image"
       }
     },
@@ -1704,7 +1712,7 @@
         484.1875
       ],
       "flags": {},
-      "order": 26,
+      "order": 14,
       "mode": 4,
       "inputs": [
         {
@@ -1768,7 +1776,7 @@
         638.25
       ],
       "flags": {},
-      "order": 27,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -1805,11 +1813,11 @@
         240
       ],
       "flags": {},
-      "order": 28,
+      "order": 15,
       "mode": 0,
-      "title": "#8.8 阶段执行",
       "inputs": [
         {
+          "localized_name": "request_json",
           "name": "request_json",
           "type": "STRING",
           "widget": {
@@ -1820,6 +1828,7 @@
       ],
       "outputs": [
         {
+          "localized_name": "image",
           "name": "image",
           "type": "IMAGE",
           "links": [
@@ -1827,11 +1836,13 @@
           ]
         },
         {
+          "localized_name": "report",
           "name": "report",
           "type": "STRING",
           "links": []
         }
       ],
+      "title": "#8.8 阶段执行",
       "properties": {
         "Node name for S&R": "DAELAB.BadgeApp88TargetOnlyV1"
       },
@@ -1895,7 +1906,7 @@
     [
       7,
       141,
-      5,
+      7,
       136,
       0,
       "BOOLEAN"
@@ -1903,7 +1914,7 @@
     [
       8,
       140,
-      3,
+      5,
       137,
       0,
       "BOOLEAN"
@@ -1911,7 +1922,7 @@
     [
       9,
       140,
-      6,
+      1,
       144,
       0,
       "BOOLEAN"
@@ -1919,7 +1930,7 @@
     [
       10,
       140,
-      7,
+      2,
       145,
       0,
       "BOOLEAN"
@@ -2086,10 +2097,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.16,
+      "scale": 0.1,
       "offset": [
-        150,
-        200
+        412.8831546264146,
+        6126.5863648739705
       ]
     },
     "linearData": {
@@ -2401,8 +2412,8 @@
       "localReferenceNodeId": 146,
       "studioReferenceNodeId": 147,
       "description": "Badge 8.8 · 基于编辑目标图取色",
-      "heightEnabled": false,
-      "backgroundEnabled": false,
+      "heightEnabled": true,
+      "backgroundEnabled": true,
       "buildPrompt": "",
       "generation": {
         "build": {
@@ -2411,8 +2422,10 @@
           "width": 1024,
           "height": 1024,
           "custom": false,
-          "locked": true,
-          "model": "gpt-image-2.5-sunburst"
+          "locked": false,
+          "count": 4,
+          "model": "gpt-image-2.5-sunburst",
+          "size": "1024x1024"
         },
         "local": {
           "ratio": "1:1",
@@ -2421,9 +2434,11 @@
           "height": 1024,
           "custom": false,
           "locked": true,
+          "count": 2,
           "model": "gpt-image-2.5-sunburst"
         }
       },
+      "promptOnly": false,
       "heightBoard": {
         "count": 3,
         "fallback": 1,
@@ -2454,14 +2469,14 @@
             "color": "#221e1f",
             "threshold": 30,
             "layer": 4,
-            "tier": 2
+            "tier": 3
           },
           {
             "id": "height_84_5",
             "color": "#b11a25",
             "threshold": 30,
             "layer": 4,
-            "tier": 2
+            "tier": 3
           },
           {
             "id": "height_84_6",
@@ -2471,14 +2486,90 @@
             "tier": 3
           }
         ],
-        "fixedEndpoints": true,
         "alphas": {
           "0": 0,
           "1": 77,
           "2": 153,
           "3": 255
-        }
-      }
+        },
+        "fixedEndpoints": true
+      },
+      "referenceImageHeight": 412,
+      "localTargets": {
+        "source": "generated",
+        "generated": {
+          "filename": "build_00021_.png",
+          "subfolder": "Badge88",
+          "type": "output"
+        },
+        "existing": {
+          "filename": "build_00186_.png",
+          "subfolder": "",
+          "type": "input"
+        },
+        "results": [
+          {
+            "filename": "build_00025_.png",
+            "subfolder": "Badge88",
+            "type": "output"
+          },
+          {
+            "filename": "build_00026_.png",
+            "subfolder": "Badge88",
+            "type": "output"
+          },
+          {
+            "filename": "build_00027_.png",
+            "subfolder": "Badge88",
+            "type": "output"
+          },
+          {
+            "filename": "build_00028_.png",
+            "subfolder": "Badge88",
+            "type": "output"
+          }
+        ],
+        "drafts": {
+          "{\"filename\":\"build_00186_.png\",\"subfolder\":\"\",\"type\":\"input\"}": {
+            "polygon": {
+              "polygons": [],
+              "brushStrokes": [],
+              "cleared": true,
+              "selectedIndex": -1,
+              "stateImageSize": {
+                "width": 1024,
+                "height": 1024
+              }
+            },
+            "color": "{\"version\":1,\"groups\":[{\"id\":\"mask_legacy_1\",\"color\":\"#0000ff\",\"threshold\":30,\"invert\":false}],\"output\":\"combined_mask\"}",
+            "localRegions87": null
+          }
+        },
+        "pendingResults": true
+      },
+      "paletteReference": "ColorRef.png",
+      "localRegions": {
+        "version": 2,
+        "revision": 0,
+        "default_material_id": "transparent_lacquer",
+        "overlap_policy": "error",
+        "groups": [
+          {
+            "id": "local87_1",
+            "color": "#268581",
+            "threshold": 30,
+            "material_id": "glitter",
+            "color_policy": "preserve",
+            "material_strength": 1.5,
+            "reroll_revision": 0,
+            "name": "区域 1",
+            "samples": [],
+            "material_pending": false,
+            "invert": false
+          }
+        ]
+      },
+      "gptColorMap": null
     },
     "daelabBadgeExecutionV1": {
       "version": 1,

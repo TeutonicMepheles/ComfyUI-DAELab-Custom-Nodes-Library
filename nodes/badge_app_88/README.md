@@ -1,6 +1,6 @@
 # Badge 8.8: target-image-only sampling (2026-09-18)
 
-The current `#8.8 - Badge Workflow.json` is copied from current 8.7. It reuses
+The current `DAELab-徽章设计-v8.8.json` is copied from current 8.7. It reuses
 the same target selection, draft state, material lists, manual masks, templates,
 generation controls, and optical/boundary processing. The only product difference
 is that local colors are sampled from the current edit target. The source switch

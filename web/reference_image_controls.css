@@ -1,0 +1,24 @@
+.cnl-reference-toolbar {
+    display:flex; align-items:center; gap:6px; flex:1; min-width:0;
+}
+.cnl-reference-toolbar > .cnl-reference-filename {
+    box-sizing:border-box; display:block; flex:1; min-width:0; padding:8px;
+    border:1px solid var(--badge-border, var(--border-color)); border-radius:6px;
+    background:var(--badge-control, var(--comfy-input-bg)); color:var(--badge-muted, var(--descrip-text));
+    font:400 var(--cnl-app-support-size, 12px)/1.5 var(--cnl-app-font, sans-serif);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cnl-reference-toolbar > button.cnl-reference-action {
+    box-sizing:border-box; display:grid; place-items:center; flex:none;
+    width:36px; height:36px; padding:0; cursor:pointer;
+    border:1px solid var(--badge-border, var(--border-color)); border-radius:6px;
+    background:var(--badge-control, var(--comfy-input-bg)); color:var(--badge-text, var(--input-text));
+}
+.cnl-reference-toolbar > button.cnl-reference-action:hover:not(:disabled) {
+    background:color-mix(in srgb, currentColor 10%, var(--badge-control, var(--comfy-input-bg)));
+}
+.cnl-reference-toolbar > button.cnl-reference-action:focus-visible {
+    outline:2px solid var(--badge-focus, Highlight); outline-offset:2px;
+}
+.cnl-reference-toolbar > button.cnl-reference-action:disabled { opacity:.45; cursor:default; }
+.cnl-reference-toolbar > .cnl-reference-action > img { width:18px; height:18px; filter:invert(1); }

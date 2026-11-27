@@ -160,9 +160,9 @@ function toBoolean(value) {
     return value === true || value === 1 || value === "1" || value === "true";
 }
 
-export function resolveBooleanSource(controllerNode) {
-    const input = (controllerNode?.inputs || []).find((candidate) => candidate.name === "boolean")
-        || controllerNode?.inputs?.[0];
+export function resolveBooleanSource(controllerNode, inputName = "boolean") {
+    const input = controllerNode?.inputs?.find((candidate) => candidate.name === inputName)
+        ?? (inputName === "boolean" ? controllerNode?.inputs?.[0] : undefined);
     if (!input || input.link == null) {
         return { ok: false, code: "unconnected", message: "等待连接 Hierarchy 或 Hierarchy Get" };
     }

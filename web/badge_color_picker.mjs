@@ -64,7 +64,7 @@ export function attachBadgeColorPicker(root, canvas, prepareSource, sample, live
         const top = below + popup.height <= innerHeight - margin ? below :
             above >= margin ? above : innerHeight - popup.height - margin;
         panel.style.left = Math.max(margin, Math.min(anchor.left, innerWidth - popup.width - margin)) + 'px';
-        panel.style.top = Math.max(margin, top) + 'px';
+        panel.style.top = Math.max(margin, Math.min(top, innerHeight - popup.height - margin)) + 'px';
     }
     root.addEventListener('click',open,true);
     hue.oninput=paint;hex.oninput=()=>hex.setCustomValidity('');

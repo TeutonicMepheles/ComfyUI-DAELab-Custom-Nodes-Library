@@ -119,7 +119,8 @@ export function compileEdit({ base, draft, width, height, mask, guide, profile, 
     if (hasMask && edit !== 'replace') inputs[fields.mask] = maskRef;
     let result = addNode(output, '6', 'OpenAIGPTImageNodeV2', inputs);
     if (hasMask) {
-        const candidate = addNode(output, '7', 'ImageScale', { image: result, upscale_method: 'bicubic', width, height, crop: 'disabled' });
+        // Bilinear interpolation keeps normalized pixels in range for the strict composite.
+        const candidate = addNode(output, '7', 'ImageScale', { image: result, upscale_method: 'bilinear', width, height, crop: 'disabled' });
         result = addNode(output, '8', 'BadgeDeterministicComposite', { previous_master: image, edit_candidate: candidate, edit_mask: maskRef });
     }
     return finishPrompt(output, result, 'DAELab/LocalEdit');

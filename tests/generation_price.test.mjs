@@ -62,9 +62,9 @@ test('a shared estimator reads only the mapped host node and handles missing or 
 });
 
 test('quote invalidates stale, failed, and disposed requests independently of submission', async () => {
-    const labels = [], pending = new Map();
+    const quotes = [], pending = new Map();
     const quote = generationPriceQuote(key => new Promise((resolve, reject) => pending.set(key, { resolve, reject })),
-        value => labels.push(value));
+        (amount, message) => quotes.push({ amount, message }));
     const tick = () => new Promise(resolve => setImmediate(resolve));
     quote.update('old');
     quote.update('current');
@@ -73,16 +73,16 @@ test('quote invalidates stale, failed, and disposed requests independently of su
     await tick();
     pending.get('old').resolve({ min: 99, max: 99 });
     await tick();
-    assert.equal(labels.at(-1), '本批预计 1.5–2 积分');
+    assert.deepEqual(quotes.at(-1), { amount: '1.5–2', message: undefined });
     quote.update('failure');
     await tick();
     pending.get('failure').reject(new Error('missing price'));
     await tick();
-    assert.equal(labels.at(-1), '暂无法估算');
+    assert.deepEqual(quotes.at(-1), { amount: null, message: '暂无法估算' });
     quote.update('dispose');
     await tick();
     quote.dispose();
     pending.get('dispose').resolve({ min: 4, max: 4 });
     await tick();
-    assert.equal(labels.at(-1), '估算中…');
+    assert.deepEqual(quotes.at(-1), { amount: null, message: '估算中…' });
 });

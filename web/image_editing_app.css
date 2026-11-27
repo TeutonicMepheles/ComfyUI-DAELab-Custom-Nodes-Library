@@ -54,7 +54,43 @@
   mask:var(--cnl-edit-icon) center/contain no-repeat;
 }
 .cnl-edit-row input[type=number] { width:5em; }
-.cnl-edit-row input[type=color] { width:36px; padding:3px; }
+.cnl-edit-color-tools,.cnl-edit-color-list { display:grid; gap:4px; min-width:0; }
+.cnl-edit-color-tools { container-type:inline-size; }
+.cnl-edit-color-actions > button[aria-label] { inline-size:36px; padding-inline:0; }
+.cnl-edit-color-card {
+  display:grid; grid-template-columns:4em minmax(6.75rem,1fr) 5rem auto;
+  align-items:center; gap:6px; min-width:0; padding:3px 6px;
+  border:1px solid var(--badge-border); border-radius:6px;
+}
+.cnl-edit-color-name { white-space:nowrap; }
+.cnl-image-editing .cnl-edit-color-card input { min-height:0; }
+.cnl-image-editing .cnl-edit-color-card input:focus-visible {
+  outline:2px dashed var(--badge-text) !important; outline-offset:2px;
+}
+.cnl-edit-color-field {
+  display:inline-flex; align-items:center; gap:6px; min-height:26px; white-space:nowrap;
+}
+@container (width < 22rem) {
+  .cnl-edit-color-card { grid-template-columns:auto minmax(6.75rem,1fr) 4.5rem auto; }
+  .cnl-edit-color-invert > span { display:none; }
+}
+@container (width < 16.5rem) {
+  .cnl-edit-color-card { grid-template-columns:minmax(6.75rem,1fr) 4.5rem auto; }
+  .cnl-edit-color-name { display:none; }
+}
+.cnl-edit-color-invert { cursor:pointer; }
+.cnl-image-editing .cnl-edit-color-invert input[type=checkbox] {
+  appearance:none; position:relative; flex:none; width:28px; height:16px; min-height:0; margin:0;
+  padding:0; border:1px solid var(--badge-muted); border-radius:999px; cursor:pointer;
+}
+.cnl-edit-color-invert input::after {
+  content:''; position:absolute; inset:2px auto auto 2px;
+  width:10px; height:10px; border-radius:50%; background:var(--badge-muted);
+}
+.cnl-image-editing .cnl-edit-color-invert input:checked {
+  border-color:var(--badge-accent); background:var(--badge-accent);
+}
+.cnl-edit-color-invert input:checked::after { left:14px; background:white; }
 .cnl-edit-row input[type=range],.cnl-edit-drawing-tools input[type=range] { width:92px; accent-color:var(--badge-accent); }
 .cnl-image-editing textarea { width:100%; min-height:88px; resize:vertical; }
 .cnl-edit-hint,.cnl-edit-status { font-size:var(--cnl-app-support-size); }

@@ -1,7 +1,7 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-dimensions-2';
 import { refinedBadge87 } from './badge_refinement_87.mjs?v=20261119-model-matching';
-import { RATIOS, badgeBuildPriceParameters, badgeExecutionSize, classifyPresets, generationPresets87, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20261119-build-menu';
-import { createGenerationConfigPanel } from './generation_config_panel.mjs?v=20261119-build-price';
+import { RATIOS, badgeBuildPriceParameters, badgeExecutionSize, classifyPresets, generationPresets87, isPromptOnlyBuild, readGenerationConfig, editDimension, validateDimensions } from './badge_generation_model.mjs?v=20261119-build-menu';
+import { createGenerationConfigPanel } from './generation_config_panel.mjs?v=20261119-badge-build-sections';
 import { requestForStage } from './badge_execution_87_model.mjs?v=20261119-model-matching';
 import { executionPriceInput, generationPriceEstimator } from './generation_price.mjs';
 import { accessModelReason, changedConfiguration, findAccessModel, integerInRange } from './model_access.mjs?v=20261119-model-matching';
@@ -16,6 +16,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     const refined = refinedBadge87(graph);
     const inherit = refined && stage === 'local';
     const countMax = stage === 'build' ? INITIAL_COUNT_MAX : LEGACY_COUNT_MAX;
+    const visibleMessage = message => prompt && message === badgeText('generation_model.text_009') ? '' : message;
     const executable = graph.extra?.daelabBadgeExecutionV1?.version === 1;
     const getPresets = refined ? generationPresets87 : classifyPresets;
     let access, adjustment = '';
@@ -55,6 +56,7 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
     if (refined) capabilities.push({
         key: 'model', label: text(2), external: inherit,
         options: config => (access?.models ?? []).map(model => [model === effective(config) ? config.model : model.id, model.label]),
+        source: prompt ? key => findAccessModel(access, key)?.execution.route : undefined,
         patch(config, model) {
             const selected = findAccessModel(access, model);
             if (!selected) return {};
@@ -117,6 +119,8 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         capabilities, config: read(),
         fold: !prompt && !inherit && generationFold(graph, 'badge.' + stage, captureHistory),
         prompt, settingsExtra,
+        sizeSummary: c => c.custom ? c.width + ' × ' + c.height + ' px' : [c.ratio, c.tier].filter(Boolean).join(' · '),
+        modeSummary: () => isPromptOnlyBuild(graph) ? '纯提示词' : '参考图',
         pricing: prompt && {
             evaluate: generationPriceEstimator(api),
             snapshot(config) {
@@ -162,8 +166,9 @@ export function createGenerationPanel(graph, stage, { onGenerate, onChange, live
         update({ busy = false, error = '', message = '', failure = '', disabled = false, settingsHidden = false } = {}) {
             const config = read();
             const display = {
-                busy, error, failure, disabled, settingsHidden,
-                message: busy ? (executable ? text(25) : text(26)) : (prompt ? message : adjustment || message),
+                busy, error: visibleMessage(error), failure: visibleMessage(failure), disabled, settingsHidden,
+                promptRequired: Boolean(prompt && isPromptOnlyBuild(graph)),
+                message: busy ? (executable ? text(25) : text(26)) : (prompt ? visibleMessage(message) : adjustment || message),
                 settingsMessage: prompt && !busy ? adjustment : '',
                 validate: value => validateDimensions(value) || (
                     executable && !validGenerationCount(value.count, countMax)

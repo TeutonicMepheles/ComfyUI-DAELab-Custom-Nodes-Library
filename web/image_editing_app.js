@@ -5,6 +5,7 @@ import { buildImageViewPath } from './app_mode_load_image_preview_model.mjs';
 import { getBadgeNativeQueue } from './badge_app_prototype.js?v=20261119-build-menu';
 import { localImageFromDrop } from './badge_image_drop_87.mjs?v=20260917-drop-1';
 import { queueBadge87 } from './badge_execution_87_queue.mjs?v=20260916-content-1';
+import { applyCompactGroupSelection, bindCompactGroupSelection, createCompactColorControl, createCompactThresholdControl } from './compact_color_group_controls.mjs';
 import { BADGE_APP_PALETTE } from './badge_ui_styles.mjs';
 import { captureGenerationHistory, generationLoadIdentity } from './generation_ui_model.mjs';
 import { accessModelReason, findAccessModel, loadModelAccess } from './model_access.mjs?v=20261119-model-matching';
@@ -226,7 +227,7 @@ function mount(graph, root, stage, marker) {
     const changed = () => { persist(); render(); };
     const signal = events.signal;
     const onError = message => { error = message; if (!disposed) render(); };
-    const button = (parent,label,callback,icon) => {
+    const button = (parent,label,callback,icon,iconOnly=false) => {
         const control = element('button',parent,icon ? null : label);
         control.type = 'button';
         if (icon) {
@@ -234,7 +235,12 @@ function mount(graph, root, stage, marker) {
             const glyph = element('span',control,null,'cnl-edit-button-icon');
             glyph.setAttribute('aria-hidden','true');
             glyph.style.setProperty('--cnl-edit-icon',`url("${new URL(`./vendor/remixicon/${icon}.svg`,import.meta.url).href}")`);
-            element('span',control,label,'cnl-edit-button-label');
+            if (iconOnly) {
+                control.setAttribute('aria-label',label);
+                control.title = label;
+            } else {
+                element('span',control,label,'cnl-edit-button-label');
+            }
         }
         control.onclick = callback;
         releases.push(bindCreativeButton(control));
@@ -331,31 +337,77 @@ function mount(graph, root, stage, marker) {
     });
     scope?.row.classList.add('cnl-edit-position-choices');
     maskTabs?.row.classList.add('cnl-edit-position-choices');
-    const colorTools = element('div',tools,null,'cnl-edit-row');
-    const colors = field(element('select',colorTools));
-    colors.setAttribute('aria-label','颜色组');
-    const color = field(element('input',colorTools));
-    color.type = 'color'; color.setAttribute('aria-label','遮罩颜色');
-    const threshold = field(element('input',colorTools));
-    threshold.type='number';threshold.min='0';threshold.max='255';threshold.title='阈值';threshold.setAttribute('aria-label','颜色阈值');
-    const invertLabel = element('label',colorTools,'反转匹配');
-    const invert = field(element('input',invertLabel));
-    invert.type='checkbox';
-    invert.addEventListener('change',()=>{draft().colors[activeColor].invert=invert.checked;changed();},{signal});
-    const sampleButton = button(colorTools,'从底图取色',()=>{
+    const colorTools = element('div',tools,null,'cnl-edit-color-tools');
+    colorTools.setAttribute('role','group');
+    colorTools.setAttribute('aria-label','颜色选区设置');
+    const colorActions = element('div',colorTools,null,'cnl-edit-row cnl-edit-color-actions');
+    const add = button(colorActions,'添加颜色',()=>{
+        draft().colors.push({color:'#ffffff',threshold:30});
+        activeColor=draft().colors.length-1;
+        changed();
+        colorRows[activeColor].card.focus();
+    },'add-line',true);
+    const remove = button(colorActions,'删除颜色',()=>{
+        draft().colors.splice(activeColor,1);
+        activeColor=Math.max(0,activeColor-1);
+        changed();
+        colorRows[activeColor].card.focus();
+    },'delete-bin-line',true);
+    const sampleButton = button(colorActions,'从底图取色',()=>{
         previewingMask=false;
         tool=tool==='sample'?'':'sample';
         render();
         if (tool==='sample') canvas.scrollIntoView({block:'nearest'});
-    });
-    const add = button(colorTools,'添加颜色',()=>{draft().colors.push({color:'#ffffff',threshold:30});activeColor=draft().colors.length-1;changed();});
-    const remove = button(colorTools,'删除颜色',()=>{draft().colors.splice(activeColor,1);activeColor=Math.max(0,activeColor-1);changed();});
-    colors.addEventListener('change',()=>{activeColor=Number(colors.value);render();},{signal});
-    color.addEventListener('change',()=>{draft().colors[activeColor].color=color.value;changed();},{signal});
-    threshold.addEventListener('change',()=>{
-        draft().colors[activeColor].threshold=Number.isFinite(threshold.valueAsNumber)?Math.max(0,Math.min(255,Math.round(threshold.valueAsNumber))):30;
-        changed();
-    },{signal});
+    },'palette-line');
+    const colorList = element('div',colorTools,null,'cnl-edit-color-list');
+    colorList.setAttribute('role','listbox');
+    colorList.setAttribute('aria-label','颜色组');
+    let colorRows = [];
+
+    function createColorRow(group,index) {
+        const card = element('div',null,null,'cnl-edit-color-card');
+        card.dataset.colorGroupId=String(index);
+        card.tabIndex=0;
+        card.setAttribute('role','option');
+        const name = '颜色 '+(index+1);
+        card.setAttribute('aria-label',name);
+        bindCompactGroupSelection(card,()=>{
+            activeColor=index;
+            applyCompactGroupSelection(colorList,String(index));
+        });
+        element('span',card,name,'cnl-edit-color-name');
+        const color = createCompactColorControl({
+            color:group.color, label:name, getCurrentColor:()=>group.color,
+            onCommit(value) {
+                const normalized=value.toLowerCase();
+                if (group.color!==normalized) {
+                    group.color=normalized;
+                    changed();
+                }
+                return normalized;
+            },
+        });
+        const threshold = createCompactThresholdControl({
+            threshold:group.threshold,
+            onCommit(value) {
+                const number=Number.parseFloat(value);
+                group.threshold=Number.isFinite(number)?Math.max(0,Math.min(255,Math.round(number))):30;
+                changed();
+                return group.threshold;
+            },
+        });
+        threshold.querySelector('input').setAttribute('aria-label','颜色阈值');
+        card.append(color,threshold);
+        const invertLabel = element('label',card,null,'cnl-edit-color-field cnl-edit-color-invert');
+        const invert = field(element('input',invertLabel));
+        invert.type='checkbox';invert.setAttribute('role','switch');
+        invert.checked=Boolean(group.invert);
+        invert.setAttribute('aria-label','反转匹配');
+        invertLabel.title = '反转匹配';
+        element('span',invertLabel,'反转匹配');
+        invert.addEventListener('change',()=>{group.invert=invert.checked;changed();});
+        return {group,card,picker:color.querySelector('[type=color]')};
+    }
 
     const modelIntro = cutout ? element('p',tools,null,'cnl-edit-hint') : null;
     const modelRow = element('label',tools,'模型文件','cnl-edit-row');
@@ -397,7 +449,13 @@ function mount(graph, root, stage, marker) {
     const size = field(element('input',drawingTools));
     size.type='range';size.min='4';size.max='70';size.value='18';size.setAttribute('aria-label','画笔大小');size.title='画笔大小';
     size.addEventListener('input',render,{signal});
-    const editor = createSelectionEditor(canvas,{update:changed,sample(value){draft().colors[activeColor].color=value;tool='';changed();}});
+    const editor = createSelectionEditor(canvas,{update:changed,sample(value){
+        const {picker}=colorRows[activeColor];
+        picker.value=value;
+        tool='';
+        picker.dispatchEvent(new Event('change'));
+        render();
+    }});
 
     const operations = cutout ? null : section('修改内容');
     const editTabs = operations ? toggleRow(operations,'修改方式',[['semantic','语义描述'],['replace','图片替换'],['material','材质替换']],()=>draft().edit,value=>{draft().edit=value;}) : null;
@@ -569,11 +627,12 @@ function mount(graph, root, stage, marker) {
         if(editTabs)for(const [value,control] of editTabs.buttons)control.hidden=!EDIT_MODES[item.position].includes(value);
         colorTools.hidden = !colorMode;
         if (colorMode) {
-            if (colors.options.length!==item.colors.length) colors.replaceChildren(...item.colors.map((_,i)=>new Option('颜色 '+(i+1),String(i))));
-            colors.value=String(activeColor);
-            color.value=item.colors[activeColor]?.color ?? '#27894e';
-            invert.checked=Boolean(item.colors[activeColor]?.invert);
-            if (document.activeElement!==threshold) threshold.value=String(item.colors[activeColor]?.threshold ?? 30);
+            if (colorRows.length!==item.colors.length || colorRows.some((row,index)=>row.group!==item.colors[index])) {
+                colorRows=item.colors.map(createColorRow);
+                colorList.replaceChildren(...colorRows.map(row=>row.card));
+            }
+            activeColor=Math.min(activeColor,item.colors.length-1);
+            applyCompactGroupSelection(colorList,String(activeColor));
             remove.disabled=item.colors.length<=1;add.disabled=item.colors.length>=16;
             sampleButton.disabled=!loaded;
             sampleButton.setAttribute('aria-pressed',String(tool==='sample'));
@@ -706,7 +765,7 @@ app.registerExtension({
         const palette=element('style',document.head);
         palette.textContent='.cnl-image-editing,.cnl-image-stage-tabs,.cnl-edit-output {'+BADGE_APP_PALETTE+'}';
         const style=element('link',document.head);
-        style.rel='stylesheet';style.href=new URL('./image_editing_app.css?v=20261119-local-edit',import.meta.url).href;
+        style.rel='stylesheet';style.href=new URL('./image_editing_app.css?v=20261127-color-row',import.meta.url).href;
         const typography = element('link',document.head);
         typography.rel='stylesheet';typography.href=new URL('./workflow_app_typography.css?v=20261119-reference-controls',import.meta.url).href;
         const font=element('link',document.head);

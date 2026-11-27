@@ -15,6 +15,7 @@ export function createHeightBoard(graph, live, onPreview, onEdit) {
     }
     let undo = null, dragging = null;
     const element = document.createElement('section'); element.className = 'badge-height-board';
+    element.setAttribute('aria-label', badgeText("height_board.text_014"));
     const el = (tag, text, parent) => { const e = document.createElement(tag); e.textContent = text; parent.append(e); return e; };
     const btn = (text, parent, action) => { const b = el('button', text, parent); b.type = 'button'; b.onclick = action; return b; };
     const title = tier => refined ? (tier === 0 ? badgeText("height_board.text_001") : String(tier)) : tier === 0 ? badgeText("height_board.text_002") : tier === board.count ? badgeText("height_board.text_003") : tier === 1 ? badgeText("height_board.text_004") : badgeText("height_board.text_005", {p0: (tier)});
@@ -71,7 +72,6 @@ export function createHeightBoard(graph, live, onPreview, onEdit) {
     }
     function render() {
         element.replaceChildren();
-        const introduction = el('p',badgeText("height_board.text_014"),element); introduction.className='badge-height-introduction';
         const header = el('div', '', element); header.className = 'badge-height-board-header';
         const count = el('div', '', header); count.className = 'badge-height-count'; count.setAttribute('role','group'); count.setAttribute('aria-label',refined ? badgeText("height_board.text_015") : badgeText("height_board.text_016"));
         el('span', badgeText("height_board.text_017", {p0: (board.count + (refined ? 1 : 0))}), count);

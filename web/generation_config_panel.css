@@ -24,19 +24,55 @@
 .cnl-generation-heading { justify-content:space-between; }
 .cnl-generation-content,.cnl-generation-fields,.cnl-generation-choice-group { display:grid; gap:8px; min-width:0; }
 .cnl-generation-prompt { display:grid; gap:6px; min-width:0; }
+.cnl-generation-prompt-heading { display:flex; align-items:center; gap:8px; font-weight:500; }
+.cnl-generation-prompt-required {
+  border-radius:var(--dae-radius-button); padding-inline:7px;
+  color:var(--dae-warning); background:color-mix(in srgb,var(--dae-warning) 16%,transparent);
+  font-size:var(--cnl-app-support-size);
+}
 .cnl-generation-ui .cnl-generation-prompt textarea { width:100%; resize:vertical; }
+.cnl-generation-ui .cnl-generation-prompt textarea::placeholder { color:var(--dae-text-muted); opacity:1; }
 .cnl-generation-ui[data-compact-generation] .cnl-generation-actions { margin-top:0; align-items:stretch; }
 .cnl-generation-ui[data-compact-generation] .cnl-generation-model-trigger {
-  flex:1 1 10em; min-width:0; text-overflow:ellipsis;
+  flex:0 1 auto; align-self:center; field-sizing:content; min-width:0; text-overflow:ellipsis;
+}
+.cnl-generation-model-picker selectedcontent {
+  display:flex; align-items:center; gap:6px; min-width:0;
+}
+.cnl-generation-model-picker selectedcontent .cnl-generation-model-name {
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cnl-generation-model-icon {
+  display:block; flex:none; width:16px; height:16px; background:currentColor;
+  mask:var(--cnl-model-icon) center/contain no-repeat;
+}
+.cnl-generation-source {
+  flex:none; border-radius:var(--dae-radius-button); padding:0 7px;
+  color:var(--dae-info); background:var(--dae-secondary-container);
+  font-size:var(--dae-font-caption); font-weight:600; white-space:nowrap;
+}
+.cnl-generation-source[data-source="local"] {
+  color:var(--dae-success); background:color-mix(in srgb,var(--dae-success) 18%,transparent);
 }
 .cnl-generation-ui[data-compact-generation] .cnl-generation-submit { flex:0 0 auto; min-height:36px; padding-inline:14px; }
 .cnl-generation-submit-group {
   display:flex; flex:0 0 auto; align-items:center; gap:8px;
   max-width:100%; margin-inline-start:auto;
 }
-.cnl-generation-settings-trigger { flex:0 0 auto; white-space:nowrap; }
+.cnl-generation-settings-trigger {
+  display:flex; align-items:center; gap:6px; flex:0 1 auto; text-align:start;
+}
+.cnl-generation-settings-trigger span { min-width:0; overflow-wrap:anywhere; white-space:normal; word-break:keep-all; }
+:is([data-badge-build-split],[data-cnl-expo-build]) .cnl-generation-settings-trigger { flex:1 0 auto; }
+:is([data-badge-build-split],[data-cnl-expo-build]) .cnl-generation-settings-trigger span {
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cnl-generation-settings-trigger::before {
+  content:""; flex:none; width:16px; height:16px;
+  background:currentColor; mask:url('./vendor/remixicon/settings-3-line.svg') center/contain no-repeat;
+}
 .cnl-generation-settings-trigger::after {
-  content:""; display:inline-block; margin-inline-start:9px; margin-block-end:3px;
+  content:""; flex:none; margin-inline-start:auto; margin-block-end:3px;
   width:5px; height:5px; border:solid currentColor; border-width:0 1px 1px 0; rotate:45deg;
 }
 .cnl-generation-settings-trigger[aria-expanded=true]::after { rotate:225deg; margin-block-end:0; }
@@ -51,8 +87,12 @@
 .cnl-generation-settings-count .cnl-generation-number { max-width:116px; }
 .cnl-generation-settings .badge-build-prompt-toggle { margin-inline:0; justify-self:start; font:inherit; }
 .cnl-generation-price {
-  flex:0 1 auto; min-width:0; color:var(--badge-muted);
-  font-size:var(--cnl-app-support-size); font-variant-numeric:tabular-nums; overflow-wrap:anywhere;
+  display:inline-flex; align-items:center; gap:4px; flex:none; color:var(--badge-muted);
+  font-size:var(--cnl-app-support-size); font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+.cnl-generation-price::after {
+  content:""; flex:none; width:14px; height:14px; background:var(--dae-warning);
+  mask:url('./vendor/remixicon/coins-line.svg') center/contain no-repeat;
 }
 .cnl-generation-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .cnl-generation-fields > :not([data-number-group="dimensions"]) { grid-column:1 / -1; }
@@ -83,6 +123,9 @@
 .cnl-generation-ui .cnl-generation-submit {
   flex:1 1 8em; min-height:44px; background:var(--badge-primary);
   border-color:#249fea; color:white; font-weight:600;
+}
+.cnl-generation-ui .cnl-generation-submit[data-required-prompt-missing]:disabled {
+  background:var(--badge-control); border-color:var(--badge-border); color:var(--badge-muted); opacity:.75;
 }
 .cnl-generation-actions { margin-top:8px; }
 .cnl-generation-fields label,.cnl-generation-number { display:flex; align-items:center; gap:8px; min-width:0; }
@@ -128,7 +171,31 @@
 @container (width < 235px) {
   .cnl-generation-fields { grid-template-columns:minmax(0,1fr); }
 }
+@container (width < 460px) {
+  .cnl-generation-settings-trigger { flex:1 1 12em; }
+}
+@container (width < 320px) {
+  .cnl-generation-settings-trigger { flex-basis:100%; }
+}
+@container (width >= 570px) {
+  .cnl-generation-ui[data-compact-generation] .cnl-generation-actions { flex-wrap:nowrap; }
+  .cnl-generation-ui[data-compact-generation] .cnl-generation-model-trigger {
+    flex-shrink:0; max-inline-size:46%;
+  }
+}
+:is([data-badge-build-split],[data-cnl-expo-build]) .cnl-generation-ui[data-compact-generation] .cnl-generation-actions { flex-wrap:wrap; }
+:is([data-badge-build-split],[data-cnl-expo-build]) .cnl-generation-ui[data-compact-generation] .cnl-generation-model-trigger {
+  flex:0 0 auto; max-inline-size:100%;
+}
+@container (width < 360px) {
+  :is([data-badge-build-split],[data-cnl-expo-build]) .cnl-generation-ui[data-compact-generation] :is(.cnl-generation-model-trigger,.cnl-generation-settings-trigger) {
+    flex:1 1 100%;
+  }
+}
 @supports (appearance:base-select) {
+  .cnl-generation-ui select.cnl-generation-model-picker:not([multiple]):not([size]) option {
+    gap:8px; padding-inline:8px;
+  }
   .cnl-generation-ui select:not([multiple]):not([size]) option:hover:not(:disabled) { outline:none; }
   .cnl-generation-ui select:not([multiple]):not([size]) option:focus-visible:not(:disabled) {
     outline:2px dashed var(--badge-text); outline-offset:-2px;

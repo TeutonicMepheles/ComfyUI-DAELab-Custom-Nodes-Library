@@ -1,6 +1,6 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 // Resize only the reference image; toolbars and configuration retain their own layout.
-export function attachReferenceResize(root, workspace, frame, graph, live) {
+export function attachReferenceResize(root, workspace, frame, graph, live, reserveBelow = () => 120) {
     const bar = document.createElement('div');
     bar.className = 'badge-reference-resize';
     bar.tabIndex = 0;
@@ -14,7 +14,7 @@ export function attachReferenceResize(root, workspace, frame, graph, live) {
     function limits() {
         const tabs = root.querySelector('[data-daelab-app-layout-owned="tabs"]');
         const chrome = workspace.getBoundingClientRect().height - frame.getBoundingClientRect().height;
-        const available = root.clientHeight - (tabs?.getBoundingClientRect().height || 48) - chrome - 120;
+        const available = root.clientHeight - (tabs?.getBoundingClientRect().height || 48) - chrome - reserveBelow();
         const max = Math.max(80, Math.min(600, available));
         return { min: Math.min(120, max), max };
     }
@@ -64,5 +64,12 @@ export function attachReferenceResize(root, workspace, frame, graph, live) {
     };
     const observer=new ResizeObserver(render);
     observer.observe(root);observer.observe(workspace);render();
-    return {dispose(){observer.disconnect();drag=null;bar.remove();frame.style.removeProperty('height');root.style.removeProperty('--badge-reference-height');}};
+    return {
+        update: render,
+        dispose() {
+            observer.disconnect(); drag = null; bar.remove();
+            frame.style.removeProperty('height');
+            root.style.removeProperty('--badge-reference-height');
+        },
+    };
 }

@@ -1,13 +1,16 @@
 import { buildImageViewPath, normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
 import { localImageFromDrop } from './badge_image_drop_87.mjs';
-import { createReferenceImageGallery, referenceImageIcon } from './reference_image_controls.mjs';
+import { createReferenceImageGallery, createReferenceImageToolbar } from './reference_image_controls.mjs?v=20261120-dialog-focus';
 import { bindCreativeButton } from './vendor/generation-ui-shared/creative_button.mjs';
 
-export function createExhibitionReferenceCard({ sourceNode, fold, live, imageURL, uploadImage, setImage }) {
+export function createReferenceImageCard({
+    sourceNode, fold, live, imageURL, uploadImage, setImage,
+    classPrefix = 'cnl-expo', title = '参考图配置', imageLabel = '空间原图',
+    allowDownload = true, allowDrop = true,
+}) {
     const card = document.createElement('section');
-    card.className = 'cnl-expo-original';
-    const releases = [];
+    card.className = `${classPrefix}-original`;
     const make = (tag, label, parent = card) => {
         const element = document.createElement(tag);
         if (label) element.textContent = label;
@@ -23,44 +26,44 @@ export function createExhibitionReferenceCard({ sourceNode, fold, live, imageURL
     const available = () => live() && card.isConnected && isNodeAvailableInAppMode(sourceNode());
     const widget = () => sourceNode()?.widgets?.find(item => item.name === 'image');
     let pending;
-    const heading = button('参考图配置', card, () => {
+    const heading = button(title, card, () => {
         fold.setCollapsed(!fold.collapsed());
         if (fold.collapsed()) gallery.dialog.close();
         update();
     });
-    heading.className = 'cnl-expo-reference-heading';
+    heading.className = `${classPrefix}-reference-heading`;
     const body = make('div');
     const actions = make('div', '', body);
-    actions.className = 'cnl-expo-reference-actions';
-    const filename = make('span', '', actions);
+    actions.className = `${classPrefix}-reference-actions`;
     const file = make('input', '', body);
     file.type = 'file';
     file.accept = 'image/*';
     file.hidden = true;
-    const upload = referenceImageIcon(make, button, actions, '上传 / 替换图片', 'upload-2-line', () => file.click());
-    const browse = referenceImageIcon(make, button, actions, '浏览已上传图片', 'folder-image-line', () => gallery.open());
-    browse.setAttribute('aria-haspopup', 'dialog');
+    const toolbar = createReferenceImageToolbar({
+        make, button, parent: actions, onBrowse: () => gallery.open(),
+        onUpload: () => file.click(), onDownload: allowDownload ? downloadImage : null,
+    });
+    const { browse, upload, filename, download } = toolbar;
     const frame = make('div', '', body);
-    frame.className = 'cnl-expo-reference-frame';
+    frame.className = `${classPrefix}-reference-frame`;
     const preview = make('img', '', frame);
-    preview.alt = '空间原图';
-    const missing = make('span', '尚未上传空间原图', frame);
-    const footer = make('div', '', body);
-    footer.className = 'cnl-expo-reference-footer';
-    const status = make('span', '', footer);
+    preview.alt = imageLabel;
+    const missing = make('span', '', frame);
+    const status = make('div', '', body);
+    status.className = `${classPrefix}-reference-status`;
     status.setAttribute('role', 'status');
-    const download = button('下载图片', footer, () => {
+    function downloadImage() {
         const selection = normalizeImageSelection(widget()?.value);
-        if (!live() || !selection || !preview.naturalWidth) return;
+        if (!available() || !selection || !preview.complete || !preview.naturalWidth) return;
         const link = document.createElement('a');
         link.href = imageURL(buildImageViewPath(selection));
         link.download = selection.filename;
         link.click();
-    });
+    }
     const gallery = createReferenceImageGallery({
         make, button, sourceNode, imageWidget: widget, live: available, select: selectImage, imageURL, opener: () => browse,
     });
-    for (const control of [heading, upload, browse, download]) releases.push(bindCreativeButton(control));
+    const releaseHeading = bindCreativeButton(heading);
 
     function selectImage(value) {
         if (!available()) return;
@@ -95,13 +98,13 @@ export function createExhibitionReferenceCard({ sourceNode, fold, live, imageURL
         file.value = '';
         void uploadFile(blob);
     };
-    frame.ondragover = event => {
+    if (allowDrop) frame.ondragover = event => {
         if (!available()) return;
         event.preventDefault();
         frame.dataset.drag = 'true';
     };
-    frame.ondragleave = () => delete frame.dataset.drag;
-    frame.ondrop = event => {
+    if (allowDrop) frame.ondragleave = () => delete frame.dataset.drag;
+    if (allowDrop) frame.ondrop = event => {
         event.preventDefault();
         event.stopPropagation();
         delete frame.dataset.drag;
@@ -115,7 +118,7 @@ export function createExhibitionReferenceCard({ sourceNode, fold, live, imageURL
     function showPreview() {
         preview.hidden = !preview.naturalWidth;
         missing.hidden = !preview.hidden;
-        download.disabled = preview.hidden;
+        if (download) download.disabled = !available() || !preview.complete || preview.hidden;
     }
     preview.onload = preview.onerror = showPreview;
     function update() {
@@ -130,7 +133,7 @@ export function createExhibitionReferenceCard({ sourceNode, fold, live, imageURL
         const fullName = selection ? [selection.subfolder, name].filter(Boolean).join('/') : '';
         if (filename.textContent !== name) filename.textContent = name;
         if (filename.title !== fullName) filename.title = fullName;
-        const emptyMessage = selection ? '无法显示空间原图' : '尚未上传空间原图';
+        const emptyMessage = selection ? `无法显示${imageLabel}` : `尚未上传${imageLabel}`;
         if (missing.textContent !== emptyMessage) missing.textContent = emptyMessage;
         const url = selection ? imageURL(buildImageViewPath(selection)) : '';
         if ((preview.getAttribute('src') ?? '') !== url) {
@@ -145,8 +148,11 @@ export function createExhibitionReferenceCard({ sourceNode, fold, live, imageURL
         dispose() {
             pending = null;
             gallery.dialog.close();
-            releases.forEach(release => release());
+            releaseHeading();
+            toolbar.dispose();
             card.remove();
         },
     };
 }
+
+export { createReferenceImageCard as createExhibitionReferenceCard };

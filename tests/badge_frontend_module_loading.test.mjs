@@ -16,7 +16,7 @@ test('App Mode entry links with a cached pre-toggle generation module', () => {
             } else {
                 let source = readFileSync(new URL(url), 'utf8');
                 // An existing browser cache predates the newly added export.
-                if (url.endsWith('/badge_generation_model.mjs')) {
+                if (url.endsWith('/badge_generation_model.mjs') || url.endsWith('/badge_generation_model.mjs?v=20260917-dimensions-2')) {
                     source = source.replace('export function initializePromptOnlyBuild', 'function initializePromptOnlyBuild');
                 }
                 module = new vm.SourceTextModule(source, { identifier: url });
@@ -26,7 +26,7 @@ test('App Mode entry links with a cached pre-toggle generation module', () => {
         }
         await moduleFor(${JSON.stringify(entry)}).link((specifier, parent) =>
             moduleFor(specifier.startsWith('.') ? new URL(specifier, parent.identifier).href : specifier));
-        if ([...cache.keys()].some(url => url.endsWith('/badge_generation_model.mjs'))) {
+        if ([...cache.keys()].some(url => url.endsWith('/badge_generation_model.mjs') || url.endsWith('/badge_generation_model.mjs?v=20260917-dimensions-2'))) {
             throw new Error('Stage consumers still load the cached pre-toggle generation logic');
         }
     `], { encoding: 'utf8' });

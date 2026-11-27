@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "preferences": {
+    "badge": {
+      "*": "gpt-image-2.5-sunburst",
+      "region_materials": "gpt-image-2",
+      "edit": "gpt-image-2"
+    },
+    "exhibition": {
+      "edit": "gpt-image-2"
+    }
+  }
+}

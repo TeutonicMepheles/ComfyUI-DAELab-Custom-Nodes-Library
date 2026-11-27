@@ -1,10 +1,12 @@
+import { generationLoadIdentity } from './generation_ui_model.mjs';
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { isBadge88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
-import { requestForStage as request88, promptForRequest as prompt88 } from './badge_execution_88_model.mjs?v=20260917-target87-1';
-import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
+import { requestForStage as request88, promptForRequest as prompt88 } from './badge_execution_88_model.mjs?v=20261119-model-matching';
+import { requestForStage as request87, promptForRequest as prompt87 } from './badge_execution_87_model.mjs?v=20261119-model-matching';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { queueBadge87 } from './badge_execution_87_queue.mjs?v=20260916-content-1';
 import { updateLocalTarget87 } from './badge_result_target_87.mjs?v=20260917-target87-1';
+import { accessModelReason, loadModelAccess } from './model_access.mjs?v=20261119-model-matching';
 
 // No replacement controls or DOM listeners: the original stage runner delegates here.
 export async function execute87(graph, stage, state, app, nativeQueue, localSession, validateOnly = false) {
@@ -16,17 +18,26 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
         state.message = badgeText("execution_87.text_002"); return;
     }
     if (state.busy) return;
+    const workflowId = graph.id, epoch = generationLoadIdentity(graph);
+    const isCurrent = () => getRootGraphSafely(app) === graph &&
+        graph.id === workflowId && generationLoadIdentity(graph) === epoch;
     if (stage === 'local' && !validateOnly) {
         await execute87(graph, stage, state, app, nativeQueue, localSession, true);
-        if (state.phase !== 'preview-ready') return;
+        if (!isCurrent() || state.phase !== 'preview-ready') return;
     }
-    const workflowId = graph.id;
     let fingerprint;
     state.busy = true; state.message = badgeText("execution_87.text_003");
     try {
         const compiled = requestForStage(graph, stage);
         const request = compiled.request;
         if (stage === 'local') request.apply = !validateOnly;
+        if (stage !== 'local' || request.apply) {
+            const legacyRegion = isBadge88(graph) && request.edit_mode === 'region_materials';
+            const access = await loadModelAccess(api, 'badge', legacyRegion ? 'region_materials' : stage);
+            const reason = accessModelReason(access, legacyRegion ? undefined : request.model);
+            if (reason) throw new Error(reason);
+            if (!isCurrent()) return;
+        }
         fingerprint = compiled.fingerprint;
         if (stage === 'local' && request.apply) {
             if (state.preview !== fingerprint || !state.serverToken) throw new Error(badgeText("execution_87.text_004"));
@@ -56,8 +67,7 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
             const failure = history.status.messages?.find(([type]) => type === 'execution_error')?.[1];
             throw new Error(failure?.exception_message || badgeText("execution_87.text_008"));
         }
-        const current = getRootGraphSafely(app) === graph && graph.id === workflowId;
-        if (!current || requestForStage(graph, stage).fingerprint !== fingerprint) {
+        if (!isCurrent() || requestForStage(graph, stage).fingerprint !== fingerprint) {
             state.preview = null; state.serverToken = null; state.phase = 'changed';
             state.message = badgeText("execution_87.text_009"); return;
         }
@@ -81,6 +91,6 @@ export async function execute87(graph, stage, state, app, nativeQueue, localSess
     } catch (error) {
         state.phase = 'error'; state.preview = null; state.serverToken = null;
         state.message = error?.message || String(error);
-        if (getRootGraphSafely(app) === graph && graph.id === workflowId && stage === 'local') graph.getNodeById(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
+        if (isCurrent() && stage === 'local') graph.getNodeById(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
     } finally { state.busy = false; }
 }

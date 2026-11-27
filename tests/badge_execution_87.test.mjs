@@ -133,17 +133,17 @@ test('height board and material settings are delivered without changing prototyp
     set('badge.path.flat_height.special_material',true);
     const {request}=requestForStage(g,'build');assert.equal(request.height_board.fixedEndpoints,true);assert.deepEqual(request.height_board.groups,meta.heightBoard.groups);assert.equal(request.regions,undefined);
 });
-test('generation count accepts GPT Image 2 range and enters the stage fingerprint',()=>{
+test('initial generation count accepts integers 1–4 and enters the stage fingerprint',()=>{
     const {g}=fixture();g.extra.daelabBadgePrototypeV1.buildPrompt='A badge';
     const initial=requestForStage(g,'build').fingerprint;
-    for(let count=1;count<=8;count++) {
+    for(let count=1;count<=4;count++) {
         g.extra.daelabBadgePrototypeV1.generation.build.count=count;
         assert.equal(requestForStage(g,'build').request.count,count);
     }
     assert.notEqual(requestForStage(g,'build').fingerprint,initial);
-    for(const count of [0,9,1.5,'2']) {
+    for(const count of [0,5,8,9,-1,1.5,'2',null,true,NaN,Infinity]) {
         g.extra.daelabBadgePrototypeV1.generation.build.count=count;
-        assert.throws(()=>requestForStage(g,'build'),/1–8/);
+        assert.throws(()=>requestForStage(g,'build'),/1–4/);
     }
 });
 
@@ -153,7 +153,7 @@ test('polygon execution rejects a canvas loaded from an earlier image',()=>{
     g.getNodeById(146).widgets=[{name:'image',value:'current.png'}];
     g.links=Object.fromEntries(g.links.map(link=>[link[0],{origin_id:link[1]}]));
     g.getNodeById(142).polygonWidget={imageValue:'load-image:146:previous.png'};
-    assert.throws(()=>requestForStage(g,'local'),/Load Image/);
+    assert.throws(()=>requestForStage(g,'local'),/载入图片/);
     g.getNodeById(142).polygonWidget.imageValue='load-image:146:current.png';
     assert.equal(requestForStage(g,'local').request.image.filename,'current.png');
 });
@@ -168,6 +168,7 @@ test('GPT map must belong to current target and replacing it invalidates preview
     g.extra.daelabBadgePrototypeV1.gptColorMap=map;
     assert.throws(()=>requestForStage(g,'local'),/GPT/);
     map.model='gpt-image-2.5-sunburst';
+    (g.extra.daelabBadgePrototypeV1.generation.local ??= {}).model = map.model;
     const compiled=requestForStage(g,'local');
     assert.equal(compiled.request.model,'gpt-image-2.5-sunburst');
     assert.deepEqual(compiled.request.color_map,map.image);
@@ -180,13 +181,16 @@ test('GPT map must belong to current target and replacing it invalidates preview
 test('model selection persists and changes actual request plus fingerprint',()=>{
  const {g}=fixture(); const m=g.extra.daelabBadgePrototypeV1;
  m.promptOnly=true;m.buildPrompt='A badge';
+ delete m.generation.build.model;
  const before=compileRequest(g,'build');
- m.generation.build.model='gpt-image-2.5-flare';
+ assert.equal(before.request.model, undefined);
+ m.generation.build.model='new-catalog-entry';
  const after=compileRequest(g,'build');
- assert.equal(after.request.model,'gpt-image-2.5-flare');
+ assert.equal(after.request.model,'new-catalog-entry');
  assert.notEqual(before.fingerprint,after.fingerprint);
- assert.equal(JSON.parse(JSON.stringify(g)).extra.daelabBadgePrototypeV1.generation.build.model,'gpt-image-2.5-flare');
- m.generation.build.model='invalid';assert.throws(()=>compileRequest(g,'build'),/模型/);
+ assert.equal(JSON.parse(JSON.stringify(g)).extra.daelabBadgePrototypeV1.generation.build.model,'new-catalog-entry');
+ m.generation.build.model='invalid';
+ assert.equal(compileRequest(g,'build').request.model,'invalid');
 });
 test('local size follows decoded target and rejects stale size after target switch',()=>{
  const {g,set}=fixture();

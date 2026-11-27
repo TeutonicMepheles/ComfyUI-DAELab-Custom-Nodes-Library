@@ -1,5 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { buildImageViewPath, normalizeImageSelection } from "./app_mode_load_image_preview_model.mjs";
 
 const MODE_BBOX = "bbox";
 const MODE_INTERACTIVE = "interactive";
@@ -107,6 +108,10 @@ function hideWidget(widget) {
   }
 }
 
+function displayPromptName(prompt, index) {
+  return (prompt.name || `Prompt ${index + 1}`).replace(/^Prompt (\d+)$/, "选区 $1");
+}
+
 function button(label, title, onClick) {
   const element = document.createElement("button");
   element.type = "button";
@@ -167,24 +172,9 @@ function parseArray(value, fallback = []) {
   }
 }
 
-function splitImagePath(value) {
-  const normalized = String(value || "").replaceAll("\\", "/");
-  const parts = normalized.split("/");
-  const filename = parts.pop() || "";
-  return {
-    filename,
-    subfolder: parts.join("/"),
-  };
-}
-
-function getImageUrl(imageName, type = "input") {
-  const { filename, subfolder } = splitImagePath(imageName);
-  if (!filename) {
-    return "";
-  }
-  return api.apiURL(
-    `/view?filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}&rand=${Math.random()}`,
-  );
+function getImageUrl(value) {
+  const path = buildImageViewPath(normalizeImageSelection(value));
+  return path ? api.apiURL(path) : "";
 }
 
 function canvasCoords(canvas, event) {
@@ -249,7 +239,7 @@ app.registerExtension({
         "border-bottom:1px solid #333",
       ].join(";");
 
-      const refreshButton = button("Load Image", "Load the connected IMAGE socket into the collector canvas", async (event) => {
+      const refreshButton = button("载入图片", "载入连接的元素参考图", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.refreshSAM3ComplexImage();
@@ -259,7 +249,7 @@ app.registerExtension({
 
       const modeTabs = document.createElement("div");
       modeTabs.setAttribute("role", "tablist");
-      modeTabs.setAttribute("aria-label", "Collector mode");
+      modeTabs.setAttribute("aria-label", "选取方式");
       modeTabs.style.cssText = [
         "display:flex",
         "align-items:center",
@@ -269,8 +259,8 @@ app.registerExtension({
         "overflow:hidden",
       ].join(";");
 
-      const bboxModeButton = button("BBox Collector", "Use bbox collector prompts", () => this.setSAM3ComplexMode(MODE_BBOX));
-      const interactiveModeButton = button("Interactive Collector", "Use interactive point and box prompts", () =>
+      const bboxModeButton = button("框选", "用矩形框选择对象", () => this.setSAM3ComplexMode(MODE_BBOX));
+      const interactiveModeButton = button("交互选取", "用点和矩形框选择对象", () =>
         this.setSAM3ComplexMode(MODE_INTERACTIVE),
       );
       for (const modeButton of [bboxModeButton, interactiveModeButton]) {
@@ -318,14 +308,14 @@ app.registerExtension({
       };
 
       const bboxUi = makeCanvasPane(bboxPane);
-      const bboxRunButton = button("Run", "Run all positive bbox prompts without executing downstream workflow nodes", async (event) => {
+      const bboxRunButton = button("预览分割", "分割所有正向框选对象", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         await this.runSAM3ComplexBBox();
       });
       bboxRunButton.style.background = "#2a7a2a";
       bboxRunButton.style.borderColor = "#3a9a3a";
-      const bboxClear = button("Clear All", "Clear all bbox prompts", (event) => {
+      const bboxClear = button("清空框选", "清空所有框选标记", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.sam3Complex.bbox.positive = [];
@@ -341,19 +331,19 @@ app.registerExtension({
       bboxUi.actions.appendChild(bboxClear);
 
       const interactiveUi = makeCanvasPane(interactivePane);
-      const runButton = button("Run", "Queue this workflow with the active interactive prompt", async (event) => {
+      const runButton = button("预览分割", "分割当前选区", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         await this.runSAM3ComplexInteractive();
       });
       runButton.style.background = "#2a7a2a";
       runButton.style.borderColor = "#3a9a3a";
-      const clearPromptButton = button("Clear Prompt", "Clear active prompt", (event) => {
+      const clearPromptButton = button("清空选区", "清空当前选区的标记", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.clearSAM3ComplexActivePrompt();
       });
-      const clearAllPromptsButton = button("Clear All", "Clear all prompts", (event) => {
+      const clearAllPromptsButton = button("清空全部", "清空所有选区及标记", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.clearSAM3ComplexPrompts();
@@ -618,11 +608,11 @@ app.registerExtension({
 
     nodeType.prototype.updateSAM3ComplexCounters = function () {
       const state = this.sam3Complex;
-      state.bbox.counter.textContent = `Bboxes: ${state.bbox.positive.length} pos, ${state.bbox.negative.length} neg`;
+      state.bbox.counter.textContent = `框选：${state.bbox.positive.length} 个选取，${state.bbox.negative.length} 个排除`;
       const prompt = state.interactive.prompts[state.interactive.activePromptIndex] || promptTemplate(0);
       const points = prompt.positive_points.length + prompt.negative_points.length;
       const boxes = prompt.positive_boxes.length + prompt.negative_boxes.length;
-      state.interactive.counter.textContent = `${prompt.name || "Prompt"}: ${points} pts, ${boxes} boxes`;
+      state.interactive.counter.textContent = `${displayPromptName(prompt, state.interactive.activePromptIndex)}：${points} 个点，${boxes} 个框`;
       this.updateSAM3ComplexRunButton();
     };
 
@@ -635,7 +625,7 @@ app.registerExtension({
           prompt.negative_points.length ||
           prompt.positive_boxes.length ||
           prompt.negative_boxes.length);
-      const label = state.initializing ? "Initializing…" : state.running ? "Running…" : "Run";
+      const label = state.initializing ? "正在准备…" : state.running ? "正在分割…" : "预览分割";
       const updateButton = (runButton, enabled, title) => {
         if (!runButton) return;
         const disabled = state.running || !enabled;
@@ -648,12 +638,12 @@ app.registerExtension({
       updateButton(
         state?.bbox.runButton,
         state?.bbox.positive.length > 0,
-        "Run all positive bbox prompts without executing downstream workflow nodes",
+        "分割所有正向框选对象",
       );
       updateButton(
         state?.interactive.runButton,
         hasPrompt,
-        "Run the active prompt without executing downstream workflow nodes",
+        "分割当前选区",
       );
     };
 
@@ -872,7 +862,7 @@ app.registerExtension({
           "padding:0 8px",
         ].join(";");
         const label = document.createElement("span");
-        label.textContent = prompt.name || `Prompt ${index + 1}`;
+        label.textContent = displayPromptName(prompt, index);
         tab.appendChild(label);
         if (state.prompts.length > 1) {
           const remove = document.createElement("span");
@@ -899,7 +889,7 @@ app.registerExtension({
         state.tabBar.appendChild(tab);
       });
       if (state.prompts.length < MAX_PROMPTS) {
-        const add = button("+", "Add prompt", () => {
+        const add = button("+", "新增选区", () => {
           state.prompts.push(promptTemplate(state.prompts.length));
           state.activePromptIndex = state.prompts.length - 1;
           this.updateSAM3ComplexStorage();
@@ -1134,11 +1124,11 @@ app.registerExtension({
 
     nodeType.prototype.resolveSAM3ComplexImageSource = function () {
       const imageInput = this.inputs?.find((input) => input.name === "image");
-      if (!imageInput?.link || !this.graph?.links) {
+      if (imageInput?.link == null || !this.graph?.links) {
         return null;
       }
 
-      const link = this.graph.links[imageInput.link];
+      const link = this.graph.links.get?.(imageInput.link) ?? this.graph.links[imageInput.link];
       const origin = link ? this.graph.getNodeById(link.origin_id) : null;
       if (!origin) {
         return null;
@@ -1146,17 +1136,17 @@ app.registerExtension({
 
       const imageWidget = origin.widgets?.find((widget) => widget.name === "image");
       if (imageWidget?.value) {
-        return getImageUrl(imageWidget.value, "input");
+        return getImageUrl(imageWidget.value);
       }
 
       const uploadWidget = origin.widgets?.find((widget) => widget.name === "upload");
       if (uploadWidget?.value) {
-        return getImageUrl(uploadWidget.value, "input");
+        return getImageUrl(uploadWidget.value);
       }
 
       const imageProperty = origin.properties?.image_value || origin.properties?.image;
       if (imageProperty) {
-        return getImageUrl(imageProperty, "input");
+        return getImageUrl(imageProperty);
       }
 
       const renderedImage = origin.imgs?.[0] || origin.image;
@@ -1172,11 +1162,14 @@ app.registerExtension({
         return false;
       }
 
+      const state = this.sam3Complex;
       const image = new Image();
+      state.previewRequest = image;
       image.onload = () => {
-        this.sam3Complex.bgImage = image;
-        this.sam3Complex.overlayImage = null;
-        this.sam3Complex.overlayMode = null;
+        if (state.previewRequest !== image || this.sam3Complex !== state) return;
+        state.bgImage = image;
+        state.overlayImage = null;
+        state.overlayMode = null;
         this.resizeSAM3ComplexCanvases(image.width, image.height);
         this.redrawSAM3ComplexAll();
       };
@@ -1187,18 +1180,35 @@ app.registerExtension({
       return true;
     };
 
+    nodeType.prototype.daelabSyncCollectorPreview = function (force = false) {
+      const state = this.sam3Complex;
+      if (!state) return false;
+      const url = this.resolveSAM3ComplexImageSource();
+      if (!force && state.previewSourceURL === url) return Boolean(url);
+      state.previewSourceURL = url;
+      state.previewRequest = null;
+      state.bgImage = null;
+      this.resizeSAM3ComplexCanvases(512, 512);
+      this.invalidateSAM3ComplexSession();
+      let requestURL = url;
+      if (force && url) {
+        const request = new URL(url, location.href);
+        if (request.protocol === "http:" || request.protocol === "https:") request.searchParams.set("v", Date.now());
+        requestURL = request.href;
+      }
+      return this.loadSAM3ComplexImageUrl(requestURL);
+    };
+
     nodeType.prototype.refreshSAM3ComplexImage = function () {
       const state = this.sam3Complex;
       if (!state) {
         return;
       }
-      this.invalidateSAM3ComplexSession();
       state.refreshButton.disabled = true;
       state.refreshButton.style.opacity = "0.45";
       this.updateSAM3ComplexStorage();
 
-      const url = this.resolveSAM3ComplexImageSource();
-      if (!this.loadSAM3ComplexImageUrl(url)) {
+      if (!this.daelabSyncCollectorPreview(true)) {
         console.warn("SAM3 Complex Collector could not resolve a directly loadable image from the image socket.");
       }
 
@@ -1228,7 +1238,7 @@ app.registerExtension({
       ctx.fillStyle = "#888";
       ctx.font = "14px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Connect an image node and click Load Image", canvas.width / 2, canvas.height / 2 - 10);
+      ctx.fillText("连接图像输入后，点击「载入图片」", canvas.width / 2, canvas.height / 2 - 10);
     };
 
     nodeType.prototype.redrawSAM3ComplexBBox = function () {

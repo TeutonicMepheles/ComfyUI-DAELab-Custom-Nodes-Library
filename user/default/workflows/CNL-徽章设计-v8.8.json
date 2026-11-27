@@ -1,7 +1,7 @@
 {
   "id": "2c2b50c7-d390-5d8f-9774-ba4202c0dba7",
-  "revision": 1,
-  "last_node_id": 207,
+  "revision": 2,
+  "last_node_id": 208,
   "last_link_id": 16,
   "nodes": [
     {
@@ -1852,6 +1852,42 @@
       "widgets_values_named": {
         "request_json": "{}"
       }
+    },
+    {
+      "id": 208,
+      "type": "LoadImage",
+      "pos": [
+        100,
+        -360
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "App Mode · 局部修改",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "Badge88/build_00021_.png [output]",
+        "image"
+      ]
     }
   ],
   "links": [
@@ -2096,6 +2132,11 @@
   ],
   "config": {},
   "extra": {
+    "daelabGenerationUiV1": {
+      "version": 1,
+      "stages": {},
+      "migrations": {}
+    },
     "ds": {
       "scale": 0.1,
       "offset": [
@@ -2403,6 +2444,15 @@
         "selectionItemId": "badge.post.local.selection.polygon",
         "applyItemId": "badge.post.local.apply"
       }
+    },
+    "daelabImageEditingV1": {
+      "version": 1,
+      "kind": "badge",
+      "local": 208,
+      "sources": {
+        "local": 146
+      },
+      "panelRevision": "20261119.5"
     },
     "daelabBadgePrototypeV1": {
       "version": 1,

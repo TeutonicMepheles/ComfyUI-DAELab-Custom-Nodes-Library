@@ -1,0 +1,19 @@
+:is([data-cnl-expo-build],[data-badge-ui="87"],.cnl-generation-ui,.cnl-image-editing,.cnl-image-stage-tabs,.cnl-edit-output) {
+    --cnl-app-font:'DAELab PuHuiTi 3','Microsoft YaHei',sans-serif;
+    --cnl-app-body-size:14px;
+    --cnl-app-title-size:16px;
+    --cnl-app-support-size:12px;
+    --cnl-app-disclosure-closed:'▸';
+    --cnl-app-disclosure-open:'▾';
+}
+
+[data-cnl-expo-build] [data-testid="builder-widget-label"] {
+    font:600 var(--cnl-app-title-size)/1.5 var(--cnl-app-font);
+}
+[data-cnl-expo-build] [data-testid="app-mode-widget-item"]
+    :is(textarea,input:not([type=file],[type=range],[type=color],[type=checkbox]),select,[role=combobox]) {
+    font:400 var(--cnl-app-body-size)/1.5 var(--cnl-app-font);
+}
+[data-cnl-expo-build] > [data-cnl-expo-row="prompt"] textarea {
+    min-height:5em;
+}

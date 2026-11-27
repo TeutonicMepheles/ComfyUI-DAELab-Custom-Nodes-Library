@@ -1,3 +1,4 @@
+import { restoreAppModeDomWidget } from './dynamic_widget_lifecycle.mjs?v=20261119-app-mode-restore';
 import { app } from "/scripts/app.js";
 import {
     PROMPT_WIDGET_LABELS,
@@ -1129,6 +1130,10 @@ function installPromptPresetUi(node) {
     installTemplateWidgetCallback(node);
     installTemplateColorGuards(node);
     addStyleControl(node);
+    node.daelabRestorePromptPresetAppMode = item => {
+        const widget = node.widgets?.find(candidate => candidate.__gptImagePromptPresetDomSelector);
+        if (restoreAppModeDomWidget(item, widget)) updateTemplateControlState(node, { force: true });
+    };
     orderPromptControls(node);
     installCanonicalSerialization(node);
     normalizeAppModeTemplateInputs(node);
@@ -1176,6 +1181,7 @@ if (globalThis.__GPT_IMAGE_PROMPT_PRESET_REGISTERED_VERSION !== UI_VERSION) {
             const onRemoved = nodeType.prototype.onRemoved;
             nodeType.prototype.onRemoved = function () {
                 unregisterPromptPresetNode(this);
+                delete this.daelabRestorePromptPresetAppMode;
                 removeStyleControls(this);
                 onRemoved?.apply(this, arguments);
             };

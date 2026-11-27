@@ -4,12 +4,13 @@ import { fetchRegionGeometry87, renderRegionGeometry87 } from './badge_region_ge
 import { usesLocalRegions87, readLocalRegions87, previewLocalRegions87, countRegionOverlap87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
 import { badgeText } from './badge_ui_text.mjs?v=20260917-region-2';
 import { createRegionEditor87, REGION_EDITOR_CSS } from './badge_region_editor_87.mjs?v=20260917-inline-1';
-import { refinedBadge87, setLocalTargetSize87, selectedBadgeModel } from './badge_refinement_87.mjs?v=20260916-ui-2';
+import { refinedBadge87, setLocalTargetSize87 } from './badge_refinement_87.mjs?v=20261119-model-matching';
 import { isBadge88, usesLocalMaterials88, localMaterialNodeId88, previewLocalMaterials88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
+import { createReferenceImageGallery, referenceImageIcon } from './reference_image_controls.mjs';
 import { uploadBadgeImage } from './badge_image_upload.mjs?v=20260916-content-1';
 import { generateColorSelectionSource } from './badge_color_source.mjs';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { generateGptColorMap87 } from './badge_color_map_87.mjs?v=20260918-auxiliary-1';
+import { generateGptColorMap87 } from './badge_color_map_87.mjs?v=20261119-model-matching';
 import { decorateExclusivePair } from './badge_exclusive_pair.mjs';
 import { syncPolygonTarget87 } from './badge_polygon_target_87.mjs?v=20260911-results';
 import { localTargets87, selectLocalSource87, setExistingTarget87, enterLocalStage87, selectGeneratedTarget87 } from './badge_result_target_87.mjs?v=20260917-drop-1';
@@ -18,6 +19,7 @@ import { createResultPicker87 } from './badge_result_picker_87.mjs?v=20260916-co
 import { drawSelectionMask } from './badge_selection_render.mjs';
 import { app } from '/scripts/app.js';
 import { api } from '/scripts/api.js';
+import { loadModelAccess } from './model_access.mjs?v=20261119-model-matching';
 import { getRootGraphSafely, isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { isBadgePrototype } from './badge_app_prototype_model.mjs?v=20260916-content-1';
 import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-content-1';
@@ -27,9 +29,12 @@ import { attachMaterialStrip } from './badge_material_strip.mjs?v=20260917-targe
 import { attachBadgeColorPicker } from './badge_color_picker.mjs?v=20260916-content-1';
 import { attachReferenceResize } from './badge_reference_resize.mjs?v=20260916-ui-2';
 import { createHeightBoard } from './badge_height_board.mjs?v=20260918-height-tips-1';
-import { run as runPrototype, getPrototypeSession } from './badge_app_prototype.js';
-import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20260917-dimensions-2';
-import { createGenerationPanel, GENERATION_CSS } from './badge_generation_panel.mjs?v=20260918-unified-color-1';
+import { run as runPrototype, getPrototypeSession } from './badge_app_prototype.js?v=20261119-build-menu';
+import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20261119-model-matching';
+import { createGenerationPanel } from './badge_generation_panel.mjs?v=20261119-build-price';
+import { bindCreativeField } from './vendor/generation-ui-shared/creative_field.mjs';
+
+import { captureGenerationHistory, generationFold, generationLoadIdentity } from './generation_ui_model.mjs';
 
 const CONFIGS = {
     background: [47, 'multi_color_mask_v1_panel', '_multiColorMaskV1SelectedId'],
@@ -43,6 +48,7 @@ function mount(graph, root, tabId = 'build') {
     syncBadgeMediaScope87(graph, tabId);
     const local = tabId === 'local';
     const refined = refinedBadge87(graph);
+    const merged = !local && refined;
     const segmented = graph.extra?.daelabBadgeExecutionV1?.version === 1;
     if (segmented) root.dataset.badgeUi = '87';
     if (isBadge88(graph)) root.dataset.badgeVersion = '88';
@@ -53,7 +59,9 @@ function mount(graph, root, tabId = 'build') {
         heightEnabled: graph.extra.daelabBadgePrototypeV1.heightEnabled !== false,
         view: 'original', signature: '', sourceKey: '', pixels: null, preview: null,
         disposed: false, loadToken: 0, drawn: null };
-    const live = () => !state.disposed && getRootGraphSafely(app) === graph && graph.id === workflowId && isBadgePrototype(graph);
+    const epoch = generationLoadIdentity(graph);
+    const captureHistory = () => captureGenerationHistory(app, graph);
+    const live = () => generationLoadIdentity(graph) === epoch && !state.disposed && getRootGraphSafely(app) === graph && graph.id === workflowId && isBadgePrototype(graph);
     const materialStrip = attachMaterialStrip(root, graph, live);
     const invertSwitches = new Map();
     const node = id => graph.getNodeById(id);
@@ -88,15 +96,30 @@ function mount(graph, root, tabId = 'build') {
         referenceOpen = !referenceOpen; colorPicker.close(); update();
     }) : null;
     if (referenceHeading) referenceHeading.className = 'badge-local-block-heading';
-    let promptInput, promptToggle, promptHelp, promptSection;
+    let promptToggle, promptSection, promptInput, promptMode, releasePrompt;
     if (!local) {
         initializePromptOnlyBuild(graph);
-        const label = make('details'); label.className = 'badge-build-base-prompt'; label.open = true;
-        promptSection = label;
-        if (refined) label.open = false;
-        const summary = make('summary', '', label);
-        make('span', badgeText("build_prototype.text_003"), summary);
-        const switchLabel = make('label', '', summary); switchLabel.className = 'badge-build-prompt-toggle';
+        promptSection = make(merged ? 'div' : 'details');
+        promptSection.className = merged ? 'cnl-generation-prompt' : 'badge-build-base-prompt';
+        const heading = merged ? null : make('summary', '', promptSection);
+        if (heading) {
+            const title = make('span', '', heading);
+            const promptFold = generationFold(graph, 'badge.prompt', captureHistory);
+            promptSection.open = !promptFold.collapsed();
+            promptSection.addEventListener('toggle', () => {
+                if (live() && promptSection.isConnected && promptFold.collapsed() === promptSection.open) {
+                    promptFold.setCollapsed(!promptSection.open);
+                }
+            });
+            const arrow = make('span', '', title);
+            arrow.className = 'cnl-generation-fold-arrow';
+            arrow.setAttribute('aria-hidden', 'true');
+            title.append(badgeText("build_prototype.text_003"));
+        }
+        const switchLabel = document.createElement('label');
+        switchLabel.className = 'badge-build-prompt-toggle';
+        if (heading) heading.append(switchLabel);
+        else promptMode = switchLabel;
         make('span', badgeText("build_prototype.text_004"), switchLabel);
         promptToggle = make('input', '', switchLabel); promptToggle.type = 'checkbox';
         promptToggle.className = 'badge-build-capsule-switch';
@@ -110,10 +133,10 @@ function mount(graph, root, tabId = 'build') {
             colorPicker.close(); gallery.close();
             invalidateGeneration(); update();
         };
-        const input = make('textarea', '', label); input.rows = 3;
+        const input = make('textarea', '', promptSection); input.rows = 3;
         promptInput = input;
+        if (merged) releasePrompt = bindCreativeField(input);
         input.setAttribute('aria-label', badgeText("build_prototype.text_006"));
-        promptHelp = make('p', '', label); promptHelp.className = 'badge-build-prompt-help';
         input.value = graph.extra.daelabBadgePrototypeV1.buildPrompt || '';
         input.oninput = () => {
             if (!live()) return;
@@ -164,62 +187,16 @@ function mount(graph, root, tabId = 'build') {
     const file = make('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
     const uploadActions = make('div', '', bar); uploadActions.className = 'badge-build-upload-actions';
     const filename = make('span', '', uploadActions); filename.className = 'badge-build-filename';
-    const iconButton = (label, icon, action) => {
-        const b = button('', uploadActions, action); b.className = 'badge-build-icon-button';
-        b.setAttribute('aria-label', label); b.title = label;
-        const img = make('img', '', b); img.alt = ''; img.setAttribute('aria-hidden', 'true');
-        img.src = new URL(`./vendor/remixicon/${icon}.svg`, import.meta.url).href;
-        return b;
-    };
-    const uploadButton = iconButton(badgeText("build_prototype.text_011"), 'upload-2-line', () => file.click());
-    const existing = iconButton(badgeText("build_prototype.text_012"), 'folder-image-line', openImages);
+    const iconButton = (label, icon, action) => referenceImageIcon(make, button, uploadActions, label, icon, action);
+    const uploadButton = iconButton(badgeText('build_prototype.text_011'), 'upload-2-line', () => file.click());
+    const existing = iconButton(badgeText('build_prototype.text_012'), 'folder-image-line', () => galleryControl.open());
     existing.setAttribute('aria-haspopup', 'dialog');
-    const gallery = make('dialog'); gallery.className = 'badge-build-gallery';
-    gallery.setAttribute('aria-label', badgeText("build_prototype.text_013"));
-    const galleryHeader = make('div', '', gallery); galleryHeader.className = 'badge-build-bar';
-    make('strong', badgeText("build_prototype.text_014"), galleryHeader);
-    button(badgeText("build_prototype.text_015"), galleryHeader, () => gallery.close());
-    const search = make('input', '', gallery); search.type = 'search';
-    search.placeholder = badgeText("build_prototype.text_016"); search.setAttribute('aria-label', badgeText("build_prototype.text_017"));
-    const count = make('p', '', gallery); count.setAttribute('role', 'status');
-    const grid = make('div', '', gallery); grid.className = 'badge-build-gallery-grid';
-    let galleryValues = [], gallerySource = null;
+    const galleryControl = createReferenceImageGallery({
+        make, button, sourceNode, imageWidget, live, select: setImage,
+        imageURL: path => api.apiURL(path), opener: () => existing,
+    });
+    const gallery = galleryControl.dialog;
     const selectionKey = value => JSON.stringify(normalizeImageSelection(value));
-    function renderImages() {
-        grid.replaceChildren();
-        const query = search.value.trim().toLocaleLowerCase();
-        const values = galleryValues.filter(value => String(value).toLocaleLowerCase().includes(query));
-        count.textContent = values.length ? badgeText("build_prototype.text_018", {p0: (values.length)}) : badgeText("build_prototype.text_019");
-        const current = selectionKey(imageWidget()?.value);
-        for (const value of values) {
-            const selected = selectionKey(value) === current;
-            const card = button('', grid, () => {
-                if (!live() || sourceNode() !== gallerySource) { gallery.close(); return; }
-                setImage(value); gallery.close();
-            });
-            card.className = 'badge-build-image-card'; card.title = String(value);
-            card.setAttribute('aria-pressed', String(selected));
-            const thumb = make('img', '', card);
-            thumb.alt = ''; thumb.loading = 'lazy'; thumb.decoding = 'async';
-            thumb.src = api.apiURL(buildImageViewPath(normalizeImageSelection(value)));
-            thumb.onerror = () => { thumb.hidden = true; make('span', badgeText("build_prototype.text_020"), card); };
-            make('span', String(value), card);
-            if (selected) { const mark = make('span', badgeText("build_prototype.text_021"), card); mark.setAttribute('aria-hidden', 'true'); }
-        }
-    }
-    function openImages() {
-        if (!live()) return;
-        gallerySource = sourceNode();
-        const values = imageWidget()?.options?.values;
-        galleryValues = [...new Set([imageWidget()?.value, ...(Array.isArray(values) ? values : [])].filter(Boolean))];
-        search.value = ''; renderImages(); gallery.showModal(); search.focus();
-    }
-    search.oninput = renderImages;
-    gallery.onclick = event => {
-        const rect = gallery.getBoundingClientRect();
-        if (event.target === gallery && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) gallery.close();
-    };
-    gallery.onclose = () => { if (live()) existing.focus(); };
     const imageSelections = new WeakMap();
     let latestUpload = null;
     function setImage(value) {
@@ -477,12 +454,17 @@ function mount(graph, root, tabId = 'build') {
                 session.preview = null; session.phase = 'changed'; session.message = badgeText("build_prototype.text_046");
                 if (local) node(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
             }
-            generation.update({ busy: session.busy, error: snapshot.error, message: session.message });
-            generation.element.hidden = !local && isPromptOnlyBuild(graph) ? false : !isNodeAvailableInAppMode(node(local ? 146 : 1));
+            const sourceAvailable = !local && isPromptOnlyBuild(graph) || isNodeAvailableInAppMode(node(local ? 146 : 1));
+            if (!local) generation.update({
+                busy: session.busy, error: snapshot.error, message: session.message,
+                failure: session.phase === 'error' ? session.message : '',
+                disabled: merged && !sourceAvailable,
+                settingsHidden: merged && !sourceAvailable,
+            });
+            generation.element.hidden = !merged && !sourceAvailable;
             if (!local && root.lastElementChild !== generation.element) root.append(generation.element);
             if (refined && !local) {
-                if (promptSection.nextElementSibling !== generation.element) root.insertBefore(promptSection, generation.element);
-                if (referenceEnd.nextElementSibling !== promptSection) root.insertBefore(referenceEnd, promptSection);
+                if (referenceEnd.nextElementSibling !== generation.element) root.insertBefore(referenceEnd, generation.element);
                 referenceEnd.hidden = !referenceOpen || isPromptOnlyBuild(graph);
             }
         }
@@ -494,12 +476,10 @@ function mount(graph, root, tabId = 'build') {
         element.dataset.promptOnly = String(promptOnly);
         promptToggle.checked = promptOnly;
         promptToggle.disabled = Boolean(getPrototypeSession(graph, 'build').busy);
-        promptInput.placeholder = promptOnly
-            ? badgeText("build_prototype.text_047", {p0: (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? selectedBadgeModel(graph, 'build') : 'GPT-Image-2')})
-            : badgeText("build_prototype.text_048");
-        promptHelp.textContent = promptOnly
-            ? badgeText("build_prototype.text_049")
-            : badgeText("build_prototype.text_050");
+        if (merged) {
+            const text = graph.extra.daelabBadgePrototypeV1.buildPrompt || '';
+            if (promptInput.value !== text) promptInput.value = text;
+        }
         root.querySelectorAll('span,p,label,h3,h4').forEach(e=>{
             if(e.children.length===0&&[badgeText("build_prototype.text_051"),badgeText("build_prototype.text_052"),badgeText("build_prototype.text_053")].includes(e.textContent))e.classList.add('badge-function-tip');
         });
@@ -549,20 +529,27 @@ function mount(graph, root, tabId = 'build') {
         view.disabled = !state.preview;
         const dirty = state.preview && JSON.stringify(config()) !== state.signature;
         const missingHeight = !isPromptOnlyBuild(graph) && !effect && state.heightEnabled && !normalizeImageSelection(node(2)?.widgets?.find(w => w.name === 'image')?.value);
-        const geometryMessage = regionStatus();
-        const message = geometryMessage || (missingHeight ? badgeText("build_prototype.text_062") : state.imageTab === 'height' && !state.heightEnabled ? badgeText("build_prototype.text_063") : !enabled ? badgeText("build_prototype.text_064") : dirty ? badgeText("build_prototype.text_065") : state.preview ? badgeText("build_prototype.text_066") : state.section ? badgeText("build_prototype.text_067") : badgeText("build_prototype.text_068"));
+        const heightStatus = missingHeight ? badgeText("build_prototype.text_062")
+            : state.imageTab === 'height' && !state.heightEnabled ? badgeText("build_prototype.text_063") : '';
+        const previewStatus = dirty ? badgeText("build_prototype.text_065")
+            : state.preview ? badgeText("build_prototype.text_066")
+            : state.section ? badgeText("build_prototype.text_067") : '';
+        const message = regionStatus() || heightStatus || (enabled ? previewStatus : '');
         if (status.textContent !== message) status.textContent = message;
         draw();
     }
     let generation;
     function invalidateGeneration() {
         const session = getPrototypeSession(graph, tabId);
-        session.preview = null; session.phase = 'changed'; session.message = badgeText("build_prototype.text_069");
+        const hadPreview = Boolean(session.preview) || (session.phase === 'changed' && Boolean(session.message));
+        session.preview = null;
+        session.phase = 'changed';
+        session.message = hadPreview ? badgeText("build_prototype.text_069") : '';
         if (local) node(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
     }
     const localParts = [];
     let regionEditor = null, regionOverlap = null;
-    let selectionRow, editRow, editEnd, selectionActions, localActions, localStatus, selectionStatus, localApply, localPreview, advanced, sourceButtons, mapActions, mapPreview, mapRegenerate, mapStatus, mapProgressBar;
+    let selectionRow, editRow, editEnd, selectionActions, localActions, selectionStatus, localPreview, advanced, sourceButtons, mapActions, mapPreview, mapRegenerate, mapStatus, mapProgressBar;
     let lastMapMode = null;
     let expandedBlock = refined ? null : 'selection';
     const expandedBlocks = new Set();
@@ -678,7 +665,7 @@ function mount(graph, root, tabId = 'build') {
                 await runPrototype(graph, 'local'); if (live()) update();
             } finally { localGenerating = false; }
         };
-        generation = createGenerationPanel(graph, 'local', { live, onGenerate: generateLocal, onChange: invalidateGeneration });
+        generation = createGenerationPanel(graph, 'local', { live, onGenerate: generateLocal, onChange: invalidateGeneration, captureHistory });
         if (generation.modelControl) {
             const modelLabel = make('span', badgeText('refinement.model'), generation.modelControl);
             generation.modelControl.prepend(modelLabel);
@@ -686,7 +673,6 @@ function mount(graph, root, tabId = 'build') {
             localParts.push(generation.modelControl);
         }
         localActions.append(generation.element);
-        localApply = generation.button; localStatus = generation.status;
         localParts.push(localActions);
     }
     function updateLocal() {
@@ -811,7 +797,6 @@ function mount(graph, root, tabId = 'build') {
         const snapshot = stageSnapshot(graph, 'local'), session = getPrototypeSession(graph, 'local');
         localPreview.disabled = !available || !selectionPixels() || (!color && !polygon) || !isNodeAvailableInAppMode(maskNode) || session.busy;
         const selectionReady = confirmedSelection === selectionSignature() && !dirty;
-        localApply.disabled = !available || Boolean(snapshot.error) || (!segmented && !selectionReady) || session.busy || localGenerating;
         selectionStatus.textContent = selectionReady ? color ? badgeText("build_prototype.text_122") : badgeText("build_prototype.text_123") : confirmedSelection ? badgeText("build_prototype.text_124") : badgeText("build_prototype.text_125");
         const drawing = node(142)?.polygonWidget;
         const showCanvasMask = editingCanvas && maskActive() && state.pixels;
@@ -825,7 +810,7 @@ function mount(graph, root, tabId = 'build') {
                 node(142).redrawPolygonCanvas?.();
             }
         }
-        localStatus.textContent = graph.extra?.daelabBadgeExecutionV1?.version === 1
+        let generationMessage = graph.extra?.daelabBadgeExecutionV1?.version === 1
             ? session.busy ? badgeText("build_prototype.text_126") : snapshot.error ? badgeText("build_prototype.text_127", {p0: (snapshot.error)}) : session.message || badgeText("build_prototype.text_128")
             : session.busy ? badgeText("build_prototype.text_129") : snapshot.error ? badgeText("build_prototype.text_130", {p0: (snapshot.error)}) : !selectionReady ? badgeText("build_prototype.text_131") : (session.phase === 'applied' && session.preview === snapshot.fingerprint ? badgeText("build_prototype.text_132") : badgeText("build_prototype.text_133"));
         if (multi && !session.busy && !snapshot.error && session.phase !== 'error') {
@@ -833,27 +818,33 @@ function mount(graph, root, tabId = 'build') {
             const count = refined ? 1 : graph.extra.daelabBadgePrototypeV1.generation?.local?.count || 1;
             const hasPalette = !region87() && (!refinedBadge87(graph) && normalizeImageSelection(graph.extra.daelabBadgePrototypeV1.paletteReference)
                 || normalizeImageSelection(node(1)?.widgets?.find(w => w.name === 'image')?.value));
-            localStatus.textContent += badgeText("build_prototype.text_134", {p0: (rows), p1: (count), p2: ((rows + Number(Boolean(hasPalette))) * count)});
+            generationMessage += badgeText("build_prototype.text_134", {p0: (rows), p1: (count), p2: ((rows + Number(Boolean(hasPalette))) * count)});
             if (!region87()) selectionStatus.textContent = badgeText('build_prototype.text_135');
         }
+        generation.update({
+            busy: session.busy || localGenerating, error: snapshot.error, message: generationMessage,
+            failure: session.phase === 'error' ? generationMessage : '',
+            disabled: !available || (!segmented && !selectionReady),
+        });
         if (region87()) selectionStatus.textContent = '选择列表中的层可以预览修改区域遮罩。';
         draw();
     }
     if (!local) {
-        generation = createGenerationPanel(graph, 'build', { live, onGenerate: () => runPrototype(graph, 'build'), onChange: invalidateGeneration });
+        generation = createGenerationPanel(graph, 'build', {
+            live, onGenerate: () => runPrototype(graph, 'build'), onChange: invalidateGeneration, captureHistory,
+            prompt: merged ? promptSection : undefined, settingsExtra: promptMode, api,
+        });
         root.append(generation.element);
     }
     const referenceEnd = refined && !local ? document.createElement('div') : null;
     if (referenceEnd) referenceEnd.className = 'badge-reference-end';
-    // Read the installed GPT Image 2 presets; never manufacture unsupported ratio buttons.
-    void api.fetchApi('/object_info/OpenAIGPTImageNodeV2').then(r => {
-        if (!r.ok) throw new Error(badgeText("build_prototype.text_136"));
-        return r.json();
-    }).then(data => {
-        const model = data.OpenAIGPTImageNodeV2?.input?.required?.model?.[1]?.options?.find(o => o.key === (graph.extra?.daelabBadgeExecutionV1?.version === 1 ? 'gpt-image-2.5-sunburst' : 'gpt-image-2'));
-        const sizes = model?.inputs?.required?.size?.[1]?.options;
-        if (live() && Array.isArray(sizes)) generation.setPresets(sizes);
-    }).catch(() => { /* Retain the verified bundled preset list when discovery is unavailable. */ });
+    if (graph.extra?.daelabBadgeExecutionV1?.version === 1) {
+        void loadModelAccess(api, 'badge', local ? 'local' : 'build').then(access => {
+            if (!live()) return;
+            generation.setAccess(access);
+            update();
+        });
+    }
     root.dataset.badgeBuild = '1';
     if (refined) root.dataset.badgeRefinedUi = '1';
     if (local) {
@@ -862,11 +853,21 @@ function mount(graph, root, tabId = 'build') {
     }
     root.querySelector('[data-daelab-app-layout-owned="tabs"]').after(element);
     if (!local) element.after(heightBoard.element);
-    if (refined && !local) {
-        root.insertBefore(promptSection, generation.element);
-        root.insertBefore(referenceEnd, promptSection);
-    }
+    if (referenceEnd) root.insertBefore(referenceEnd, generation.element);
     const referenceResize = attachReferenceResize(root, element, frame, graph, live);
+    function keepGenerationReachable() {
+        const panel = generation.element.getBoundingClientRect();
+        const viewport = root.getBoundingClientRect();
+        // Release the normal dock while the generation card passes through the scroller.
+        // Color picking retains its own source dock and scroll padding.
+        const panelInView = !generation.element.hidden &&
+            panel.top < viewport.bottom && panel.bottom > viewport.top;
+        root.toggleAttribute('data-badge-generation-in-view', panelInView);
+    }
+    root.addEventListener('scroll', keepGenerationReachable, { passive: true });
+    const generationResize = new ResizeObserver(keepGenerationReachable);
+    generationResize.observe(root);
+    generationResize.observe(generation.element);
     const resumeDrawing = event => {
         if (local && live() && event.target === node(142)?.polygonWidget?.canvas && maskActive()) {
             state.view = 'original'; update();
@@ -877,8 +878,12 @@ function mount(graph, root, tabId = 'build') {
     return { graph, workflowId, root, element, tabId, update, dispose() {
         regionEditor?.dispose();
         root.removeEventListener('pointerdown', resumeDrawing, true);
+        root.removeEventListener('scroll', keepGenerationReachable);
+        generationResize.disconnect();
+        root.removeAttribute('data-badge-generation-in-view');
         targetSources?.remove();
-        if (refined) { promptSection?.remove(); referenceEnd?.remove(); delete root.dataset.badgeRefinedUi; }
+        releasePrompt?.();
+        if (refined) { referenceEnd?.remove(); delete root.dataset.badgeRefinedUi; }
         if (local && node(142)?.polygonWidget?.badgePrototypeMaskPreview) {
             delete node(142).polygonWidget.badgePrototypeMaskPreview;
             node(142).redrawPolygonCanvas?.();
@@ -909,7 +914,7 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     if (app[installed]) return;
     app[installed] = true;
     const style = document.createElement('style');
-    style.textContent = GENERATION_CSS + REGION_EDITOR_CSS + `
+    style.textContent = REGION_EDITOR_CSS + `
     .badge-color-source {padding:10px 0;border-bottom:1px solid #414950;margin-bottom:8px;}
     .badge-color-source[hidden] {display:none!important;}
     .badge-color-source-row {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -953,7 +958,6 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-local-options.badge-region-preview-actions > button {flex:none;margin-left:auto;}
     .badge-local-edit-end {padding:4px 12px;}
     .badge-local-page-actions {display:block;margin:0;padding:0;border:0;background:transparent;}
-    .badge-local-page-actions .badge-generation p{width:auto;}
     .badge-local-page-actions .badge-local-primary {width:100%;flex-basis:100%;min-height:44px;border-radius:8px;border:1px solid #249fea;background:#087fc7;color:#fff;font-weight:600;}
     .badge-local-page-actions .badge-local-primary:hover:not(:disabled) {background:#0993df;}
     details.badge-local-options {display:block;}
@@ -966,20 +970,17 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-reference-resize::after {content:'';width:48px;height:4px;border-radius:9px;background:#65747f;}
     .badge-reference-resize:hover,.badge-reference-resize[data-dragging],.badge-reference-resize:focus-visible {background:#2d4555;outline:1px solid #62a7d7;outline-offset:-1px;}
     .badge-reference-resize:hover::after,.badge-reference-resize[data-dragging]::after {background:#80bfff;}
-    [data-badge-build="1"] > [data-daelab-app-layout-owned="tabs"] {position:sticky;top:0;z-index:12;background:#171717;}
+    [data-badge-build="1"] > [data-daelab-app-layout-owned="tabs"]:not([data-badge-ui]) {position:sticky;top:0;z-index:12;background:#171717;}
     [data-badge-build="1"] > .badge-build-workspace {position:sticky;top:var(--badge-tabs-height,48px);z-index:11;box-shadow:0 3px 8px #0005;}
     .badge-build-base-prompt {display:block;width:100%;box-sizing:border-box;margin-bottom:10px;font-size:14px;font-weight:600;}
-    .badge-build-base-prompt summary {cursor:pointer;padding:4px 0;user-select:none;}
-    .badge-build-base-prompt summary {display:flex;align-items:center;gap:8px;}
-    .badge-build-base-prompt summary::before {content:'▶';font-size:12px;}
-    .badge-build-base-prompt[open] summary::before {content:'▼';}
+    .badge-build-base-prompt summary {display:flex;flex-wrap:wrap;align-items:center;gap:8px;list-style:none;cursor:pointer;padding:4px 0;user-select:none;}
+    .badge-build-base-prompt summary::-webkit-details-marker {display:none;}
     .badge-build-prompt-toggle {margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;}
-    .badge-build-prompt-help {font-size:12px;font-weight:normal;line-height:1.5;color:#aab8c4;margin:8px 0 0;}
     .badge-build-workspace[data-prompt-only="true"] > :not(.badge-build-base-prompt) {display:none!important;}
-    .badge-build-base-prompt summary:focus-visible {outline:2px solid #80bfff;outline-offset:2px;border-radius:4px;}
+    .badge-build-base-prompt :is(summary,textarea):focus-visible {outline:2px solid #80bfff;outline-offset:2px;border-radius:4px;}
     .badge-build-base-prompt textarea {display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px;border:1px solid #52606b;border-radius:6px;background:#242b31;color:#e4edf4;resize:vertical;font:inherit;font-weight:normal;}
     .badge-function-tip {display:block!important;flex:1 1 100%;width:100%;min-width:0;box-sizing:border-box;border-left:3px solid #62a7d7;border-radius:4px;background:#223039;padding:10px 12px!important;color:#cde3f3!important;font-size:13px!important;font-weight:normal!important;}
-    .badge-color-popup {position:fixed;z-index:100000;width:260px;padding:12px;border:1px solid #647885;border-radius:8px;background:#202a31;color:#e5edf4;box-shadow:0 8px 30px #0008;}
+    .badge-color-popup {position:fixed;z-index:100000;width:260px;padding:12px;border:1px solid #647885;border-radius:8px;background:#202a31;color:#e5edf4;box-shadow:0 8px 30px #0008;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;}
     .badge-color-popup[hidden] {display:none;}
     .badge-color-popup canvas {display:block;width:240px;height:130px;margin:8px 0;cursor:crosshair;}
     .badge-color-popup label {display:flex;align-items:center;gap:8px;margin:6px 0;}
@@ -1137,6 +1138,8 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     [data-badge-build-list] {flex:0 0 auto!important;min-height:0!important;overflow:visible!important;}
     `;
     style.textContent += `
+    [data-badge-generation-in-view]:not([data-badge-color-picking]) > .badge-build-workspace {position:relative;top:auto;}
+    [data-badge-refined-ui][data-badge-generation-in-view]:not([data-badge-color-picking]) {--badge-reference-height:0px!important;}
     [data-badge-refined-ui] {overflow-anchor:none;scroll-padding-top:calc(var(--badge-tabs-height,48px) + var(--badge-reference-height,0px) + 12px);scroll-padding-bottom:24px;}
     [data-badge-refined-ui] > .badge-build-workspace {box-sizing:border-box;margin:16px 8px 0;padding:12px;border:1px solid #46535d;border-bottom:0;border-radius:12px 12px 0 0;background:#20282e;}
     [data-badge-refined-ui][data-badge-local] > .badge-build-workspace,
@@ -1148,18 +1151,10 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     [data-badge-refined-ui] > [data-badge-reference-body] {box-sizing:border-box;margin:0 8px!important;padding:8px 12px!important;border-inline:1px solid #46535d;background:#20282e;}
     [data-badge-refined-ui] > .badge-height-board[hidden], .badge-reference-end[hidden] {display:none!important;}
     .badge-reference-end {flex:none;margin:0 8px;padding:4px;border:1px solid #46535d;border-top:0;border-radius:0 0 12px 12px;background:#20282e;}
-    [data-badge-refined-ui] > .badge-build-base-prompt {flex:none;width:auto;margin:16px 8px 0;padding:14px;border:1px solid #46535d;border-radius:12px;background:#20282e;color:#e4eaee;}
-    [data-badge-refined-ui] > .badge-generation {margin-top:16px;}
-    [data-badge-refined-ui] details.badge-generation > summary {cursor:pointer;list-style:none;}
-    [data-badge-refined-ui] details.badge-generation > summary::before {content:'▶';font-size:12px;}
-    [data-badge-refined-ui] details.badge-generation[open] > summary::before {content:'▼';}
     [data-badge-refined-ui] .badge-local-block-start {margin-top:16px;}
-    [data-badge-refined-ui] .badge-generation[data-inherited-output] {border:0;background:transparent;padding:0;margin:16px 8px;}
-    [data-badge-refined-ui] .badge-generation[data-inherited-output] .badge-generation-hint {display:none;}
     [data-badge-refined-ui] .badge-build-workspace .badge-preview-download {margin-left:auto;flex:none;}
     [data-badge-refined-ui] .badge-height-add-tier {display:block;width:100%;padding:10px;margin-top:12px;border:1px dashed #657985;border-radius:8px;background:#26343c;color:#e4eaee;cursor:pointer;}
     [data-badge-refined-ui] .badge-height-add-tier:disabled {opacity:.4;cursor:default;}
-    [data-badge-refined-ui] .badge-generation-heading select {max-width:100%;min-width:0;}
     [data-badge-refined-ui] > .badge-local-model-control {flex:none;margin:16px 8px 0;padding:0;border:0;background:transparent;color:#e4eaee;}
     [data-badge-refined-ui] > .badge-local-model-control > strong[hidden] {display:none;}
     `;
@@ -1167,9 +1162,17 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     setInterval(() => {
         const graph = getRootGraphSafely(app), root = document.querySelector('[data-testid="linear-widgets"]');
         const tabId = root?.querySelector('[role="tab"][aria-selected="true"]')?.dataset.tabId;
-        const eligible = isBadgePrototype(graph) && ['build', 'local'].includes(tabId);
-        if (!eligible || active && (active.tabId !== tabId || active.graph !== graph || active.workflowId !== graph.id || active.root !== root || !active.element.isConnected)) { active?.dispose(); active = null; }
-        if (eligible) { active ??= mount(graph, root, tabId); active.update(); }
+        const epoch = graph && generationLoadIdentity(graph);
+        const eligible = isBadgePrototype(graph) && ['build', 'local'].includes(tabId) &&
+            !(tabId === 'local' && graph.extra?.daelabImageEditingV1?.version === 1);
+        if (!eligible || active && (active.tabId !== tabId || active.graph !== graph || active.workflowId !== graph.id || active.epoch !== epoch || active.root !== root || !active.element.isConnected)) { active?.dispose(); active = null; }
+        if (eligible) {
+            if (!active) {
+                active = mount(graph, root, tabId);
+                active.epoch = epoch;
+            }
+            active.update();
+        }
     }, 250);
 } });
 }

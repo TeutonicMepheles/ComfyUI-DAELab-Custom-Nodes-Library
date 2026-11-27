@@ -1,14 +1,14 @@
+import { DEFAULT_COUNT, INITIAL_COUNT_MAX, LEGACY_COUNT_MAX, validGenerationCount } from './generation_ui_model.mjs';
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { usesLocalRegions87, readLocalRegions87, activeLocalRegions87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
-import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
+import { refinedBadge87, selectedBadgeModel, localTargetSize87 } from './badge_refinement_87.mjs?v=20261119-model-matching';
 import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-content-1';
-import { stageSnapshot, readGenerationConfig, isPromptOnlyBuild } from './badge_generation_model.mjs?v=20260917-dimensions-2';
+import { stageSnapshot, readGenerationConfig, isPromptOnlyBuild } from './badge_generation_model.mjs?v=20261119-model-matching';
 import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
 import { migrateHeightBoard, fixedHeightBoard87 } from './badge_height_board_model.mjs?v=20260916-ui-2';
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
 import { getConnectedLoadImageInfo, getConnectedLoadImageKey } from './polygon_mask_connection.mjs';
 
-export const BADGE87_IMAGE_MODEL = 'gpt-image-2.5-sunburst';
 export const isBadge87 = graph => graph?.extra?.daelabBadgeExecutionV1?.version === 1;
 import { targetOnly88 } from './badge_target_only_88.mjs';
 export function requestForStage(graph, stage) {
@@ -31,10 +31,13 @@ export function requestForStage(graph, stage) {
         if (snapshot.error) throw new Error(snapshot.error);
     }
     const size = readGenerationConfig(graph, stage);
-    const count = size.count ?? 1;
-    if (!Number.isInteger(count) || count < 1 || count > 8) throw new Error(badgeText("execution_87_model.text_003"));
-    const request = { version: 1, model: refinedBadge87(graph) ? selectedBadgeModel(graph, stage) : BADGE87_IMAGE_MODEL, ...(refinedBadge87(graph) ? {interaction_revision: 2} : {}), stage, session: graph.id, width: size.width, height: size.height,
-        quality: graph.extra.daelabBadgeExecutionV1.quality || 'low', count, seed: 0 };
+    const count = size.count === undefined ? DEFAULT_COUNT : size.count;
+    const maxCount = stage === 'build' ? INITIAL_COUNT_MAX : LEGACY_COUNT_MAX;
+    if (!validGenerationCount(count, maxCount)) {
+        throw new Error(badgeText(stage === 'build' ? 'generation_ui.build_count' : 'execution_87_model.text_003'));
+    }
+    const request = { version: 1, model: selectedBadgeModel(graph, stage), ...(refinedBadge87(graph) ? {interaction_revision: 2} : {}), stage, session: graph.id, width: size.width, height: size.height,
+        quality: size.quality ?? (graph.extra.daelabBadgeExecutionV1.quality || 'low'), count, seed: 0 };
     if (stage === 'build') {
         request.prompt = meta.buildPrompt || '';
         request.prompt_only = isPromptOnlyBuild(graph);
@@ -55,7 +58,8 @@ export function requestForStage(graph, stage) {
         request.use_map = !targetOnly88(graph) && request.selection === 'color' && on('badge.post.local.color_id_map');
         if (request.use_map) {
             const map = meta.gptColorMap;
-            if (!map?.image || map.model !== (refinedBadge87(graph) ? selectedBadgeModel(graph, 'local') : BADGE87_IMAGE_MODEL) || map.sourceKey !== JSON.stringify(request.image)) throw new Error(badgeText("execution_87_model.text_004"));
+            if (!map?.image || !map.model || (request.model != null && map.model !== request.model) ||
+                map.sourceKey !== JSON.stringify(request.image)) throw new Error(badgeText("execution_87_model.text_004"));
             request.color_map = map.image;
             request.color_map_source = map.source;
         }

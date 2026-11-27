@@ -164,3 +164,16 @@ if not (_yield and "DAELAB.LLMStylePreviewB" in _yield["nodes"]):
     from .nodes.prompt_optimization.approved_result import ApprovedLLMResult
     NODE_CLASS_MAPPINGS["DAELAB.LLMStylePreviewB"] = ApprovedLLMResult
     NODE_DISPLAY_NAME_MAPPINGS["DAELAB.LLMStylePreviewB"] = "LLM优化功能"
+
+from .model_access.runtime import install as install_model_access
+
+def _register_model_access():
+    from folder_paths import get_user_directory
+    from nodes import NODE_CLASS_MAPPINGS as host_nodes
+    from server import PromptServer
+
+    instance = getattr(PromptServer, "instance", None)
+    if instance is not None:
+        install_model_access(instance, get_user_directory(), host_nodes)
+
+_register_model_access()

@@ -1,0 +1,66 @@
+{
+  "canvasRevision": "47fdb09e2988397c6fc1d22d10b5d4c575f02552",
+  "transform": "replace-canvas-root-v1",
+  "files": [
+    {
+      "path": "creative_button.mjs",
+      "source": "web/creative_button.mjs",
+      "bytes": 1998,
+      "sha256": "50ffeb1e81c66af397f788e6d289a8bfefeb98a579bc2a5e7d03be36f12e3dd7"
+    },
+    {
+      "path": "creative_field.mjs",
+      "source": "web/creative_field.mjs",
+      "bytes": 1453,
+      "sha256": "cc5bd0f8f84c34423c72ddc088c9a570efaf2c4601c6e07cc2b782b90016c3fb"
+    },
+    {
+      "path": "creative_theme.css",
+      "source": "web/creative_theme.css",
+      "bytes": 6075,
+      "sha256": "a85722a6a5b38c9e18c08940517f300b2d22308cc26ec09ad48e6849691982b5"
+    },
+    {
+      "path": "vendor/remixicon/LICENSE",
+      "source": "web/vendor/remixicon/LICENSE",
+      "bytes": 7198,
+      "sha256": "6f2f21c5f8db34635d31848e9ff831d5dc421bb83ffc9d37f82651364047ae58"
+    },
+    {
+      "path": "vendor/remixicon/arrow-down-line.svg",
+      "source": "web/vendor/remixicon/arrow-down-line.svg",
+      "bytes": 224,
+      "sha256": "b1b1432f71a0ac7fbd3b1a114101edeb6406efc33c13c5957d2f17facf6875e7"
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/LICENSE.txt",
+      "source": "web/vendor/alibaba-puhuiti-3/LICENSE.txt",
+      "bytes": 5063,
+      "sha256": "1dda8d65762c8b559b2bce135ed1e6d43344552dd565ff9826216d58dc1d7181"
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/manifest.json",
+      "source": "web/vendor/alibaba-puhuiti-3/manifest.json",
+      "bytes": 543,
+      "sha256": "ec0bc41b381f4686f2643a319040c9d0a53071cb09c7223b9e73a1ee8c99599a"
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-55-Regular.woff2",
+      "source": "web/vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-55-Regular.woff2",
+      "bytes": 5256740,
+      "sha256": "1cb8418d80b01ec08cb6f2d64b6244aaaf1bb80dc35491b66ddba16c5e24f444"
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-65-Medium.woff2",
+      "source": "web/vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-65-Medium.woff2",
+      "bytes": 5469328,
+      "sha256": "628a0d5be684bae0e7a8e3ad15b7c4f623fd15b3375082624f778326e343467a"
+    },
+    {
+      "path": "vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-75-SemiBold.woff2",
+      "source": "web/vendor/alibaba-puhuiti-3/AlibabaPuHuiTi-3-75-SemiBold.woff2",
+      "bytes": 5481108,
+      "sha256": "75e2ba042e1c8ad8cf3dd5bf26f25984ffeca6c4ebb86977c8f8e1abeeb2652f"
+    }
+  ]
+}

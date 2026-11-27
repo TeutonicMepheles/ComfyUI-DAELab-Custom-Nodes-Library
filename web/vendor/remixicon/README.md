@@ -35,3 +35,8 @@ check-line.svg, error-warning-line.svg, restart-line.svg, play-line.svg: Remix I
 - https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/System/time-line.svg
 
 2026-10-02: pause-fill.svg reused from the local Creative Canvas Remix Icon bundle for generation pause controls.
+
+Local image editing controls use the official Remix Icon 4.6.0 assets
+`Design/contrast-2-line.svg`, `Design/mark-pen-line.svg`, `Design/palette-line.svg`,
+`Design/pentagon-line.svg`, `Design/brush-line.svg`, and `Design/eraser-line.svg`
+from the published `remixicon` package under the bundled license.

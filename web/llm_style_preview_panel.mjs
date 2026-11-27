@@ -1,7 +1,8 @@
+import { canvasWebAssetsAvailable } from './optional_canvas_assets.mjs';
 import {bindIOPanel} from './llm_io_panel.mjs?v=20261023-h3-size-r3';
 import {createTableButton,tableTheme} from './table_controls.mjs?v=20261023-h3-size-r3';
 let sharedFields=null,sharedPanels=null;
-try{sharedFields=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_field.mjs');sharedPanels=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_panel_state.mjs');}catch{}
+if(await canvasWebAssetsAvailable())try{sharedFields=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_field.mjs');sharedPanels=await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_panel_state.mjs');}catch{}
 
 export const STYLE_VARIANTS=Object.freeze([
     {id:'A',label:'A 紧凑单栏',width:420,height:610},

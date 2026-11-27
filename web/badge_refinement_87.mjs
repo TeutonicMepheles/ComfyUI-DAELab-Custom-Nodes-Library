@@ -5,13 +5,8 @@ import { normalizeImageSelection } from './app_mode_load_image_preview_model.mjs
 export const refinedBadge87 = graph => graph?.extra?.daelabBadgeExecutionV1?.version === 1
     && graph?.extra?.daelabBadgeLocalMaterialsV1?.version !== 1;
 export const removedMaterial87 = value => ['rhinestone', '水钻'].includes(String(value).trim());
-export const BADGE_MODELS = [
-    ['gpt-image-2.5-sunburst', badgeText("badge_refinement_87.extra_001")],
-    ['gpt-image-2.5-flare', badgeText("badge_refinement_87.extra_002")],
-    ['gpt-image-2', badgeText("badge_refinement_87.extra_003")],
-];
 export const selectedBadgeModel = (graph, stage = 'build') =>
-    graph.extra?.daelabBadgePrototypeV1?.generation?.[stage]?.model || BADGE_MODELS[0][0];
+    graph.extra?.daelabBadgePrototypeV1?.generation?.[stage]?.model;
 const imageKey = value => JSON.stringify(normalizeImageSelection(value));
 // Symbol state survives versioned imports without entering workflow JSON.
 const sizeKey = Symbol.for('DAELAB.Badge87.decodedTargetSize');

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { normalizeBadgeAppLayout, readHierarchyState, getVisibleReferenceSources } from '../web/badge_app_layout_model.mjs';
 import { APPLY_ITEM, createPrototypeQueueHandler, isSamePrototype, prototypeSnapshot, simulateRun } from '../web/badge_app_prototype_model.mjs';
 
-const sourceUrl = new URL('../../../user/default/workflows/%238.6%20-%20Badge%20Workflow.json', import.meta.url);
+const sourceUrl = new URL('../user/default/workflows/%238.6%20-%20Badge%20Workflow.json', import.meta.url);
 const prototypeUrl = new URL('../user/default/workflows/%238.6-UI%20-%20Badge%20App%20Mode%20Prototype.json', import.meta.url);
 function loadGraph() {
     const graph = JSON.parse(readFileSync(prototypeUrl, 'utf8'));

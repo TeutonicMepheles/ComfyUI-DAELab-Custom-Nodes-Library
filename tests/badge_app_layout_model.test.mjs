@@ -15,7 +15,7 @@ import {
 } from "../web/badge_app_layout_model.mjs";
 
 const WORKFLOW_URL = new URL(
-    "../../../user/default/workflows/%238.6%20-%20Badge%20Workflow.json",
+    "../user/default/workflows/%238.6%20-%20Badge%20Workflow.json",
     import.meta.url,
 );
 

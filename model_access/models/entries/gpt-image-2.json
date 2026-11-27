@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "id": "gpt-image-2",
+  "label": "GPT-Image-2",
+  "provider": "gpt-image-2",
+  "aliases": [
+    "GPT Image 2"
+  ],
+  "task": "image",
+  "inputs": {
+    "prompt": "STRING",
+    "references": "IMAGE",
+    "mask": "MASK"
+  },
+  "outputs": {
+    "image": "IMAGE"
+  },
+  "parameters": {
+    "size": {
+      "type": "enum",
+      "values": [
+        "auto",
+        "1024x1024",
+        "1024x1536",
+        "1536x1024",
+        "2048x2048",
+        "2048x1152",
+        "1152x2048",
+        "3840x2160",
+        "2160x3840",
+        "Custom"
+      ],
+      "default": "auto"
+    },
+    "width": {
+      "type": "integer",
+      "min": 480,
+      "max": 3840,
+      "step": 16,
+      "default": 1024
+    },
+    "height": {
+      "type": "integer",
+      "min": 480,
+      "max": 3840,
+      "step": 16,
+      "default": 1024
+    },
+    "quality": {
+      "type": "enum",
+      "values": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "low"
+    },
+    "background": {
+      "type": "enum",
+      "values": [
+        "auto",
+        "opaque"
+      ],
+      "default": "auto"
+    },
+    "count": {
+      "type": "integer",
+      "min": 1,
+      "max": 8,
+      "step": 1,
+      "default": 1
+    },
+    "seed": {
+      "type": "integer",
+      "min": 0,
+      "max": 2147483647,
+      "step": 1,
+      "default": 0
+    }
+  },
+  "constraints": {
+    "customDimensions": {
+      "maxAspect": 3,
+      "minPixels": 655360,
+      "maxPixels": 8294400
+    }
+  },
+  "execution": {
+    "adapter": "comfy-gpt-image-v2",
+    "route": "comfy-api",
+    "modelField": "model",
+    "inputs": {
+      "prompt": "prompt",
+      "references": "model.images",
+      "mask": "model.mask",
+      "size": "model.size",
+      "width": "model.custom_width",
+      "height": "model.custom_height",
+      "background": "model.background",
+      "quality": "model.quality",
+      "count": "n",
+      "seed": "seed"
+    },
+    "outputs": {
+      "image": "0"
+    }
+  },
+  "environment": {
+    "openness": "closed",
+    "evidence": "ComfyUI 本机 OpenAIGPTImageNodeV2 的 OpenAI API 路由；目录未登记可供内网部署的权重与开放授权。",
+    "location": "external"
+  }
+}

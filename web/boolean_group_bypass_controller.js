@@ -323,9 +323,9 @@ function isComposedPlan(plan, plans) {
     );
 }
 
-function runSync() {
-    syncQueued = false;
-    const liveControllers = Array.from(controllers).filter((node) => node?.graph && !node._booleanGroupRemoved);
+export function syncBooleanGroupBypass(graph) {
+    const liveControllers = Array.from(controllers).filter(node =>
+        node?.graph && !node._booleanGroupRemoved && (!graph || node.graph === graph));
     const resolved = new Map();
     const plans = [];
     for (const controller of liveControllers) {
@@ -363,6 +363,11 @@ function runSync() {
             tone: isActive ? "active" : "bypass",
         });
     }
+}
+
+function runSync() {
+    syncQueued = false;
+    syncBooleanGroupBypass();
 }
 
 function queueSync() {

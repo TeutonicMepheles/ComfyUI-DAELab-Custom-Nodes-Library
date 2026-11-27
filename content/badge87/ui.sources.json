@@ -132,12 +132,6 @@
     "source": "'调整面板后点击模拟运行。上传图片作为原型参考素材。'"
   },
   {
-    "key": "app_prototype.text_002",
-    "file": "web/badge_app_prototype.js",
-    "line": 34,
-    "source": "'就绪，点击生成。'"
-  },
-  {
     "key": "app_prototype.text_004",
     "file": "web/badge_app_prototype.js",
     "line": 59,
@@ -570,30 +564,6 @@
     "source": "'当前阶段配置已变化，请重新生成。'"
   },
   {
-    "key": "build_prototype.text_047",
-    "file": "web/badge_build_prototype.js",
-    "line": 405,
-    "source": "`描述你想生成的图片，直接发送给 ${graph.extra?.daelabBadgeExecutionV1?.version === 1 ? selectedBadgeModel(graph, 'build') : 'GPT-Image-2'}；不会附加徽章、白底等预设要求。`"
-  },
-  {
-    "key": "build_prototype.text_048",
-    "file": "web/badge_build_prototype.js",
-    "line": 406,
-    "source": "'补充描述生成要求，将置于结构化提示词之前；参考图及下方配置仍会生效。'"
-  },
-  {
-    "key": "build_prototype.text_049",
-    "file": "web/badge_build_prototype.js",
-    "line": 408,
-    "source": "'仅使用基础提示词和模型输出配置；参考图与结构化配置已保留，不参与本次生成。'"
-  },
-  {
-    "key": "build_prototype.text_050",
-    "file": "web/badge_build_prototype.js",
-    "line": 409,
-    "source": "'基础提示词可留空；作为补充描述置于结构化提示词之前，请避免与下方配置矛盾。'"
-  },
-  {
     "key": "build_prototype.text_051",
     "file": "web/badge_build_prototype.js",
     "line": 411,
@@ -672,12 +642,6 @@
     "source": "'高度建立已关闭；图片和分区配置已保留。'"
   },
   {
-    "key": "build_prototype.text_064",
-    "file": "web/badge_build_prototype.js",
-    "line": 458,
-    "source": "'此功能已禁用，可通过旁边的开关启用'"
-  },
-  {
     "key": "build_prototype.text_065",
     "file": "web/badge_build_prototype.js",
     "line": 458,
@@ -694,12 +658,6 @@
     "file": "web/badge_build_prototype.js",
     "line": 458,
     "source": "'点击颜色块选色，再点击预览遮罩'"
-  },
-  {
-    "key": "build_prototype.text_068",
-    "file": "web/badge_build_prototype.js",
-    "line": 458,
-    "source": "'选择下方功能展开配置'"
   },
   {
     "key": "build_prototype.text_069",

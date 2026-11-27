@@ -80,10 +80,10 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
     workflow_version = '8.8'
 
     def prepare_regions(self, request):
-        return prepare(request)
+        return prepare({**request, 'model': self.generation_model(request)})
 
     def generation_model(self, request):
-        return 'gpt-image-2'
+        return legacy.provider_for(None, stage='region_materials', preview=not request.get('apply'))
 
     def constraint_options(self, config=None):
         return {}
@@ -166,8 +166,10 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
         model_dimensions = {axis: graph.node('PrimitiveInt', id=f'output_{axis}', value=value).out(0) if self.workflow_version == '8.7' and value < 1024 else value
                             for axis,value in (('width',w),('height',h))}
 
+        model_stage = 'region_materials' if self.workflow_version == '8.8' else 'local'
+
         def generate(name, prompt, base, seed_offset, mask=None, palette=None, config=None):
-            inputs = {'prompt': prompt, 'model': self.generation_model(request),
+            inputs = {'prompt': prompt, 'model': report['model'],
                       'model.size': f'{w}x{h}' if (w, h) in ((1024, 1024), (1024, 1536), (1536, 1024), (2048, 2048), (2048, 1152), (1152, 2048)) else 'Custom',
                       'model.custom_width': model_dimensions['width'], 'model.custom_height': model_dimensions['height'], 'model.background': 'opaque',
                       'model.quality': request.get('quality', 'low'), 'n': 1,
@@ -183,7 +185,7 @@ class BadgeApp88V1(legacy.BadgeApp87V1):
                 report.setdefault('prompt_calls', []).append({'call':name, **legacy.describe(inputs['prompt'])})
                 if len(prepared['regions']) == 1:
                     report['effective_prompt'] = str(inputs['prompt'])
-            return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
+            return legacy.image_node(graph, name, inputs, stage=model_stage).out(0)
 
         output = None
         for variant in range(count):

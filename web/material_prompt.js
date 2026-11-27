@@ -543,6 +543,7 @@ function scheduleCompactNodeSize(node) {
     const schedule = globalThis.requestAnimationFrame ?? ((callback) => setTimeout(callback, 0));
     schedule(() => {
         node.__gptImage2MaterialCompactSizeScheduled = false;
+        if (!node.graph) return;
         node.__gptImage2MaterialAutoSizing = true;
         try {
             fitMaterialPromptNodeToContent(node);
@@ -567,6 +568,7 @@ function installMaterialPromptUi(node) {
     installCanonicalSerialization(node);
     scheduleCompactNodeSize(node);
     requestMaterials().then(() => {
+        if (!node.graph) return;
         syncProperties(node);
         const selector = node.widgets?.find((candidate) => candidate.__gptImage2MaterialSelector);
         if (selector) renderMaterialSelector(selector, node);

@@ -37,9 +37,35 @@ export function attachBadgeColorPicker(root, canvas, prepareSource, sample, live
     document.body.append(panel);
     const palette=panel.querySelector('canvas'),hue=panel.querySelector('input[type=range]'),hex=panel.querySelector('input[type=text]');
     function paint(){const c=palette.getContext('2d');c.fillStyle=`hsl(${hue.value} 100% 50%)`;c.fillRect(0,0,240,130);let g=c.createLinearGradient(0,0,240,0);g.addColorStop(0,'white');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,240,130);g=c.createLinearGradient(0,0,0,130);g.addColorStop(0,'transparent');g.addColorStop(1,'black');c.fillStyle=g;c.fillRect(0,0,240,130);}
-    function close(){loupe.hidden=true;panel.hidden=true;sampling=false;canvas.style.cursor='';target=null;}
+    function close(){root.removeAttribute('data-badge-color-picking');loupe.hidden=true;panel.hidden=true;sampling=false;canvas.style.cursor='';target=null;}
     function apply(value){if(!/^#[0-9a-f]{6}$/i.test(value)){hex.setCustomValidity(badgeText("color_picker.text_003"));hex.reportValidity();return;}if(target?.isConnected&&live()){target.value=value;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}close();}
-    function open(e){const input=e.target.closest?.('input[type=color]');if(!input||!root.contains(input)||input.disabled)return;e.preventDefault();e.stopImmediatePropagation();prepareSource();target=input;hex.value=input.value;hex.setCustomValidity('');panel.hidden=false;loupe.hidden=true;sampling=false;canvas.style.cursor='';const r=input.getBoundingClientRect();panel.style.left=`${Math.max(8,Math.min(r.left,innerWidth-280))}px`;panel.style.top=`${Math.max(8,Math.min(r.bottom+6,innerHeight-275))}px`;paint();}
+    function open(event) {
+        const input = event.target.closest?.('input[type=color]');
+        if (!input || !root.contains(input) || input.disabled) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        root.setAttribute('data-badge-color-picking', '');
+        prepareSource();
+        target = input;
+        hex.value = input.value;
+        hex.setCustomValidity('');
+        panel.hidden = false;
+        loupe.hidden = true;
+        sampling = false;
+        canvas.style.cursor = '';
+        paint();
+
+        const anchor = input.getBoundingClientRect();
+        const popup = panel.getBoundingClientRect();
+        const margin = 8;
+        const gap = 6;
+        const below = anchor.bottom + gap;
+        const above = anchor.top - popup.height - gap;
+        const top = below + popup.height <= innerHeight - margin ? below :
+            above >= margin ? above : innerHeight - popup.height - margin;
+        panel.style.left = Math.max(margin, Math.min(anchor.left, innerWidth - popup.width - margin)) + 'px';
+        panel.style.top = Math.max(margin, top) + 'px';
+    }
     root.addEventListener('click',open,true);
     hue.oninput=paint;hex.oninput=()=>hex.setCustomValidity('');
     palette.onclick=e=>{const r=palette.getBoundingClientRect(),x=Math.min(239,Math.max(0,Math.floor((e.clientX-r.left)*240/r.width))),y=Math.min(129,Math.max(0,Math.floor((e.clientY-r.top)*130/r.height)));hex.value='#'+[...palette.getContext('2d').getImageData(x,y,1,1).data].slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('');};
@@ -48,6 +74,12 @@ export function attachBadgeColorPicker(root, canvas, prepareSource, sample, live
     panel.querySelector('[data-pick]').onclick=()=>{sampling=true;panel.hidden=true;prepareSource();canvas.style.cursor=cursor;};
     const pick=e=>{if(!sampling)return;const value=sample(e);if(value){e.preventDefault();e.stopImmediatePropagation();apply(value);}};
     canvas.addEventListener('click',pick,true);
-    const key=e=>{if(e.key==='Escape')close();};document.addEventListener('keydown',key);
-    return {close,dispose(){close();loupe.remove();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);panel.remove();root.removeEventListener('click',open,true);canvas.removeEventListener('click',pick,true);document.removeEventListener('keydown',key);}};
+    const key = event => {
+        if (event.key !== 'Escape' || !target) return;
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+    };
+    window.addEventListener('keydown', key, true);
+    return {close,dispose(){close();loupe.remove();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);panel.remove();root.removeEventListener('click',open,true);canvas.removeEventListener('click',pick,true);window.removeEventListener('keydown', key, true);}};
 }

@@ -1,4 +1,4 @@
-import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
+import { badgeText } from './badge_ui_text.mjs?v=20261119-zh-controls';
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { installBadgeSelectionVariant } from './badge_selection_variant.mjs?v=20260916-content-1';
@@ -1323,7 +1323,7 @@ app.registerExtension({
       }
 
       console.warn(
-        "Polygon Mask: the connected IMAGE source cannot be read directly. Run the workflow manually once, then click Load Image again.",
+        "多边形遮罩无法直接读取连接的图像。请先手动运行工作流一次，再点击「载入图片」。",
       );
     };
 

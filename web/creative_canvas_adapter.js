@@ -1,3 +1,4 @@
+import {YIELDED_EXTENSIONS} from './coexistence_gate.js';
 import {NAMESPACE} from './prompt_optimization_model.mjs?v=20261023-h3-size-r3';
 import {generationMaterials} from './table_material_output.mjs?v=20261023-h3-size-r3';
 // Optional integration: business nodes work without the canvas extension.
@@ -11,7 +12,7 @@ const tables=['DAELAB.Table','DAELAB.StoryboardImport','DAELAB.ComfyTV.GPTImageS
 let registered=false;
 const materialTargetCache=new WeakMap();
 function register(){
-    const api=globalThis[key];if(registered||api?.version!==1)return;
+    const api=globalThis[key];if(YIELDED_EXTENSIONS.includes('DAELab.DataTable')||registered||api?.version!==1)return;
     api.registerAdapter('daelab.business',{
         menu:[{label:'多维表格',type:'DAELAB.Table',icon:'layout-grid-line'},{label:'生成节点',type:'DAELAB.LibTV.VideoGenerate',icon:'video-line'}],
         materialItem:(node,key)=>materialItem(node.__dataTable,key),

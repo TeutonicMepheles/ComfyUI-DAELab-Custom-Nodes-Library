@@ -1,8 +1,8 @@
 {
   "id": "084c30d0-3aa3-4fc3-82dd-a3d5d553673f",
-  "revision": 0,
-  "last_node_id": 1087,
-  "last_link_id": 1778,
+  "revision": 1,
+  "last_node_id": 1089,
+  "last_link_id": 1803,
   "nodes": [
     {
       "id": 673,
@@ -16,8 +16,8 @@
         858.875
       ],
       "flags": {},
-      "order": 16,
-      "mode": 0,
+      "order": 18,
+      "mode": 4,
       "showAdvanced": false,
       "inputs": [
         {
@@ -87,7 +87,7 @@
           "name": "masked_image",
           "type": "IMAGE",
           "links": [
-            1674
+            1801
           ]
         },
         {
@@ -152,14 +152,14 @@
       "mode": 0,
       "inputs": [
         {
+          "label": "上传空间参考图",
           "localized_name": "图像",
           "name": "image",
           "type": "COMBO",
           "widget": {
             "name": "image"
           },
-          "link": null,
-          "label": "上传空间参考图"
+          "link": null
         },
         {
           "localized_name": "选择文件上传",
@@ -178,7 +178,8 @@
           "type": "IMAGE",
           "links": [
             1010,
-            1474
+            1474,
+            1728
           ]
         },
         {
@@ -210,12 +211,12 @@
       ],
       "size": [
         349.6875,
-        22
+        34
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 46,
+      "order": 48,
       "mode": 4,
       "inputs": [
         {
@@ -234,13 +235,13 @@
           "link": 1523
         },
         {
+          "label": "视角转换｜lora_name",
           "name": "lora_name",
           "type": "COMBO",
           "widget": {
             "name": "lora_name"
           },
-          "link": null,
-          "label": "视角转换｜lora_name"
+          "link": null
         }
       ],
       "outputs": [
@@ -285,7 +286,7 @@
         901.9375
       ],
       "flags": {},
-      "order": 43,
+      "order": 45,
       "mode": 4,
       "inputs": [
         {
@@ -296,34 +297,34 @@
           "link": 1522
         },
         {
+          "label": "视角转换｜Horizontal Angle",
           "localized_name": "Horizontal Angle",
           "name": "horizontal_angle",
           "type": "INT",
           "widget": {
             "name": "horizontal_angle"
           },
-          "link": null,
-          "label": "视角转换｜Horizontal Angle"
+          "link": null
         },
         {
+          "label": "视角转换｜Vertical Angle",
           "localized_name": "Vertical Angle",
           "name": "vertical_angle",
           "type": "INT",
           "widget": {
             "name": "vertical_angle"
           },
-          "link": null,
-          "label": "视角转换｜Vertical Angle"
+          "link": null
         },
         {
+          "label": "视角转换｜Zoom",
           "localized_name": "Zoom",
           "name": "zoom",
           "type": "FLOAT",
           "widget": {
             "name": "zoom"
           },
-          "link": null,
-          "label": "视角转换｜Zoom"
+          "link": null
         },
         {
           "localized_name": "Default Prompts",
@@ -335,14 +336,14 @@
           "link": null
         },
         {
+          "label": "视角转换｜Camera View",
           "localized_name": "Camera View",
           "name": "camera_view",
           "type": "BOOLEAN",
           "widget": {
             "name": "camera_view"
           },
-          "link": null,
-          "label": "视角转换｜Camera View"
+          "link": null
         }
       ],
       "outputs": [
@@ -361,6 +362,7 @@
           "links": null
         }
       ],
+      "title": "视角转换｜相机控制",
       "properties": {
         "Node name for S&R": "QwenMultiangleCameraNode",
         "qwenCameraState": {
@@ -384,8 +386,7 @@
         "default_prompts": true,
         "camera_view": false,
         "camera_preview": ""
-      },
-      "title": "视角转换｜相机控制"
+      }
     },
     {
       "id": 735,
@@ -403,14 +404,14 @@
       "mode": 0,
       "inputs": [
         {
+          "label": "上传元素参考图",
           "localized_name": "图像",
           "name": "image",
           "type": "COMBO",
           "widget": {
             "name": "image"
           },
-          "link": null,
-          "label": "上传元素参考图"
+          "link": null
         },
         {
           "localized_name": "选择文件上传",
@@ -460,7 +461,7 @@
         8987.756141553773
       ],
       "size": [
-        225,
+        229.5546875,
         131.75
       ],
       "flags": {},
@@ -468,6 +469,7 @@
       "mode": 4,
       "inputs": [
         {
+          "label": "SAM3 模型｜precision",
           "localized_name": "precision",
           "name": "precision",
           "shape": 7,
@@ -475,10 +477,10 @@
           "widget": {
             "name": "precision"
           },
-          "link": null,
-          "label": "SAM3 模型｜precision"
+          "link": null
         },
         {
+          "label": "SAM3 模型｜compile",
           "localized_name": "compile",
           "name": "compile",
           "shape": 7,
@@ -486,8 +488,7 @@
           "widget": {
             "name": "compile"
           },
-          "link": null,
-          "label": "SAM3 模型｜compile"
+          "link": null
         }
       ],
       "outputs": [
@@ -524,7 +525,7 @@
         793.625
       ],
       "flags": {},
-      "order": 19,
+      "order": 21,
       "mode": 4,
       "showAdvanced": false,
       "inputs": [
@@ -593,6 +594,7 @@
           "links": []
         }
       ],
+      "title": "元素分割｜SAM3 交互面板",
       "properties": {
         "Node name for S&R": "SAM3ComplexCollector"
       },
@@ -600,17 +602,16 @@
         "bbox",
         "[]",
         "[]",
-        "[{\"id\":\"3f82d28c-a51d-4d8b-90c3-2ad4d31d6fce\",\"positive_points\":[],\"negative_points\":[],\"positive_boxes\":[],\"negative_boxes\":[],\"name\":\"Prompt 1\"}]",
+        "[{\"id\":\"ef4998eb-26bd-409d-9c66-0af1d3b3d7c6\",\"positive_points\":[],\"negative_points\":[],\"positive_boxes\":[],\"negative_boxes\":[],\"name\":\"Prompt 1\"}]",
         ""
       ],
       "widgets_values_named": {
         "collector_mode": "bbox",
         "bboxes": "[]",
         "neg_bboxes": "[]",
-        "multi_prompts_store": "[{\"id\":\"3f82d28c-a51d-4d8b-90c3-2ad4d31d6fce\",\"positive_points\":[],\"negative_points\":[],\"positive_boxes\":[],\"negative_boxes\":[],\"name\":\"Prompt 1\"}]",
+        "multi_prompts_store": "[{\"id\":\"ef4998eb-26bd-409d-9c66-0af1d3b3d7c6\",\"positive_points\":[],\"negative_points\":[],\"positive_boxes\":[],\"negative_boxes\":[],\"name\":\"Prompt 1\"}]",
         "sam3_complex_collector": ""
-      },
-      "title": "元素分割｜SAM3 交互面板"
+      }
     },
     {
       "id": 747,
@@ -624,7 +625,7 @@
         275.75
       ],
       "flags": {},
-      "order": 45,
+      "order": 47,
       "mode": 4,
       "inputs": [
         {
@@ -727,11 +728,11 @@
         8905.243669452417
       ],
       "size": [
-        284.6875,
+        303.529296875,
         189.75
       ],
       "flags": {},
-      "order": 49,
+      "order": 51,
       "mode": 4,
       "inputs": [
         {
@@ -748,34 +749,34 @@
           "link": 1110
         },
         {
+          "label": "SAM3 元素提取｜模式",
           "localized_name": "模式",
           "name": "mode",
           "type": "COMBO",
           "widget": {
             "name": "mode"
           },
-          "link": null,
-          "label": "SAM3 元素提取｜模式"
+          "link": null
         },
         {
+          "label": "SAM3 元素提取｜背景",
           "localized_name": "背景",
           "name": "background",
           "type": "COMBO",
           "widget": {
             "name": "background"
           },
-          "link": null,
-          "label": "SAM3 元素提取｜背景"
+          "link": null
         },
         {
+          "label": "SAM3 元素提取｜background_color",
           "localized_name": "background_color",
           "name": "background_color",
           "type": "COLORCODE",
           "widget": {
             "name": "background_color"
           },
-          "link": null,
-          "label": "SAM3 元素提取｜background_color"
+          "link": null
         }
       ],
       "outputs": [
@@ -788,6 +789,7 @@
           ]
         }
       ],
+      "title": "SAM3 元素提取",
       "properties": {
         "Node name for S&R": "AILab_MaskExtractor"
       },
@@ -802,8 +804,7 @@
         "background_color": "#FFFFFF"
       },
       "color": "#2e3e57",
-      "bgcolor": "#4b5b73",
-      "title": "SAM3 元素提取"
+      "bgcolor": "#4b5b73"
     },
     {
       "id": 749,
@@ -813,11 +814,11 @@
         9151.913108858562
       ],
       "size": [
-        286.875,
+        332.65625,
         231.75
       ],
       "flags": {},
-      "order": 47,
+      "order": 49,
       "mode": 4,
       "inputs": [
         {
@@ -827,54 +828,54 @@
           "link": 1111
         },
         {
+          "label": "SAM3 遮罩修整｜erode_dilate",
           "localized_name": "erode_dilate",
           "name": "erode_dilate",
           "type": "INT",
           "widget": {
             "name": "erode_dilate"
           },
-          "link": null,
-          "label": "SAM3 遮罩修整｜erode_dilate"
+          "link": null
         },
         {
+          "label": "SAM3 遮罩修整｜fill_holes",
           "localized_name": "fill_holes",
           "name": "fill_holes",
           "type": "INT",
           "widget": {
             "name": "fill_holes"
           },
-          "link": null,
-          "label": "SAM3 遮罩修整｜fill_holes"
+          "link": null
         },
         {
+          "label": "SAM3 遮罩修整｜remove_isolated_pixels",
           "localized_name": "remove_isolated_pixels",
           "name": "remove_isolated_pixels",
           "type": "INT",
           "widget": {
             "name": "remove_isolated_pixels"
           },
-          "link": null,
-          "label": "SAM3 遮罩修整｜remove_isolated_pixels"
+          "link": null
         },
         {
+          "label": "SAM3 遮罩修整｜smooth",
           "localized_name": "smooth",
           "name": "smooth",
           "type": "INT",
           "widget": {
             "name": "smooth"
           },
-          "link": null,
-          "label": "SAM3 遮罩修整｜smooth"
+          "link": null
         },
         {
+          "label": "SAM3 遮罩修整｜blur",
           "localized_name": "blur",
           "name": "blur",
           "type": "INT",
           "widget": {
             "name": "blur"
           },
-          "link": null,
-          "label": "SAM3 遮罩修整｜blur"
+          "link": null
         }
       ],
       "outputs": [
@@ -887,6 +888,7 @@
           ]
         }
       ],
+      "title": "SAM3 遮罩修整",
       "properties": {
         "Node name for S&R": "MaskFix+"
       },
@@ -903,8 +905,7 @@
         "remove_isolated_pixels": 0,
         "smooth": 0,
         "blur": 0
-      },
-      "title": "SAM3 遮罩修整"
+      }
     },
     {
       "id": 750,
@@ -918,7 +919,7 @@
         159.3125
       ],
       "flags": {},
-      "order": 40,
+      "order": 42,
       "mode": 4,
       "inputs": [
         {
@@ -972,14 +973,14 @@
       "mode": 4,
       "inputs": [
         {
+          "label": "选区内要生成的内容",
           "localized_name": "值",
           "name": "value",
           "type": "STRING",
           "widget": {
             "name": "value"
           },
-          "link": null,
-          "label": "选区内要生成的内容"
+          "link": null
         }
       ],
       "outputs": [
@@ -1017,7 +1018,7 @@
         612.71875
       ],
       "flags": {},
-      "order": 20,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
@@ -1122,7 +1123,7 @@
           "widget": {
             "name": "lock_edit_region"
           },
-          "link": 1456
+          "link": null
         }
       ],
       "outputs": [
@@ -1151,7 +1152,7 @@
         true,
         true,
         true,
-        true
+        false
       ],
       "widgets_values_named": {
         "base_prompt": "生成展厅室内效果图，正对镜头的墙面为白色底，上面有Logo。",
@@ -1163,7 +1164,7 @@
         "use_theme_template": true,
         "use_space_reference": true,
         "include_people_placeholder": true,
-        "lock_edit_region": true,
+        "lock_edit_region": false,
         "use_element_reference": true
       }
     },
@@ -1179,7 +1180,7 @@
         71.75
       ],
       "flags": {},
-      "order": 41,
+      "order": 43,
       "mode": 4,
       "inputs": [
         {
@@ -1215,7 +1216,7 @@
         74.625
       ],
       "flags": {},
-      "order": 37,
+      "order": 39,
       "mode": 4,
       "inputs": [
         {
@@ -1251,7 +1252,7 @@
         425.3125
       ],
       "flags": {},
-      "order": 50,
+      "order": 52,
       "mode": 4,
       "inputs": [
         {
@@ -1261,16 +1262,17 @@
           "link": 1709
         },
         {
+          "label": "RMBG｜模型",
           "localized_name": "模型",
           "name": "model",
           "type": "COMBO",
           "widget": {
             "name": "model"
           },
-          "link": null,
-          "label": "RMBG｜模型"
+          "link": null
         },
         {
+          "label": "RMBG｜灵敏度",
           "localized_name": "灵敏度",
           "name": "sensitivity",
           "shape": 7,
@@ -1278,10 +1280,10 @@
           "widget": {
             "name": "sensitivity"
           },
-          "link": null,
-          "label": "RMBG｜灵敏度"
+          "link": null
         },
         {
+          "label": "RMBG｜处理分辨率",
           "localized_name": "处理分辨率",
           "name": "process_res",
           "shape": 7,
@@ -1289,10 +1291,10 @@
           "widget": {
             "name": "process_res"
           },
-          "link": null,
-          "label": "RMBG｜处理分辨率"
+          "link": null
         },
         {
+          "label": "RMBG｜遮罩模糊",
           "localized_name": "遮罩模糊",
           "name": "mask_blur",
           "shape": 7,
@@ -1300,10 +1302,10 @@
           "widget": {
             "name": "mask_blur"
           },
-          "link": null,
-          "label": "RMBG｜遮罩模糊"
+          "link": null
         },
         {
+          "label": "RMBG｜遮罩偏移",
           "localized_name": "遮罩偏移",
           "name": "mask_offset",
           "shape": 7,
@@ -1311,10 +1313,10 @@
           "widget": {
             "name": "mask_offset"
           },
-          "link": null,
-          "label": "RMBG｜遮罩偏移"
+          "link": null
         },
         {
+          "label": "RMBG｜反转输出",
           "localized_name": "反转输出",
           "name": "invert_output",
           "shape": 7,
@@ -1322,10 +1324,10 @@
           "widget": {
             "name": "invert_output"
           },
-          "link": null,
-          "label": "RMBG｜反转输出"
+          "link": null
         },
         {
+          "label": "RMBG｜精细前景优化",
           "localized_name": "精细前景优化",
           "name": "refine_foreground",
           "shape": 7,
@@ -1333,10 +1335,10 @@
           "widget": {
             "name": "refine_foreground"
           },
-          "link": null,
-          "label": "RMBG｜精细前景优化"
+          "link": null
         },
         {
+          "label": "RMBG｜背景类型",
           "localized_name": "背景类型",
           "name": "background",
           "shape": 7,
@@ -1344,8 +1346,7 @@
           "widget": {
             "name": "background"
           },
-          "link": null,
-          "label": "RMBG｜背景类型"
+          "link": null
         },
         {
           "localized_name": "背景颜色",
@@ -1365,7 +1366,7 @@
           "type": "IMAGE",
           "links": [
             1710,
-            1720
+            1803
           ]
         },
         {
@@ -1423,7 +1424,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 22,
+      "order": 24,
       "mode": 4,
       "inputs": [
         {
@@ -1478,7 +1479,7 @@
       ],
       "size": [
         459.59375,
-        647.328125
+        602
       ],
       "flags": {},
       "order": 4,
@@ -1528,9 +1529,7 @@
           "localized_name": "是否指定编辑区域？",
           "name": "是否指定编辑区域？",
           "type": "BOOLEAN",
-          "links": [
-            1456
-          ]
+          "links": null
         },
         {
           "label": "在编辑区域生成指定内容（文生图）",
@@ -1586,10 +1585,10 @@
         "daelab_app_heading": "展厅功能选项"
       },
       "widgets_values": [
-        "[{\"id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\",\"label\":\"是否使用提示词模板？\",\"value\":true,\"parent_id\":null},{\"id\":\"d49b9da7-d3a8-4def-85dd-e56adfbe0c70\",\"label\":\"是否在空间中生成示意人物？\",\"value\":false,\"parent_id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\"},{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":true,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":true,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"b595341b-1da5-44f8-9e51-3ffd9553de7b\",\"label\":\"元素分割方式：SAM3\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"a6437e0a-baf5-4a61-9f7a-fef7534a97d9\",\"label\":\"元素分割方式：RMBG\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"3b04f4b4-ee73-4a87-981e-a535d0b1c462\",\"label\":\"是否开启视角转换？\",\"value\":false,\"parent_id\":null}]"
+        "[{\"id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\",\"label\":\"是否使用提示词模板？\",\"value\":true,\"parent_id\":null},{\"id\":\"d49b9da7-d3a8-4def-85dd-e56adfbe0c70\",\"label\":\"是否在空间中生成示意人物？\",\"value\":false,\"parent_id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\"},{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":false,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"b595341b-1da5-44f8-9e51-3ffd9553de7b\",\"label\":\"元素分割方式：SAM3\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"a6437e0a-baf5-4a61-9f7a-fef7534a97d9\",\"label\":\"元素分割方式：RMBG\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"3b04f4b4-ee73-4a87-981e-a535d0b1c462\",\"label\":\"是否开启视角转换？\",\"value\":false,\"parent_id\":null}]"
       ],
       "widgets_values_named": {
-        "config_json": "[{\"id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\",\"label\":\"是否使用提示词模板？\",\"value\":true,\"parent_id\":null},{\"id\":\"d49b9da7-d3a8-4def-85dd-e56adfbe0c70\",\"label\":\"是否在空间中生成示意人物？\",\"value\":false,\"parent_id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\"},{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":true,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":true,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"b595341b-1da5-44f8-9e51-3ffd9553de7b\",\"label\":\"元素分割方式：SAM3\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"a6437e0a-baf5-4a61-9f7a-fef7534a97d9\",\"label\":\"元素分割方式：RMBG\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"3b04f4b4-ee73-4a87-981e-a535d0b1c462\",\"label\":\"是否开启视角转换？\",\"value\":false,\"parent_id\":null}]"
+        "config_json": "[{\"id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\",\"label\":\"是否使用提示词模板？\",\"value\":true,\"parent_id\":null},{\"id\":\"d49b9da7-d3a8-4def-85dd-e56adfbe0c70\",\"label\":\"是否在空间中生成示意人物？\",\"value\":false,\"parent_id\":\"b3b29d1b-ed49-4742-8d95-2a65b8984f24\"},{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":false,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"b595341b-1da5-44f8-9e51-3ffd9553de7b\",\"label\":\"元素分割方式：SAM3\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"a6437e0a-baf5-4a61-9f7a-fef7534a97d9\",\"label\":\"元素分割方式：RMBG\",\"value\":false,\"parent_id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"exclusive_group_id\":\"b1cda869-7e8b-4b5d-bdef-7b76afed6513\"},{\"id\":\"3b04f4b4-ee73-4a87-981e-a535d0b1c462\",\"label\":\"是否开启视角转换？\",\"value\":false,\"parent_id\":null}]"
       }
     },
     {
@@ -1604,7 +1603,7 @@
         147.3125
       ],
       "flags": {},
-      "order": 17,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
@@ -1651,12 +1650,12 @@
       ],
       "size": [
         225,
-        0
+        46
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 34,
+      "order": 36,
       "mode": 4,
       "inputs": [
         {
@@ -1699,7 +1698,7 @@
         381.03125
       ],
       "flags": {},
-      "order": 42,
+      "order": 44,
       "mode": 0,
       "inputs": [
         {
@@ -1782,7 +1781,7 @@
         212.625
       ],
       "flags": {},
-      "order": 21,
+      "order": 23,
       "mode": 4,
       "inputs": [
         {
@@ -1870,14 +1869,14 @@
       "mode": 4,
       "inputs": [
         {
+          "label": "RMBG 背景颜色",
           "localized_name": "color",
           "name": "color",
           "type": "COLOR",
           "widget": {
             "name": "color"
           },
-          "link": null,
-          "label": "RMBG 背景颜色"
+          "link": null
         },
         {
           "localized_name": "mode",
@@ -1899,6 +1898,7 @@
           ]
         }
       ],
+      "title": "RMBG 背景颜色",
       "properties": {
         "Node name for S&R": "LayerUtility: ColorPicker"
       },
@@ -1909,8 +1909,7 @@
       "widgets_values_named": {
         "color": "#FFFFFF",
         "mode": "HEX"
-      },
-      "title": "RMBG 背景颜色"
+      }
     },
     {
       "id": 979,
@@ -1924,7 +1923,7 @@
         26
       ],
       "flags": {},
-      "order": 18,
+      "order": 20,
       "mode": 4,
       "inputs": [
         {
@@ -1957,12 +1956,12 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 38,
+      "order": 40,
       "mode": 0,
       "inputs": [
         {
@@ -2002,12 +2001,12 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 39,
+      "order": 41,
       "mode": 0,
       "inputs": [
         {
@@ -2047,7 +2046,7 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
@@ -2087,7 +2086,7 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
@@ -2127,7 +2126,7 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
@@ -2167,7 +2166,7 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
@@ -2207,10 +2206,10 @@
       ],
       "size": [
         400,
-        366
+        388
       ],
       "flags": {},
-      "order": 44,
+      "order": 46,
       "mode": 4,
       "inputs": [
         {
@@ -2223,14 +2222,14 @@
           "link": 1672
         },
         {
+          "label": "局部描述生成｜模型",
           "localized_name": "模型",
           "name": "model",
           "type": "COMFY_DYNAMICCOMBO_V3",
           "widget": {
             "name": "model"
           },
-          "link": null,
-          "label": "局部描述生成｜模型"
+          "link": null
         },
         {
           "localized_name": "尺寸",
@@ -2239,8 +2238,7 @@
           "widget": {
             "name": "model.size"
           },
-          "link": null,
-          "label": "局部描述生成｜尺寸"
+          "link": null
         },
         {
           "localized_name": "自定义宽度",
@@ -2267,8 +2265,7 @@
           "widget": {
             "name": "model.background"
           },
-          "link": null,
-          "label": "局部描述生成｜背景"
+          "link": null
         },
         {
           "localized_name": "质量",
@@ -2277,15 +2274,14 @@
           "widget": {
             "name": "model.quality"
           },
-          "link": null,
-          "label": "局部描述生成｜质量"
+          "link": null
         },
         {
           "localized_name": "image_1",
           "name": "model.images.image_1",
           "shape": 7,
           "type": "IMAGE",
-          "link": 1674
+          "link": 1801
         },
         {
           "localized_name": "image_2",
@@ -2302,24 +2298,24 @@
           "link": 1673
         },
         {
+          "label": "局部描述生成｜数量",
           "localized_name": "数量",
           "name": "n",
           "type": "INT",
           "widget": {
             "name": "n"
           },
-          "link": null,
-          "label": "局部描述生成｜数量"
+          "link": null
         },
         {
+          "label": "局部描述生成｜种子",
           "localized_name": "种子",
           "name": "seed",
           "type": "INT",
           "widget": {
             "name": "seed"
           },
-          "link": null,
-          "label": "局部描述生成｜种子"
+          "link": null
         }
       ],
       "outputs": [
@@ -2328,10 +2324,11 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            1736
+            1802
           ]
         }
       ],
+      "title": "局部描述生成｜模型参数",
       "properties": {
         "Node name for S&R": "OpenAIGPTImageNodeV2"
       },
@@ -2360,8 +2357,7 @@
         "control_after_generate": "randomize"
       },
       "color": "#432",
-      "bgcolor": "#653",
-      "title": "局部描述生成｜模型参数"
+      "bgcolor": "#653"
     },
     {
       "id": 1040,
@@ -2372,10 +2368,10 @@
       ],
       "size": [
         400,
-        386
+        408
       ],
       "flags": {},
-      "order": 54,
+      "order": 55,
       "mode": 0,
       "inputs": [
         {
@@ -2388,14 +2384,14 @@
           "link": 1690
         },
         {
+          "label": "整体生成｜模型",
           "localized_name": "模型",
           "name": "model",
           "type": "COMFY_DYNAMICCOMBO_V3",
           "widget": {
             "name": "model"
           },
-          "link": null,
-          "label": "整体生成｜模型"
+          "link": null
         },
         {
           "localized_name": "尺寸",
@@ -2404,8 +2400,7 @@
           "widget": {
             "name": "model.size"
           },
-          "link": null,
-          "label": "整体生成｜尺寸"
+          "link": null
         },
         {
           "localized_name": "自定义宽度",
@@ -2414,8 +2409,7 @@
           "widget": {
             "name": "model.custom_width"
           },
-          "link": null,
-          "label": "整体生成｜自定义宽度"
+          "link": null
         },
         {
           "localized_name": "自定义高度",
@@ -2424,8 +2418,7 @@
           "widget": {
             "name": "model.custom_height"
           },
-          "link": null,
-          "label": "整体生成｜自定义高度"
+          "link": null
         },
         {
           "localized_name": "背景",
@@ -2434,8 +2427,7 @@
           "widget": {
             "name": "model.background"
           },
-          "link": null,
-          "label": "整体生成｜背景"
+          "link": null
         },
         {
           "localized_name": "质量",
@@ -2444,22 +2436,21 @@
           "widget": {
             "name": "model.quality"
           },
-          "link": null,
-          "label": "整体生成｜质量"
+          "link": null
         },
         {
           "localized_name": "image_1",
           "name": "model.images.image_1",
           "shape": 7,
           "type": "IMAGE",
-          "link": 1739
+          "link": 1799
         },
         {
           "localized_name": "image_2",
           "name": "model.images.image_2",
           "shape": 7,
           "type": "IMAGE",
-          "link": 1741
+          "link": 1800
         },
         {
           "localized_name": "image_3",
@@ -2476,24 +2467,24 @@
           "link": null
         },
         {
+          "label": "整体生成｜数量",
           "localized_name": "数量",
           "name": "n",
           "type": "INT",
           "widget": {
             "name": "n"
           },
-          "link": null,
-          "label": "整体生成｜数量"
+          "link": null
         },
         {
+          "label": "整体生成｜种子",
           "localized_name": "种子",
           "name": "seed",
           "type": "INT",
           "widget": {
             "name": "seed"
           },
-          "link": null,
-          "label": "整体生成｜种子"
+          "link": null
         }
       ],
       "outputs": [
@@ -2506,6 +2497,7 @@
           ]
         }
       ],
+      "title": "展厅整体生成｜模型参数",
       "properties": {
         "Node name for S&R": "OpenAIGPTImageNodeV2"
       },
@@ -2534,8 +2526,7 @@
         "control_after_generate": "randomize"
       },
       "color": "#432",
-      "bgcolor": "#653",
-      "title": "展厅整体生成｜模型参数"
+      "bgcolor": "#653"
     },
     {
       "id": 1049,
@@ -2546,7 +2537,7 @@
       ],
       "size": [
         410,
-        247.328125
+        232
       ],
       "flags": {
         "collapsed": false
@@ -2620,12 +2611,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 26,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -2653,12 +2644,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 25,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
@@ -2686,10 +2677,10 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {},
-      "order": 27,
+      "order": 29,
       "mode": 0,
       "inputs": [
         {
@@ -2720,7 +2711,7 @@
         494.46875
       ],
       "flags": {},
-      "order": 51,
+      "order": 53,
       "mode": 0,
       "inputs": [
         {
@@ -2736,14 +2727,14 @@
           "name": "images",
           "type": "IMAGE",
           "links": [
-            1741
+            1800
           ]
         }
       ],
+      "title": "元素参考图处理结果",
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "title": "元素参考图处理结果"
+      }
     },
     {
       "id": 1058,
@@ -2754,31 +2745,31 @@
       ],
       "size": [
         386.5625,
-        386
+        408
       ],
       "flags": {},
-      "order": 52,
-      "mode": 0,
+      "order": 54,
+      "mode": 4,
       "inputs": [
         {
+          "label": "参考元素替换要求",
           "localized_name": "提示词",
           "name": "prompt",
           "type": "STRING",
           "widget": {
             "name": "prompt"
           },
-          "link": null,
-          "label": "参考元素替换要求"
+          "link": null
         },
         {
+          "label": "元素替换｜模型",
           "localized_name": "模型",
           "name": "model",
           "type": "COMFY_DYNAMICCOMBO_V3",
           "widget": {
             "name": "model"
           },
-          "link": null,
-          "label": "元素替换｜模型"
+          "link": null
         },
         {
           "localized_name": "尺寸",
@@ -2787,8 +2778,7 @@
           "widget": {
             "name": "model.size"
           },
-          "link": null,
-          "label": "元素替换｜尺寸"
+          "link": null
         },
         {
           "localized_name": "自定义宽度",
@@ -2815,8 +2805,7 @@
           "widget": {
             "name": "model.background"
           },
-          "link": null,
-          "label": "元素替换｜背景"
+          "link": null
         },
         {
           "localized_name": "质量",
@@ -2825,22 +2814,21 @@
           "widget": {
             "name": "model.quality"
           },
-          "link": null,
-          "label": "元素替换｜质量"
+          "link": null
         },
         {
           "localized_name": "image_1",
           "name": "model.images.image_1",
           "shape": 7,
           "type": "IMAGE",
-          "link": 1736
+          "link": 1802
         },
         {
           "localized_name": "image_2",
           "name": "model.images.image_2",
           "shape": 7,
           "type": "IMAGE",
-          "link": 1720
+          "link": 1803
         },
         {
           "localized_name": "image_3",
@@ -2857,24 +2845,24 @@
           "link": null
         },
         {
+          "label": "元素替换｜数量",
           "localized_name": "数量",
           "name": "n",
           "type": "INT",
           "widget": {
             "name": "n"
           },
-          "link": null,
-          "label": "元素替换｜数量"
+          "link": null
         },
         {
+          "label": "元素替换｜种子",
           "localized_name": "种子",
           "name": "seed",
           "type": "INT",
           "widget": {
             "name": "seed"
           },
-          "link": null,
-          "label": "元素替换｜种子"
+          "link": null
         }
       ],
       "outputs": [
@@ -2882,11 +2870,10 @@
           "localized_name": "图像",
           "name": "IMAGE",
           "type": "IMAGE",
-          "links": [
-            1728
-          ]
+          "links": null
         }
       ],
+      "title": "参考元素替换｜描述与模型参数",
       "properties": {
         "Node name for S&R": "OpenAIGPTImageNodeV2"
       },
@@ -2915,8 +2902,7 @@
         "control_after_generate": "randomize"
       },
       "color": "#432",
-      "bgcolor": "#653",
-      "title": "参考元素替换｜描述与模型参数"
+      "bgcolor": "#653"
     },
     {
       "id": 1061,
@@ -2930,7 +2916,7 @@
         553.90625
       ],
       "flags": {},
-      "order": 53,
+      "order": 56,
       "mode": 0,
       "inputs": [
         {
@@ -2946,14 +2932,14 @@
           "name": "images",
           "type": "IMAGE",
           "links": [
-            1739
+            1799
           ]
         }
       ],
+      "title": "空间原图预览",
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "title": "空间参考图处理结果"
+      }
     },
     {
       "id": 1063,
@@ -2964,7 +2950,7 @@
       ],
       "size": [
         410,
-        267.328125
+        252
       ],
       "flags": {
         "collapsed": false
@@ -2999,28 +2985,21 @@
           "localized_name": "是否指定编辑区域？",
           "name": "是否指定编辑区域？",
           "type": "BOOLEAN",
-          "links": [
-            1733
-          ]
+          "links": null
         },
         {
           "label": "在编辑区域生成指定内容（文生图）",
           "localized_name": "在编辑区域生成指定内容（文生图）",
           "name": "在编辑区域生成指定内容（文生图）",
           "type": "BOOLEAN",
-          "links": [
-            1734,
-            1763
-          ]
+          "links": null
         },
         {
           "label": "将参考元素替换到编辑区域",
           "localized_name": "将参考元素替换到编辑区域",
           "name": "将参考元素替换到编辑区域",
           "type": "BOOLEAN",
-          "links": [
-            1735
-          ]
+          "links": null
         }
       ],
       "properties": {
@@ -3029,13 +3008,13 @@
         "boolean_get_include_root": true,
         "boolean_get_width": 410,
         "Node name for S&R": "BooleanListHierarchyGet",
-        "boolean_get_snapshot": "{\"version\":2,\"valid\":true,\"source_node_id\":\"928\",\"root_item_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"include_root\":true,\"items\":[{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":true,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":true,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null}],\"output_item_ids\":[\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"37fa1799-6867-4c1f-8a37-acfd2632193e\"]}"
+        "boolean_get_snapshot": "{\"version\":2,\"valid\":true,\"source_node_id\":\"928\",\"root_item_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"include_root\":true,\"items\":[{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":false,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null}],\"output_item_ids\":[\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"37fa1799-6867-4c1f-8a37-acfd2632193e\"]}"
       },
       "widgets_values": [
-        "{\"version\":2,\"valid\":true,\"source_node_id\":\"928\",\"root_item_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"include_root\":true,\"items\":[{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":true,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":true,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null}],\"output_item_ids\":[\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"37fa1799-6867-4c1f-8a37-acfd2632193e\"]}"
+        "{\"version\":2,\"valid\":true,\"source_node_id\":\"928\",\"root_item_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"include_root\":true,\"items\":[{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":false,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null}],\"output_item_ids\":[\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"37fa1799-6867-4c1f-8a37-acfd2632193e\"]}"
       ],
       "widgets_values_named": {
-        "config_json": "{\"version\":2,\"valid\":true,\"source_node_id\":\"928\",\"root_item_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"include_root\":true,\"items\":[{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":true,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":true,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null}],\"output_item_ids\":[\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"37fa1799-6867-4c1f-8a37-acfd2632193e\"]}"
+        "config_json": "{\"version\":2,\"valid\":true,\"source_node_id\":\"928\",\"root_item_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"include_root\":true,\"items\":[{\"id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"label\":\"是否使用空间参考图？\",\"value\":true,\"parent_id\":null},{\"id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"label\":\"是否指定编辑区域？\",\"value\":false,\"parent_id\":\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\"},{\"id\":\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"label\":\"在编辑区域生成指定内容（文生图）\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\"},{\"id\":\"37fa1799-6867-4c1f-8a37-acfd2632193e\",\"label\":\"将参考元素替换到编辑区域\",\"value\":false,\"parent_id\":\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"exclusive_group_id\":\"79956191-8e3c-4c48-995c-a4effe82f261\",\"requires_ids\":[\"29524db6-4079-4408-b648-9e0642ddd941\"]},{\"id\":\"29524db6-4079-4408-b648-9e0642ddd941\",\"label\":\"是否使用元素参考图？\",\"value\":true,\"parent_id\":null}],\"output_item_ids\":[\"48d30b91-fe23-4a5c-b766-904f29b2dd5d\",\"5ce3dc89-c3d0-42fc-a4f1-28125899e1e2\",\"4a01cdeb-c462-4188-b090-62752b8517ec\",\"37fa1799-6867-4c1f-8a37-acfd2632193e\"]}"
       }
     },
     {
@@ -3047,19 +3026,19 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 30,
-      "mode": 0,
+      "order": 32,
+      "mode": 4,
       "inputs": [
         {
           "localized_name": "boolean",
           "name": "boolean",
           "type": "BOOLEAN",
-          "link": 1733
+          "link": null
         }
       ],
       "outputs": [],
@@ -3080,19 +3059,19 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 31,
-      "mode": 0,
+      "order": 33,
+      "mode": 4,
       "inputs": [
         {
           "localized_name": "boolean",
           "name": "boolean",
           "type": "BOOLEAN",
-          "link": 1734
+          "link": null
         }
       ],
       "outputs": [],
@@ -3113,17 +3092,17 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {},
-      "order": 33,
-      "mode": 0,
+      "order": 35,
+      "mode": 4,
       "inputs": [
         {
           "localized_name": "boolean",
           "name": "boolean",
           "type": "BOOLEAN",
-          "link": 1735
+          "link": null
         }
       ],
       "outputs": [],
@@ -3144,12 +3123,12 @@
       ],
       "size": [
         225,
-        0
+        26
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 55,
+      "order": 57,
       "mode": 0,
       "inputs": [
         {
@@ -3169,10 +3148,10 @@
           ]
         }
       ],
+      "title": "展厅生成结果",
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "title": "展厅生成结果"
+      }
     },
     {
       "id": 1068,
@@ -3183,12 +3162,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 29,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
@@ -3216,12 +3195,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 28,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
@@ -3249,12 +3228,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 23,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
@@ -3282,12 +3261,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 24,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
@@ -3315,19 +3294,19 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 32,
-      "mode": 0,
+      "order": 34,
+      "mode": 4,
       "inputs": [
         {
           "localized_name": "boolean",
           "name": "boolean",
           "type": "BOOLEAN",
-          "link": 1763
+          "link": null
         }
       ],
       "outputs": [],
@@ -3348,12 +3327,12 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 56,
+      "order": 58,
       "mode": 0,
       "inputs": [
         {
@@ -3393,7 +3372,7 @@
       ],
       "size": [
         241.25,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
@@ -3436,7 +3415,7 @@
         626.71875
       ],
       "flags": {},
-      "order": 48,
+      "order": 50,
       "mode": 4,
       "inputs": [
         {
@@ -3454,10 +3433,10 @@
           "links": null
         }
       ],
+      "title": "视角转换结果",
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "title": "视角转换结果"
+      }
     },
     {
       "id": 1080,
@@ -3468,7 +3447,7 @@
       ],
       "size": [
         410,
-        207.328125
+        192
       ],
       "flags": {
         "collapsed": false
@@ -3522,12 +3501,12 @@
       ],
       "size": [
         380,
-        218
+        216
       ],
       "flags": {
         "collapsed": false
       },
-      "order": 35,
+      "order": 37,
       "mode": 0,
       "inputs": [
         {
@@ -3555,7 +3534,7 @@
       ],
       "size": [
         225,
-        0
+        34
       ],
       "flags": {
         "collapsed": true
@@ -3598,7 +3577,7 @@
         578.84375
       ],
       "flags": {},
-      "order": 36,
+      "order": 38,
       "mode": 0,
       "inputs": [
         {
@@ -3616,10 +3595,132 @@
           "links": null
         }
       ],
+      "title": "最终展厅输出",
       "properties": {
         "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 1088,
+      "type": "LoadImage",
+      "pos": [
+        -81231.50739608063,
+        6072.879855331448
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "图像",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "选择文件上传",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "图像",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "localized_name": "遮罩",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "App Mode · 局部修改",
+      "properties": {
+        "Node name for S&R": "LoadImage"
       },
-      "title": "最终展厅输出"
+      "widgets_values": [
+        "bg.jpg",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "bg.jpg",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 1089,
+      "type": "LoadImage",
+      "pos": [
+        -80881.50739608063,
+        6072.879855331448
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "图像",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "选择文件上传",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "图像",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "localized_name": "遮罩",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "App Mode · 抠图",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "3.jpg",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "3.jpg",
+        "upload": "image"
+      }
     }
   ],
   "links": [
@@ -3736,14 +3837,6 @@
       "BOOLEAN"
     ],
     [
-      1456,
-      928,
-      3,
-      790,
-      10,
-      "BOOLEAN"
-    ],
-    [
       1474,
       674,
       0,
@@ -3856,14 +3949,6 @@
       "MASK"
     ],
     [
-      1674,
-      673,
-      0,
-      1035,
-      7,
-      "IMAGE"
-    ],
-    [
       1675,
       989,
       0,
@@ -3936,14 +4021,6 @@
       "BOOLEAN"
     ],
     [
-      1720,
-      851,
-      0,
-      1058,
-      8,
-      "IMAGE"
-    ],
-    [
       1722,
       987,
       0,
@@ -3961,58 +4038,10 @@
     ],
     [
       1728,
-      1058,
+      674,
       0,
       1061,
       0,
-      "IMAGE"
-    ],
-    [
-      1733,
-      1063,
-      1,
-      1064,
-      0,
-      "BOOLEAN"
-    ],
-    [
-      1734,
-      1063,
-      2,
-      1065,
-      0,
-      "BOOLEAN"
-    ],
-    [
-      1735,
-      1063,
-      3,
-      1066,
-      0,
-      "BOOLEAN"
-    ],
-    [
-      1736,
-      1035,
-      0,
-      1058,
-      7,
-      "IMAGE"
-    ],
-    [
-      1739,
-      1061,
-      0,
-      1040,
-      7,
-      "IMAGE"
-    ],
-    [
-      1741,
-      1056,
-      0,
-      1040,
-      8,
       "IMAGE"
     ],
     [
@@ -4052,14 +4081,6 @@
       1049,
       0,
       1071,
-      0,
-      "BOOLEAN"
-    ],
-    [
-      1763,
-      1063,
-      2,
-      1074,
       0,
       "BOOLEAN"
     ],
@@ -4110,6 +4131,46 @@
       790,
       8,
       "BOOLEAN"
+    ],
+    [
+      1799,
+      1061,
+      0,
+      1040,
+      7,
+      "IMAGE"
+    ],
+    [
+      1800,
+      1056,
+      0,
+      1040,
+      8,
+      "IMAGE"
+    ],
+    [
+      1801,
+      673,
+      0,
+      1035,
+      7,
+      "IMAGE"
+    ],
+    [
+      1802,
+      1035,
+      0,
+      1058,
+      7,
+      "IMAGE"
+    ],
+    [
+      1803,
+      851,
+      0,
+      1058,
+      8,
+      "IMAGE"
     ]
   ],
   "groups": [
@@ -4301,8 +4362,8 @@
         "version": 1,
         "state": {
           "lastGroupId": 127,
-          "lastNodeId": 1087,
-          "lastLinkId": 1778,
+          "lastNodeId": 1089,
+          "lastLinkId": 1803,
           "lastRerouteId": 29
         },
         "revision": 0,
@@ -5754,6 +5815,46 @@
   },
   "config": {},
   "extra": {
+    "daelabImageEditingV1": {
+      "version": 1,
+      "kind": "exhibition",
+      "local": 1088,
+      "cutout": 1089,
+      "sources": {
+        "local": 674,
+        "cutout": 735
+      },
+      "panelRevision": "20261119.5"
+    },
+    "daelabExhibitionUiV1": {
+      "version": 1,
+      "panelRevision": "20261119.5",
+      "sections": {
+        "businessInputKeys": [
+          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:928:boolean_hierarchy_editor",
+          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:790:base_prompt",
+          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:790:style_thumbnail_dom_selector"
+        ]
+      },
+      "build": {
+        "nodeId": 1040,
+        "type": "OpenAIGPTImageNodeV2",
+        "widgets": {
+          "model": "model",
+          "size": "model.size",
+          "width": "model.custom_width",
+          "height": "model.custom_height",
+          "quality": "model.quality",
+          "count": "n"
+        },
+        "inputKeys": {
+          "size": "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:1040:model.size",
+          "quality": "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:1040:model.quality",
+          "count": "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:1040:n"
+        },
+        "independentLocalEdit": true
+      }
+    },
     "frontendVersion": "1.45.20",
     "VHS_latentpreview": false,
     "VHS_latentpreviewrate": 0,
@@ -5762,8 +5863,8 @@
     "ds": {
       "scale": 0.5054470284992957,
       "offset": [
-        81359.77639001649,
-        -7449.02497966473
+        79875.94137326523,
+        -8932.859996415735
       ]
     },
     "linearData": {
@@ -5783,14 +5884,6 @@
         [
           "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:674:image",
           "image"
-        ],
-        [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:673:polygon_canvas",
-          "polygon_canvas"
-        ],
-        [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:784:value",
-          "value"
         ],
         [
           "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:735:image",
@@ -5877,10 +5970,6 @@
           "color"
         ],
         [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:1058:prompt",
-          "prompt"
-        ],
-        [
           "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:1040:model.size",
           "model.size"
         ],
@@ -5893,26 +5982,6 @@
           "n"
         ],
         [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:699:horizontal_angle",
-          "horizontal_angle"
-        ],
-        [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:699:vertical_angle",
-          "vertical_angle"
-        ],
-        [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:699:zoom",
-          "zoom"
-        ],
-        [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:699:camera_view",
-          "camera_view"
-        ],
-        [
-          "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:697:lora_name",
-          "lora_name"
-        ],
-        [
           "084c30d0-3aa3-4fc3-82dd-a3d5d553673f:699:camera_preview",
           "camera_preview"
         ]
@@ -5923,6 +5992,21 @@
         "1061",
         "1056"
       ]
+    },
+    "daelabGenerationUiV1": {
+      "version": 1,
+      "stages": {
+        "exhibition.reference": {
+          "collapsed": false
+        },
+        "exhibition.features": {
+          "collapsed": false
+        },
+        "exhibition.build": {
+          "collapsed": false
+        }
+      },
+      "migrations": {}
     }
   },
   "version": 0.4

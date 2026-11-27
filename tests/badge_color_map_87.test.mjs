@@ -3,8 +3,8 @@ import {badgeText} from '../web/badge_ui_text.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {normalizeImageSelection,buildImageViewPath} from '../web/app_mode_load_image_preview_model.mjs';
-import {BADGE87_IMAGE_MODEL} from '../web/badge_execution_87_model.mjs';
-import {refinedBadge87, selectedBadgeModel} from '../web/badge_refinement_87.mjs';
+import {selectedBadgeModel} from '../web/badge_refinement_87.mjs';
+import {findAccessModel} from '../web/model_access.mjs';
 
 // Execute the production runner with browser/queue boundaries replaced, so an
 // accidental submission from the read-only restoration path fails this test.
@@ -13,8 +13,8 @@ const body=source.slice(source.indexOf('    const {app}'),source.lastIndexOf('}'
     .replace(/^    const \{(?:app|api|getBadgeNativeQueue)\} = await import\([^\n]+\);\r?\n/gm,'');
 const run=new (Object.getPrototypeOf(async function(){}).constructor)(
     'graph','pixels','cancelled','regenerate','allowGenerate','app','api','getBadgeNativeQueue',
-    'queueBadge87','promptForRequest','normalizeImageSelection','buildImageViewPath','Image','document','BADGE87_IMAGE_MODEL','refinedBadge87','selectedBadgeModel','badgeText',body);
-async function fixture(allowGenerate, cached=false, model=BADGE87_IMAGE_MODEL) {
+    'queueBadge87','promptForRequest','normalizeImageSelection','buildImageViewPath','Image','document','loadModelAccess','findAccessModel','selectedBadgeModel','badgeText',body);
+async function fixture(allowGenerate, cached=false, model='matched-image') {
     let submissions=0;
     const image={filename:'target.png',subfolder:'',type:'input'};
     const meta={localReferenceNodeId:146};
@@ -25,7 +25,8 @@ async function fixture(allowGenerate, cached=false, model=BADGE87_IMAGE_MODEL) {
         ()=>()=>{},async()=>{submissions++;return {prompt_id:'job'}},()=>({}),
         normalizeImageSelection,buildImageViewPath,
         class {naturalWidth=32;naturalHeight=32;async decode(){}},
-        {createElement:()=>({getContext:()=>({drawImage(){},getImageData:()=>({ready:true})})})},BADGE87_IMAGE_MODEL,refinedBadge87,selectedBadgeModel,badgeText);
+        {createElement:()=>({getContext:()=>({drawImage(){},getImageData:()=>({ready:true})})})},
+        async()=>({defaultModel:'matched-image',models:[{id:'matched-image'}]}),findAccessModel,selectedBadgeModel,badgeText);
     return {submissions,result};
 }
 test('entering a map source without a saved map cannot submit GPT work',async()=>{

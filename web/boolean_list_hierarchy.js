@@ -1,3 +1,4 @@
+import { restoreAppModeDomWidget } from './dynamic_widget_lifecycle.mjs?v=20261119-app-mode-restore';
 import { app } from "/scripts/app.js";
 // Comfy Desktop may retain extension modules across reloads. Keep this version
 // aligned with named-export changes in the model to avoid a partial cache hit.
@@ -829,6 +830,7 @@ function ensureEditorWidget(node) {
         minWidth: 360,
     });
     node._booleanHierarchyWidget = widget;
+    node.daelabRestoreHierarchyAppMode = item => restoreAppModeDomWidget(item, widget);
     node._booleanHierarchyContainer = container;
 }
 
@@ -931,6 +933,7 @@ app.registerExtension({
             if (this._booleanHierarchyFrame) cancelAnimationFrame(this._booleanHierarchyFrame);
             this._booleanHierarchyContainer?.remove();
             this._booleanHierarchyFrame = null;
+            delete this.daelabRestoreHierarchyAppMode;
             this._booleanHierarchyWidget = null;
             this._booleanHierarchyContainer = null;
             this._booleanHierarchyGroupEditor = null;

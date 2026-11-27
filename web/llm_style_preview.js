@@ -55,7 +55,7 @@ app.registerExtension({
 let registered=false;
 function register(){
     const api=globalThis[Symbol.for('DAELAB.CreativeCanvas.API.v1')];
-    if(registered||api?.version!==1)return;
+    if(YIELDED_EXTENSIONS.includes('DAELab.LLMStylePreview')||registered||api?.version!==1)return;
     api.registerAdapter('daelab.llm-style-preview',{
         matches:node=>STYLE_VARIANTS.some(v=>v.type===node.type),
         menu:[{label:'LLM优化功能',type:'DAELAB.LLMStylePreviewB',icon:'sparkling-line'}],

@@ -1,6 +1,6 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-dimensions-2';
 import { usesLocalRegions87, readLocalRegions87 } from './badge_local_regions_87_model.mjs?v=20260917-metal-color-1';
-import { refinedBadge87, selectedBadgeModel, BADGE_MODELS, localTargetSize87, removedMaterial87 } from './badge_refinement_87.mjs?v=20260916-ui-2';
+import { refinedBadge87, selectedBadgeModel, localTargetSize87, removedMaterial87 } from './badge_refinement_87.mjs?v=20261119-model-matching';
 import { usesLocalMaterials88, localMaterialNodeId88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
 import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20260916-content-1';
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911-88-1';
@@ -8,6 +8,18 @@ import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs?v=20260911
 export const RATIOS = ['1:1', '2:3', '3:2', '16:9', '9:16'];
 export const SIZE_PRESETS = ['1024x1024', '1024x1536', '1536x1024', '2048x2048', '2048x1152', '1152x2048'];
 export const DEFAULT_CONFIG = Object.freeze({ ratio: '1:1', tier: '1K', width: 1024, height: 1024, custom: false, locked: true });
+
+export function badgeExecutionSize(width, height, modelSizes) {
+    const size = width + 'x' + height;
+    return SIZE_PRESETS.includes(size) && modelSizes.includes(size) ? size : 'Custom';
+}
+
+export function badgeBuildPriceParameters(request, modelSizes) {
+    const { width, height, quality, count, seed } = request;
+    const size = badgeExecutionSize(width, height, modelSizes);
+    const references = request.prompt_only ? 0 : Number(Boolean(request.image)) + Number(request.height_board != null);
+    return { parameters: { size, width, height, quality, count, seed, background: 'opaque' }, references };
+}
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
 export function classifyPresets(sizes = SIZE_PRESETS) {
     return sizes.flatMap(size => {
@@ -42,7 +54,7 @@ export function validateDimensions({ width, height }) {
 export function generationParameters(config) {
     const error = validateDimensions(config);
     if (error) throw new Error(error);
-    return { model: config.model || 'gpt-image-2', 'model.size': config.custom || config.size === 'Custom' ? 'Custom' : `${config.width}x${config.height}`,
+    return { ...(config.model != null ? { model: config.model } : {}), 'model.size': config.custom || config.size === 'Custom' ? 'Custom' : `${config.width}x${config.height}`,
         'model.custom_width': config.width, 'model.custom_height': config.height };
 }
 export function editDimension(config, axis, value) {
@@ -88,7 +100,6 @@ export function stageSnapshot(graph, stage) {
     const value = (id, name) => node(id)?.widgets?.find(w => w.name === name)?.value ?? node(id)?.widgets_values_named?.[name];
     const config = readGenerationConfig(graph, stage), ids = stageNodeIds(graph, stage);
     let error = validateDimensions(config);
-    if (refinedBadge87(graph) && !BADGE_MODELS.some(([id]) => id === config.model)) error = badgeText("generation_model.text_006");
     if (refinedBadge87(graph) && stage === 'local' && !config.width) error = badgeText("generation_model.text_007");
     if (refinedBadge87(graph) && stage === 'build' && !isPromptOnlyBuild(graph) && meta.heightEnabled !== false && (meta.heightBoard?.count ?? 6) > 5) error = badgeText("generation_model.text_008");
     if (!error && stage === 'build' && isPromptOnlyBuild(graph) && !String(meta.buildPrompt || '').trim()) error = badgeText("generation_model.text_009");

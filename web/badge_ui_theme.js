@@ -1,4 +1,4 @@
-import { BADGE_UI_CSS } from './badge_ui_styles.mjs?v=20260909-material-strip-height';
+import { BADGE_UI_CSS } from './badge_ui_styles.mjs?v=20261119-stage-tabs';
 
 // A separate entry lets ComfyUI discover theme updates even when it cached the
 // existing workspace module. Reuse one style element across repeated imports.

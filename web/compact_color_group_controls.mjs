@@ -151,10 +151,12 @@ export function boundedNumberDragValue(start, delta, min, max, step = 1, pixelsP
 export function bindCompactNumberDrag(input, {onCommit, valueFromDrag = (start, delta) => boundedNumberDragValue(start, delta,
     Number(input.min || 0), Number(input.max || Number.MAX_SAFE_INTEGER), Number(input.step || 1))} = {}) {
     const commit = value => onCommit?.(value);
+    const events = new AbortController();
+    const listen = (name, callback) => input.addEventListener(name, callback, { signal: events.signal });
     let dragState = null;
     let suppressClick = false;
 
-    input.addEventListener("pointerdown", (event) => {
+    listen("pointerdown", (event) => {
         if (input.disabled || input.readOnly) return;
         if (event.button != null && event.button !== 0) return;
         const clientX = Number(event.clientX);
@@ -172,7 +174,7 @@ export function bindCompactNumberDrag(input, {onCommit, valueFromDrag = (start, 
         }
     });
 
-    input.addEventListener("pointermove", (event) => {
+    listen("pointermove", (event) => {
         if (!dragState || event.pointerId !== dragState.pointerId) return;
         const deltaX = Number(event.clientX) - dragState.startX;
         if (!Number.isFinite(deltaX)) return;
@@ -198,15 +200,23 @@ export function bindCompactNumberDrag(input, {onCommit, valueFromDrag = (start, 
         else commit(input.value);
     };
 
-    input.addEventListener("pointerup", (event) => finishDrag(event));
-    input.addEventListener("pointercancel", (event) => finishDrag(event, { cancelled: true }));
-    input.addEventListener("lostpointercapture", (event) => finishDrag(event));
-    input.addEventListener("click", (event) => {
+    listen("pointerup", (event) => finishDrag(event));
+    listen("pointercancel", (event) => finishDrag(event, { cancelled: true }));
+    listen("lostpointercapture", (event) => finishDrag(event));
+    listen("click", (event) => {
         if (!suppressClick) return;
         suppressClick = false;
         event.preventDefault?.();
     });
 
+    return () => {
+        events.abort();
+        if (dragState && input.hasPointerCapture?.(dragState.pointerId)) {
+            input.releasePointerCapture?.(dragState.pointerId);
+        }
+        dragState = null;
+        delete input.dataset.dragging;
+    };
 }
 
 export function bindCompactGroupSelection(card, onSelect) {

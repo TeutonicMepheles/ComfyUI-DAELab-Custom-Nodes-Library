@@ -1,8 +1,9 @@
+import { canvasWebAssetsAvailable } from './optional_canvas_assets.mjs';
 // Optional shared controls. Business tables remain usable without Creative Canvas.
 let shared = null;
-try { shared = await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_button.mjs'); } catch {}
+if (await canvasWebAssetsAvailable()) try { shared = await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_button.mjs'); } catch {}
 let sharedHistory = null;
-try { sharedHistory = await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_history.mjs'); } catch {}
+if (await canvasWebAssetsAvailable()) try { sharedHistory = await import('/extensions/ComfyUI-DAELab-Creative-Canvas/creative_history.mjs'); } catch {}
 
 export function tableHistory(app) {
     return sharedHistory?.canvasHistory(app) || null;

@@ -39,7 +39,7 @@ import {
 } from "./polygon_mask_events.mjs?v=20260904-1";
 
 const EXTENSION_NAME = "DAELab.BadgeAppLayoutV1";
-const UI_VERSION = 2026091601;
+const UI_VERSION = 2026111902;
 const GLOBAL_RUNTIME_KEY = "__DAELAB_BADGE_APP_LAYOUT_RUNTIME__";
 const GLOBAL_MODULE_KEY = "__DAELAB_BADGE_APP_LAYOUT_MODULE_VERSION__";
 const ROOT_SELECTOR = '[data-testid="linear-widgets"]';
@@ -63,6 +63,10 @@ function ensureStyles() {
     --daelab-app-tabs-height: 48px;
     --daelab-app-dock-height: 180px;
     --daelab-app-expanded-dock-height: 180px;
+}
+[${BADGE_APP_LAYOUT_ACTIVE_ATTRIBUTE}] > [data-testid="app-mode-widget-item"]
+    :is(.lg-slot, [data-testid="widget-actions-menu"], button:has(.icon-\\[comfy--mask\\])) {
+    display: none !important;
 }
 [${OWNED_ATTRIBUTE}="tabs"] {
     position: sticky; top: 0; z-index: 31; display: flex; flex: 0 0 auto; gap: 6px;
@@ -379,7 +383,11 @@ function createRuntime() {
         tabsBar = makeOwned("div", "tabs");
         const tabList = graph.extra?.daelabBadgeExecutionV1?.version === 1
             ? document.createElement('div') : tabsBar;
-        if (tabList !== tabsBar) { tabList.className = 'badge-stage-tabs'; tabsBar.append(tabList); }
+        if (tabList !== tabsBar) {
+            tabsBar.dataset.badgeUi = "87";
+            tabList.className = "badge-stage-tabs";
+            tabsBar.append(tabList);
+        }
         tabList.setAttribute("role", "tablist");
         tabList.setAttribute("aria-label", badgeText("app_layout.text_005"));
         const disabledDescription = document.createElement("span");

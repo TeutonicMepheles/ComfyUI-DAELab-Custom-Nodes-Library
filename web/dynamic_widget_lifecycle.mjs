@@ -26,3 +26,16 @@ export function removeOwnedWidgets(node, ownerProperty) {
     }
     return ownedWidgets.length;
 }
+
+// The official App Mode DOMWidget may leave its mount empty after a mode rebuild.
+// Restore the owner's existing element into the empty content cell, preserving Vue's row.
+export function restoreAppModeDomWidget(item, widget) {
+    const element = widget?.element ?? widget?.inputEl;
+    if (!element || !item || item.hidden || item.inert) return false;
+    const mount = [...item.querySelectorAll('[data-testid="node-widget"][data-widget-name]')]
+        .find(row => row.dataset.widgetName === widget.name)
+        ?.querySelector(':scope > .col-span-2 > .col-span-2[model-value]');
+    if (!mount || mount.childElementCount) return false;
+    mount.append(element);
+    return true;
+}

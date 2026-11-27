@@ -1,19 +1,34 @@
 import { badgeText } from './badge_ui_text.mjs?v=20260917-simple-1';
 import { app } from '/scripts/app.js';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
-import { isBadge87 } from './badge_execution_87_model.mjs?v=20260918-target-only-1';
+import { isBadge87 } from './badge_execution_87_model.mjs?v=20261119-model-matching';
 import { getRootGraphSafely } from './app_mode_bypass_model.mjs?v=20260911-88-1';
-import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs?v=20260917-dimensions-2';
+import { stageSnapshot, stageNodeIds } from './badge_generation_model.mjs?v=20261119-model-matching';
 import { APPLY_ITEM, PROTOTYPE_PROPERTY, createPrototypeQueueHandler,
     isBadgePrototype, isSamePrototype, prototypeSnapshot, simulateRun } from './badge_app_prototype_model.mjs?v=20260916-content-1';
 
 // An opt-in adapter. Existing workflows always delegate to ComfyUI unchanged.
+import { captureGenerationHistory, generationLoadIdentity, markGenerationGraphLoaded, migrateInitialCount } from './generation_ui_model.mjs';
+import { refinedBadge87 } from './badge_refinement_87.mjs?v=20261119-model-matching';
+
+function migrateBuildCount(graph) {
+    const generation = graph?.extra?.daelabBadgePrototypeV1?.generation;
+    if (!isBadge87(graph) || refinedBadge87(graph) || !generation?.build) return;
+    migrateInitialCount(graph, generation.build.count, value => {
+        generation.build.count = value;
+    }, (before, after) => app.extensionManager?.toast?.add?.({
+        severity: 'info', life: 4500, summary: '徽章初次生成张数已从 ' + before + ' 调整为 ' + after + '，请保存工作流。',
+    }), () => captureGenerationHistory(app, graph));
+}
+
 const INSTALL_KEY = Symbol.for('DAELAB.BadgeAppPrototype.v1');
 const sessions = new WeakMap();
 let banner = null;
 let bannerGraph = null;
 function session(graph) {
-    if (!sessions.has(graph) || sessions.get(graph).workflowId !== graph.id) sessions.set(graph, {
+    const epoch = generationLoadIdentity(graph);
+    if (!sessions.has(graph) || sessions.get(graph).workflowId !== graph.id || sessions.get(graph).epoch !== epoch) sessions.set(graph, {
+        epoch,
         workflowId: graph.id,
         phase: 'idle', preview: null, busy: false,
         message: badgeText("app_prototype.text_001"),
@@ -32,7 +47,7 @@ export function getPrototypeSession(graph, stage) {
     const state = session(graph);
     if (!stage) return state;
     state.stages ??= {};
-    return state.stages[stage] ??= { phase: 'idle', preview: null, busy: false, message: isBadge87(graph) ? badgeText("app_prototype.text_002") : '' };
+    return state.stages[stage] ??= { phase: 'idle', preview: null, busy: false, message: '' };
 }
 export async function run(graph, stage) {
     if (!isBadgePrototype(graph)) return;
@@ -43,10 +58,12 @@ export async function run(graph, stage) {
         for (const node of ids.map(id => graph.getNodeById(id)).filter(Boolean)) {
             for (const widget of node.widgets || []) widget.beforeQueued?.();
         }
-        const { execute87 } = await import('./badge_execution_87.mjs?v=20260916-content-1');
+        const epoch = generationLoadIdentity(graph);
+        const { execute87 } = await import('./badge_execution_87.mjs?v=20261119-model-matching');
+        if (getRootGraphSafely(app) !== graph || generationLoadIdentity(graph) !== epoch) return;
         return execute87(graph, stage, getPrototypeSession(graph, stage), app, nativeQueue, getPrototypeSession(graph, 'local'));
     }
-    const workflowId = graph.id;
+    const workflowId = graph.id, epoch = generationLoadIdentity(graph);
     const state = getPrototypeSession(graph, stage);
     if (state.busy) return;
     // Flush deferred color/polygon values just as a real queue submission would.
@@ -61,7 +78,7 @@ export async function run(graph, stage) {
     sync();
     await new Promise(resolve => setTimeout(resolve, 400));
     // Never apply completion to a different workflow or a changed draft.
-    if (!isSamePrototype(graph, workflowId)) {
+    if (!isSamePrototype(graph, workflowId) || generationLoadIdentity(graph) !== epoch) {
         state.busy = false;
         return;
     }
@@ -79,6 +96,7 @@ export async function run(graph, stage) {
 }
 function sync() {
     const graph = getRootGraphSafely(app);
+    if (!app.configuringGraph) migrateBuildCount(graph);
     syncBadgeMediaScope87(graph);
     const root = document.querySelector('[data-testid="linear-widgets"]');
     if (!isBadgePrototype(graph) || !root) {
@@ -139,7 +157,12 @@ let nativeQueue;
 export function getBadgeNativeQueue() { return nativeQueue; }
 app.registerExtension({
     name: 'DAELAB.BadgeAppPrototype',
-    afterConfigureGraph() { syncBadgeMediaScope87(getRootGraphSafely(app), 'build'); },
+    afterConfigureGraph() {
+        const graph = app.rootGraph;
+        if (!graph) return;
+        markGenerationGraphLoaded(graph, Boolean(app.extensionManager?.workflow?.activeWorkflow?.changeTracker?._restoringState));
+        syncBadgeMediaScope87(getRootGraphSafely(app), 'build');
+    },
     setup() {
         if (app[INSTALL_KEY]) return;
         app[INSTALL_KEY] = true;

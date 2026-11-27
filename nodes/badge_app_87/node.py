@@ -16,17 +16,15 @@ from PIL import Image, ImageOps
 from ..gpt_image2_material_prompt.node import load_materials, resolve_material
 from .prompts import build_prompt, material_details, masked_prompt, semantic_prompt, studio_prompt, material_strength_prompt, color_exception
 from .prompt_assembler import describe, join, render, ui_text, legacy_uploaded_reference
+from ...model_access.runtime import image_node, provider_for
 
 _PREVIEWS = {}
-IMAGE_MODEL = 'gpt-image-2.5-sunburst'
-IMAGE_MODELS = ('gpt-image-2.5-sunburst', 'gpt-image-2.5-flare', 'gpt-image-2')
 _LOCK = Lock()
 
 def selected_model(request):
-    model = request.get('model', IMAGE_MODEL)
-    if model not in IMAGE_MODELS:
-        raise ValueError(ui_text('backend.error_001'))
-    return model
+    stage = request.get('stage')
+    preview = stage == 'effect' or stage == 'color_map' or stage == 'local' and not request.get('apply')
+    return provider_for(request.get('model'), stage='local' if stage == 'effect' else stage, preview=preview)
 
 
 
@@ -139,7 +137,10 @@ def prepare(request):
     stage = request.get('stage')
     if stage not in ('build', 'local', 'studio', 'effect', 'color_map'):
         raise ValueError(ui_text('backend.error_007'))
-    if request.get('quality', 'low') not in ('low', 'medium', 'high') or type(request.get('count', 1)) is not int or not 1 <= request.get('count', 1) <= 8:
+    count = request.get('count', 1)
+    if stage == 'build' and (type(count) is not int or not 1 <= count <= 4):
+        raise ValueError(ui_text('generation_ui.build_count_backend'))
+    if request.get('quality', 'low') not in ('low', 'medium', 'high') or type(count) is not int or not 1 <= count <= 8:
         raise ValueError(ui_text('backend.error_008'))
     base_prompt = str(request.get('prompt', '')).strip()
     color_reference = None
@@ -347,7 +348,7 @@ class BadgeApp87V1:
             if name == 'generate' and stage == 'local':
                 report['effective_prompt'] = str(inputs['prompt'])
             inputs['prompt'] = str(inputs['prompt'])
-            return graph.node('OpenAIGPTImageNodeV2', id=name, **inputs).out(0)
+            return image_node(graph, name, inputs, stage=stage).out(0)
         from .prompts import color_finish_prompt
         # Masked calls use one image. Color references belong to the unmasked finish.
         initial_prompt = prepared['prompt']

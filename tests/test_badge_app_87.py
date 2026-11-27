@@ -17,6 +17,21 @@ M = importlib.import_module('badge87_test_package.nodes.badge_app_87.node')
 
 
 class Badge87Tests(unittest.TestCase):
+    def test_initial_count_is_strict_and_other_stages_keep_legacy_counts(self):
+        for count in (1, 4):
+            request = self.request(stage='build', prompt_only=True, count=count)
+            M.prepare(request)
+        for count in (0, 5, 8, 9, -1, 1.5, None, True, '2'):
+            with self.subTest(count=count), self.assertRaisesRegex(ValueError, '1 to 4'):
+                M.prepare(self.request(stage='build', prompt_only=True, count=count))
+        for stage in ('local', 'studio', 'effect', 'color_map'):
+            request = self.request(stage=stage, count=8)
+            with self.subTest(stage=stage), patch.object(M, 'load_source', return_value=self.source()):
+                try:
+                    M.prepare(request)
+                except ValueError as error:
+                    self.assertNotRegex(str(error), 'image count|1 to 4')
+
     def test_official_dimension_limits(self):
         for w, h in [(1536, 864), (864, 1536), (1280, 512), (512, 1280),
                      (1536, 512), (3840, 2160), (2160, 3840)]:
@@ -104,7 +119,7 @@ class Badge87Tests(unittest.TestCase):
                 return types.SimpleNamespace(out=lambda index: [kind, index])
             def finalize(self): return {}
         module.GraphBuilder = Graph
-        for model in M.IMAGE_MODELS:
+        for model in ('gpt-image-2.5-sunburst', 'gpt-image-2.5-flare', 'gpt-image-2'):
             calls.clear()
             request = self.request(stage='build', interaction_revision=2, model=model)
             with patch.dict(sys.modules, {'comfy_execution.graph_utils': module}), patch.object(M, 'load_source', return_value=self.source()):
@@ -114,7 +129,7 @@ class Badge87Tests(unittest.TestCase):
             self.assertTrue(all(p['model'] == model for p in generators))
             self.assertEqual(result['ui']['badge87_report'][0]['model'], model)
         with self.assertRaises(ValueError):
-            M.prepare(self.request(model='unknown'))
+            M.prepare(self.request(stage='build', prompt_only=True, model='unknown'))
 
     def test_color_map_expansion_passes_sunburst_to_shared_node(self):
         module = types.ModuleType('comfy_execution.graph_utils')

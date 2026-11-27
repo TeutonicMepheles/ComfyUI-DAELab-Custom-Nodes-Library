@@ -447,9 +447,15 @@ function syncGetNode(node) {
     }
 }
 
+export function syncBooleanHierarchyGets(graph) {
+    for (const node of Array.from(getNodes)) {
+        if (!graph || node.graph === graph) syncGetNode(node);
+    }
+}
+
 function runSync() {
     syncQueued = false;
-    for (const node of Array.from(getNodes)) syncGetNode(node);
+    syncBooleanHierarchyGets();
 }
 
 function queueSync() {

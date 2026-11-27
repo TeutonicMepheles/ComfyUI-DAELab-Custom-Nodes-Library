@@ -788,22 +788,24 @@ if comfy_io is not None:
                     "prompt_version": MAP_PROMPT_VERSION,
                 }, ensure_ascii=False, separators=(",", ":"))
                 return comfy_io.NodeOutput(cached.to(master.device), key, status)
+            from ...model_access.runtime import image_node
+
             graph = GraphBuilder()
-            gpt = graph.node(
-                "OpenAIGPTImageNodeV2",
-                id="badge_color_id_map_gpt",
-                prompt=str(map_prompt or DEFAULT_MAP_PROMPT),
-                model=model,
-                **{
+            gpt = image_node(
+                graph, "badge_color_id_map_gpt",
+                {
+                    "prompt": str(map_prompt or DEFAULT_MAP_PROMPT),
+                    "model": model,
                     "model.size": f"{CANVAS_SIZE}x{CANVAS_SIZE}",
                     "model.custom_width": CANVAS_SIZE,
                     "model.custom_height": CANVAS_SIZE,
                     "model.background": "opaque",
                     "model.quality": str(quality),
                     "model.images.image_1": master_image,
+                    "n": 1,
+                    "seed": int(seed) + int(map_revision),
                 },
-                n=1,
-                seed=int(seed) + int(map_revision),
+                stage="color_map",
             )
             store = graph.node(
                 "DAELAB.BadgeColorIdMapCacheStoreV1",

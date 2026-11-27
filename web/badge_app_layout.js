@@ -39,7 +39,7 @@ import {
 } from "./polygon_mask_events.mjs?v=20260904-1";
 
 const EXTENSION_NAME = "DAELab.BadgeAppLayoutV1";
-const UI_VERSION = 2026111902;
+const UI_VERSION = 2026112001;
 const GLOBAL_RUNTIME_KEY = "__DAELAB_BADGE_APP_LAYOUT_RUNTIME__";
 const GLOBAL_MODULE_KEY = "__DAELAB_BADGE_APP_LAYOUT_MODULE_VERSION__";
 const ROOT_SELECTOR = '[data-testid="linear-widgets"]';

@@ -1,5 +1,5 @@
 import { isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
-import { createExhibitionReferenceCard } from './exhibition_reference_card.mjs';
+import { createExhibitionReferenceCard } from './exhibition_reference_card.mjs?v=20261120-dialog-focus';
 import { changeGenerationGraph, generationFold, generationUiState } from './generation_ui_model.mjs';
 import { bindCreativeButton } from './vendor/generation-ui-shared/creative_button.mjs';
 import { bindCreativeField } from './vendor/generation-ui-shared/creative_field.mjs';
@@ -61,12 +61,11 @@ export function createExhibitionBuildPrompt(write) {
     const field = element('div', 'cnl-generation-prompt');
     const input = element('textarea', '');
     input.rows = 3;
-    input.setAttribute('aria-label', '基础提示词');
     input.oninput = () => write(input.value);
     field.append(input);
     const release = bindCreativeField(input);
     return {
-        element: field,
+        element: field, input, title: '生成',
         update(widget, visible) {
             field.hidden = !visible;
             const value = widget?.value ?? '';
@@ -83,7 +82,7 @@ function detailGroup(key) {
     if (id === '673' && widget === 'polygon_canvas') return ['region'];
     if (id === '784' && widget === 'value') return ['region', 'describe'];
     if (id === '1058' && widget === 'prompt') return ['region', 'replace'];
-    if (['699', '697'].includes(id)) return ['camera'];
+    if (id === '699' && widget === 'camera_preview') return ['camera'];
 }
 
 export function createExhibitionBuildWorkspace({ graph, root, hierarchy, captureHistory, imageURL, uploadImage, setReferenceImage, live, palette }) {
@@ -93,9 +92,10 @@ export function createExhibitionBuildWorkspace({ graph, root, hierarchy, capture
     const releases = [];
     const rows = new Set();
     const labels = new Map();
+    const featureHeading = element('h3', 'cnl-expo-card-header', '功能列表');
     const bar = element('div', 'cnl-expo-features');
     bar.setAttribute('role', 'group');
-    bar.setAttribute('aria-label', '展厅附加功能');
+    bar.setAttribute('aria-label', '功能列表');
     const options = element('div', 'cnl-expo-options');
     const methods = element('fieldset', 'cnl-expo-methods');
     methods.append(element('legend', '', '元素分割方式'));
@@ -140,32 +140,12 @@ export function createExhibitionBuildWorkspace({ graph, root, hierarchy, capture
         sourceNode: () => graph.getNodeById(674),
         fold: generationFold(graph, 'exhibition.reference', captureHistory),
         live, imageURL, uploadImage, setImage: setReferenceImage,
+        title: '底图选择',
+        imageLabel: '空间参考图',
+        allowDownload: false,
+        allowDrop: false,
     });
 
-    function createCardHeading(key, label) {
-        const fold = generationFold(graph, 'exhibition.' + key, captureHistory);
-        const header = element('div', 'cnl-expo-card-header');
-        const button = element('button', 'cnl-expo-reference-heading', label);
-        button.type = 'button';
-        button.onclick = () => {
-            fold.setCollapsed(!fold.collapsed());
-            updateFold();
-        };
-        releases.push(bindCreativeButton(button));
-        header.append(button);
-
-        function updateFold() {
-            const open = !fold.collapsed();
-            if (button.getAttribute('aria-expanded') !== String(open)) {
-                button.setAttribute('aria-expanded', String(open));
-            }
-            return open;
-        }
-
-        return { header, updateFold };
-    }
-
-    const featureCard = createCardHeading('features', '展厅功能配置');
     // The native App Mode widget rows must remain children of their Vue-owned root.
     const featureEnd = element('div', 'cnl-expo-card-end');
     featureEnd.setAttribute('aria-hidden', 'true');
@@ -195,7 +175,7 @@ export function createExhibitionBuildWorkspace({ graph, root, hierarchy, capture
     const controls = groups.map(([key, label, children]) => {
         const chip = element('div', 'cnl-expo-chip');
         const toggle = makeSwitch(key, label + '启用', checked => {
-            if (children) setSection(checked ? key : savedSection() === key ? null : savedSection() ?? null);
+            if (!checked && savedSection() === key) setSection(null);
         });
         const title = element(children ? 'button' : 'label', 'cnl-expo-chip-title', label);
         if (children) {
@@ -225,8 +205,8 @@ export function createExhibitionBuildWorkspace({ graph, root, hierarchy, capture
     const advancedRow = element('div', 'cnl-expo-advanced-row');
     advancedRow.append(advanced);
     const ownedRows = [
-        [reference.element, 'original'], [featureCard.header, 'features-heading'],
-        [bar, 'features'], [options, 'options'], [featureEnd, 'features-end'],
+        [reference.element, 'original'], [featureHeading, 'features-heading'], [bar, 'features'],
+        [options, 'options'], [featureEnd, 'features-end'],
         [methodsRow, 'element-methods'], [advancedRow, 'element-fold'],
     ];
     for (const [node, position] of ownedRows) {
@@ -261,11 +241,9 @@ export function createExhibitionBuildWorkspace({ graph, root, hierarchy, capture
         for (const [node] of ownedRows) {
             if (node.parentElement !== root) root.append(node);
         }
-        const featuresOpen = featureCard.updateFold();
-        bar.hidden = featureEnd.hidden = !featuresOpen;
         const selected = savedSection();
         const enabled = key => values.get(IDS[key]) === true;
-        const expanded = key => featuresOpen && selected === key && enabled(key);
+        const expanded = key => selected === key && enabled(key);
         const elementOpen = expanded('element');
         const method = enabled('sam') ? 'sam' : enabled('rmbg') ? 'rmbg' : 'original';
         if (elementOpen && method === 'sam') {
@@ -307,6 +285,10 @@ export function createExhibitionBuildWorkspace({ graph, root, hierarchy, capture
             if (group) assign(row, 'detail', !expanded(group[0]) || (group[1] && !enabled(group[1])));
             const [id, widget] = key.split(':').slice(-2);
             const field = id + ':' + widget;
+            // The 3D tool owns camera interaction. Its backing widgets remain in the graph.
+            if ((id === '699' && widget !== 'camera_preview') || field === '697:lora_name') {
+                assign(row, 'native', true);
+            }
             if (field === '735:image') assign(row, 'element-image', !elementOpen);
             if (field === '741:sam3_complex_collector' || field === '851:model') {
                 const show = elementOpen && method === (id === '741' ? 'sam' : 'rmbg');

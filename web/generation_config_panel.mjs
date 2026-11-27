@@ -2,7 +2,8 @@ import { BADGE_APP_PALETTE } from './badge_ui_styles.mjs';
 import { bindCreativeButton } from './vendor/generation-ui-shared/creative_button.mjs';
 import { bindCreativeField } from './vendor/generation-ui-shared/creative_field.mjs';
 import { bindCompactNumberDrag, boundedNumberDragValue } from './compact_color_group_controls.mjs';
-import { generationPriceQuote } from './generation_price.mjs';
+import { generationPriceQuote } from './generation_price.mjs?v=20261119-generation-summary';
+import { generationModelIconURL } from './generation_model_icons.mjs';
 
 let mountSequence = 0;
 function ensureStyles() {
@@ -12,7 +13,7 @@ function ensureStyles() {
         palette.textContent = '.cnl-generation-ui {' + BADGE_APP_PALETTE + '}';
         document.head.append(palette);
     }
-    for (const path of ['./vendor/generation-ui-shared/creative_theme.css', './generation_config_panel.css?v=20261119-build-price']) {
+    for (const path of ['./vendor/generation-ui-shared/creative_theme.css', './generation_config_panel.css?v=20261120-build-sections']) {
         const href = new URL(path, import.meta.url).href;
         if ([...document.querySelectorAll('link[rel="stylesheet"]')].some(link => link.href === href)) continue;
         const link = document.createElement('link');
@@ -23,7 +24,7 @@ function ensureStyles() {
 }
 
 export function createGenerationConfigPanel({
-    instanceId, stage, labels, capabilities, config, fold, prompt, settingsExtra, pricing, onChange, onGenerate,
+    instanceId, stage, labels, capabilities, config, fold, prompt, settingsExtra, sizeSummary, modeSummary, pricing, onChange, onGenerate,
 }) {
     ensureStyles();
     const id = 'cnl-generation-' + instanceId + '-' + stage + '-' + (++mountSequence);
@@ -55,21 +56,35 @@ export function createGenerationConfigPanel({
     }
     const content = fold ? make('div', '', element, 'cnl-generation-content') : element;
     content.id = id + '-content';
-    if (prompt) content.append(prompt);
+    let requiredTag;
+    if (prompt) {
+        const row = make('div', '', prompt.element, 'cnl-generation-prompt-heading');
+        const promptTitle = make('span', prompt.title ?? '模型设置', row);
+        promptTitle.id = id + '-title';
+        element.setAttribute('aria-labelledby', promptTitle.id);
+        prompt.input.id = id + '-prompt';
+        prompt.input.setAttribute('aria-label', '基础提示词');
+        requiredTag = make('span', '必填', row, 'cnl-generation-prompt-required');
+        requiredTag.setAttribute('aria-hidden', 'true');
+        prompt.element.prepend(row);
+        content.append(prompt.element);
+    }
     const actionRow = make('div', '', content, 'cnl-generation-actions');
     const settings = prompt && make('div', '', content, 'cnl-generation-settings');
     const settingsFields = settings && make('div', '', settings, 'cnl-generation-settings-fields');
     if (settingsExtra) settings.prepend(settingsExtra);
     const countRow = settings && make('div', '', settingsFields, 'cnl-generation-settings-count');
     const body = make('div', '', settingsFields || content, 'cnl-generation-fields');
-    let settingsButton;
+    let settingsButton, settingsLabel;
+    const qualityField = capabilities.find(field => field.key === 'quality');
     if (settings) {
         settings.id = id + '-settings';
         settings.popover = 'auto';
         settings.setAttribute('role', 'group');
         settings.setAttribute('aria-label', '生成配置');
-        settingsButton = make('button', '生成配置', actionRow, 'cnl-generation-settings-trigger');
+        settingsButton = make('button', '', actionRow, 'cnl-generation-settings-trigger');
         settingsButton.type = 'button';
+        settingsLabel = make('span', '', settingsButton);
         settingsButton.setAttribute('popovertarget', settings.id);
         settingsButton.setAttribute('aria-expanded', 'false');
         settingsButton.setAttribute('aria-controls', settings.id);
@@ -89,23 +104,29 @@ export function createGenerationConfigPanel({
             const above = Math.max(0, toolbar.top - edge * 2);
             const below = Math.max(0, innerHeight - toolbar.bottom - edge * 2);
             const openAbove = above > below;
-            settings.style.width = width + 'px';
-            settings.style.maxHeight = Math.max(0, openAbove ? above : below) + 'px';
-            settings.style.left = left + 'px';
-            settings.style.top = (openAbove ? toolbar.top - settings.offsetHeight - edge : toolbar.bottom + edge) + 'px';
+            // The anchor rectangles are viewport pixels. The popover's CSS
+            // lengths inherit document zoom from the App Mode sidebar.
+            const zoom = settings.currentCSSZoom || 1;
+            settings.style.width = width / zoom + 'px';
+            settings.style.maxHeight = (openAbove ? above : below) / zoom + 'px';
+            settings.style.left = left / zoom + 'px';
+            const height = settings.getBoundingClientRect().height;
+            settings.style.top = (openAbove ? toolbar.top - height - edge : toolbar.bottom + edge) / zoom + 'px';
         };
         listen(settings, 'toggle', event => {
             settingsButton.setAttribute('aria-expanded', String(event.newState === 'open'));
             position();
         });
-        listen(settings, 'keydown', event => {
-            if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return;
+        const dismiss = event => {
+            if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229 || !settings.matches(':popover-open')) return;
             event.stopPropagation();
             if (event.target.matches('select:open')) return;
             event.preventDefault();
             settings.hidePopover();
             settingsButton.focus({ preventScroll: true });
-        }, true);
+        };
+        listen(settings, 'keydown', dismiss, true);
+        listen(settingsButton, 'keydown', dismiss, true);
         const observer = new ResizeObserver(position);
         observer.observe(settings);
         observer.observe(element);
@@ -139,10 +160,35 @@ export function createGenerationConfigPanel({
     function select(field, parent) {
         const control = make('select', '', parent);
         control.setAttribute('aria-label', field.label);
+        const decorated = field.key === 'model' && Boolean(field.source);
+        const richOptions = decorated && 'HTMLSelectedContentElement' in window;
+        let selectedContent;
+        if (richOptions) {
+            control.classList.add('cnl-generation-model-picker');
+            selectedContent = make('button', '', control);
+            selectedContent.type = 'button';
+            make('selectedcontent', '', selectedContent);
+        }
         if (field.key !== 'model') make('label', field.label, parent).append(control);
         else if (settings) {
-            control.className = 'cnl-generation-model-trigger';
+            control.classList.add('cnl-generation-model-trigger');
             parent.insertBefore(control, settingsButton);
+        }
+        function modelOption(key, label, route) {
+            const source = route === 'local' || route?.endsWith('-local') ? 'local' :
+                route === 'api' || route?.endsWith('-api') ? 'api' : '';
+            const badge = { local: '本地', api: 'API' }[source];
+            if (!richOptions) return new Option(badge ? label + ' · ' + badge : label, key);
+            const option = new Option('', key);
+            const icon = make('span', '', option, 'cnl-generation-model-icon');
+            const url = /^gpt[- ]image\b/i.test(label)
+                ? new URL('./vendor/remixicon/openai-fill.svg', import.meta.url).href
+                : generationModelIconURL(label);
+            icon.style.setProperty('--cnl-model-icon', 'url("' + url + '")');
+            icon.setAttribute('aria-hidden', 'true');
+            make('span', label, option, 'cnl-generation-model-name');
+            if (badge) make('span', badge, option, 'cnl-generation-source').dataset.source = source;
+            return option;
         }
         let previous = '';
         releases.push(bindCreativeField(control));
@@ -157,13 +203,16 @@ export function createGenerationConfigPanel({
             if (field.showUnknown !== false && config[field.key] != null && !options.some(([key]) => key === config[field.key])) {
                 options = [...options, [config[field.key], String(config[field.key])]];
             }
+            if (decorated) options = options.map(([key, label]) => [key, label, field.source(key)]);
             const signature = JSON.stringify(options);
             if (signature !== previous) {
-                control.replaceChildren(...options.map(([key, label]) => new Option(label, key)));
+                const entries = options.map(option => decorated ? modelOption(...option) : new Option(option[1], option[0]));
+                control.replaceChildren(...(selectedContent ? [selectedContent, ...entries] : entries));
                 previous = signature;
             }
             const value = String(config[field.key] ?? '');
             if (control.value !== value) control.value = value;
+            if (decorated) control.title = options.find(([key]) => key === value)?.[1] ?? '';
             control.disabled = locked || field.disabled?.(config) || (options.length < 2 && control.value !== '');
         };
     }
@@ -305,12 +354,19 @@ export function createGenerationConfigPanel({
     }
     const settingsNote = settings && make('p', '', settingsFields, 'cnl-generation-status');
     settingsNote?.setAttribute('role', 'status');
-    const quote = pricing && generationPriceQuote(pricing.evaluate, label => { price.textContent = label; });
+    const quote = pricing && generationPriceQuote(pricing.evaluate, (amount, message) => {
+        const label = amount ? '本批预计 ' + amount + ' 积分' : message;
+        price.textContent = amount || (message === '估算中…' ? '…' : '—');
+        price.setAttribute('aria-label', label);
+        price.title = label;
+    });
     const button = make('button', labels.generate, submitGroup, 'cnl-generation-submit');
     button.type = 'button';
     button.setAttribute('aria-describedby', price ? price.id + ' ' + status.id : status.id);
+    const missingRequiredPrompt = () => Boolean(state.promptRequired && prompt && !prompt.input.value.trim());
     button.onclick = () => {
         if (pending || disposed || state.busy || state.disabled) return;
+        if (missingRequiredPrompt()) { render(); return; }
         for (const { input, commit } of drafts) {
             if (!commit()) {
                 if (settings && !settings.matches(':popover-open')) settings.showPopover();
@@ -344,12 +400,29 @@ export function createGenerationConfigPanel({
         const locked = pending || Boolean(state.busy || state.disabled);
         const invalid = state.validate?.(config) || state.error;
         const error = feedback || invalid || state.failure;
+        if (prompt) {
+            const required = Boolean(state.promptRequired);
+            requiredTag.hidden = !required;
+            const placeholder = required ? '请输入基础提示词' : '基础提示词（选填）';
+            if (prompt.input.placeholder !== placeholder) prompt.input.placeholder = placeholder;
+            if (prompt.input.getAttribute('aria-required') !== String(required)) {
+                prompt.input.setAttribute('aria-required', String(required));
+            }
+        }
         if (fold) {
             const collapsed = fold.collapsed();
             content.hidden = collapsed;
             title.setAttribute('aria-expanded', String(!collapsed));
         }
         if (settings) {
+            const quality = qualityField?.options(config).find(([value]) => value === config.quality)?.[1] ?? config.quality;
+            const summary = [
+                modeSummary?.(), sizeSummary?.(config), quality && '质量' + quality,
+                config.count != null && config.count + ' 张',
+            ].filter(Boolean).join(' · ');
+            if (settingsLabel.textContent !== summary) settingsLabel.textContent = summary;
+            settingsButton.setAttribute('aria-label', summary ? '生成配置，' + summary : '生成配置');
+            settingsButton.title = summary;
             settingsFields.hidden = Boolean(state.settingsHidden);
             settingsButton.hidden = Boolean(state.settingsHidden && !settingsExtra);
             const model = actionRow.querySelector('.cnl-generation-model-trigger');
@@ -362,7 +435,9 @@ export function createGenerationConfigPanel({
         } else body.hidden = actionRow.hidden = Boolean(state.settingsHidden);
         if (quote) quote.update(state.disabled || state.settingsHidden ? null : pricing.snapshot(config));
         for (const update of renderers) update(locked);
-        button.disabled = locked || Boolean(invalid && ![...drafts].some(draft => draft.dirty()));
+        const promptMissing = missingRequiredPrompt();
+        button.toggleAttribute('data-required-prompt-missing', promptMissing);
+        button.disabled = locked || promptMissing || Boolean(invalid && ![...drafts].some(draft => draft.dirty()));
         const actionLabel = pending || state.busy ? labels.busy : labels.generate;
         if (button.textContent !== actionLabel) button.textContent = actionLabel;
         const message = error || state.message || '';
@@ -370,6 +445,9 @@ export function createGenerationConfigPanel({
         status.dataset.error = String(Boolean(error));
         status.hidden = !status.textContent;
     }
+    if (prompt) listen(prompt.input, 'input', () => {
+        if (state.promptRequired) render();
+    });
     render();
     return {
         element, modelControl, button, status,

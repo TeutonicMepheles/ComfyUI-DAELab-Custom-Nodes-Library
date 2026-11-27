@@ -4,6 +4,10 @@
 https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Logos/openai-fill.svg.
 The bundled Remix Icon license applies.
 
+`coins-line.svg` is from the official Remix Icon v4.6.0
+[`Finance/coins-line.svg`](https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Finance/coins-line.svg)
+and is used for the App Mode credit estimate under the bundled license.
+
 Project UI icon source: https://remixicon.com/ (user-selected).
 
 These original SVGs were retrieved on 2026-09-07 from the official repository:
@@ -13,6 +17,9 @@ These original SVGs were retrieved on 2026-09-07 from the official repository:
 
 License: bundled `LICENSE`, Remix Icon License v1.0.
 Keep assets local so the prototype does not require the icon website at runtime.
+
+`download-line.svg` (Remix Icon `System/download-line`) reuses the local
+prompt-optimization icon for the reference-image toolbar.
 
 2026-09-28: Added `artboard-line.svg` for the creative canvas mode from
 https://github.com/Remix-Design/RemixIcon/blob/master/icons/Design/artboard-line.svg.

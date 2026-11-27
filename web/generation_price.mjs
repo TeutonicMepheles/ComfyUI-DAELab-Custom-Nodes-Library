@@ -72,14 +72,14 @@ export function generationPriceQuote(evaluate, show) {
             if (signature === key) return;
             key = signature;
             const current = ++revision;
-            show(snapshot ? '估算中…' : '暂无法估算');
+            show(null, snapshot ? '估算中…' : '暂无法估算');
             if (!snapshot) return;
             Promise.resolve().then(() => evaluate(snapshot)).catch(() => null).then(value => {
                 if (current !== revision) return;
-                if (!value) { show('暂无法估算'); return; }
+                if (!value) { show(null, '暂无法估算'); return; }
                 const min = creditsFormat.format(value.min);
                 const max = creditsFormat.format(value.max);
-                show('本批预计 ' + (min === max ? min : min + '–' + max) + ' 积分');
+                show(min === max ? min : min + '–' + max);
             });
         },
         dispose() { revision++; },

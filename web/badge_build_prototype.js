@@ -6,7 +6,8 @@ import { badgeText } from './badge_ui_text.mjs?v=20260917-region-2';
 import { createRegionEditor87, REGION_EDITOR_CSS } from './badge_region_editor_87.mjs?v=20260917-inline-1';
 import { refinedBadge87, setLocalTargetSize87 } from './badge_refinement_87.mjs?v=20261119-model-matching';
 import { isBadge88, usesLocalMaterials88, localMaterialNodeId88, previewLocalMaterials88 } from './badge_local_material_88_model.mjs?v=20260917-target87-1';
-import { createReferenceImageGallery, referenceImageIcon } from './reference_image_controls.mjs';
+import { createReferenceImageGallery, createReferenceImageToolbar } from './reference_image_controls.mjs';
+import { createReferenceImageCard } from './exhibition_reference_card.mjs?v=20261119-badge-base';
 import { uploadBadgeImage } from './badge_image_upload.mjs?v=20260916-content-1';
 import { generateColorSelectionSource } from './badge_color_source.mjs';
 import { syncBadgeMediaScope87 } from './badge_media_scope_87.mjs';
@@ -26,12 +27,13 @@ import { readHierarchyState, itemValue } from './badge_app_layout_model.mjs?v=20
 import { normalizeImageSelection, buildImageViewPath } from './app_mode_load_image_preview_model.mjs';
 import { previewPixels } from './badge_build_preview_model.mjs';
 import { attachMaterialStrip } from './badge_material_strip.mjs?v=20260917-target87-1';
-import { attachBadgeColorPicker } from './badge_color_picker.mjs?v=20260916-content-1';
-import { attachReferenceResize } from './badge_reference_resize.mjs?v=20260916-ui-2';
-import { createHeightBoard } from './badge_height_board.mjs?v=20260918-height-tips-1';
+import { attachBadgeColorPicker } from './badge_color_picker.mjs?v=20261119-height-list';
+import { attachReferenceResize } from './badge_reference_resize.mjs?v=20261119-height-list';
+import { createHeightBoard } from './badge_height_board.mjs?v=20261119-height-list';
 import { run as runPrototype, getPrototypeSession } from './badge_app_prototype.js?v=20261119-build-menu';
 import { stageSnapshot, isPromptOnlyBuild, initializePromptOnlyBuild } from './badge_generation_model.mjs?v=20261119-model-matching';
-import { createGenerationPanel } from './badge_generation_panel.mjs?v=20261119-build-price';
+import { createGenerationPanel } from './badge_generation_panel.mjs?v=20261119-prompt-placeholder';
+import { bindCreativeButton } from './vendor/generation-ui-shared/creative_button.mjs';
 import { bindCreativeField } from './vendor/generation-ui-shared/creative_field.mjs';
 
 import { captureGenerationHistory, generationFold, generationLoadIdentity } from './generation_ui_model.mjs';
@@ -54,9 +56,10 @@ function mount(graph, root, tabId = 'build') {
     if (isBadge88(graph)) root.dataset.badgeVersion = '88';
     const configs = local ? { get color() { return localMulti() && !refined ? [localMaterialNodeId88(graph), 'badge_material_region_v1_panel'] : [104, 'multi_color_mask_v1_panel']; } } : CONFIGS;
     const workflowId = graph.id;
-    const state = { imageTab: 'flat', section: local ? 'color' : null, last: { flat: null, height: null },
+    const state = { imageTab: 'flat', section: local ? 'color' : null,
         background: graph.extra.daelabBadgePrototypeV1.backgroundEnabled !== false,
         heightEnabled: graph.extra.daelabBadgePrototypeV1.heightEnabled !== false,
+        heightPicking: false, featureHeadingHeight: 0,
         view: 'original', signature: '', sourceKey: '', pixels: null, preview: null,
         disposed: false, loadToken: 0, drawn: null };
     const epoch = generationLoadIdentity(graph);
@@ -65,13 +68,26 @@ function mount(graph, root, tabId = 'build') {
     const materialStrip = attachMaterialStrip(root, graph, live);
     const invertSwitches = new Map();
     const node = id => graph.getNodeById(id);
+    const tabHeader = () => root.querySelector('[data-daelab-app-layout-owned="tabs"]');
+    function saveReferenceImage(source, widget, value) {
+        graph.beforeChange?.();
+        widget.value = value;
+        if (Array.isArray(widget.options?.values) && !widget.options.values.includes(value)) widget.options.values.push(value);
+        widget.callback?.(value);
+        source.setDirtyCanvas?.(true, true);
+        graph.afterChange?.();
+    }
     const hierarchy = () => readHierarchyState(node(95));
     const region87 = () => local && usesLocalRegions87(graph, key => itemValue(hierarchy(), key));
     const localMulti = () => region87() || (local && usesLocalMaterials88(graph, key => itemValue(hierarchy(), key)));
     const localColorNodeId = () => region87() ? 104 : localMaterialNodeId88(graph);
     let regionPreviewScope = null;
     const routeEffect = () => !local && itemValue(hierarchy(), 'badge.path.effect');
-    const sourceNode = () => node(local ? graph.extra.daelabBadgePrototypeV1.localReferenceNodeId : routeEffect() ? 96 : state.imageTab === 'height' ? 2 : 1);
+    const baseNode = () => node(routeEffect() ? 96 : 1);
+    const sourceNode = () => {
+        if (local) return node(graph.extra.daelabBadgePrototypeV1.localReferenceNodeId);
+        return !routeEffect() && state.imageTab === 'height' ? node(2) : baseNode();
+    };
     const imageWidget = () => sourceNode()?.widgets?.find(w => w.name === 'image');
     const panelWidget = () => {
         const spec = configs[state.section];
@@ -80,7 +96,14 @@ function mount(graph, root, tabId = 'build') {
     const config = () => { if (region87()) return readLocalRegions87(graph); if (local && state.section === 'polygon') { try { return JSON.parse(node(142)?.properties?.polygon_info || '{}'); } catch { return {}; } } if (state.section === 'height') return heightBoard.config(); try { return JSON.parse(panelWidget()?.value || '{}'); } catch { return {}; } };
     const heightBoard = local ? { element: document.createElement('div'), config: () => ({}), setAvailable() {}, dispose() {} } : createHeightBoard(graph, live, () => {
         toggleMaskPreview();
-    }, () => { if (state.section === 'height') { state.preview = null; state.view = 'original'; } update(); });
+    }, () => {
+        if (state.section === 'height') {
+            state.preview = null;
+            state.view = 'original';
+            referenceResize.update();
+        }
+        update();
+    });
     const element = document.createElement('section');
     element.className = 'badge-build-workspace';
     if (refined) element.dataset.refinedReference = '';
@@ -91,8 +114,27 @@ function mount(graph, root, tabId = 'build') {
     const button = (text, parent, action) => {
         const e = make('button', text, parent); e.type = 'button'; e.onclick = action; return e;
     };
+    const baseCard = merged ? createReferenceImageCard({
+        sourceNode: baseNode,
+        fold: generationFold(graph, 'badge.baseImage', captureHistory),
+        live,
+        imageURL: path => api.apiURL(path),
+        uploadImage: blob => uploadBadgeImage(api, blob),
+        setImage(value) {
+            const source = baseNode();
+            const widget = source?.widgets?.find(item => item.name === 'image');
+            if (!widget) return;
+            saveReferenceImage(source, widget, value);
+            update();
+        },
+        classPrefix: 'badge-base',
+        title: '底图选择',
+        imageLabel: '底图',
+        allowDownload: false,
+        allowDrop: false,
+    }) : null;
     let referenceOpen = true;
-    const referenceHeading = refined ? button(badgeText(local ? 'refinement.local_image' : 'refinement.reference'), element, () => {
+    const referenceHeading = refined && !merged ? button(badgeText(local ? 'refinement.local_image' : 'refinement.reference'), element, () => {
         referenceOpen = !referenceOpen; colorPicker.close(); update();
     }) : null;
     if (referenceHeading) referenceHeading.className = 'badge-local-block-heading';
@@ -136,7 +178,7 @@ function mount(graph, root, tabId = 'build') {
         const input = make('textarea', '', promptSection); input.rows = 3;
         promptInput = input;
         if (merged) releasePrompt = bindCreativeField(input);
-        input.setAttribute('aria-label', badgeText("build_prototype.text_006"));
+        else input.setAttribute('aria-label', badgeText("build_prototype.text_006"));
         input.value = graph.extra.daelabBadgePrototypeV1.buildPrompt || '';
         input.oninput = () => {
             if (!live()) return;
@@ -185,12 +227,11 @@ function mount(graph, root, tabId = 'build') {
         }
     }
     const file = make('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
-    const uploadActions = make('div', '', bar); uploadActions.className = 'badge-build-upload-actions';
-    const filename = make('span', '', uploadActions); filename.className = 'badge-build-filename';
-    const iconButton = (label, icon, action) => referenceImageIcon(make, button, uploadActions, label, icon, action);
-    const uploadButton = iconButton(badgeText('build_prototype.text_011'), 'upload-2-line', () => file.click());
-    const existing = iconButton(badgeText('build_prototype.text_012'), 'folder-image-line', () => galleryControl.open());
-    existing.setAttribute('aria-haspopup', 'dialog');
+    const referenceToolbar = createReferenceImageToolbar({
+        make, button, parent: bar, onBrowse: () => galleryControl.open(),
+        onUpload: () => file.click(), onDownload: refined ? downloadImage : null,
+    });
+    const { browse: existing, upload: uploadButton, filename, download } = referenceToolbar;
     const galleryControl = createReferenceImageGallery({
         make, button, sourceNode, imageWidget, live, select: setImage,
         imageURL: path => api.apiURL(path), opener: () => existing,
@@ -206,7 +247,7 @@ function mount(graph, root, tabId = 'build') {
             latestUpload = null; uploadButton.disabled = false; file.value = '';
         }
         if (local && segmented) setExistingTarget87(graph, value, getPrototypeSession(graph, 'local'));
-        else { graph.beforeChange?.(); w.value = value; w.callback?.(value); graph.afterChange?.(); }
+        else saveReferenceImage(sourceNode(), w, value);
         state.sourceKey = ''; update();
     }
     async function upload(blob) {
@@ -226,9 +267,7 @@ function mount(graph, root, tabId = 'build') {
             const value = await uploadBadgeImage(api, blob);
             if (!current()) return;
             if (local && segmented) { setExistingTarget87(graph, value, getPrototypeSession(graph, 'local')); update(); return; }
-            graph.beforeChange?.(); w.value = value;
-            if (Array.isArray(w.options?.values) && !w.options.values.includes(value)) w.options.values.push(value);
-            w.callback?.(value); target.setDirtyCanvas?.(true, true); graph.afterChange?.();
+            saveReferenceImage(target, w, value);
             update();
         } catch (error) {
             if (current() && latestUpload === request && sourceNode() === target) status.textContent = error.message;
@@ -242,9 +281,13 @@ function mount(graph, root, tabId = 'build') {
     const frame = make('div'); frame.className = 'badge-build-image';
     const canvas = make('canvas', '', frame); canvas.setAttribute('aria-label', badgeText("build_prototype.text_025"));
     const empty = make('span', badgeText("build_prototype.text_026"), frame);
-    frame.ondragover = e => { e.preventDefault(); frame.dataset.drag = 'true'; };
+    frame.ondragover = e => {
+        if (merged && state.section !== 'height') return;
+        e.preventDefault(); frame.dataset.drag = 'true';
+    };
     frame.ondragleave = () => delete frame.dataset.drag;
     frame.ondrop = e => {
+        if (merged && state.section !== 'height') return;
         e.preventDefault(); e.stopPropagation(); delete frame.dataset.drag;
         if (!live()) return;
         if (local && refined && !isBadge88(graph)) {
@@ -307,7 +350,7 @@ function mount(graph, root, tabId = 'build') {
     const preview = button(badgeText("build_prototype.text_029"), document.createDocumentFragment(), toggleMaskPreview);
     preview.className = 'badge-build-mask-preview';
     const status = make('span', '', toolbar); status.setAttribute('role', 'status');
-    const download = refined ? button(badgeText('refinement.download'), toolbar, () => {
+    function downloadImage() {
         if (!live() || !state.pixels) return;
         // Export a fresh background cutout, independent of the displayed mask/height preview.
         const output = document.createElement('canvas'); output.width = state.pixels.width; output.height = state.pixels.height;
@@ -325,9 +368,16 @@ function mount(graph, root, tabId = 'build') {
             link.href = url; link.download = `${(filename.textContent || 'badge').replace(/\.[^.]+$/, '')}${cutout ? '-cutout' : ''}.png`;
             document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
         }, 'image/png');
-    }) : null;
-    if (download) download.className = 'badge-preview-download';
-    const sections = make('div'); sections.className = 'badge-build-sections';
+    }
+    const sections = merged ? document.createElement('section') : make('div');
+    sections.className = merged ? 'badge-feature-list' : 'badge-build-sections';
+    let sectionControls = sections;
+    if (merged) {
+        sections.setAttribute('aria-label', '功能列表');
+        make('h3', '功能列表', sections);
+        sectionControls = make('div', '', sections);
+        sectionControls.className = 'badge-build-sections';
+    }
     let mapImage = null, mapSource = null, mapJob = 0, mapBusy = false, mapProgress = 0, mapError = '', mapShown = true;
     const usesMap = () => !targetOnly88(graph) && local && state.section === 'color' && itemValue(hierarchy(), 'badge.post.local.color_id_map');
     const selectionPixels = () => usesMap() ? (mapSource === state.pixels ? mapImage : null) : state.pixels;
@@ -358,13 +408,13 @@ function mount(graph, root, tabId = 'build') {
         const i=(y*canvas.width+x)*4;return '#'+[...selectionPixels().data.slice(i,i+3)].map(v=>v.toString(16).padStart(2,'0')).join('');
     },live);
     const sectionButtons = {};
+    const releaseSections = [];
     for (const [key, title] of local ? [] : [['background', badgeText("build_prototype.text_031")], ...(!refinedBadge87(graph) ? [['material', badgeText("build_prototype.text_032")]] : []), ['height', badgeText("build_prototype.text_033")]]) {
-        const group = make('div', '', sections); group.className = 'badge-build-capsule';
+        const group = make('div', '', sectionControls); group.className = 'badge-build-capsule';
         const selectSection = (collapse = false) => {
-            colorPicker.close();
+            colorPicker.close(); gallery.close();
             state.section = collapse && state.section === key ? null : key;
-            state.imageTab = key === 'height' ? 'height' : 'flat';
-            state.last[state.imageTab] = state.section;
+            state.imageTab = (merged ? state.section : key) === 'height' ? 'height' : 'flat';
             state.preview = null; state.view = 'original'; update();
         };
         const b = button(title, group, () => selectSection(true));
@@ -380,10 +430,31 @@ function mount(graph, root, tabId = 'build') {
                 graph.extra.daelabBadgePrototypeV1.heightEnabled = toggle.checked; graph.afterChange?.();
                 state.preview = null; state.view = 'original';
             } else node(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.path.flat_height.special_material', toggle.checked);
-            selectSection();
+            if (!merged) selectSection();
+            else {
+                if (!toggle.checked && state.section === key) {
+                    selectSection(true);
+                    toggle.focus();
+                } else update();
+            }
         };
 
-        sectionButtons[key] = { group, b, toggle };
+        const body = merged ? make('div', '', sections) : null;
+        if (body) {
+            body.className = 'badge-feature-content';
+            body.id = `badge-feature-${workflowId}-${key}`;
+            body.hidden = true;
+            b.setAttribute('aria-controls', body.id);
+            releaseSections.push(bindCreativeButton(b));
+        }
+        sectionButtons[key] = { group, b, toggle, body };
+    }
+    function syncFeatureHeading() {
+        const height = sectionControls.hasAttribute('data-expanded') ? sectionControls.getBoundingClientRect().height : 0;
+        if (state.featureHeadingHeight === height) return false;
+        state.featureHeadingHeight = height;
+        root.style.setProperty('--badge-feature-heading-height', `${height}px`);
+        return true;
     }
     function draw() {
         view.value = state.view;
@@ -418,7 +489,11 @@ function mount(graph, root, tabId = 'build') {
         const token = ++state.loadToken;
         if (local && segmented) { ++mapJob; mapBusy = false; mapImage = null; mapSource = null; mapError = ''; confirmedSelection = null; }
         state.pixels = null; state.preview = null; state.geometryError = ''; state.geometryBusy = false; state.view = 'original';
-        canvas.hidden = true; empty.hidden = false; empty.textContent = selection ? badgeText("build_prototype.text_038") : local ? badgeText("build_prototype.text_039") : state.imageTab === 'height' ? badgeText("build_prototype.text_040") : badgeText("build_prototype.text_041");
+        if (download) download.disabled = true;
+        canvas.hidden = true; empty.hidden = false;
+        empty.textContent = selection ? badgeText("build_prototype.text_038") : merged
+            ? (state.imageTab === 'height' ? '尚未上传高度图' : '请先选择底图')
+            : local ? badgeText("build_prototype.text_039") : state.imageTab === 'height' ? badgeText("build_prototype.text_040") : badgeText("build_prototype.text_041");
         if (!selection && local && segmented && localTargets87(graph).source === 'generated') empty.textContent = badgeText("build_prototype.text_042");
         if (!selection) return;
         const image = new Image(); image.src = api.apiURL(buildImageViewPath(selection));
@@ -433,11 +508,11 @@ function mount(graph, root, tabId = 'build') {
         } catch { if (token === state.loadToken) empty.textContent = badgeText("build_prototype.text_043"); }
     }
     function update() {
-        if (refined) {
+        if (referenceHeading) {
             referenceHeading.setAttribute('aria-expanded', String(referenceOpen));
             element.dataset.referenceOpen = String(referenceOpen);
-            if (download) download.disabled = !state.pixels;
         }
+        if (download) download.disabled = !state.pixels;
         materialStrip.update();
         if (state.preview && state.signature !== JSON.stringify(config())) {
             state.preview = null; state.view = 'original';
@@ -454,7 +529,7 @@ function mount(graph, root, tabId = 'build') {
                 session.preview = null; session.phase = 'changed'; session.message = badgeText("build_prototype.text_046");
                 if (local) node(95)?.daelabBooleanHierarchyV1?.setItemValue('badge.post.local.apply', false);
             }
-            const sourceAvailable = !local && isPromptOnlyBuild(graph) || isNodeAvailableInAppMode(node(local ? 146 : 1));
+            const sourceAvailable = !local && isPromptOnlyBuild(graph) || isNodeAvailableInAppMode(local ? node(146) : baseNode());
             if (!local) generation.update({
                 busy: session.busy, error: snapshot.error, message: session.message,
                 failure: session.phase === 'error' ? session.message : '',
@@ -463,16 +538,18 @@ function mount(graph, root, tabId = 'build') {
             });
             generation.element.hidden = !merged && !sourceAvailable;
             if (!local && root.lastElementChild !== generation.element) root.append(generation.element);
-            if (refined && !local) {
-                if (referenceEnd.nextElementSibling !== generation.element) root.insertBefore(referenceEnd, generation.element);
-                referenceEnd.hidden = !referenceOpen || isPromptOnlyBuild(graph);
+            if (merged) {
+                if (baseCard.element.parentElement !== root) tabHeader()?.after(baseCard.element);
+                if (sections.previousElementSibling !== baseCard.element) baseCard.element.after(sections);
             }
         }
-        const tabHeader=root.querySelector('[data-daelab-app-layout-owned="tabs"]');
-        root.style.setProperty('--badge-tabs-height',`${tabHeader?.getBoundingClientRect().height||48}px`);
+        root.style.setProperty('--badge-tabs-height',`${tabHeader()?.getBoundingClientRect().height||48}px`);
         if (local) { updateLocal(); return; }
         const promptOnly = isPromptOnlyBuild(graph);
-        if (refined) element.hidden = promptOnly;
+        if (baseCard) {
+            baseCard.element.hidden = promptOnly || !isNodeAvailableInAppMode(baseNode());
+            baseCard.update();
+        }
         element.dataset.promptOnly = String(promptOnly);
         promptToggle.checked = promptOnly;
         promptToggle.disabled = Boolean(getPrototypeSession(graph, 'build').busy);
@@ -495,25 +572,61 @@ function mount(graph, root, tabId = 'build') {
         sections.hidden = effect || promptOnly;
         const enabled = state.section === 'background' ? state.background : state.section === 'material'
             ? itemValue(hierarchy(), 'badge.path.flat_height.special_material') : state.section === 'height' ? state.heightEnabled : true;
+        const selectedId = state.section && CONFIGS[state.section][0];
+        const featureAvailable = key => isNodeAvailableInAppMode(node(CONFIGS[key][0])) &&
+            isNodeAvailableInAppMode(key === 'height' ? node(2) : baseNode());
+        const visible = referenceOpen && !sections.hidden && enabled &&
+            (!merged || state.section && featureAvailable(state.section)) ? selectedId : null;
+        let activeContent;
         for (const [key, s] of Object.entries(sectionButtons)) {
             s.group.hidden = false;
-            s.b.setAttribute('aria-expanded', String(state.section === key));
             s.toggle.checked = key === 'height' ? state.heightEnabled : (key === 'background' ? state.background : itemValue(hierarchy(), 'badge.path.flat_height.special_material'));
+            const expanded = merged ? visible === CONFIGS[key][0] : state.section === key;
+            s.b.setAttribute('aria-expanded', String(expanded));
             s.group.dataset.enabled = String(s.toggle.checked);
-            s.group.dataset.expanded = String(state.section === key);
+            s.group.dataset.expanded = String(expanded);
             s.toggle.title = s.toggle.checked ? badgeText("build_prototype.text_058") : badgeText("build_prototype.text_059");
+            if (s.body) {
+                s.b.disabled = !s.toggle.checked || !featureAvailable(key);
+                s.body.hidden = !expanded;
+                if (expanded) activeContent = s.body;
+            }
         }
-        const visible = (!refined || referenceOpen) && !promptOnly && !effect && state.section && enabled ? CONFIGS[state.section][0] : null;
+        if (merged) {
+            sectionControls.toggleAttribute('data-expanded', Boolean(activeContent));
+            element.hidden = !activeContent;
+            if (activeContent && element.parentElement !== activeContent) activeContent.prepend(element);
+            const editingHeight = visible === CONFIGS.height[0];
+            sections.toggleAttribute('data-background-open', visible === CONFIGS.background[0]);
+            bar.hidden = !editingHeight;
+            toolbar.classList.toggle('cnl-reference-toolbar', !editingHeight);
+            canvas.setAttribute('aria-label', editingHeight ? '高度图预览' : '底图遮罩预览');
+            if (download) {
+                const parent = editingHeight ? filename.parentElement : toolbar;
+                if (download.parentElement !== parent) parent.append(download);
+            }
+            if (!editingHeight && gallery.open) gallery.close();
+        }
+        const headingResized = merged && syncFeatureHeading();
         let previewHeader = null;
-        for (const item of root.querySelectorAll(':scope > [data-testid="app-mode-widget-item"]')) {
-            const id = Number(item.dataset.widgetKey?.split(':').at(-2));
-            const show = id === visible && state.section !== 'height';
+        const inspectorItems = root.querySelectorAll(':scope > [data-testid="app-mode-widget-item"]');
+        for (const item of inspectorItems) {
+            const [id, widget] = item.dataset.widgetKey?.split(':').slice(-2) ?? [];
+            const show = Number(id) === visible && state.section !== 'height' &&
+                (!merged || widget === CONFIGS[state.section][1]);
             item.toggleAttribute(HIDDEN, !show);
             item.toggleAttribute('data-badge-build-list', show);
-            if (refined) item.toggleAttribute('data-badge-reference-body', show);
-            if (show) previewHeader = item.querySelector('.daelab-multi-color-mask-v1-panel, .daelab-badge-material-region-v1-panel')?.firstElementChild;
+            if (show) {
+                previewHeader = item.querySelector('.daelab-multi-color-mask-v1-panel, .daelab-badge-material-region-v1-panel')?.firstElementChild;
+            }
         }
-        heightBoard.element.hidden = visible !== 3 || !isNodeAvailableInAppMode(node(3));
+        const hideHeightBoard = visible !== 3 || !isNodeAvailableInAppMode(node(3));
+        const heightPicking = !hideHeightBoard && root.hasAttribute('data-badge-color-picking');
+        if (heightBoard.element.hidden !== hideHeightBoard || state.heightPicking !== heightPicking || headingResized) {
+            heightBoard.element.hidden = hideHeightBoard;
+            state.heightPicking = heightPicking;
+            referenceResize.update();
+        }
         heightBoard.setAvailable(Boolean(state.pixels));
         if (previewHeader) {
             if (preview.parentElement !== previewHeader) previewHeader.insertBefore(preview, previewHeader.lastElementChild);
@@ -533,7 +646,7 @@ function mount(graph, root, tabId = 'build') {
             : state.imageTab === 'height' && !state.heightEnabled ? badgeText("build_prototype.text_063") : '';
         const previewStatus = dirty ? badgeText("build_prototype.text_065")
             : state.preview ? badgeText("build_prototype.text_066")
-            : state.section ? badgeText("build_prototype.text_067") : '';
+            : state.section && !merged ? badgeText("build_prototype.text_067") : '';
         const message = regionStatus() || heightStatus || (enabled ? previewStatus : '');
         if (status.textContent !== message) status.textContent = message;
         draw();
@@ -726,6 +839,7 @@ function mount(graph, root, tabId = 'build') {
         const editingCanvas = available && polygon && !color && blockOpen('selection') && isNodeAvailableInAppMode(node(142));
         frame.hidden = editingCanvas;
         toolbar.hidden = editingCanvas;
+        if (download) download.hidden = editingCanvas;
         const resizeBar = element.querySelector('.badge-reference-resize');
         if (resizeBar) resizeBar.hidden = editingCanvas;
         element.dataset.canvasEditing = String(editingCanvas);
@@ -832,12 +946,10 @@ function mount(graph, root, tabId = 'build') {
     if (!local) {
         generation = createGenerationPanel(graph, 'build', {
             live, onGenerate: () => runPrototype(graph, 'build'), onChange: invalidateGeneration, captureHistory,
-            prompt: merged ? promptSection : undefined, settingsExtra: promptMode, api,
+            prompt: merged ? { element: promptSection, input: promptInput, title: '生成' } : undefined, settingsExtra: promptMode, api,
         });
         root.append(generation.element);
     }
-    const referenceEnd = refined && !local ? document.createElement('div') : null;
-    if (referenceEnd) referenceEnd.className = 'badge-reference-end';
     if (graph.extra?.daelabBadgeExecutionV1?.version === 1) {
         void loadModelAccess(api, 'badge', local ? 'local' : 'build').then(access => {
             if (!live()) return;
@@ -851,10 +963,35 @@ function mount(graph, root, tabId = 'build') {
         root.dataset.badgeLocal = '1';
         root.append(...localParts);
     }
-    root.querySelector('[data-daelab-app-layout-owned="tabs"]').after(element);
-    if (!local) element.after(heightBoard.element);
-    if (referenceEnd) root.insertBefore(referenceEnd, generation.element);
-    const referenceResize = attachReferenceResize(root, element, frame, graph, live);
+    if (merged) {
+        root.dataset.badgeBuildSplit = '';
+        tabHeader().after(baseCard.element, sections);
+        element.hidden = true;
+        heightBoard.element.hidden = true;
+        sectionButtons.height.body.append(element, heightBoard.element);
+    } else {
+        tabHeader().after(element);
+        if (!local) {
+            heightBoard.element.hidden = true;
+            element.after(heightBoard.element);
+        }
+    }
+    const referenceResize = attachReferenceResize(root, element, frame, graph, live, () => {
+        const heading = state.featureHeadingHeight;
+        if (merged && sections.hasAttribute('data-background-open')) return heading + 200;
+        if (local || heightBoard.element.hidden) return heading + 120;
+        if (state.heightPicking) return heading;
+        const board = heightBoard.element;
+        const firstTier = board.querySelector('.badge-height-tier');
+        if (!firstTier) return heading + 120;
+        // Keep the first tier in view when the sidebar has room below the reference.
+        const listHeight = firstTier.getBoundingClientRect().bottom - board.getBoundingClientRect().top;
+        return heading + Math.max(120, listHeight + 24);
+    });
+    const featureResize = merged ? new ResizeObserver(() => {
+        if (syncFeatureHeading()) referenceResize.update();
+    }) : null;
+    featureResize?.observe(sectionControls);
     function keepGenerationReachable() {
         const panel = generation.element.getBoundingClientRect();
         const viewport = root.getBoundingClientRect();
@@ -864,10 +1001,12 @@ function mount(graph, root, tabId = 'build') {
             panel.top < viewport.bottom && panel.bottom > viewport.top;
         root.toggleAttribute('data-badge-generation-in-view', panelInView);
     }
-    root.addEventListener('scroll', keepGenerationReachable, { passive: true });
-    const generationResize = new ResizeObserver(keepGenerationReachable);
-    generationResize.observe(root);
-    generationResize.observe(generation.element);
+    const generationResize = merged ? null : new ResizeObserver(keepGenerationReachable);
+    if (generationResize) {
+        root.addEventListener('scroll', keepGenerationReachable, { passive: true });
+        generationResize.observe(root);
+        generationResize.observe(generation.element);
+    }
     const resumeDrawing = event => {
         if (local && live() && event.target === node(142)?.polygonWidget?.canvas && maskActive()) {
             state.view = 'original'; update();
@@ -875,15 +1014,24 @@ function mount(graph, root, tabId = 'build') {
     };
     root.addEventListener('pointerdown', resumeDrawing, true);
     update();
-    return { graph, workflowId, root, element, tabId, update, dispose() {
+    return { graph, workflowId, root, element: baseCard?.element ?? element, tabId, update, dispose() {
         regionEditor?.dispose();
         root.removeEventListener('pointerdown', resumeDrawing, true);
         root.removeEventListener('scroll', keepGenerationReachable);
-        generationResize.disconnect();
+        generationResize?.disconnect();
         root.removeAttribute('data-badge-generation-in-view');
         targetSources?.remove();
         releasePrompt?.();
-        if (refined) { referenceEnd?.remove(); delete root.dataset.badgeRefinedUi; }
+        referenceToolbar.dispose();
+        if (merged) {
+            featureResize.disconnect();
+            releaseSections.forEach(release => release());
+            baseCard.dispose();
+            sections.remove();
+            delete root.dataset.badgeBuildSplit;
+            root.style.removeProperty('--badge-feature-heading-height');
+        }
+        if (refined) delete root.dataset.badgeRefinedUi;
         if (local && node(142)?.polygonWidget?.badgePrototypeMaskPreview) {
             delete node(142).polygonWidget.badgePrototypeMaskPreview;
             node(142).redrawPolygonCanvas?.();
@@ -989,18 +1137,13 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-build-bar,.badge-build-sections {display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:4px 0;}
     .badge-build-upload-bar {flex-wrap:nowrap;}
     .badge-build-upload-bar > [role="tablist"] {display:flex;gap:4px;flex:none;}
-    .badge-build-upload-actions {display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-left:auto;min-width:0;}
-    .badge-build-filename {font-size:12px;color:#c5c9cf;min-width:0;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .badge-build-workspace .badge-build-icon-button {display:flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;padding:6px;}
-    .badge-build-icon-button img {width:20px;height:20px;filter:invert(1);}
     .badge-build-workspace button,.badge-build-workspace select {background:#2d343a;color:#e4eaee;border:1px solid #52606b;border-radius:6px;padding:5px 8px;font-size:12px;max-width:190px;}
     .badge-build-workspace button {cursor:pointer;} .badge-build-workspace button:disabled {opacity:.45;cursor:default;}
     .badge-build-workspace [aria-selected="true"] {border-color:#39c8b1;background:#254a43;}
     .badge-build-workspace :focus-visible {outline:2px solid #80bfff;outline-offset:2px;}
     .badge-build-mask-preview,.badge-local-options .badge-build-mask-preview,.badge-selection-tools .badge-build-mask-preview {flex:none;width:auto;min-width:78px;height:auto;margin-left:auto;padding:4px 10px;border:1px solid #3299eb;border-radius:6px;background:#087ccb;color:white;font-size:12px;line-height:20px;white-space:nowrap;cursor:pointer;}
-    .badge-height-board {flex:0 0 auto;min-height:0;overflow:visible;padding:10px;color:#e4eaee;}
+    .badge-height-board {flex:0 0 auto;min-height:0;overflow:visible;padding:10px;color:#e4eaee;container-type:inline-size;}
     .badge-height-board[hidden] {display:none;}
-    .badge-height-introduction {margin:0 0 14px;font-weight:600;font-size:14px;}
     .badge-height-board-header,.badge-height-fallback {display:flex;align-items:center;gap:12px;margin-bottom:10px;}
     .badge-height-fallback {font-size:12px;color:#abb9c4;}
     .badge-height-board input,.badge-height-board select,.badge-height-board button {background:#292f35;color:#e4eaee;border:1px solid #4d5a65;border-radius:5px;padding:5px;}
@@ -1010,7 +1153,7 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-height-tier {border:1px solid #414c55;border-radius:8px;padding:8px;margin-bottom:6px;background:#20262b;}
     .badge-height-tier[data-over] {border-color:#25c9b5;background:#23463f;}
     .badge-height-tier-title {display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;}
-    .badge-height-alpha {display:flex;align-items:center;gap:6px;font-weight:normal;color:#bdc9d2;}
+    .badge-height-alpha {display:flex;align-items:center;gap:6px;white-space:nowrap;font-weight:normal;color:#bdc9d2;}
     .badge-height-tier-actions {margin-left:auto;display:flex;gap:6px;}
     .badge-height-tier-actions button {display:flex;align-items:center;gap:4px;white-space:nowrap;}
     .badge-height-tier-actions img {width:16px;height:16px;filter:invert(1);}
@@ -1041,8 +1184,19 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-height-color [draggable] {cursor:grab;padding:4px;}
     .badge-height-color input[type=color] {width:30px;height:30px;padding:2px;cursor:pointer;}
     .badge-height-color .height-hex {width:78px;}
-    .badge-height-color input[type=number] {width:48px;}
+    .badge-height-color input[type=number] {width:48px;padding-inline:4px;appearance:textfield;}
+    .badge-height-color input[type=number]::-webkit-inner-spin-button,
+    .badge-height-color input[type=number]::-webkit-outer-spin-button {appearance:none;margin:0;}
     .badge-height-color select {width:85px;}
+    .badge-height-color label {display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+    @container (max-width:400px) {
+        .badge-height-cards {margin-left:0;grid-template-columns:minmax(0,1fr);gap:6px;}
+        .badge-feature-content .badge-height-cards {padding:4px!important;}
+        .badge-height-color {flex-wrap:wrap;gap:4px;}
+        .badge-height-color-list .height-hex {min-width:8ch;}
+        .badge-height-alpha {order:1;flex-basis:100%;}
+        .badge-height-alpha-track {flex:1;min-width:0;}
+    }
     .badge-height-board :focus-visible {outline:2px solid #74baff;outline-offset:2px;}
     .badge-build-mask-preview + span {margin-left:0!important;flex:none;}
     .badge-build-mask-preview[aria-pressed="true"],.badge-local-options .badge-build-mask-preview[aria-pressed="true"],.badge-selection-tools .badge-build-mask-preview[aria-pressed="true"]{background:#254a43;border-color:#39c8b1;color:#dcfff5;box-shadow:inset 0 0 0 1px #39c8b1;}
@@ -1106,7 +1260,7 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     .badge-local-options .badge-exclusive-pair > button[aria-pressed="true"],.badge-color-source .badge-exclusive-pair > button[aria-checked="true"],.badge-target-source > button[aria-checked="true"] {background:#35434c;color:#f1f6f8;box-shadow:0 1px 3px #1115;}
     .badge-exclusive-pair > button:not(:disabled):hover {filter:brightness(1.08);}
     .badge-exclusive-pair > button:focus-visible {outline:2px solid #65baff;outline-offset:2px;}
-    .badge-build-workspace .badge-build-capsule {display:flex;align-items:center;gap:0;border:1px solid #59616a;border-radius:999px;background:#282e34;color:#aab2bb;}
+    :is(.badge-build-workspace,.badge-feature-list) .badge-build-capsule {display:flex;align-items:center;gap:0;border:1px solid #59616a;border-radius:999px;background:#282e34;color:#aab2bb;}
     .badge-build-upload-bar .badge-build-capsule > [role="tab"] {background:transparent;border:0;}
     .badge-build-capsule[data-enabled="true"] {border-color:#39c8b1;background:#254a43;color:#dcfff5;}
     .badge-build-capsule > button {position:relative;border:0;border-radius:999px;background:transparent;color:inherit;padding:8px 11px;}
@@ -1140,19 +1294,98 @@ app.registerExtension({ name: 'DAELAB.BadgeBuildPrototype', setup() {
     style.textContent += `
     [data-badge-generation-in-view]:not([data-badge-color-picking]) > .badge-build-workspace {position:relative;top:auto;}
     [data-badge-refined-ui][data-badge-generation-in-view]:not([data-badge-color-picking]) {--badge-reference-height:0px!important;}
-    [data-badge-refined-ui] {overflow-anchor:none;scroll-padding-top:calc(var(--badge-tabs-height,48px) + var(--badge-reference-height,0px) + 12px);scroll-padding-bottom:24px;}
+    [data-badge-refined-ui] {overflow-anchor:none;scroll-padding-top:calc(var(--badge-tabs-height,48px) + var(--badge-feature-heading-height,0px) + var(--badge-reference-height,0px) + 12px);scroll-padding-bottom:24px;}
     [data-badge-refined-ui] > .badge-build-workspace {box-sizing:border-box;margin:16px 8px 0;padding:12px;border:1px solid #46535d;border-bottom:0;border-radius:12px 12px 0 0;background:#20282e;}
     [data-badge-refined-ui][data-badge-local] > .badge-build-workspace,
     [data-badge-refined-ui] > .badge-build-workspace[data-reference-open="false"] {border-bottom:1px solid #46535d;border-radius:12px;}
     [data-refined-reference] > .badge-local-block-heading {display:flex;align-items:center;justify-content:space-between;width:100%;max-width:none;border:0;background:transparent;padding:0 0 10px;font-size:14px;font-weight:600;text-align:left;}
     [data-refined-reference][data-reference-open="false"] > :not(.badge-local-block-heading) {display:none!important;}
     [data-refined-reference][data-reference-open="false"] > .badge-local-block-heading {padding-bottom:0;}
-    [data-badge-refined-ui] > .badge-height-board,
-    [data-badge-refined-ui] > [data-badge-reference-body] {box-sizing:border-box;margin:0 8px!important;padding:8px 12px!important;border-inline:1px solid #46535d;background:#20282e;}
-    [data-badge-refined-ui] > .badge-height-board[hidden], .badge-reference-end[hidden] {display:none!important;}
-    .badge-reference-end {flex:none;margin:0 8px;padding:4px;border:1px solid #46535d;border-top:0;border-radius:0 0 12px 12px;background:#20282e;}
+    [data-badge-build-split] > :is(.badge-base-original,.badge-feature-list) {
+        flex:none;min-width:0;margin:12px 8px 0;padding:12px;border:1px solid var(--badge-border);
+        border-radius:12px;background:var(--badge-surface);color:var(--badge-text);
+    }
+    [data-badge-build-split] > .cnl-generation-panel {margin-top:12px;}
+    [data-badge-build-split] {display:flex;flex-direction:column;reading-flow:flex-visual;}
+    [data-badge-build-split] > * {flex-shrink:0;}
+    [data-badge-build-split] > [data-daelab-app-layout-owned="tabs"] {order:-4;}
+    [data-badge-build-split] > .badge-base-original {order:-3;}
+    [data-badge-build-split] > .badge-feature-list {order:-2;}
+    [data-badge-build-split] > .badge-feature-list[data-background-open] {
+        padding-bottom:0;border-bottom:0;border-radius:12px 12px 0 0;
+    }
+    [data-badge-build-split][data-badge-color-picking] > .badge-feature-list[data-background-open] {
+        position:sticky;top:var(--badge-tabs-height,48px);z-index:12;
+    }
+    [data-badge-build-split]:not([data-badge-color-picking]):has(> .badge-feature-list[data-background-open]) {
+        scroll-padding-top:calc(var(--badge-tabs-height,48px) + 12px);
+    }
+    /* The App Mode host owns this widget and may remount its content on resize. */
+    [data-badge-build-split] > [data-badge-build-list] {
+        order:-1;margin:0 8px;padding:0 12px 12px;
+        border:1px solid var(--badge-border);border-top:0;border-radius:0 0 12px 12px;
+        background:var(--badge-surface);container-type:inline-size;
+    }
+    [data-badge-build-split] > [data-badge-build-list] .lg-node-widgets {padding-inline:0;}
+    [data-badge-build-split] > [data-badge-build-list] .daelab-multi-color-mask-v1-panel {overflow:visible!important;}
+    [data-badge-build-split] > [data-badge-build-list] .daelab-multi-color-mask-v1-panel > :first-child {
+        flex-wrap:wrap;height:auto!important;
+    }
+    [data-badge-build-split] > [data-badge-build-list] .daelab-multi-color-mask-v1-panel [data-color-group-id] {
+        height:auto!important;grid-template-columns:minmax(0,122px) minmax(0,90px) 1fr auto!important;
+    }
+    @container (max-width:400px) {
+        [data-badge-build-split] > [data-badge-build-list] .daelab-multi-color-mask-v1-panel [data-color-group-id] {
+            grid-template-columns:minmax(0,1fr) minmax(0,90px)!important;grid-template-rows:auto auto!important;
+        }
+        [data-badge-build-split] > [data-badge-build-list] .daelab-multi-color-mask-v1-panel [data-color-group-id] > div:nth-child(2) > label {
+            grid-column:1/-1;justify-self:end;
+        }
+    }
+    [data-badge-build-split] :is(.badge-base-original,.badge-feature-list)[hidden],
+    .badge-base-original [hidden],.badge-feature-list [hidden] {display:none!important;}
+    .badge-base-reference-heading {
+        display:flex;align-items:center;justify-content:space-between;width:100%;border:0;padding:0;
+        background:transparent;color:var(--badge-text);text-align:left;cursor:pointer;
+    }
+    [data-badge-build-split] .badge-base-reference-heading,.badge-feature-list > h3 {
+        margin:0;font:600 var(--cnl-app-title-size)/1.5 var(--cnl-app-font)!important;
+    }
+    .badge-base-reference-heading::after {
+        content:'';flex:0 0 9px;height:9px;margin-inline:3px;border-right:2px solid currentColor;
+        border-bottom:2px solid currentColor;transform:rotate(-45deg);
+    }
+    .badge-base-reference-heading[aria-expanded="true"]::after {transform:translateY(-2px) rotate(45deg);}
+    .badge-base-reference-actions {margin-block:8px;}
+    .badge-base-reference-frame {
+        display:grid;place-items:center;min-height:64px;border:1px dashed var(--badge-border);
+        border-radius:8px;background:repeating-conic-gradient(#282d32 0% 25%,#343b42 0% 50%) 50% / 18px 18px;
+    }
+    .badge-base-reference-frame img {display:block;max-width:100%;max-height:min(24vh,220px);object-fit:contain;}
+    .badge-base-reference-frame span {padding:12px;}
+    .badge-base-reference-status:not(:empty) {margin-top:8px;color:var(--badge-muted);overflow-wrap:anywhere;}
+    .badge-feature-list {display:flex;flex-direction:column;gap:8px;}
+    .badge-feature-list > .badge-build-sections {margin:0;}
+    .badge-feature-list:not([data-background-open]) > .badge-build-sections[data-expanded] {
+        position:sticky;top:var(--badge-tabs-height,48px);z-index:12;background:var(--badge-surface);
+    }
+    [data-badge-build-split] .badge-feature-list .badge-build-capsule > button {padding-inline:5px;}
+    [data-badge-build-split] .badge-feature-list .badge-build-capsule > button::after {margin-inline-start:4px;}
+    [data-badge-build-split] .badge-feature-list .badge-build-capsule-switch {
+        width:28px;flex-basis:28px;margin-inline-end:4px;
+    }
+    [data-badge-build-split] .badge-feature-list .badge-build-capsule-switch:checked::after {left:12px;}
+    .badge-feature-list .badge-build-capsule > button:disabled {opacity:.55;cursor:default;}
+    .badge-base-original :focus-visible,.badge-feature-list :focus-visible {outline:2px solid var(--badge-focus);outline-offset:2px;}
+    .badge-feature-content {min-width:0;}
+    .badge-feature-content > .badge-build-workspace {
+        position:sticky;top:calc(var(--badge-tabs-height,48px) + var(--badge-feature-heading-height,0px));
+        z-index:11;padding:8px 0;background:var(--badge-surface);
+    }
+    .badge-feature-list[data-background-open] .badge-feature-content > .badge-build-workspace {position:static;}
+    .badge-feature-content > .badge-height-board {padding:0;}
+    .badge-feature-content .badge-build-bar > [role="status"]:empty {display:none;}
     [data-badge-refined-ui] .badge-local-block-start {margin-top:16px;}
-    [data-badge-refined-ui] .badge-build-workspace .badge-preview-download {margin-left:auto;flex:none;}
     [data-badge-refined-ui] .badge-height-add-tier {display:block;width:100%;padding:10px;margin-top:12px;border:1px dashed #657985;border-radius:8px;background:#26343c;color:#e4eaee;cursor:pointer;}
     [data-badge-refined-ui] .badge-height-add-tier:disabled {opacity:.4;cursor:default;}
     [data-badge-refined-ui] > .badge-local-model-control {flex:none;margin:16px 8px 0;padding:0;border:0;background:transparent;color:#e4eaee;}

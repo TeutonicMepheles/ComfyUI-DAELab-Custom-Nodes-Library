@@ -16,7 +16,7 @@ export const BADGE_UI_CSS = `
   font-family:var(--cnl-app-font)!important; font-size:var(--cnl-app-body-size)!important; line-height:1.5!important;
   box-sizing:border-box; font-variant-numeric:tabular-nums;
 }
-[data-badge-ui="87"] :is(.badge-build-workspace strong,.badge-local-block-heading,.badge-height-introduction,.badge-build-base-prompt summary):not(.cnl-generation-ui *) {
+[data-badge-ui="87"] :is(.badge-build-workspace strong,.badge-local-block-heading,.badge-build-base-prompt summary):not(.cnl-generation-ui *) {
   font:600 var(--cnl-app-title-size)/1.5 var(--cnl-app-font)!important;
 }
 [data-badge-ui="87"] :is(.badge-build-prompt-toggle,.badge-height-tier-title) { font-size:var(--cnl-app-body-size); }
@@ -36,7 +36,7 @@ export const BADGE_UI_CSS = `
   flex:none;margin:0 8px;padding:12px;background:var(--badge-surface);
   border:1px solid var(--badge-border);border-top:0;border-bottom:0;
 }
-[data-badge-ui="87"] :is(.badge-build-workspace [role="status"],.badge-build-filename,.badge-color-source p,.badge-material-compact-strength,.badge-height-fallback) {
+[data-badge-ui="87"] :is(.badge-build-workspace [role="status"],.badge-color-source p,.badge-material-compact-strength,.badge-height-fallback) {
   font:400 var(--cnl-app-support-size)/1.5 var(--cnl-app-font); color:var(--badge-muted);
 }
 [data-badge-ui="87"] .badge-function-tip {
@@ -47,12 +47,10 @@ export const BADGE_UI_CSS = `
   background:var(--badge-surface); border-color:var(--badge-border);
 }
 [data-badge-ui="87"] :is(button,select,textarea):not(.cnl-generation-ui *) {border-radius:6px;}
-[data-badge-ui="87"] :is(.badge-build-workspace select,.badge-build-icon-button,.badge-build-capsule) {
+[data-badge-ui="87"] :is(.badge-build-workspace select,.badge-build-capsule) {
   height:36px; min-height:36px;
 }
 [data-badge-ui="87"] .badge-build-workspace select {padding:6px 8px;}
-[data-badge-ui="87"] .badge-build-workspace .badge-build-icon-button {width:36px;height:36px;padding:8px;}
-[data-badge-ui="87"] .badge-build-icon-button img {width:18px;height:18px;}
 [data-badge-ui="87"] .badge-build-bar {gap:8px;}
 [data-badge-ui="87"] .badge-build-capsule {border-radius:6px;background:var(--badge-control);color:var(--badge-text);}
 [data-badge-ui="87"] .badge-build-capsule[data-enabled="true"] {border-color:var(--badge-border);background:var(--badge-control);color:var(--badge-text);}

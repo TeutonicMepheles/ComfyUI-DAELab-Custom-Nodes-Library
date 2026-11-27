@@ -1,9 +1,10 @@
 import { badgeText } from './badge_ui_text.mjs?v=20261119-zh-controls';
 import { buildImageViewPath, normalizeImageSelection } from './app_mode_load_image_preview_model.mjs';
+import { bindCreativeButton } from './vendor/generation-ui-shared/creative_button.mjs';
 
-export function referenceImageIcon(make, button, parent, label, icon, action) {
+function referenceImageIcon(make, button, parent, label, icon, action) {
     const control = button('', parent, action);
-    control.className = 'badge-build-icon-button';
+    control.className = 'cnl-reference-action';
     control.setAttribute('aria-label', label);
     control.title = label;
     const glyph = make('img', '', control);
@@ -11,6 +12,28 @@ export function referenceImageIcon(make, button, parent, label, icon, action) {
     glyph.setAttribute('aria-hidden', 'true');
     glyph.src = new URL(`./vendor/remixicon/${icon}.svg`, import.meta.url).href;
     return control;
+}
+
+export function createReferenceImageToolbar({ make, button, parent, onBrowse, onUpload, onDownload }) {
+    const styleURL = new URL('./reference_image_controls.css', import.meta.url).href;
+    if (![...document.querySelectorAll('link[rel="stylesheet"]')].some(link => link.href === styleURL)) {
+        const style = document.createElement('link');
+        style.rel = 'stylesheet';
+        style.href = styleURL;
+        document.head.append(style);
+    }
+    const row = make('div', '', parent);
+    row.className = 'cnl-reference-toolbar';
+    const icon = (key, glyph, action) => referenceImageIcon(make, button, row, badgeText(key), glyph, action);
+    const browse = icon('build_prototype.text_012', 'folder-image-line', onBrowse);
+    browse.setAttribute('aria-haspopup', 'dialog');
+    const upload = icon('build_prototype.text_011', 'upload-2-line', onUpload);
+    const filename = make('span', '', row);
+    filename.className = 'cnl-reference-filename';
+    const download = onDownload ? icon('refinement.download', 'download-line', onDownload) : null;
+    if (download) download.disabled = true;
+    const releases = [browse, upload, download].filter(Boolean).map(bindCreativeButton);
+    return { browse, upload, filename, download, dispose: () => releases.forEach(release => release()) };
 }
 
 export function createReferenceImageGallery({ make, button, sourceNode, imageWidget, live, select, imageURL, opener }) {
@@ -74,7 +97,10 @@ export function createReferenceImageGallery({ make, button, sourceNode, imageWid
         if (event.clientX < rect.left || event.clientX > rect.right ||
             event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
     };
-    dialog.onclose = () => { if (live()) opener().focus(); };
+    dialog.onclose = () => {
+        const focused = document.activeElement;
+        if (live() && (focused === document.body || dialog.contains(focused))) opener().focus();
+    };
     return {
         dialog,
         open() {

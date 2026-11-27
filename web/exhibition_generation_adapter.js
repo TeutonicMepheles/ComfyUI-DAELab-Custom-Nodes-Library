@@ -2,11 +2,12 @@ import { app } from '/scripts/app.js';
 import { api } from '/scripts/api.js';
 import { REGION_KEY, BUILD_RESULTS_CHANGED, sourceRef } from './image_editing_model.mjs?v=20261119-local-edit';
 import { syncBooleanGroupBypass } from './boolean_group_bypass_controller.js?v=20261119-local-edit';
+import { resolveBooleanSource } from './boolean_group_bypass_controller_model.mjs?v=20261119-prompt-title';
 import { syncBooleanHierarchyGets } from './boolean_list_hierarchy_get.js?v=20261119-local-edit';
 import { findInspectorItem, getRootGraphSafely, getSelectedInputEntries, isNodeAvailableInAppMode } from './app_mode_bypass_model.mjs';
 import { findLiveOwnedWidget } from './dynamic_widget_lifecycle.mjs';
-import { createGenerationConfigPanel } from './generation_config_panel.mjs?v=20261119-build-price';
-import { createExhibitionBuildPrompt, createExhibitionBuildWorkspace } from './exhibition_build_workspace.mjs?v=20261119-local-edit';
+import { createGenerationConfigPanel } from './generation_config_panel.mjs?v=20261120-build-sections';
+import { createExhibitionBuildPrompt, createExhibitionBuildWorkspace } from './exhibition_build_workspace.mjs?v=20261120-feature-row';
 import { executionPriceInput, generationPriceEstimator } from './generation_price.mjs';
 import { uploadBadgeImage } from './badge_image_upload.mjs';
 import { BADGE_APP_PALETTE } from './badge_ui_styles.mjs';
@@ -54,6 +55,7 @@ function capabilities(access) {
     return [
         { key: 'model', label: '模型', options: config => access.models.map(model =>
             [model === findAccessModel(access, config.model) ? config.model : model.provider, model.label]),
+            source: key => findAccessModel(access, key)?.execution.route,
             patch: (config, key) => exhibitionModelPatch(config, exhibitionCapability(findAccessModel(access, key))) },
         { type: 'choices', kind: 'ratio', label: '选择比例', options: [
             specialSize('auto', '自动'),
@@ -271,6 +273,12 @@ function promptBinding(graph) {
     if (entry?.node?.type === 'SeedreamExhibitionPromptBuilder') return entry;
 }
 
+function basePromptRequired(node) {
+    const source = resolveBooleanSource(node, 'use_theme_template');
+    if (source.ok) return isNodeAvailableInAppMode(source.sourceNode) && !source.value;
+    return source.code === 'unconnected' && findLiveOwnedWidget(node, 'use_theme_template')?.value === false;
+}
+
 function lease(element, elements) {
     if (element && !elements.has(element)) {
         elements.add(element);
@@ -369,7 +377,7 @@ app.registerExtension({
         document.head.append(style);
         const workspaceStyle = document.createElement('link');
         workspaceStyle.rel = 'stylesheet';
-        workspaceStyle.href = new URL('./exhibition_build_workspace.css?v=20261119-build-menu', import.meta.url).href;
+        workspaceStyle.href = new URL('./exhibition_build_workspace.css?v=20261120-feature-row-compact', import.meta.url).href;
         document.head.append(workspaceStyle);
         for (const [, stage] of STAGES) {
             void loadModelAccess(api, 'exhibition', stage).then(data => {
@@ -477,7 +485,13 @@ app.registerExtension({
                 capabilities: capabilities(access),
                 config: readConfig(binding),
                 fold: !instance.prompt && generationFold(graph, 'exhibition.build', () => captureGenerationHistory(app, graph)),
-                prompt: instance.prompt?.element,
+                prompt: instance.prompt,
+                sizeSummary(config) {
+                    if (config.size === 'auto') return '自动比例';
+                    if (config.size === 'Custom') return config.width + ' × ' + config.height + ' px';
+                    const preset = exhibitionPreset(config, exhibitionCapability(findAccessModel(access, config.model)));
+                    return preset ? preset.ratio + ' · ' + preset.tier : config.size;
+                },
                 pricing: {
                     evaluate: generationPriceEstimator(api),
                     snapshot(config) {
@@ -508,6 +522,12 @@ app.registerExtension({
                 },
                 async onGenerate(snapshot) {
                     if (!active()) throw new Error('当前工作流已切换。');
+                    const promptWidget = entry && isNodeAvailableInAppMode(entry.node) &&
+                        findLiveOwnedWidget(entry.node, entry.widgetName);
+                    if (promptWidget && basePromptRequired(entry.node) && !String(promptWidget.value ?? '').trim()) {
+                        schedule();
+                        return;
+                    }
                     const config = readConfig(resolveExhibitionBuild(graph));
                     if (Object.keys(snapshot).some(key => !Object.is(snapshot[key], config[key]))) {
                         throw new Error('展厅生成参数已变化，请重新提交。');
@@ -621,6 +641,7 @@ app.registerExtension({
                 const state = session(graph, epoch);
                 current.panel.update(readConfig(binding), {
                     disabled: !enabled, settingsHidden: !enabled, busy: Boolean(state.promptId),
+                    promptRequired: enabled && promptVisible && basePromptRequired(entry.node),
                     message: state.promptId ? '已提交，等待结果…' : current.prompt ? '' : current.adjustment,
                     settingsMessage: current.adjustment, failure: state.error,
                     validate: config => imageRestoreErrors.get(graph)?.message || validate(config),
